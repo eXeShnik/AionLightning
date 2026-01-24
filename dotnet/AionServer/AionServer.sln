@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AionServer.Commons", "AionServer.Commons\AionServer.Commons.csproj", "{E76B8B9C-0101-4D94-9A2C-205F81B4725A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AionServer.Chat", "AionServer.Chat\AionServer.Chat.csproj", "{B667F993-BE63-40C2-94E2-F90270E09757}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AionServer.Login", "AionServer.Login\AionServer.Login.csproj", "{ACDB8F51-3592-421A-BC23-998D0A3CF3FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AionServer.Game", "AionServer.Game\AionServer.Game.csproj", "{1AABCE7A-A9BA-4066-B228-5AACC5258764}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E76B8B9C-0101-4D94-9A2C-205F81B4725A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E76B8B9C-0101-4D94-9A2C-205F81B4725A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E76B8B9C-0101-4D94-9A2C-205F81B4725A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E76B8B9C-0101-4D94-9A2C-205F81B4725A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B667F993-BE63-40C2-94E2-F90270E09757}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B667F993-BE63-40C2-94E2-F90270E09757}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B667F993-BE63-40C2-94E2-F90270E09757}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B667F993-BE63-40C2-94E2-F90270E09757}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ACDB8F51-3592-421A-BC23-998D0A3CF3FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ACDB8F51-3592-421A-BC23-998D0A3CF3FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ACDB8F51-3592-421A-BC23-998D0A3CF3FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ACDB8F51-3592-421A-BC23-998D0A3CF3FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1AABCE7A-A9BA-4066-B228-5AACC5258764}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1AABCE7A-A9BA-4066-B228-5AACC5258764}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1AABCE7A-A9BA-4066-B228-5AACC5258764}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1AABCE7A-A9BA-4066-B228-5AACC5258764}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

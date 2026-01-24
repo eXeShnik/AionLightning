@@ -12,10 +12,12 @@ namespace AionLightning.Commons.Configuration.Transformers
             {
                 return true;
             }
+
             if ("false".Equals(value, System.StringComparison.OrdinalIgnoreCase) || "0".Equals(value))
             {
                 return false;
             }
+
             throw new TransformationException("Invalid boolean string: " + value);
         }
     }

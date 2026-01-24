@@ -15,6 +15,7 @@ namespace AionLightning.Commons.Configuration.Transformers
                 {
                     throw new TransformationException("To many characters in the value");
                 }
+
                 return chars[0];
             }
             catch (System.Exception e)

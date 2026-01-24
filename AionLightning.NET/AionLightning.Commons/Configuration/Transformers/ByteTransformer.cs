@@ -15,6 +15,7 @@ namespace AionLightning.Commons.Configuration.Transformers
                 {
                     return byte.Parse(value.Substring(2), NumberStyles.HexNumber);
                 }
+
                 return byte.Parse(value);
             }
             catch (System.Exception e)

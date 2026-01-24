@@ -1,0 +1,7 @@
+<Project>
+
+	<PropertyGroup>
+		<DotNetVersion>net10.0</DotNetVersion>
+		<ExtensionsVersion>10.0.2</ExtensionsVersion>
+	</PropertyGroup>
+</Project>
