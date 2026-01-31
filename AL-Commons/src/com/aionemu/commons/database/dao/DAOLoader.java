@@ -31,7 +31,7 @@ import java.lang.reflect.Modifier;
  */
 public class DAOLoader implements ClassListener {
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("unchecked")`
 	@Override
 	public void postLoad(Class<?>[] classes) {
 		// Register DAOs
