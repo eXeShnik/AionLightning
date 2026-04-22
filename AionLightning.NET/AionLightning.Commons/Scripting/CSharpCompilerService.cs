@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Runtime.Loader;
 
-namespace AionServer.Commons.Scripting;
+namespace AionLightning.Commons.Scripting;
 
 public class CSharpCompilerService(ILogger<CSharpCompilerService> logger)
 {

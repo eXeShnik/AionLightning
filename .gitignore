@@ -10,3 +10,5 @@ build/
 bin/
 obj/
 AionLightning.NET/AionLightning.NET.sln.DotSettings.user
+
+*.lscache

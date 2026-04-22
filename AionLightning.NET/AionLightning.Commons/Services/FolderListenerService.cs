@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace AionServer.Commons.Services;
+namespace AionLightning.Commons.Services;
 
 public class FolderListenerService : IDisposable
 {
     private readonly ILogger<FolderListenerService> _logger;
     private readonly FileSystemWatcher _watcher;
-    
+
     private bool _disposed;
 
     public event FileSystemEventHandler? Changed;
@@ -17,6 +17,8 @@ public class FolderListenerService : IDisposable
     public FolderListenerService(string path, ILogger<FolderListenerService> logger, string filter = "*.*")
     {
         _logger = logger;
+        
+
         _watcher = new FileSystemWatcher(path)
         {
             Filter = filter,
