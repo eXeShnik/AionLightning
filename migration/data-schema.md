@@ -2,16 +2,16 @@
 
 ## Sources
 
-Original DDL scripts — `4.6.2` branch, available via the reference worktree:
+Original DDL scripts — `4.6.0` branch, available via the reference worktree:
 
-- `/tmp/aion-refs/4.6.2/AL-Login/sql/al_server_ls.sql` — schema for `al_server_ls` (login database). 169 lines, single file.
-- `/tmp/aion-refs/4.6.2/AL-Game/sql/` — schema for the game server (accounts, players, inventory, skills, quests, etc.). Multiple files. Inventoried at the start of M5.
+- `/tmp/aion-refs/4.6.0/AL-Login/sql/al_server_ls.sql` — schema for `al_server_ls` (login database). 169 lines, single file.
+- `/tmp/aion-refs/4.6.0/AL-Game/sql/` — schema for the game server (accounts, players, inventory, skills, quests, etc.). Multiple files. Inventoried at the start of M5.
 
-**Never read SQL from `AL-Login/sql/` or `AL-Game/sql/` in the current working tree** — that tree is branch 7.8, not 4.6.2.
+**Never read SQL from `AL-Login/sql/` or `AL-Game/sql/` in the current working tree** — that tree is branch 7.8, not 4.6.0.
 
 ## Strategy
 
-1. **Schema ported 1:1.** Table names, column types, FK relationships stay identical to the Java 4.6.2 baseline. No renaming to fit .NET conventions.
+1. **Schema ported 1:1.** Table names, column types, FK relationships stay identical to the Java 4.6.0 baseline. No renaming to fit .NET conventions.
 2. **SQL files imported verbatim** into `AionLightning.NET/Sql/{login,game}/` and renamed to Evolve's `V{n}__{description}.sql` convention. See [ADR-007](adr/007-schema-migration.md).
 3. **Migration tool: Evolve** (SQL-file versioning, `Evolve.Core` NuGet, MIT license).
 4. **Connection strings** are MySqlConnector-format. The current `appsettings.json` has `Database.Url = jdbc:mysql://localhost:3306/al_server_ls` — rewrite in M1 (see conversion table below).
@@ -19,7 +19,7 @@ Original DDL scripts — `4.6.2` branch, available via the reference worktree:
 ## MySQL version
 
 - Recommended: MySQL 8.0+ or MariaDB 10.6+.
-- The Aion 4.6.2 schema declares `ENGINE=InnoDB CHARSET=utf8` — compatible with modern MySQL. Do not silently upgrade charset to `utf8mb4` without verifying fields that carry fixed Aion-side encoding.
+- The Aion 4.6.0 schema declares `ENGINE=InnoDB CHARSET=utf8` — compatible with modern MySQL. Do not silently upgrade charset to `utf8mb4` without verifying fields that carry fixed Aion-side encoding.
 - Connector: `MySqlConnector` (MIT, genuine async) — see [ADR-004](adr/004-database.md).
 
 ## JDBC → MySqlConnector conversion
@@ -37,9 +37,9 @@ Always include:
 
 Never commit a password. Use `appsettings.Development.json` (gitignored) or environment variables.
 
-## Password storage — 4.6.2 canonical algorithm
+## Password storage — 4.6.0 canonical algorithm
 
-Confirmed from `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/utils/AccountUtils.java`:
+Confirmed from `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/utils/AccountUtils.java`:
 
 ```java
 public static String encodePassword(String password) {
@@ -66,9 +66,9 @@ private static string EncodePassword(string password)
 - **No salt.**
 - Output length: 28 characters (20 bytes → Base64 → 28 chars including padding). `account_data.password` column is `VARCHAR(65)` — generous headroom.
 
-## `account_data` table (Login DB, canonical 4.6.2)
+## `account_data` table (Login DB, canonical 4.6.0)
 
-From `/tmp/aion-refs/4.6.2/AL-Login/sql/al_server_ls.sql`:
+From `/tmp/aion-refs/4.6.0/AL-Login/sql/al_server_ls.sql`:
 
 ```sql
 CREATE TABLE `account_data` (
@@ -103,7 +103,7 @@ Other tables in the same file (inventory done at M2 start):
 
 ## Main table groups
 
-| Group | Database | Contents (verify against `/tmp/aion-refs/4.6.2/AL-Game/sql/`) |
+| Group | Database | Contents (verify against `/tmp/aion-refs/4.6.0/AL-Game/sql/`) |
 |---|---|---|
 | Accounts | login DB | `account_data`, `account_time`, `account_rewards`, `banned_ip`, `banned_mac`, `premium_list`, `reconnect_data`, `toll_info`, `gameserver_list` |
 | Players | game DB | `players`, `player_appearance`, `player_skills`, `player_abyss_rank`, `player_macrosses`, `player_titles`, `player_settings` |

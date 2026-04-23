@@ -4,7 +4,7 @@ Status: `[ ]` not started · Requires: M5 · ADRs: 001..006
 
 ## Goal
 
-Expand the .NET game server from "world entry + movement" to a playable subset of Aion 4.6.2. M6 is a sequence of sub-milestones, each a vertical slice ending in a client-observable scenario.
+Expand the .NET game server from "world entry + movement" to a playable subset of Aion 4.6.0. M6 is a sequence of sub-milestones, each a vertical slice ending in a client-observable scenario.
 
 This file is the coordination hub. Each sub-milestone gets its own file when it starts (`m6-1-ai-combat.md`, `m6-2-skills.md`, ...). This document is updated with scope and DoD when sub-milestones are refined.
 
@@ -40,7 +40,7 @@ Blocking for: M6.4, M6.6.
 
 Scope: quest engine (heavily scripting-driven — ADR-006), quest DAO, NPC-interaction dialog packets, quest progress state machine.
 
-DoD: a starter quest from the 4.6.2 content runs end-to-end: accept, progress events update, complete, reward delivered.
+DoD: a starter quest from the 4.6.0 content runs end-to-end: accept, progress events update, complete, reward delivered.
 
 Blocking for: nothing hard — further content comes in parallel with other sub-Ms.
 
@@ -68,7 +68,7 @@ Blocking for: M6.8 (legion PvP).
 
 ### M6.8 — PvP / Abyss
 
-Scope: faction mechanics (Elyos vs. Asmodian vs. Balaur — 4.6.2 set), PvP flagging, siege / Abyss points, Abyss rank updates.
+Scope: faction mechanics (Elyos vs. Asmodian vs. Balaur — 4.6.0 set), PvP flagging, siege / Abyss points, Abyss rank updates.
 
 DoD: two characters on opposing factions can PvP; winner earns Abyss points; one fortress siege cycle runs.
 
@@ -89,7 +89,7 @@ DoD: two characters on opposing factions can PvP; winner earns Abyss points; one
 ## Definition of Done (M6 umbrella)
 
 - [ ] All sub-milestones have their own file with scope + DoD.
-- [ ] Each sub-milestone closes with a live smoke scenario demonstrated against a 4.6.2 client.
+- [ ] Each sub-milestone closes with a live smoke scenario demonstrated against a 4.6.0 client.
 - [ ] No sub-milestone leaves `NotImplementedException` in a public API it claims to own.
 - [ ] At the end of M6, a player can: log in, do a starter quest, equip gear, party up, run a low-level instance, PvP an opposing faction member.
 

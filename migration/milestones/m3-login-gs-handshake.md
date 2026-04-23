@@ -83,7 +83,7 @@ find AL-Login/src -name "GameServerTable.java" -o -name "GameServerInfo.java"
 
 ## Scoped risks
 
-- **Opcode drift between 4.6.2 LS and 4.6.2 GS:** the inter-server protocol is symmetric; mismatched opcode tables produce silent failures. Write a compile-time check or a runtime log of unknown opcodes.
+- **Opcode drift between 4.6.0 LS and 4.6.0 GS:** the inter-server protocol is symmetric; mismatched opcode tables produce silent failures. Write a compile-time check or a runtime log of unknown opcodes.
 - **SessionKey lifetime:** if the key rotates too aggressively, clients get kicked on the handoff. Use the Java TTL as-is.
 - **Ping-pong semantics:** `PeriodicTimer` can overlap if a callback takes longer than the period. Guard with a `SemaphoreSlim(1)` or an internal `while (await timer.WaitForNextTickAsync(ct)) { if (Interlocked.Exchange(ref busy, 1) == 1) continue; try { ... } finally { busy = 0; } }` pattern.
 

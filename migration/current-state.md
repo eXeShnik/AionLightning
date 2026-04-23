@@ -53,7 +53,7 @@ Honest reassessment of what is actually built in `AionLightning.NET/` at the sta
 - Login: ~50% skeleton, ~25–30% functional.
 - Chat: 0%.
 - Game: 0%.
-- Overall vs. Aion 4.6.2 functionality: **~30–35%**.
+- Overall vs. Aion 4.6.0 functionality: **~30–35%**.
 
 ## Artefacts kept as-is
 

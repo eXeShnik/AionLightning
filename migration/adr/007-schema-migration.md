@@ -5,7 +5,7 @@
 
 ## Context
 
-The Aion Lightning 4.6.2 database schema ships as plain SQL files in `AL-Login/sql/al_server_ls.sql` (169 lines, one file) and `AL-Game/sql/` (multiple files — inventoried at the start of M5).
+The Aion Lightning 4.6.0 database schema ships as plain SQL files in `AL-Login/sql/al_server_ls.sql` (169 lines, one file) and `AL-Game/sql/` (multiple files — inventoried at the start of M5).
 
 On startup we need to:
 
@@ -46,7 +46,7 @@ evolve.Migrate();
 
 - Pros: zero tooling.
 - Cons: no versioning, no record of applied migrations, easy to double-apply, operator burden.
-- Why rejected: we are automating a 4.6.2 project, not porting its ops burden.
+- Why rejected: we are automating a 4.6.0 project, not porting its ops burden.
 
 ### Alt-3: DbUp
 
@@ -92,7 +92,7 @@ AionLightning.NET/
 One-time import command at M1 start:
 
 ```bash
-cp /tmp/aion-refs/4.6.2/AL-Login/sql/al_server_ls.sql \
+cp /tmp/aion-refs/4.6.0/AL-Login/sql/al_server_ls.sql \
    AionLightning.NET/Sql/login/V1__initial_4_6_2.sql
 # Game: copy each source file; assign increasing V{n} in a stable order.
 ```

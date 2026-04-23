@@ -6,7 +6,7 @@ Scope, DoD and smoke scenario live in [`m1-commons-core.md`](m1-commons-core.md)
 
 Before touching code, verify:
 
-1. Java reference worktree exists: `ls /tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`. If missing: `git worktree add /tmp/aion-refs/4.6.2 origin/4.6.2`.
+1. Java reference worktree exists: `ls /tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`. If missing: `git worktree add /tmp/aion-refs/4.6.0 origin/4.6.0`.
 2. Current `.NET` solution builds as-is: `dotnet build AionLightning.NET/AionLightning.NET.sln`. This is the baseline — future changes should never leave the tree non-building.
 3. Local MySQL available: `mysql --version`. Create empty `al_server_ls` database.
 4. .NET 10 SDK installed: `dotnet --list-sdks | grep 10.0`.
@@ -96,7 +96,7 @@ Commit: `M1: bump Commons packages to MySqlConnector + Dapper + Evolve`.
   - `KeyGen.cs`
 - Update namespaces to `AionLightning.Commons.Network.Ncrypt`.
 - Update `AionLightning.Login/*` references.
-- Verify Java parity: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/ncrypt/{BlowfishCipher,CryptEngine,EncryptedRSAKeyPair,KeyGen}.java`.
+- Verify Java parity: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/ncrypt/{BlowfishCipher,CryptEngine,EncryptedRSAKeyPair,KeyGen}.java`.
 
 Verify: `dotnet build`. Commit: `M1: move Ncrypt to Commons`.
 
@@ -247,7 +247,7 @@ Commit: `M1: hosting helper + DbDataSource + smoke program`.
 Create `AionLightning.NET/Sql/login/` directory:
 
 ```bash
-cp /tmp/aion-refs/4.6.2/AL-Login/sql/al_server_ls.sql \
+cp /tmp/aion-refs/4.6.0/AL-Login/sql/al_server_ls.sql \
    AionLightning.NET/Sql/login/V1__initial_4_6_2.sql
 ```
 
@@ -339,8 +339,8 @@ Commit: `M1: pass smoke`.
 
 ## References
 
-- Java: `/tmp/aion-refs/4.6.2/AL-Commons/src/com/aionemu/commons/network/*.java` — for the deleted NIO port (reference only).
-- Java: `/tmp/aion-refs/4.6.2/AL-Login/sql/al_server_ls.sql` — schema source.
-- Java: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/ncrypt/*.java` — Ncrypt logic source.
+- Java: `/tmp/aion-refs/4.6.0/AL-Commons/src/com/aionemu/commons/network/*.java` — for the deleted NIO port (reference only).
+- Java: `/tmp/aion-refs/4.6.0/AL-Login/sql/al_server_ls.sql` — schema source.
+- Java: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/ncrypt/*.java` — Ncrypt logic source.
 - ADRs: [001](../adr/001-networking.md), [002](../adr/002-configuration.md), [003](../adr/003-hosting.md), [004](../adr/004-database.md), [007](../adr/007-schema-migration.md).
 - Packet adapter: [`../packet-buffer-adapter.md`](../packet-buffer-adapter.md).

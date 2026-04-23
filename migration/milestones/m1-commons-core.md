@@ -100,7 +100,7 @@ Reference-only; we do not port the NIO/Dispatcher layer (see [ADR-001](../adr/00
 
 ## Smoke scenario
 
-1. Ensure a local MySQL has the `al_server_ls` database with the 4.6.2 schema applied (see [`data-schema.md`](../data-schema.md)).
+1. Ensure a local MySQL has the `al_server_ls` database with the 4.6.0 schema applied (see [`data-schema.md`](../data-schema.md)).
 2. `cd AionLightning.NET/AionLightning.Login && dotnet run`.
 3. Expected console output:
    - "Loaded NetworkOptions"

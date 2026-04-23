@@ -5,8 +5,8 @@ Scope, DoD and smoke scenario in [`m2-login-auth.md`](m2-login-auth.md). **Read 
 ## Preconditions
 
 - M1 closed (smoke passes, all Step 11 checks green).
-- `/tmp/aion-refs/4.6.2/` accessible.
-- Real Aion 4.6.2 client binary available for smoke.
+- `/tmp/aion-refs/4.6.0/` accessible.
+- Real Aion 4.6.0 client binary available for smoke.
 
 ## Reading scope (for agent — see [`../agent-prompt.md`](../agent-prompt.md) tiers)
 
@@ -28,9 +28,9 @@ Scope, DoD and smoke scenario in [`m2-login-auth.md`](m2-login-auth.md). **Read 
 - [`../risks.md`](../risks.md) — R-001 (ByteBuffer) while porting packet classes; R-004 (checked exceptions) during DAO port; R-007 (version drift) — re-read if anything in a Java file seems off vs. the opcode table in this brief.
 - [`../glossary.md`](../glossary.md) — keyword grep when unsure about a Java idiom during the port.
 
-## Packet inventory — Aion client ↔ Login (4.6.2 canonical)
+## Packet inventory — Aion client ↔ Login (4.6.0 canonical)
 
-Source: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/factories/AionPacketHandlerFactory.java`.
+Source: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/factories/AionPacketHandlerFactory.java`.
 
 Login state machine: `CONNECTED` → `AUTHED_GG` → `AUTHED_LOGIN`.
 
@@ -38,7 +38,7 @@ Login state machine: `CONNECTED` → `AUTHED_GG` → `AUTHED_LOGIN`.
 
 | Opcode | State allowed | Class | Purpose |
 |---|---|---|---|
-| `0x07` | `CONNECTED` | `CM_AUTH_GG` | GameGuard auth (stub in 4.6.2 — accept anything) |
+| `0x07` | `CONNECTED` | `CM_AUTH_GG` | GameGuard auth (stub in 4.6.0 — accept anything) |
 | `0x08` | `CONNECTED` | `CM_UPDATE_SESSION` | Session / Blowfish key rotation |
 | `0x0B` | `AUTHED_GG` | `CM_LOGIN` | RSA-encrypted login + password |
 | `0x05` | `AUTHED_LOGIN` | `CM_SERVER_LIST` | Request server list |
@@ -46,7 +46,7 @@ Login state machine: `CONNECTED` → `AUTHED_GG` → `AUTHED_LOGIN`.
 
 ### Server → Client
 
-Source file: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/serverpackets/*.java`.
+Source file: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/serverpackets/*.java`.
 
 | Opcode | Class | Triggered by |
 |---|---|---|
@@ -154,11 +154,11 @@ public async Task<AionAuthResponse> LoginAsync(string name, string password, Log
 }
 ```
 
-`AionAuthResponse` enum mirrors Java `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/AionAuthResponse.java` values — **read the Java enum and copy the numeric values exactly**, they land in `SM_LOGIN_FAIL` payload.
+`AionAuthResponse` enum mirrors Java `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/AionAuthResponse.java` values — **read the Java enum and copy the numeric values exactly**, they land in `SM_LOGIN_FAIL` payload.
 
 ## Port template — client packet
 
-Java `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/CM_LOGIN.java`:
+Java `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/CM_LOGIN.java`:
 
 ```java
 public class CM_LOGIN extends AionClientPacket {
@@ -223,7 +223,7 @@ Four-byte count, then for each server:
 - `writeH(maxPlayers)`
 - `writeC(status)` — 0=down, 1=up
 
-For M2 (no real GS): one entry, status = 0. Java reference: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/serverpackets/SM_SERVER_LIST.java` — confirm field order.
+For M2 (no real GS): one entry, status = 0. Java reference: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/serverpackets/SM_SERVER_LIST.java` — confirm field order.
 
 ## Accept loop
 
@@ -263,7 +263,7 @@ public sealed class LoginServerHost(
    -- SHA-1('test') + Base64 (standard padding) = 'qUqP5cyxm6YcTAhz05Hph5gvu9M='
    ```
 2. `dotnet run --project AionLightning.Login`.
-3. Launch Aion 4.6.2 client → `127.0.0.1:2106` → login as `test` / `test`.
+3. Launch Aion 4.6.0 client → `127.0.0.1:2106` → login as `test` / `test`.
 4. Expect: serverlist with one entry (offline), no crashes.
 5. Verify `account_time` updated.
 6. Login as `test` / `wrong` → expect correct failure dialog.
@@ -279,9 +279,9 @@ public sealed class LoginServerHost(
 
 ## References
 
-- Java AccountController: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`.
-- Java LoginConnection: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/LoginConnection.java`.
-- Java client packets: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/*.java`.
-- Java server packets: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/aion/serverpackets/*.java`.
-- Schema: [`../data-schema.md`](../data-schema.md) (`account_data` canonical 4.6.2).
+- Java AccountController: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`.
+- Java LoginConnection: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/LoginConnection.java`.
+- Java client packets: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/*.java`.
+- Java server packets: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/aion/serverpackets/*.java`.
+- Schema: [`../data-schema.md`](../data-schema.md) (`account_data` canonical 4.6.0).
 - Packet adapter: [`../packet-buffer-adapter.md`](../packet-buffer-adapter.md).

@@ -33,12 +33,12 @@ Scope in [`m5-game-world-entry.md`](m5-game-world-entry.md). **Read [`../agent-r
 ## Inventory (run at M5 start)
 
 ```bash
-find /tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/aion/clientpackets -name "*.java" | wc -l
-find /tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/aion/serverpackets -name "*.java" | wc -l
-find /tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/world -name "*.java"
-find /tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/model/gameobjects -name "Player.java" -o -name "Creature.java" -o -name "VisibleObject.java"
-find /tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/dao -name "Player*.java" -o -name "Inventory*.java"
-cat /tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/aion/AionPacketHandlerFactory.java
+find /tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/aion/clientpackets -name "*.java" | wc -l
+find /tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/aion/serverpackets -name "*.java" | wc -l
+find /tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/world -name "*.java"
+find /tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/model/gameobjects -name "Player.java" -o -name "Creature.java" -o -name "VisibleObject.java"
+find /tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/dao -name "Player*.java" -o -name "Inventory*.java"
+cat /tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/aion/AionPacketHandlerFactory.java
 ```
 
 Out of that inventory, **pick only the packets needed for the world-entry flow** (listed below). The full game packet set is ported over M5+M6 — do not try to port all client packets in M5.
@@ -78,7 +78,7 @@ Exact opcodes come from `AionPacketHandlerFactory.java` on the game server side.
    - `InventoryDao` (minimum: equipped slots only; full impl in M6.3).
 3. World / region:
    - `WorldMap` — static data from XML (stub: hard-code starting zones `210010000` Poeta and `220010000` Altgard for smoke; full XML reader in M5 phase-2).
-   - `Region` — cell-based grid (`cellSize = 275f` Aion default — verify from Java `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/world/MapRegion.java`).
+   - `Region` — cell-based grid (`cellSize = 275f` Aion default — verify from Java `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/world/MapRegion.java`).
    - `World` — the root registry: all online players keyed by object-id; lookups by map, by region, by name.
 4. Event bus implementation (`InMemoryEventBus`) per [ADR-005](../adr/005-callbacks.md). Interfaces already exist from M1.
 5. Events: `PlayerEnteredWorldEvent`, `PlayerLeftWorldEvent`, `PlayerMovedEvent`, `PlayerAppearedEvent`, `PlayerDisappearedEvent`.
@@ -97,7 +97,7 @@ Exact opcodes come from `AionPacketHandlerFactory.java` on the game server side.
 
 ## World grid specification
 
-- Cell size: `275f` units (Aion 4.6.2 default). Verify in Java.
+- Cell size: `275f` units (Aion 4.6.0 default). Verify in Java.
 - Broadcast radius for "visible": 3×3 cells around the player's cell (9 total).
 - Each `Region` holds `HashSet<VisibleObject>` guarded by a `lock` (sync is sufficient for M5 — async here complicates movement timing unnecessarily).
 - Player move → recompute cell → if changed cell, remove from old `Region`, add to new, emit `PlayerDisappearedEvent` for cells lost, `PlayerAppearedEvent` for cells gained.
@@ -161,7 +161,7 @@ public sealed class Greeter : IScript, IEventHandler<PlayerEnteredWorldEvent>
 
 ## References
 
-- Java world root: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/world/`.
-- Java gameobjects: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/model/gameobjects/`.
-- Java character select packets: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/aion/{clientpackets,serverpackets}/`.
-- Script sample target: `/tmp/aion-refs/4.6.2/AL-Game/data/scripts/system/handlers/`.
+- Java world root: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/world/`.
+- Java gameobjects: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/model/gameobjects/`.
+- Java character select packets: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/aion/{clientpackets,serverpackets}/`.
+- Script sample target: `/tmp/aion-refs/4.6.0/AL-Game/data/scripts/system/handlers/`.

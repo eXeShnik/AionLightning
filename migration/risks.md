@@ -57,9 +57,9 @@ Each entry uses the same block format. Add new risks as their own section. Updat
 
 ---
 
-## R-006 · Java 4.6.2 scripts in `data/scripts/**/*.java`
+## R-006 · Java 4.6.0 scripts in `data/scripts/**/*.java`
 
-- **Description.** The Aion server ships **2272 `.java` scripts** (quests, NPC behaviour, spawn logic) and **605 XML data files**. Confirmed at 4.6.2 inventory (`find /tmp/aion-refs/4.6.2/AL-Game/data -name "*.java" | wc -l`).
+- **Description.** The Aion server ships **2272 `.java` scripts** (quests, NPC behaviour, spawn logic) and **605 XML data files**. Confirmed at 4.6.0 inventory (`find /tmp/aion-refs/4.6.0/AL-Game/data -name "*.java" | wc -l`).
 - **Likelihood / impact.** High / High (volume is definitively large).
 - **Trigger.** M5 (scripting service), M6.4 (quests).
 - **Mitigation.** Scripts are organised by category (`scripts/system/handlers/{admincommands,ai,quest,instance,zone,playercommands,languages,weddingcommands}`, `scripts/custom/`). Port order matches M6 sub-milestones:
@@ -73,15 +73,15 @@ Each entry uses the same block format. Add new risks as their own section. Updat
 
 ---
 
-## R-007 · 4.6.2 vs 7.8 client packet drift — RESOLVED
+## R-007 · 4.6.0 vs 7.8 client packet drift — RESOLVED
 
 - **Status:** Resolved on 2026-04-23.
-- **Description.** The current branch `dot_net_10_migration` was forked off `7.8.0`. The migration baseline is 4.6.2. Reading Java from the current working copy risks picking up the 7.8 variant.
+- **Description.** The current branch `dot_net_10_migration` was forked off `7.8.0`. The migration baseline is 4.6.0. Reading Java from the current working copy risks picking up the 7.8 variant.
 - **Resolution.** Git worktrees created once for both reference branches:
-  - `/tmp/aion-refs/4.6.2` (primary baseline).
+  - `/tmp/aion-refs/4.6.0` (primary baseline).
   - `/tmp/aion-refs/4.6.0` (cross-reference).
-- **Usage rule.** All Java references in migration docs and agent workflows point at `/tmp/aion-refs/4.6.2/AL-*/...`. Agents **must not** read Java sources from the current working tree when porting classes. See [`conventions.md`](conventions.md) → Java reference location.
-- **Verification.** The 4.6.2 worktree is recreated on a fresh machine via `git worktree add /tmp/aion-refs/4.6.2 origin/4.6.2`.
+- **Usage rule.** All Java references in migration docs and agent workflows point at `/tmp/aion-refs/4.6.0/AL-*/...`. Agents **must not** read Java sources from the current working tree when porting classes. See [`conventions.md`](conventions.md) → Java reference location.
+- **Verification.** The 4.6.0 worktree is recreated on a fresh machine via `git worktree add /tmp/aion-refs/4.6.0 origin/4.6.0`.
 
 ---
 
@@ -90,7 +90,7 @@ Each entry uses the same block format. Add new risks as their own section. Updat
 - **Description.** If the Java server has not been booted in years, we cannot fall back to golden traces (packet captures) as a reference.
 - **Likelihood / impact.** Unknown / Med.
 - **Trigger.** When a .NET packet implementation disagrees with client expectations and we need a reference.
-- **Mitigation.** Primary reference is the Java **source** from `/tmp/aion-refs/4.6.2/`; every packet class and handler factory is readable offline. In M7 — optional capture of baseline traces from a live Java server if stand-up is cheap.
+- **Mitigation.** Primary reference is the Java **source** from `/tmp/aion-refs/4.6.0/`; every packet class and handler factory is readable offline. In M7 — optional capture of baseline traces from a live Java server if stand-up is cheap.
 - **Fallback.** Reverse-engineer from Java code without running it (the full source is available offline).
 
 ---
@@ -119,7 +119,7 @@ Each entry uses the same block format. Add new risks as their own section. Updat
 
 | # | Question | Resolution |
 |---|---|---|
-| Q-1 | How do we access the Java 4.6.2 reference? | **Resolved.** Git worktree at `/tmp/aion-refs/4.6.2/` (see R-007). Setup command: `git worktree add /tmp/aion-refs/4.6.2 origin/4.6.2`. |
+| Q-1 | How do we access the Java 4.6.0 reference? | **Resolved.** Git worktree at `/tmp/aion-refs/4.6.0/` (see R-007). Setup command: `git worktree add /tmp/aion-refs/4.6.0 origin/4.6.0`. |
 | Q-2 | Do we rewrite `AL-Game/data/scripts/**/*.java` into `.cs`, or keep a Java-script-like execution mechanism? | **Resolved.** Rewrite into `.cs`. Scope limited per R-006. Port order follows M6 sub-milestones. |
 | Q-3 | MediatR or a bespoke `Channel<T>`-based bus? | **Resolved.** Bespoke `Channel<T>`-based bus. MediatR is a paid license (v12+) with runtime reflection per publish — unacceptable for a tick-rate event hot path. See [ADR-005](adr/005-callbacks.md). |
 | Q-4 | Schema-migration tool (FluentMigrator / Evolve / raw SQL files)? | **Resolved.** Evolve. SQL files from `AL-Login/sql/` and `AL-Game/sql/` copied verbatim, versioned by Evolve. See [ADR-007](adr/007-schema-migration.md). |

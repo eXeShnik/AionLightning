@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains **two parallel codebases**:
 
-1. **Legacy Java (Java 1.7, Ant)** — the original Aion Lightning 4.6.2 server: `AL-Commons/`, `AL-Login/`, `AL-Chat/`, `AL-Game/`. Read-only reference — the migration source of truth.
+1. **Legacy Java (Java 1.7, Ant)** — the original Aion Lightning 4.6.0 server: `AL-Commons/`, `AL-Login/`, `AL-Chat/`, `AL-Game/`. Read-only reference — the migration source of truth.
 2. **Target .NET 10 solution** — `AionLightning.NET/` with four projects that mirror the Java modules. All new work goes here.
 
 The current branch `dot_net_10_migration` is an in-progress port from Java to .NET 10 console apps. Status is tracked in `migration_plan.md` (authoritative — read before starting module-level work).
@@ -93,6 +93,6 @@ Use `BouncyCastle.Cryptography` for all crypto (session keys, blowfish, RSA — 
 
 ## Important Notes From `migration_plan.md`
 
-- Migration is based on the **4.6.2** variant of the Java source, not 7.8.
+- Migration is based on the **4.6.0** variant of the Java source, not 7.8.
 - The Java `Tools/` directory (bundled Ant etc.) is intentionally out of scope.
 - Preserve migration history: summarize non-obvious migration decisions in the plan or an adjacent note rather than discarding them.

@@ -4,7 +4,7 @@ Status: `[ ]` not started · Requires: M1 · ADRs: 001, 002, 003, 004
 
 ## Goal
 
-The .NET Login server accepts the Aion 4.6.2 client and carries it through authentication to the serverlist screen, backed by the real `al_server_ls` database.
+The .NET Login server accepts the Aion 4.6.0 client and carries it through authentication to the serverlist screen, backed by the real `al_server_ls` database.
 
 ## Scope
 
@@ -12,8 +12,8 @@ The .NET Login server accepts the Aion 4.6.2 client and carries it through authe
 
 - Client listener on port 2106 built on Pipelines (reuses M1 base classes).
 - Packet pipeline: accept → Blowfish init → decode → handle → encode → send.
-- Full set of Java `clientpackets` from `AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/` (4.6.2).
-- Full set of Java `serverpackets` from the same package (4.6.2).
+- Full set of Java `clientpackets` from `AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/` (4.6.0).
+- Full set of Java `serverpackets` from the same package (4.6.0).
 - DAOs on Dapper: `AccountDao`, `AccountTimeDao`, `BannedIpDao`, `BannedMacDao`, `PremiumDao`.
 - Controllers: `AccountController` (authenticate, update last-login, ban lookup), `BannedIpController`, `BannedMacManager`.
 - `SessionKey` generation (used for handoff in M3).
@@ -43,7 +43,7 @@ ls AL-Login/src/com/aionemu/loginserver/dao/*.java
 ls AL-Login/src/com/aionemu/loginserver/model/*.java
 ```
 
-The exact packet list is pinned on M2 start. Expect ~10–15 client packets and ~15–20 server packets for the 4.6.2 login flow.
+The exact packet list is pinned on M2 start. Expect ~10–15 client packets and ~15–20 server packets for the 4.6.0 login flow.
 
 ## .NET target layout
 
@@ -52,7 +52,7 @@ The exact packet list is pinned on M2 start. Expect ~10–15 client packets and 
 - `AionLightning.Login/LoginServerHost.cs` — `BackgroundService`. Owns the client listener.
 - `AionLightning.Login/Network/Aion/AionConnection.cs` — extends `Commons/Network/AConnection`.
 - `AionLightning.Login/Network/Aion/AionConnectionFactory.cs` — per-connection state + Blowfish cipher bootstrap.
-- `AionLightning.Login/Network/Aion/ClientPackets/*.cs` — one file per 4.6.2 packet.
+- `AionLightning.Login/Network/Aion/ClientPackets/*.cs` — one file per 4.6.0 packet.
 - `AionLightning.Login/Network/Aion/ServerPackets/*.cs` — one file per packet.
 - `AionLightning.Login/Network/Aion/SessionKey.cs` — already present, reviewed.
 - `AionLightning.Login/Network/Factories/AionPacketHandlerFactory.cs` — opcode → packet type lookup.
@@ -67,7 +67,7 @@ The exact packet list is pinned on M2 start. Expect ~10–15 client packets and 
 
 ## Definition of Done
 
-- [ ] 4.6.2 client connects to Login on port 2106 and reaches the serverlist screen.
+- [ ] 4.6.0 client connects to Login on port 2106 and reaches the serverlist screen.
 - [ ] An existing account from the DB logs in successfully, `AccountTime.LastActive` is updated.
 - [ ] Wrong password → client shows the correct failure message.
 - [ ] A row in `banned_ip` → the client receives the ban response (not a generic failure).
@@ -78,9 +78,9 @@ The exact packet list is pinned on M2 start. Expect ~10–15 client packets and 
 
 ## Smoke scenario
 
-1. Start the MySQL, apply the 4.6.2 schema, insert a test account row (login + the expected hashed password per 4.6.2 format).
+1. Start the MySQL, apply the 4.6.0 schema, insert a test account row (login + the expected hashed password per 4.6.0 format).
 2. `dotnet run --project AionLightning.Login`.
-3. Launch the Aion 4.6.2 client pointed at `127.0.0.1:2106`.
+3. Launch the Aion 4.6.0 client pointed at `127.0.0.1:2106`.
 4. Log in with the test account. Expect: the serverlist screen appears. Expect a DB update to `account_time.last_active`.
 5. Log in with a wrong password. Expect: wrong-password dialog on the client.
 6. Add `127.0.0.1` into `banned_ip` table. Reconnect. Expect: ban dialog.
@@ -89,8 +89,8 @@ The exact packet list is pinned on M2 start. Expect ~10–15 client packets and 
 
 ## Scoped risks
 
-- **R-007 (4.6.2 vs 7.8 drift):** the current working branch is `dot_net_10_migration` off `7.8.0`. Enforce the 4.6.0 Java reference before writing a single packet class.
-- **Password hash format mismatch:** 4.6.2 password hashing is a known quantity — confirm the algorithm (salt location, encoding) before implementing `AccountController.Authenticate`. See `AL-Login/src/com/aionemu/loginserver/controller/AccountController.java` as source of truth.
+- **R-007 (4.6.0 vs 7.8 drift):** the current working branch is `dot_net_10_migration` off `7.8.0`. Enforce the 4.6.0 Java reference before writing a single packet class.
+- **Password hash format mismatch:** 4.6.0 password hashing is a known quantity — confirm the algorithm (salt location, encoding) before implementing `AccountController.Authenticate`. See `AL-Login/src/com/aionemu/loginserver/controller/AccountController.java` as source of truth.
 - **Blowfish session key timing:** the Aion protocol sends a static-key packet first, then rotates to the session key. Getting the order wrong produces a silent disconnect with nothing in logs — add trace-level hex-dump logging behind a feature flag.
 
 ## Notes

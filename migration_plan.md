@@ -1,6 +1,6 @@
 # AionLightning Migration Plan
 
-## **Current repo based has many server versions, our migration based on 4.6.2**
+## **Current repo based has many server versions, our migration based on 4.6.0**
 
 ## **Main thing I want u to save your history, all important doings or things**
 

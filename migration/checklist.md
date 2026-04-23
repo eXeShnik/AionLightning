@@ -45,7 +45,7 @@ Scope: [`milestones/m1-commons-core.md`](milestones/m1-commons-core.md) · **Exe
 Status: `[ ]` not started · Requires: M1 · ADRs: 001, 002, 003, 004
 
 ### DoD
-- [ ] Aion 4.6.2 client connects to Login (port 2106) and reaches the serverlist screen
+- [ ] Aion 4.6.0 client connects to Login (port 2106) and reaches the serverlist screen
 - [ ] An existing account from the DB logs in successfully
 - [ ] Wrong password → the client shows the correct message
 - [ ] Banned IP → the client receives a ban response
@@ -100,7 +100,7 @@ Status: `[ ]` not started · Requires: M3 · ADRs: 001, 002, 003, 004
 
 ### Scope
 - [ ] Chat↔GS listener + client
-- [ ] Chat client listener (client 4.6.2 → Chat server port)
+- [ ] Chat client listener (client 4.6.0 → Chat server port)
 - [ ] Core chat packets (shout, whisper, party, group, legion)
 - [ ] Chat DAOs (if needed — banned words, mute history)
 

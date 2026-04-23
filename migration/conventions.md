@@ -4,14 +4,14 @@ Short set of rules specific to this project. Global rules (`~/.claude/rules/dotn
 
 ## Java reference location
 
-Do **not** read Java sources from the current working tree — that tree is branch `7.8.0`, not the 4.6.2 baseline.
+Do **not** read Java sources from the current working tree — that tree is branch `7.8.0`, not the 4.6.0 baseline.
 
-All Java references live in a dedicated git worktree. **Every path in this repo that begins with `/tmp/aion-refs/4.6.2/` refers to that worktree and is a default-location placeholder** — substitute your own path if you set the worktree up elsewhere (e.g. on Windows, or in a durable home-directory folder).
+All Java references live in a dedicated git worktree. **Every path in this repo that begins with `/tmp/aion-refs/4.6.0/` refers to that worktree and is a default-location placeholder** — substitute your own path if you set the worktree up elsewhere (e.g. on Windows, or in a durable home-directory folder).
 
 Default layout:
 
 ```
-/tmp/aion-refs/4.6.2/
+/tmp/aion-refs/4.6.0/
 ├── AL-Commons/
 ├── AL-Login/
 ├── AL-Chat/
@@ -23,16 +23,16 @@ Setup (once per machine):
 
 ```bash
 # Linux / macOS (default)
-git worktree add /tmp/aion-refs/4.6.2 origin/4.6.2
+git worktree add /tmp/aion-refs/4.6.0 origin/4.6.0
 
 # Durable alternative (survives reboot)
-git worktree add ~/work/aion-refs/4.6.2 origin/4.6.2
+git worktree add ~/work/aion-refs/4.6.0 origin/4.6.0
 
 # Windows (use forward slashes)
-git worktree add C:/temp/aion-refs/4.6.2 origin/4.6.2
+git worktree add C:/temp/aion-refs/4.6.0 origin/4.6.0
 ```
 
-When running an agent via [`agent-prompt.md`](agent-prompt.md), pass your actual path as the `{JAVA_REF}` placeholder. When reading migration docs by hand, mentally substitute the default `/tmp/aion-refs/4.6.2/` for your chosen location.
+When running an agent via [`agent-prompt.md`](agent-prompt.md), pass your actual path as the `{JAVA_REF}` placeholder. When reading migration docs by hand, mentally substitute the default `/tmp/aion-refs/4.6.0/` for your chosen location.
 
 ## Namespaces
 
@@ -58,7 +58,7 @@ Package → namespace: PascalCase conversion, hierarchy preserved.
 - DAO classes: suffix `Dao` (`AccountDao`), **not** `DAO` (Java caps).
 - Controller classes: suffix `Controller`.
 - Service classes: suffix `Service`.
-- Packet classes: **keep Java names verbatim** (`CM_LOGIN`, `SM_INIT`, `CM_ACCOUNT_AUTH`) so grep across the 4.6.2 source works both ways. Analyzer warnings suppressed via `.editorconfig` (below).
+- Packet classes: **keep Java names verbatim** (`CM_LOGIN`, `SM_INIT`, `CM_ACCOUNT_AUTH`) so grep across the 4.6.0 source works both ways. Analyzer warnings suppressed via `.editorconfig` (below).
 - Event records (ADR-005): suffix `Event` (`PlayerLoggedInEvent`, `HpChangedEvent`).
 - Config record DTOs: suffix `Options` (`NetworkOptions`, `DatabaseOptions`).
 
@@ -131,13 +131,13 @@ See [`packet-buffer-adapter.md`](packet-buffer-adapter.md) for the full `PacketR
 
 ## SQL
 
-- DDL scripts from `/tmp/aion-refs/4.6.2/AL-Login/sql/` and `/tmp/aion-refs/4.6.2/AL-Game/sql/` copy into `AionLightning.NET/Sql/{login,game}/` renamed to Evolve's `V{n}__{description}.sql`.
+- DDL scripts from `/tmp/aion-refs/4.6.0/AL-Login/sql/` and `/tmp/aion-refs/4.6.0/AL-Game/sql/` copy into `AionLightning.NET/Sql/{login,game}/` renamed to Evolve's `V{n}__{description}.sql`.
 - Schema-migration tool — **Evolve** ([ADR-007](adr/007-schema-migration.md)).
 
 ## Comments
 
 - XML doc only on Commons public APIs where the contract is non-obvious.
-- `// TODO` — requires a risk or task id: `// TODO (R-007): confirm this packet is from the 4.6.2 branch`.
+- `// TODO` — requires a risk or task id: `// TODO (R-007): confirm this packet is from the 4.6.0 branch`.
 - `// FIXME` — only when it blocks a merge.
 
 ## Git

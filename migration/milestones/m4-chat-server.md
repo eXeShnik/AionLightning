@@ -18,7 +18,7 @@ A working .NET Chat server that registers with GS and routes the core chat chann
   - `/whisper` (private message).
   - Party / group chat.
   - Legion chat.
-- Minimal chat DAOs if the Java original has any in 4.6.2: banned words, mute history. Verify first; may be empty.
+- Minimal chat DAOs if the Java original has any in 4.6.0: banned words, mute history. Verify first; may be empty.
 - Chat options record.
 
 ### Out of scope
@@ -55,7 +55,7 @@ Expect Chat to be the smallest of the three servers.
 - `AionLightning.Chat/Network/Client/ClientPackets/*.cs`, `ServerPackets/*.cs`.
 - `AionLightning.Chat/Configs/Options/ChatOptions.cs`, `GameServerEndpointOptions.cs`.
 - `AionLightning.Chat/Controller/ChatController.cs` (routes messages by channel).
-- `AionLightning.Chat/Dao/*` — only if Java original has 4.6.2 chat DAOs.
+- `AionLightning.Chat/Dao/*` — only if Java original has 4.6.0 chat DAOs.
 
 ### GS side additions
 
@@ -83,9 +83,9 @@ Expect Chat to be the smallest of the three servers.
 
 - **World-entry stub dependency.** M4 needs clients to be "in the world" to route chat. Building a full world entry is M5; M4 relies on an M3-extended stub that keeps the GS client connection open without running the full world. Keep the stub tight — avoid growing it into a partial M5.
 - **Chat packets depend on character identity.** The stub must at minimum expose `AccountId`, `PlayerId`, `Name`, `Faction` to Chat. Verify these fields are already sent from GS to Chat in the Java protocol.
-- **Charset.** Verify the encoding used for chat message strings on the wire (UTF-16 LE per Aion spec; watch for locale-specific cases on older 4.6.2 builds).
+- **Charset.** Verify the encoding used for chat message strings on the wire (UTF-16 LE per Aion spec; watch for locale-specific cases on older 4.6.0 builds).
 
 ## Notes
 
 - Chat is a good milestone to validate the M1 networking base under two independent listeners in one process.
-- If the Java 4.6.2 Chat source is empty on some packets (reserved / unused), do not port them; track with a `// TODO (R-006): reserved in 4.6.2` comment.
+- If the Java 4.6.0 Chat source is empty on some packets (reserved / unused), do not port them; track with a `// TODO (R-006): reserved in 4.6.0` comment.

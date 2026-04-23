@@ -4,12 +4,12 @@ Rules for automated agents (Sonnet, Haiku, Opus) working on this migration. Thes
 
 ## Rule 1 — Java source of truth
 
-All Java references come from the dedicated worktree (call it `$JAVA_REF`), **not** from `AL-Login/`, `AL-Commons/`, `AL-Game/`, `AL-Chat/` in the current working tree. The current working tree is 7.8, not 4.6.2.
+All Java references come from the dedicated worktree (call it `$JAVA_REF`), **not** from `AL-Login/`, `AL-Commons/`, `AL-Game/`, `AL-Chat/` in the current working tree. The current working tree is 7.8, not 4.6.0.
 
-- The default `$JAVA_REF` in all migration docs is `/tmp/aion-refs/4.6.2/`. If you set the worktree up elsewhere (e.g. Windows at `C:/temp/aion-refs/4.6.2/`, or a durable `~/work/aion-refs/4.6.2/`), substitute that path in every reference below.
+- The default `$JAVA_REF` in all migration docs is `/tmp/aion-refs/4.6.0/`. If you set the worktree up elsewhere (e.g. Windows at `C:/temp/aion-refs/4.6.0/`, or a durable `~/work/aion-refs/4.6.0/`), substitute that path in every reference below.
 - When invoking an agent via [`agent-prompt.md`](agent-prompt.md), pass your actual path as the `{JAVA_REF}` placeholder.
 - Before starting any port, verify the worktree exists: `ls $JAVA_REF/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`.
-- If missing, recreate: `git worktree add $JAVA_REF origin/4.6.2` (run from the repo root).
+- If missing, recreate: `git worktree add $JAVA_REF origin/4.6.0` (run from the repo root).
 - Every time a Java file is read for porting, the path is anchored at `$JAVA_REF/...` — never at `AL-*/` relative to the repo root.
 
 ## Rule 2 — Read the milestone's execution brief first
@@ -22,7 +22,7 @@ If the brief is missing or its preconditions are not met, **stop** and surface t
 
 If a step in the execution brief refers to Java logic that is not in the current milestone's scope (e.g. a packet handler calls into a subsystem not yet ported), **stop**. Do not invent a stub. Surface the gap with:
 
-- Java file path: `/tmp/aion-refs/4.6.2/.../X.java`
+- Java file path: `/tmp/aion-refs/4.6.0/.../X.java`
 - Line numbers of the problem area.
 - What the Java code expects that the current .NET scope does not provide.
 - A proposed scope expansion or a temporary boundary.
@@ -72,7 +72,7 @@ DAO classes receive `MySqlDataSource` via constructor injection. Every method op
 
 ## Rule 10 — Packet classes keep Java names
 
-Files under `Network/*/{ClientPackets,ServerPackets}/` keep the Java class names verbatim: `CM_LOGIN.cs`, `SM_INIT.cs`. Do not "PascalCase" them; do not rename to `ClientLogin`. The rationale is grep symmetry with the 4.6.2 Java source.
+Files under `Network/*/{ClientPackets,ServerPackets}/` keep the Java class names verbatim: `CM_LOGIN.cs`, `SM_INIT.cs`. Do not "PascalCase" them; do not rename to `ClientLogin`. The rationale is grep symmetry with the 4.6.0 Java source.
 
 Analyzer warnings for naming style are suppressed via the project-level `.editorconfig` (delivered in M1).
 
@@ -87,7 +87,7 @@ If work must pause mid-step, stop on a compiling tree and leave `// WIP (agent):
 Before marking a milestone / task complete, summarise:
 
 1. Files created, rewritten, deleted.
-2. Ported Java sources (paths under `/tmp/aion-refs/4.6.2/`).
+2. Ported Java sources (paths under `/tmp/aion-refs/4.6.0/`).
 3. Smoke scenario result (passed / failed / blocked).
 4. Any deviations from the execution brief.
 5. Any new risks to add to [`risks.md`](risks.md).
@@ -104,7 +104,7 @@ This is especially true for:
 - Floating-point vs. integer coordinates.
 - Endianness of a specific field.
 
-The full Java source is at `/tmp/aion-refs/4.6.2/` — reading it is almost always cheaper than guessing.
+The full Java source is at `/tmp/aion-refs/4.6.0/` — reading it is almost always cheaper than guessing.
 
 ## Rule 14 — Never commit secrets
 

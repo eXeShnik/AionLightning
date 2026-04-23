@@ -4,8 +4,8 @@
 
 1. **Setup once per machine.** From the repo root:
    ```bash
-   git worktree add /tmp/aion-refs/4.6.2 origin/4.6.2     # Linux / macOS
-   # or: git worktree add C:/temp/aion-refs/4.6.2 origin/4.6.2   (Windows)
+   git worktree add /tmp/aion-refs/4.6.0 origin/4.6.0     # Linux / macOS
+   # or: git worktree add C:/temp/aion-refs/4.6.0 origin/4.6.0   (Windows)
    ```
 
 2. **Pick the milestone.** You want to run M1..M7. Say your choice is **M1**.
@@ -14,7 +14,7 @@
 
 4. **Replace the two placeholders:**
    - `{N}` → your milestone number (`1`).
-   - `{JAVA_REF}` → the absolute worktree path you used in Step 1 (`/tmp/aion-refs/4.6.2`).
+   - `{JAVA_REF}` → the absolute worktree path you used in Step 1 (`/tmp/aion-refs/4.6.0`).
 
 5. **Paste into the agent** (Claude / Sonnet / Opus) in a fresh session. The agent reads Tier A files and responds with a short summary: milestone goal, step list, files loaded, any failed precondition.
 
@@ -29,17 +29,17 @@ If the agent stops on a **stop-and-ask trigger**: read the report, make a call, 
 Paste the block below into the agent. Replace:
 
 - **`{N}`** — the milestone number (`1`..`7`).
-- **`{JAVA_REF}`** — the absolute path to the Java 4.6.2 reference worktree on your machine.
-  - Default on Linux / macOS: `/tmp/aion-refs/4.6.2`.
-  - Default on Windows: something like `C:/temp/aion-refs/4.6.2` (forward slashes — they work in most CLIs and .NET paths).
-  - Create it once on your machine: `git worktree add {JAVA_REF} origin/4.6.2` (run from the repo root).
+- **`{JAVA_REF}`** — the absolute path to the Java 4.6.0 reference worktree on your machine.
+  - Default on Linux / macOS: `/tmp/aion-refs/4.6.0`.
+  - Default on Windows: something like `C:/temp/aion-refs/4.6.0` (forward slashes — they work in most CLIs and .NET paths).
+  - Create it once on your machine: `git worktree add {JAVA_REF} origin/4.6.0` (run from the repo root).
 
 All repo paths inside the prompt are **relative to the repository root** (the folder that contains `AionLightning.NET/`, `AL-Login/`, `migration/`). The agent sets its working directory to that folder before doing anything else.
 
 ## Examples
 
-- Run M1 with the default worktree: `{N}` = `1`, `{JAVA_REF}` = `/tmp/aion-refs/4.6.2`.
-- Run M2 on Windows with a custom path: `{N}` = `2`, `{JAVA_REF}` = `D:/work/aion-refs/4.6.2`.
+- Run M1 with the default worktree: `{N}` = `1`, `{JAVA_REF}` = `/tmp/aion-refs/4.6.0`.
+- Run M2 on Windows with a custom path: `{N}` = `2`, `{JAVA_REF}` = `D:/work/aion-refs/4.6.0`.
 
 ---
 
@@ -54,7 +54,7 @@ Set your current working directory to the repository root (the folder containing
 # Java reference worktree
 JAVA_REF = {JAVA_REF}
 
-This is a read-only Java 4.6.2 source tree. Never modify anything under JAVA_REF. Verify it exists: `ls $JAVA_REF/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`. If missing, run `git worktree add {JAVA_REF} origin/4.6.2` from the repo root and retry.
+This is a read-only Java 4.6.0 source tree. Never modify anything under JAVA_REF. Verify it exists: `ls $JAVA_REF/AL-Login/src/com/aionemu/loginserver/controller/AccountController.java`. If missing, run `git worktree add {JAVA_REF} origin/4.6.0` from the repo root and retry.
 
 # Your authority
 Create / edit / delete allowed under:
@@ -188,7 +188,7 @@ Typical saving: ~30% on M1–M4, ~20% on M5–M6 (where Tier B naturally grows).
 ## Environment notes
 
 - **Windows:** forward slashes in `{JAVA_REF}` (`C:/temp/...`). Most Powershell / Git-Bash / `dotnet` tooling accepts them and agent pipelines handle them consistently. Avoid single backslashes.
-- **Linux / macOS:** `/tmp/aion-refs/4.6.2` disappears on reboot / periodic cleanup. For durable work, pick `~/work/aion-refs/4.6.2`.
+- **Linux / macOS:** `/tmp/aion-refs/4.6.0` disappears on reboot / periodic cleanup. For durable work, pick `~/work/aion-refs/4.6.0`.
 - **WSL:** pick one side. Running the agent from WSL → Linux-style path. From Windows → Windows path. Mixing causes permission surprises.
 
 ## Complementary invocations

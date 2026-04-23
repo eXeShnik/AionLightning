@@ -5,7 +5,7 @@ Scope in [`m3-login-gs-handshake.md`](m3-login-gs-handshake.md). **Read [`../age
 ## Preconditions
 
 - M2 closed and passing its smoke.
-- `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/loginserver/` accessible.
+- `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/loginserver/` accessible.
 
 ## Reading scope (for agent — see [`../agent-prompt.md`](../agent-prompt.md) tiers)
 
@@ -26,9 +26,9 @@ Scope in [`m3-login-gs-handshake.md`](m3-login-gs-handshake.md). **Read [`../age
 - [`../risks.md`](../risks.md) — R-001 (ByteBuffer) for packet ports.
 - [`../glossary.md`](../glossary.md) — `PeriodicTimer` usage pattern (ping-pong service) if uncertain.
 
-## GS ↔ LS packet inventory (4.6.2 canonical)
+## GS ↔ LS packet inventory (4.6.0 canonical)
 
-Source: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/factories/GsPacketHandlerFactory.java`.
+Source: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/factories/GsPacketHandlerFactory.java`.
 
 GS connection states (LS side): `CONNECTED` → `AUTHED`.
 
@@ -54,7 +54,7 @@ GS connection states (LS side): `CONNECTED` → `AUTHED`.
 
 ### LS → GS (LS sends these)
 
-Source: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/gameserver/serverpackets/*.java`. Inventory at M3 start via `ls`. Expected set (names verified from class imports):
+Source: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/gameserver/serverpackets/*.java`. Inventory at M3 start via `ls`. Expected set (names verified from class imports):
 
 - `SM_GS_AUTH_RESPONSE` — accept/reject registration.
 - `SM_REQUEST_KICK_ACCOUNT` — kick a stuck session.
@@ -65,7 +65,7 @@ Source: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/games
 
 ## GS-side of the protocol (Java reference, port lives in `AionLightning.Game`)
 
-Source: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/loginserver/`.
+Source: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/loginserver/`.
 
 The GS holds a **client** connection to LS (outbound), speaks the mirror protocol: receives LS→GS packets, sends GS→LS packets.
 
@@ -172,6 +172,6 @@ public sealed class GsPingService(
 
 ## References
 
-- Java LS side: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/gameserver/`.
-- Java GS side: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/loginserver/`.
-- Handler factory: `/tmp/aion-refs/4.6.2/AL-Login/src/com/aionemu/loginserver/network/factories/GsPacketHandlerFactory.java`.
+- Java LS side: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/gameserver/`.
+- Java GS side: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/loginserver/`.
+- Handler factory: `/tmp/aion-refs/4.6.0/AL-Login/src/com/aionemu/loginserver/network/factories/GsPacketHandlerFactory.java`.

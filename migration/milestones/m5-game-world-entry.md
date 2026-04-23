@@ -16,13 +16,13 @@ This is the first milestone where the Game module does real work — and the fir
   - GS→LS link (reused from M3).
   - GS→Chat link (reused from M4).
   - Aion client listener (full packet pipeline).
-- Core entities (4.6.2-compatible):
+- Core entities (4.6.0-compatible):
   - `Player` (identity, position, stats, appearance).
   - `Creature` (abstract base).
   - `VisibleObject` (abstract base with position / world-id).
   - `Position` (x, y, z, heading, world-id, instance-id).
 - World grid / region system — simplified: a fixed-size cell grid per map; neighbour broadcast iterates adjacent cells. Full precise world model (as in the Java original) is deferred unless M5 smoke requires it.
-- Character select + world entry packets (verify exact 4.6.2 set from `AL-Game/src/com/aionemu/gameserver/network/aion/clientpackets/` and `serverpackets/`).
+- Character select + world entry packets (verify exact 4.6.0 set from `AL-Game/src/com/aionemu/gameserver/network/aion/clientpackets/` and `serverpackets/`).
 - Movement packets: client move request → server validate (basic) → broadcast to neighbours.
 - Logout packet flow with state persistence.
 - DAOs (Dapper): `PlayerDao` (minimum: identity, position, appearance, last_online), `PlayerAppearanceDao`, `InventoryDao` (minimum — appearance-only items).
@@ -71,7 +71,7 @@ The `data/` scripts count decides how much of M6.4 needs extra time.
 - `AionLightning.Game/Model/GameObjects/VisibleObject.cs`, `Creature.cs`, `Player.cs`.
 - `AionLightning.Game/Model/Position.cs`.
 - `AionLightning.Game/Network/Aion/AionConnection.cs` — extended from M3.
-- `AionLightning.Game/Network/Aion/ClientPackets/*.cs` — full 4.6.2 packet set for login → world entry → movement → logout.
+- `AionLightning.Game/Network/Aion/ClientPackets/*.cs` — full 4.6.0 packet set for login → world entry → movement → logout.
 - `AionLightning.Game/Network/Aion/ServerPackets/*.cs`.
 - `AionLightning.Game/Dao/PlayerDao.cs`, `PlayerAppearanceDao.cs`, `InventoryDao.cs`.
 - `AionLightning.Game/Controller/PlayerController.cs`, `WorldController.cs`.

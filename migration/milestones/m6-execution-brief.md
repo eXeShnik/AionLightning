@@ -38,50 +38,50 @@ For every sub-M (M6.1, M6.2, …):
 
 ```bash
 # Inventory template (adapt the find-path per sub-M)
-SUBTREE=/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/ai
+SUBTREE=/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/ai
 find "$SUBTREE" -name "*.java" | wc -l
 find "$SUBTREE" -name "*.java" -exec wc -l {} + | tail -1
-find /tmp/aion-refs/4.6.2/AL-Game/data/scripts/system/handlers/ai -name "*.java" | wc -l
+find /tmp/aion-refs/4.6.0/AL-Game/data/scripts/system/handlers/ai -name "*.java" | wc -l
 ```
 
 ## Shared patterns across sub-milestones
 
 - Event bus is the backbone: every state change publishes an event; every handler subscribes explicitly.
 - All game objects inherit `VisibleObject` from M5.
-- Content templates come from XML under `/tmp/aion-refs/4.6.2/AL-Game/data/` — read via `System.Xml.Serialization` records, one reader per category (`ItemData`, `SkillData`, `NpcData`, `QuestData`, …).
-- Scripts from `/tmp/aion-refs/4.6.2/AL-Game/data/scripts/` are **rewritten** as `.cs` ([R-006](../risks.md)), one sub-M at a time.
+- Content templates come from XML under `/tmp/aion-refs/4.6.0/AL-Game/data/` — read via `System.Xml.Serialization` records, one reader per category (`ItemData`, `SkillData`, `NpcData`, `QuestData`, …).
+- Scripts from `/tmp/aion-refs/4.6.0/AL-Game/data/scripts/` are **rewritten** as `.cs` ([R-006](../risks.md)), one sub-M at a time.
 
 ## Sub-milestone snapshots
 
 ### M6.1 — AI & combat base
 
-- Java scripts directory: `/tmp/aion-refs/4.6.2/AL-Game/data/scripts/system/handlers/ai/`.
-- Core engine: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/ai2/` (4.6.2 uses `ai2` package; verify).
+- Java scripts directory: `/tmp/aion-refs/4.6.0/AL-Game/data/scripts/system/handlers/ai/`.
+- Core engine: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/ai2/` (4.6.0 uses `ai2` package; verify).
 - Events to publish: `CreatureAttackedEvent`, `CreatureDiedEvent`, `NpcAggroEvent`.
 - Smoke: starter-zone monster spawns, aggros, chases, dies to auto-attack, respawns.
 
 ### M6.2 — Skills
 
-- Java: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/skillengine/` + `data/skills/*.xml`.
+- Java: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/skillengine/` + `data/skills/*.xml`.
 - Port order: skill template reader → skill cooldown DAO → skill cast pipeline → effects (`DamageEffect`, `HealEffect`, `BuffEffect`) on event bus.
 - Smoke: first-tier attack skill lands damage, cooldown enforced, nearby clients see the effect.
 
 ### M6.3 — Items & inventory
 
-- Java: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/model/items/`, `dao/InventoryDAO.java`, `data/items/*.xml`.
+- Java: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/model/items/`, `dao/InventoryDAO.java`, `data/items/*.xml`.
 - Events: `ItemEquippedEvent`, `ItemUnequippedEvent`, `ItemPickedUpEvent`.
 - Smoke: pick up drop, equip, stats update, persist through logout.
 
 ### M6.4 — Quests
 
-- Java scripts: `/tmp/aion-refs/4.6.2/AL-Game/data/scripts/system/handlers/quest/` (largest script directory).
-- Java engine: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/questEngine/`.
+- Java scripts: `/tmp/aion-refs/4.6.0/AL-Game/data/scripts/system/handlers/quest/` (largest script directory).
+- Java engine: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/questEngine/`.
 - This is the most scripting-heavy sub-M. Translation strategy for quest scripts — decided at M6.4 start (either manual port of the 10–20 starter quests or a codegen converter). Scope cap per [R-006](../risks.md): Poeta + Altgard up to level 10 for the first playable release.
 - Smoke: "Tursin's Axe" (starter quest) runs end-to-end.
 
 ### M6.5 — Instances
 
-- Java: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/instance/`, scripts under `data/scripts/system/handlers/instance/`.
+- Java: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/instance/`, scripts under `data/scripts/system/handlers/instance/`.
 - Smoke: a low-level instance (e.g. Nochsana Training Camp) is entered, cleared, closed.
 
 ### M6.6 — Trade / broker / auction
@@ -117,6 +117,6 @@ Numbers go into `journal.md`. Optimisations (if any) land as separate follow-up 
 
 ## References
 
-- Java content root: `/tmp/aion-refs/4.6.2/AL-Game/`.
-- Scripts root: `/tmp/aion-refs/4.6.2/AL-Game/data/scripts/`.
-- XML content: `/tmp/aion-refs/4.6.2/AL-Game/data/static_data/`, `data/spawns/`, `data/skills/`, `data/quests/`.
+- Java content root: `/tmp/aion-refs/4.6.0/AL-Game/`.
+- Scripts root: `/tmp/aion-refs/4.6.0/AL-Game/data/scripts/`.
+- XML content: `/tmp/aion-refs/4.6.0/AL-Game/data/static_data/`, `data/spawns/`, `data/skills/`, `data/quests/`.

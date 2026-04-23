@@ -4,11 +4,11 @@
 
 Rewrite four Java servers (Commons, Login, Chat, Game) on top of .NET 10. The Java code is a read-only reference; once the migration is finished, Java is not used at runtime.
 
-**Strategy: code-driven rewrite.** Read a Java class → write the idiomatic .NET class (async, DI, Pipelines, record-based config). Packet layouts, SQL and game constants are ported 1:1 from Java 4.6.2. Runtime coexistence of Java and .NET is not used, even during development.
+**Strategy: code-driven rewrite.** Read a Java class → write the idiomatic .NET class (async, DI, Pipelines, record-based config). Packet layouts, SQL and game constants are ported 1:1 from Java 4.6.0. Runtime coexistence of Java and .NET is not used, even during development.
 
-**Java source of truth.** `/tmp/aion-refs/4.6.2/` — dedicated git worktree from `origin/4.6.2`. The current working tree is branch `7.8.0` and must not be read for port references. See [`conventions.md`](conventions.md) and [`agent-rules.md`](agent-rules.md) Rule 1.
+**Java source of truth.** `/tmp/aion-refs/4.6.0/` — dedicated git worktree from `origin/4.6.0`. The current working tree is branch `7.8.0` and must not be read for port references. See [`conventions.md`](conventions.md) and [`agent-rules.md`](agent-rules.md) Rule 1.
 
-**Verification.** During a milestone — manual smoke testing against the Aion 4.6.2 client. Automated tests and packet golden traces are a separate milestone (M7), not a gate for earlier work.
+**Verification.** During a milestone — manual smoke testing against the Aion 4.6.0 client. Automated tests and packet golden traces are a separate milestone (M7), not a gate for earlier work.
 
 ## 2. Principles
 
@@ -44,7 +44,7 @@ The order is a sequence of vertical slices. Each milestone ends with a scenario 
 | # | Name | Demo scenario | Scope file | Execution brief |
 |---|---|---|---|---|
 | M1 | Commons Core MVP | Host boots, logs, DB answers `SELECT 1`, graceful shutdown | [scope](milestones/m1-commons-core.md) | [brief](milestones/m1-execution-brief.md) |
-| M2 | Login server: client auth | 4.6.2 client logs in, sees a stubbed serverlist | [scope](milestones/m2-login-auth.md) | [brief](milestones/m2-execution-brief.md) |
+| M2 | Login server: client auth | 4.6.0 client logs in, sees a stubbed serverlist | [scope](milestones/m2-login-auth.md) | [brief](milestones/m2-execution-brief.md) |
 | M3 | Login ↔ GameServer handshake | Client selects server, switches to GS socket, GS accepts handoff | [scope](milestones/m3-login-gs-handshake.md) | [brief](milestones/m3-execution-brief.md) |
 | M4 | Chat server | `/shout` flows between two clients via Chat | [scope](milestones/m4-chat-server.md) | [brief](milestones/m4-execution-brief.md) |
 | M5 | Game: world entry | Client enters the world, sees its character, walks, logs out | [scope](milestones/m5-game-world-entry.md) | [brief](milestones/m5-execution-brief.md) |

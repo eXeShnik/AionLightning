@@ -5,7 +5,7 @@ Scope in [`m4-chat-server.md`](m4-chat-server.md). **Read [`../agent-rules.md`](
 ## Preconditions
 
 - M3 closed.
-- `/tmp/aion-refs/4.6.2/AL-Chat/` accessible.
+- `/tmp/aion-refs/4.6.0/AL-Chat/` accessible.
 - World-entry stub on GS: GS accepts post-handoff client, keeps the connection open without running world logic, exposes `AccountId`, `PlayerId`, `Name`, `Faction` to Chat via the Chat↔GS channel.
 
 ## Reading scope (for agent — see [`../agent-prompt.md`](../agent-prompt.md) tiers)
@@ -16,7 +16,7 @@ Scope in [`m4-chat-server.md`](m4-chat-server.md). **Read [`../agent-rules.md`](
 - [`../adr/001-networking.md`](../adr/001-networking.md) — two listeners on Chat (Chat↔GS and Chat↔Client).
 - [`../adr/002-configuration.md`](../adr/002-configuration.md) — `ChatOptions`, `GameServerEndpointOptions`.
 - [`../adr/003-hosting.md`](../adr/003-hosting.md) — `ChatServerHost` pattern.
-- [`../adr/004-database.md`](../adr/004-database.md) — open only if the Java 4.6.2 Chat source has DAOs. Verify at inventory time; if no DAOs, skip.
+- [`../adr/004-database.md`](../adr/004-database.md) — open only if the Java 4.6.0 Chat source has DAOs. Verify at inventory time; if no DAOs, skip.
 
 **Tier B — step-triggered opens:**
 - [`../packet-buffer-adapter.md`](../packet-buffer-adapter.md) — when porting chat packet classes.
@@ -32,10 +32,10 @@ Scope in [`m4-chat-server.md`](m4-chat-server.md). **Read [`../agent-rules.md`](
 Agents must run this at milestone start:
 
 ```bash
-ls /tmp/aion-refs/4.6.2/AL-Chat/src/com/aionemu/chatserver/network/chatserver/clientpackets/
-ls /tmp/aion-refs/4.6.2/AL-Chat/src/com/aionemu/chatserver/network/chatserver/serverpackets/
-ls /tmp/aion-refs/4.6.2/AL-Chat/src/com/aionemu/chatserver/network/gameserver/
-find /tmp/aion-refs/4.6.2/AL-Chat/src -name "*PacketHandlerFactory*.java" -exec cat {} \;
+ls /tmp/aion-refs/4.6.0/AL-Chat/src/com/aionemu/chatserver/network/chatserver/clientpackets/
+ls /tmp/aion-refs/4.6.0/AL-Chat/src/com/aionemu/chatserver/network/chatserver/serverpackets/
+ls /tmp/aion-refs/4.6.0/AL-Chat/src/com/aionemu/chatserver/network/gameserver/
+find /tmp/aion-refs/4.6.0/AL-Chat/src -name "*PacketHandlerFactory*.java" -exec cat {} \;
 ```
 
 Copy the opcode → class mapping from the handler factory into `milestones/m4-packet-inventory.md` (new file created at M4 start) in the same table format as M2/M3.
@@ -47,7 +47,7 @@ Copy the opcode → class mapping from the handler factory into `milestones/m4-p
   - Inbound from Aion client on Chat-specific port.
 - GS side: `AionLightning.Game/Network/ChatServer/*` — Chat↔GS counterpart on GS (pass player ↔ chat-server context).
 - Chat controller: route messages by channel (`SHOUT`, `WHISPER`, `PARTY`, `GROUP`, `LEGION`).
-- Chat DAO — only if 4.6.2 Java has any (check at inventory time).
+- Chat DAO — only if 4.6.0 Java has any (check at inventory time).
 
 ## Port order
 
@@ -83,5 +83,5 @@ Copy the opcode → class mapping from the handler factory into `milestones/m4-p
 
 ## References
 
-- Java: `/tmp/aion-refs/4.6.2/AL-Chat/src/com/aionemu/chatserver/`.
-- Java GS side of Chat link: `/tmp/aion-refs/4.6.2/AL-Game/src/com/aionemu/gameserver/network/chatserver/`.
+- Java: `/tmp/aion-refs/4.6.0/AL-Chat/src/com/aionemu/chatserver/`.
+- Java GS side of Chat link: `/tmp/aion-refs/4.6.0/AL-Game/src/com/aionemu/gameserver/network/chatserver/`.

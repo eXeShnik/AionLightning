@@ -1,4 +1,4 @@
-# Migration (Java 4.6.2 → .NET 10)
+# Migration (Java 4.6.0 → .NET 10)
 
 Working documentation for migrating AionLightning from Java 1.7 to .NET 10. This directory is live — content is updated as work progresses.
 
@@ -32,7 +32,7 @@ Previous plan: [`../migration_plan.md`](../migration_plan.md). Kept as historica
 
 ## Java source baseline
 
-**4.6.2** (branch `4.6.0` of the `ZON3DEV/AionLightning` repo). Packet layouts, DB schema, DAO SQL and game constants all come from there. The current working branch `dot_net_10_migration` was forked off `7.8.0`, so when porting individual classes verify you are reading the 4.6.2 variant (see [R-007](risks.md)).
+**4.6.0** (branch `4.6.0` of the `ZON3DEV/AionLightning` repo). Packet layouts, DB schema, DAO SQL and game constants all come from there. The current working branch `dot_net_10_migration` was forked off `7.8.0`, so when porting individual classes verify you are reading the 4.6.0 variant (see [R-007](risks.md)).
 
 ## Target platform
 
