@@ -1,4 +1,4 @@
-namespace AionLightning.LoginServer.Network.Gameserver
+namespace AionLightning.Login.Network.GameServer
 {
     public enum GsAuthResponse
     {

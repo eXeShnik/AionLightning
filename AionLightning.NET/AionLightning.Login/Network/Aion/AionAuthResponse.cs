@@ -1,4 +1,4 @@
-namespace AionLightning.LoginServer.Network.Aion
+namespace AionLightning.Login.Network.Aion
 {
     public enum AionAuthResponse
     {

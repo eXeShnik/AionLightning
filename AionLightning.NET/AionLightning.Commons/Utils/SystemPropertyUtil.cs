@@ -10,12 +10,12 @@ namespace AionLightning.Commons.Utils
             return Get(key) != null;
         }
 
-        public static string Get(string key)
+        public static string? Get(string key)
         {
             return Get(key, null);
         }
 
-        public static string Get(string key, string def)
+        public static string? Get(string key, string? def)
         {
             if (key == null)
             {

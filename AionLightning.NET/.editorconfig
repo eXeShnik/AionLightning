@@ -1,0 +1,10 @@
+root = true
+
+[*.cs]
+
+# Packet classes keep Java UPPER_SNAKE naming — suppress analyzer warnings for those files only.
+[**/Network/**/{ClientPackets,ServerPackets,Clientpackets,Serverpackets}/*.cs]
+dotnet_diagnostic.IDE1006.severity = none
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.SA1300.severity = none
+dotnet_style_naming_rule.types_and_namespaces_should_be_pascal_case.severity = none

@@ -1,34 +1,33 @@
-using AionLightning.LoginServer.Network.Aion;
-using AionLightning.LoginServer.Network.Ncrypt;
+using AionLightning.Commons.Network;
+using AionLightning.Commons.Network.Ncrypt;
 
-namespace AionLightning.LoginServer.Network.Aion.Serverpackets
+namespace AionLightning.Login.Network.Aion.ServerPackets;
+
+public sealed class SM_INIT : AionServerPacket
 {
-    public class SM_INIT : AionServerPacket
+    private readonly int _sessionId;
+    private readonly byte[] _publicRsaKey;
+    private readonly byte[] _blowfishKey;
+
+    public SM_INIT(LoginConnection client) : base(0x00)
     {
-        private readonly int _sessionId;
-        private readonly byte[] _publicRsaKey;
-        private readonly byte[] _blowfishKey;
+        _sessionId = client.SessionId;
+        _publicRsaKey = client.RsaKeyPair.PublicKey;
+        _blowfishKey = new byte[16];
+        Random.Shared.NextBytes(_blowfishKey);
+        // TODO M2: client.Crypt.SetKey(_blowfishKey);
+    }
 
-        public SM_INIT(LoginConnection client) : base(0x00)
-        {
-            _sessionId = client.SessionId;
-            _publicRsaKey = client.GetEncryptedRSAKeyPair().PublicKey;
-            _blowfishKey = new byte[16];
-            new System.Random().NextBytes(_blowfishKey);
-            client.SetCrypt(new CryptEngine(_blowfishKey));
-        }
-
-        protected override void WriteImpl(LoginConnection con)
-        {
-            WriteD(_sessionId);
-            WriteD(0x0000c621);
-            WriteB(_publicRsaKey);
-            WriteD(0x01);
-            WriteD(0x00);
-            WriteD(0x00);
-            WriteD(0x00);
-            WriteB(_blowfishKey);
-            WriteC(0x00);
-        }
+    public override void Write(ref PacketWriter w)
+    {
+        w.WriteD(_sessionId);
+        w.WriteD(0x0000c621);
+        w.WriteB(_publicRsaKey);
+        w.WriteD(0x01);
+        w.WriteD(0x00);
+        w.WriteD(0x00);
+        w.WriteD(0x00);
+        w.WriteB(_blowfishKey);
+        w.WriteC(0x00);
     }
 }

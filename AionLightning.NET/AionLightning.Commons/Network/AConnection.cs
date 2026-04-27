@@ -1,123 +1,130 @@
-using System;
+using System.Buffers;
+using System.Buffers.Binary;
+using System.IO.Pipelines;
+using System.Net;
 using System.Net.Sockets;
-using AionLightning.Commons.Network.Packet;
 
-namespace AionLightning.Commons.Network
+namespace AionLightning.Commons.Network;
+
+/// <summary>
+/// Async Pipelines-based connection base. Reads Aion-framed packets (2-byte LE length prefix)
+/// and dispatches them to <see cref="OnPacketAsync"/>. Graceful shutdown via CancellationToken.
+/// </summary>
+public abstract class AConnection : IAsyncDisposable
 {
-    public abstract class AConnection
+    private readonly Socket _socket;
+    private readonly NetworkStream _stream;
+    protected readonly PipeReader Reader;
+    protected readonly PipeWriter Writer;
+    private int _disposed;
+
+    protected AConnection(Socket socket)
     {
-        private readonly Socket _socket;
-        private readonly IDispatcher _dispatcher;
-        protected bool _pendingClose;
-        protected bool _closed;
-        protected string _ip;
-        protected int _port;
-        protected readonly object _guard = new object();
-        protected bool _isForcedClosing;
-        protected bool _locked;
+        _socket = socket;
+        _stream = new NetworkStream(socket, ownsSocket: true);
+        Reader = PipeReader.Create(_stream);
+        Writer = PipeWriter.Create(_stream);
+    }
 
-        public AConnection(Socket socket)
+    public string IP => (_socket.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "?";
+
+    public async Task RunAsync(CancellationToken ct)
+    {
+        try
         {
-            _socket = socket;
+            await ReadLoopAsync(ct);
         }
-
-        public abstract bool Process(ByteBuffer data);
-        public abstract ByteBuffer Read();
-        public abstract ByteBuffer Write();
-
-        public void OnDisconnect()
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (IOException) { /* client disconnected */ }
+        finally
         {
-            // Implementation needed
+            await DisposeAsync();
         }
+    }
 
-        public void Initialized()
+    private async Task ReadLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
         {
-            // Implementation needed
-        }
+            ReadResult result = await Reader.ReadAsync(ct);
+            var buffer = result.Buffer;
 
-        public bool IsPendingClose()
-        {
-            return _pendingClose;
-        }
+            if (result.IsCompleted && buffer.IsEmpty)
+                break;
 
-        public void SendPacket(BaseServerPacket packet)
-        {
-            // TODO: implement
-        }
+            var consumed = buffer.Start;
+            var examined = buffer.End;
 
-        protected void EnableWriteInterest()
-        {
-            // This will be handled by the dispatcher
-        }
-
-        internal IDispatcher GetDispatcher()
-        {
-            return _dispatcher;
-        }
-
-        public Socket GetSocket()
-        {
-            return _socket;
-        }
-
-        public void Close(bool forced)
-        {
-            lock (_guard)
+            try
             {
-                if (IsWriteDisabled())
-                    return;
-
-                _isForcedClosing = forced;
-                //getDispatcher().closeConnection(this);
-            }
-        }
-
-        internal bool OnlyClose()
-        {
-            lock (_guard)
-            {
-                if (_closed)
-                    return false;
-                try
+                while (TryReadFrame(ref buffer, out var frame, out var frameEnd))
                 {
-                    if (_socket.Connected)
-                    {
-                        _socket.Close();
-                    }
-                    _closed = true;
-                }
-                catch (Exception)
-                {
+                    await OnPacketAsync(frame, ct);
+                    consumed = frameEnd;
                 }
             }
-            return true;
-        }
+            finally
+            {
+                Reader.AdvanceTo(consumed, examined);
+            }
 
-        protected bool IsWriteDisabled()
+            if (result.IsCompleted)
+                break;
+        }
+    }
+
+    private static bool TryReadFrame(
+        ref ReadOnlySequence<byte> buffer,
+        out ReadOnlySequence<byte> frame,
+        out SequencePosition frameEnd)
+    {
+        if (buffer.Length < 2)
         {
-            return _pendingClose || _closed;
+            frame = default;
+            frameEnd = default;
+            return false;
         }
 
-        public string GetIP()
+        Span<byte> lenSpan = stackalloc byte[2];
+        buffer.Slice(0, 2).CopyTo(lenSpan);
+        int packetLength = BinaryPrimitives.ReadInt16LittleEndian(lenSpan);
+
+        if (packetLength < 2)
+            throw new PacketFormatException($"Invalid packet length: {packetLength}");
+
+        if (buffer.Length < packetLength)
         {
-            return _ip;
+            frame = default;
+            frameEnd = default;
+            return false;
         }
 
-        internal bool TryLockConnection()
-        {
-            if (_locked)
-                return false;
-            return _locked = true;
-        }
+        frame = buffer.Slice(2, packetLength - 2);
+        frameEnd = buffer.GetPosition(packetLength);
+        buffer = buffer.Slice(packetLength);
+        return true;
+    }
 
-        internal void UnlockConnection()
-        {
-            _locked = false;
-        }
+    /// <summary>
+    /// Write a length-prefixed, opcode-prefixed, encrypted packet to the wire.
+    /// The raw bytes (post-encryption, with length prefix) are passed directly.
+    /// </summary>
+    protected async ValueTask WriteRawAsync(ReadOnlyMemory<byte> data, CancellationToken ct)
+    {
+        Writer.Write(data.Span);
+        await Writer.FlushAsync(ct);
+    }
 
-        protected abstract bool ProcessData(byte[] data);
-        protected abstract bool WriteData(byte[] data);
-        protected abstract long GetDisconnectionDelay();
-        protected abstract void OnServerClose();
+    /// <summary>Called for every complete decrypted frame. Subclass decrypts and dispatches.</summary>
+    protected abstract ValueTask OnPacketAsync(ReadOnlySequence<byte> frame, CancellationToken ct);
+
+    public virtual async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            return;
+
+        await Reader.CompleteAsync();
+        await Writer.CompleteAsync();
+        await _stream.DisposeAsync();
     }
 }

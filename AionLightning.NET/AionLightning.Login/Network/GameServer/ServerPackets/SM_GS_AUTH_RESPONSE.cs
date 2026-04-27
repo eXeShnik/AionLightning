@@ -1,24 +1,24 @@
-using AionLightning.LoginServer.Network.Gameserver;
+using AionLightning.Commons.Network;
+using AionLightning.Login.Network.GameServer;
 
-namespace AionLightning.LoginServer.Network.Gameserver.Serverpackets
+namespace AionLightning.Login.Network.GameServer.ServerPackets;
+
+public sealed class SM_GS_AUTH_RESPONSE : AionServerPacket
 {
-    public class SM_GS_AUTH_RESPONSE : GsServerPacket
+    private readonly GsAuthResponse _response;
+    private readonly byte _serverId;
+
+    public SM_GS_AUTH_RESPONSE(GsAuthResponse response, byte serverId = 0) : base(0x00)
     {
-        private readonly GsAuthResponse _response;
+        _response = response;
+        _serverId = serverId;
+    }
 
-        public SM_GS_AUTH_RESPONSE(GsAuthResponse response)
-        {
-            _response = response;
-        }
-
-        protected override void WriteImpl(GsConnection con)
-        {
-            WriteC(0);
-            WriteC((int)_response);
-            if (_response == GsAuthResponse.AUTHED)
-            {
-                WriteC(con.GameServerInfo.Id);
-            }
-        }
+    public override void Write(ref PacketWriter w)
+    {
+        w.WriteC(0);
+        w.WriteC((byte)_response);
+        if (_response == GsAuthResponse.AUTHED)
+            w.WriteC(_serverId);
     }
 }

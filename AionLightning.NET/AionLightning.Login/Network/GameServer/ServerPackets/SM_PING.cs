@@ -1,12 +1,13 @@
-using AionLightning.LoginServer.Network.Gameserver;
+using AionLightning.Commons.Network;
 
-namespace AionLightning.LoginServer.Network.Gameserver.Serverpackets
+namespace AionLightning.Login.Network.GameServer.ServerPackets;
+
+public sealed class SM_PING : AionServerPacket
 {
-    public class SM_PING : GsServerPacket
+    public SM_PING() : base(0x0B) { }
+
+    public override void Write(ref PacketWriter w)
     {
-        protected override void WriteImpl(GsConnection con)
-        {
-            WriteC(11);
-        }
+        w.WriteC(11);
     }
 }

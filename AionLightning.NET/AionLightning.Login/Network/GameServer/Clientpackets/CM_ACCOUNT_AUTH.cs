@@ -1,31 +1,26 @@
 using AionLightning.Commons.Network;
-using AionLightning.LoginServer.Controller;
-using AionLightning.LoginServer.Network.Aion;
-using Microsoft.Extensions.Logging;
+using AionLightning.Login.Network.GameServer;
 
-namespace AionLightning.LoginServer.Network.Gameserver.Clientpackets
+namespace AionLightning.Login.Network.GameServer.Clientpackets;
+
+public sealed class CM_ACCOUNT_AUTH : GsClientPacket
 {
-    public class CM_ACCOUNT_AUTH : GsClientPacket
+    private int _accountId;
+    private int _loginOk;
+    private int _playOk1;
+    private int _playOk2;
+
+    public override void Read(ref PacketReader r)
     {
-        private SessionKey _sessionKey;
+        _accountId = r.ReadD();
+        _loginOk = r.ReadD();
+        _playOk1 = r.ReadD();
+        _playOk2 = r.ReadD();
+    }
 
-        public CM_ACCOUNT_AUTH(ByteBuffer buffer, GsConnection client, ILogger<CM_ACCOUNT_AUTH> logger) : base(buffer, client, logger)
-        {
-        }
-
-        protected override void ReadImpl()
-        {
-            int accountId = ReadD();
-            int loginOk = ReadD();
-            int playOk1 = ReadD();
-            int playOk2 = ReadD();
-
-            _sessionKey = new SessionKey(accountId, loginOk, playOk1, playOk2);
-        }
-
-        protected override void RunImpl()
-        {
-            AccountController.CheckAuth(_sessionKey, GetClient() as GsConnection);
-        }
+    public override ValueTask RunAsync(CancellationToken ct)
+    {
+        // TODO M2: AccountController.CheckAuth
+        return ValueTask.CompletedTask;
     }
 }

@@ -1,20 +1,19 @@
-using AionLightning.LoginServer.Network.Gameserver;
+using AionLightning.Commons.Network;
 
-namespace AionLightning.LoginServer.Network.Gameserver.Serverpackets
+namespace AionLightning.Login.Network.GameServer.ServerPackets;
+
+public sealed class SM_REQUEST_KICK_ACCOUNT : AionServerPacket
 {
-    public class SM_REQUEST_KICK_ACCOUNT : GsServerPacket
+    private readonly int _accountId;
+
+    public SM_REQUEST_KICK_ACCOUNT(int accountId) : base(0x02)
     {
-        private readonly int _accountId;
+        _accountId = accountId;
+    }
 
-        public SM_REQUEST_KICK_ACCOUNT(int accountId)
-        {
-            _accountId = accountId;
-        }
-
-        protected override void WriteImpl(GsConnection con)
-        {
-            WriteC(2);
-            WriteD(_accountId);
-        }
+    public override void Write(ref PacketWriter w)
+    {
+        w.WriteC(2);
+        w.WriteD(_accountId);
     }
 }

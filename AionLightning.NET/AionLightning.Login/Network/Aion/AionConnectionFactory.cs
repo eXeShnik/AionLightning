@@ -1,26 +1,20 @@
 using System.Net.Sockets;
 using AionLightning.Commons.Network;
-using AionLightning.Login.Network.Factories;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Login.Network.Aion;
 
-public class AionConnectionFactory : IConnectionFactory
+public sealed class AionConnectionFactory : IConnectionFactory<LoginConnection>
 {
-    private readonly ILoggerFactory _loggerFactory;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<LoginConnection> _log;
 
-    public AionConnectionFactory(ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
+    public AionConnectionFactory(ILogger<LoginConnection> log)
     {
-        _loggerFactory = loggerFactory;
-        _serviceProvider = serviceProvider;
+        _log = log;
     }
 
-    public AConnection Create(Socket socket, IDispatcher dispatcher)
+    public LoginConnection Create(Socket socket, CancellationToken ct)
     {
-        var packetHandlerFactory = _serviceProvider.GetRequiredService<AionPacketHandlerFactory>();
-        var logger = _loggerFactory.CreateLogger<LoginConnection>();
-        return new LoginConnection(socket, dispatcher, logger, packetHandlerFactory);
+        return new LoginConnection(socket, _log);
     }
 }

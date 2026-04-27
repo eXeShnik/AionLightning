@@ -1,14 +1,13 @@
-namespace AionLightning.LoginServer.Model
-{
-    public class ReconnectingAccount
-    {
-        public Account Account { get; }
-        public int ReconnectionKey { get; }
+namespace AionLightning.Login.Model;
 
-        public ReconnectingAccount(Account account, int reconnectionKey)
-        {
-            Account = account;
-            ReconnectionKey = reconnectionKey;
-        }
+public sealed class ReconnectingAccount
+{
+    public Account Account { get; }
+    public int ReconnectionKey { get; }
+
+    public ReconnectingAccount(Account account, int reconnectionKey)
+    {
+        Account = account;
+        ReconnectionKey = reconnectionKey;
     }
 }

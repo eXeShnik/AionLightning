@@ -66,7 +66,7 @@ namespace AionLightning.Commons.Network
             return _max;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is IPRange other)
             {

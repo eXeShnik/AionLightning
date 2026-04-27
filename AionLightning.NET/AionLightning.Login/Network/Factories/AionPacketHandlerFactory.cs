@@ -1,82 +1,51 @@
-using System.Buffers;
+using AionLightning.Commons.Network;
 using AionLightning.Login.Network.Aion;
 using AionLightning.Login.Network.Aion.ClientPackets;
 using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Login.Network.Factories;
 
-public class AionPacketHandlerFactory
+public sealed class AionPacketHandlerFactory
 {
     private readonly ILogger<AionPacketHandlerFactory> _logger;
-    private readonly IServiceProvider _serviceProvider;
 
-    public AionPacketHandlerFactory(ILogger<AionPacketHandlerFactory> logger, IServiceProvider serviceProvider)
+    public AionPacketHandlerFactory(ILogger<AionPacketHandlerFactory> logger)
     {
         _logger = logger;
-        _serviceProvider = serviceProvider;
     }
 
-    public AionClientPacket? Handle(ReadOnlySequence<byte> data, LoginConnection client)
+    public AionClientPacket? Resolve(byte opcode, LoginConnection.LoginState state)
     {
-        AionClientPacket? msg = null;
-        var state = client.State;
-        var reader = new SequenceReader<byte>(data);
-        reader.TryRead(out var id);
-
         switch (state)
         {
             case LoginConnection.LoginState.CONNECTED:
+                return opcode switch
                 {
-                    switch (id)
-                    {
-                        case 0x07:
-                            msg = new CM_AUTH_GG((ILogger<CM_AUTH_GG>)_serviceProvider.GetService(typeof(ILogger<CM_AUTH_GG>)), data, client);
-                            break;
-                        case 0x08:
-                            msg = new CM_UPDATE_SESSION((ILogger<CM_UPDATE_SESSION>)_serviceProvider.GetService(typeof(ILogger<CM_UPDATE_SESSION>)), data, client);
-                            break;
-                        default:
-                            UnknownPacket(state, id);
-                            break;
-                    }
-                    break;
-                }
+                    0x07 => new CM_AUTH_GG(),
+                    0x08 => new CM_UPDATE_SESSION(),
+                    _ => Unknown(state, opcode),
+                };
             case LoginConnection.LoginState.AUTHED_GG:
+                return opcode switch
                 {
-                    switch (id)
-                    {
-                        case 0x0B:
-                            msg = new CM_LOGIN((ILogger<CM_LOGIN>)_serviceProvider.GetService(typeof(ILogger<CM_LOGIN>)), data, client);
-                            break;
-                        default:
-                            UnknownPacket(state, id);
-                            break;
-                    }
-                    break;
-                }
+                    0x0B => new CM_LOGIN(),
+                    _ => Unknown(state, opcode),
+                };
             case LoginConnection.LoginState.AUTHED_LOGIN:
+                return opcode switch
                 {
-                    switch (id)
-                    {
-                        case 0x05:
-                            msg = new CM_SERVER_LIST((ILogger<CM_SERVER_LIST>)_serviceProvider.GetService(typeof(ILogger<CM_SERVER_LIST>)), data, client);
-                            break;
-                        case 0x02:
-                            msg = new CM_PLAY((ILogger<CM_PLAY>)_serviceProvider.GetService(typeof(ILogger<CM_PLAY>)), data, client);
-                            break;
-                        default:
-                            UnknownPacket(state, id);
-                            break;
-                    }
-                    break;
-                }
+                    0x05 => new CM_SERVER_LIST(),
+                    0x02 => new CM_PLAY(),
+                    _ => Unknown(state, opcode),
+                };
+            default:
+                return Unknown(state, opcode);
         }
-
-        return msg;
     }
 
-    private void UnknownPacket(LoginConnection.LoginState state, int id)
+    private AionClientPacket? Unknown(LoginConnection.LoginState state, byte opcode)
     {
-        _logger.LogWarning("Unknown packet received from client: state={state} id={id}", state, id);
+        _logger.LogWarning("Unknown packet: state={State} opcode=0x{Opcode:X2}", state, opcode);
+        return null;
     }
 }

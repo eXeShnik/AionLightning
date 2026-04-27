@@ -1,21 +1,19 @@
-using System;
-using AionLightning.LoginServer.Network.Aion;
+using AionLightning.Login.Network.Aion;
 
-namespace AionLightning.LoginServer.Model
+namespace AionLightning.Login.Model;
+
+public sealed class Account
 {
-    public class Account
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Password { get; set; }
-        public byte AccessLevel { get; set; }
-        public byte Membership { get; set; }
-        public sbyte Activated { get; set; }
-        public DateTime? LastLogin { get; set; }
-        public string LastIp { get; set; }
-        public string LastMac { get; set; }
-        public SessionKey SessionKey { get; set; }
-        public GameServerInfo GameServerInfo { get; set; }
-        public int? Toll { get; set; }
-    }
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public byte AccessLevel { get; set; }
+    public byte Membership { get; set; }
+    public sbyte Activated { get; set; }
+    public DateTime? LastLogin { get; set; }
+    public string? LastIp { get; set; }
+    public string? LastMac { get; set; }
+    public SessionKey? SessionKey { get; set; }
+    public global::AionLightning.Login.GameServerInfo? GameServerInfo { get; set; }
+    public long? Toll { get; set; }
 }

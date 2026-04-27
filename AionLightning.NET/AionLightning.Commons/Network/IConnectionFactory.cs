@@ -1,9 +1,8 @@
 using System.Net.Sockets;
 
-namespace AionLightning.Commons.Network
+namespace AionLightning.Commons.Network;
+
+public interface IConnectionFactory<TConnection> where TConnection : AConnection
 {
-    public interface IConnectionFactory
-    {
-        AConnection Create(Socket socket, IDispatcher dispatcher);
-    }
+    TConnection Create(Socket socket, CancellationToken ct);
 }

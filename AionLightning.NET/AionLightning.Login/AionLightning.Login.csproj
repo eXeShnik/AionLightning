@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
 <Project Sdk="Microsoft.NET.Sdk">
+
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>$(DotNetVersion)</TargetFramework>
@@ -8,11 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
-        <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
-        <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+        <PackageReference Include="Evolve" Version="3.1.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(ExtensionsVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="$(ExtensionsVersion)" />
+        <PackageReference Include="MySqlConnector" Version="2.3.7" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     </ItemGroup>
 
@@ -21,22 +21,19 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="$(ExtensionsVersion)" />
+        <None Include="..\Sql\login\**\*.sql" CopyToOutputDirectory="PreserveNewest" LinkBase="Sql/login/" />
     </ItemGroup>
 
     <ItemGroup>
         <None Include="Scripts\**\*.cs">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
-        <!-- Don't remove, let Rider analyze but exclude from build -->
-        <Compile Update="Scripts\**\*.cs">
-            <Visible>true</Visible>
-        </Compile>
     </ItemGroup>
-    
+
     <Target Name="RemoveScriptsFromBuild" BeforeTargets="BeforeBuild">
         <ItemGroup>
             <Compile Remove="Scripts\**\*.cs" />
         </ItemGroup>
     </Target>
+
 </Project>

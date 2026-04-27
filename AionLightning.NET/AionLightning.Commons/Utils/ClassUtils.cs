@@ -16,7 +16,7 @@ namespace AionLightning.Commons.Utils
 
         public static bool IsPackageMember(Type clazz, string packageName)
         {
-            return IsPackageMember(clazz.FullName, packageName);
+            return IsPackageMember(clazz.FullName ?? string.Empty, packageName);
         }
 
         public static bool IsPackageMember(string className, string packageName)

@@ -11,8 +11,8 @@ namespace AionLightning.Commons.Services
     public class CronService
     {
         private readonly ILogger<CronService> _log;
-        private IScheduler _scheduler;
-        private Type _runnableRunner;
+        private IScheduler? _scheduler;
+        private Type? _runnableRunner;
 
         public CronService(ILogger<CronService> log)
         {
@@ -61,7 +61,7 @@ namespace AionLightning.Commons.Services
             var jobName = runnable.GetType().Name;
             var jobGroup = "DEFAULT";
 
-            var jobDetail = JobBuilder.Create(_runnableRunner)
+            var jobDetail = JobBuilder.Create(_runnableRunner!)
                 .WithIdentity(jobName, jobGroup)
                 .UsingJobData("runnable", runnable.GetType().AssemblyQualifiedName)
                 .Build();
@@ -73,7 +73,7 @@ namespace AionLightning.Commons.Services
 
             try
             {
-                await _scheduler.ScheduleJob(jobDetail, trigger);
+                await _scheduler!.ScheduleJob(jobDetail, trigger);
                 return true;
             }
             catch (SchedulerException e)
@@ -90,7 +90,7 @@ namespace AionLightning.Commons.Services
 
             try
             {
-                await _scheduler.DeleteJob(new JobKey(jobName, jobGroup));
+                await _scheduler!.DeleteJob(new JobKey(jobName, jobGroup));
                 return true;
             }
             catch (SchedulerException e)

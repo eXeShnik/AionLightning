@@ -1,30 +1,14 @@
-using System.Collections.Generic;
-using AionLightning.LoginServer.Controller;
-using AionLightning.LoginServer.Model.Base;
-using AionLightning.LoginServer.Network.Gameserver;
+using AionLightning.Commons.Network;
 
-namespace AionLightning.LoginServer.Network.Gameserver.Serverpackets
+namespace AionLightning.Login.Network.GameServer.ServerPackets;
+
+public sealed class SM_MACBAN_LIST : AionServerPacket
 {
-    public class SM_MACBAN_LIST : GsServerPacket
+    public SM_MACBAN_LIST() : base(0x09) { }
+
+    public override void Write(ref PacketWriter w)
     {
-        private readonly Dictionary<string, BannedMacEntry> _bannedList;
-
-        public SM_MACBAN_LIST()
-        {
-            _bannedList = BannedMacManager.GetInstance().GetMap();
-        }
-
-        protected override void WriteImpl(GsConnection con)
-        {
-            WriteC(9);
-            WriteD(_bannedList.Count);
-
-            foreach (var entry in _bannedList.Values)
-            {
-                WriteS(entry.Mac);
-                WriteQ(new System.DateTimeOffset(entry.TimeEnd).ToUnixTimeMilliseconds());
-                WriteS(entry.Details);
-            }
-        }
+        // TODO M2: serialize banned MAC list from BannedMacManager
+        w.WriteD(0);
     }
 }

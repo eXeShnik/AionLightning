@@ -45,10 +45,10 @@ namespace AionLightning.Commons.Utils
         private const int MagicMask2 = -272236544;
         private const int MagicSeed = 19650218;
         private const long DefaultSeed = 5489;
-        private int[] _mt;
+        private int[] _mt = new int[624];
         private int _mti;
         private bool _compat;
-        private int[] _ibuf;
+        private int[]? _ibuf;
 
         public MTRandom()
           : this(false)

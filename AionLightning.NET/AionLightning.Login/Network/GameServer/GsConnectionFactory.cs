@@ -1,26 +1,20 @@
 using System.Net.Sockets;
 using AionLightning.Commons.Network;
-using AionLightning.Login.Network.Factories;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace AionLightning.Login.Network.Gameserver;
+namespace AionLightning.Login.Network.GameServer;
 
-public class GsConnectionFactory : IConnectionFactory
+public sealed class GsConnectionFactory : IConnectionFactory<GsConnection>
 {
-    private readonly ILoggerFactory _loggerFactory;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<GsConnection> _log;
 
-    public GsConnectionFactory(ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
+    public GsConnectionFactory(ILogger<GsConnection> log)
     {
-        _loggerFactory = loggerFactory;
-        _serviceProvider = serviceProvider;
+        _log = log;
     }
 
-    public AConnection Create(Socket socket, IDispatcher dispatcher)
+    public GsConnection Create(Socket socket, CancellationToken ct)
     {
-        var packetHandlerFactory = _serviceProvider.GetRequiredService<GsPacketHandlerFactory>();
-        var logger = _loggerFactory.CreateLogger<GsConnection>();
-        return new GsConnection(socket, dispatcher, logger, packetHandlerFactory);
+        return new GsConnection(socket, _log);
     }
 }

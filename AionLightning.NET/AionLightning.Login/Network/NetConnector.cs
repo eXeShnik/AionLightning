@@ -1,32 +1,32 @@
-using System.Net;
-using AionLightning.Commons.Network;
-using AionLightning.Login.Configs;
+using AionLightning.Login.Configs.Options;
 using AionLightning.Login.Network.Aion;
-using AionLightning.Login.Network.Gameserver;
+using AionLightning.Login.Network.GameServer;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AionLightning.Login.Network;
 
-public class NetConnector
+/// <summary>
+/// Wires up TcpListener-based accept loops for both Aion-client and GameServer ports.
+/// TODO M2: replace stub with real TcpListener accept loop using AionConnectionFactory / GsConnectionFactory.
+/// </summary>
+public sealed class NetConnector
 {
     private readonly ILogger<NetConnector> _logger;
-    private readonly NioServer _nioServer;
+    private readonly NetworkOptions _net;
 
-    public NetConnector(ILogger<NetConnector> logger, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
+    public NetConnector(
+        ILogger<NetConnector> logger,
+        IOptions<NetworkOptions> net)
     {
         _logger = logger;
-
-        var aionConnectionFactory = new AionConnectionFactory(loggerFactory, serviceProvider);
-        var gsConnectionFactory = new GsConnectionFactory(loggerFactory, serviceProvider);
-
-        var aionCfg = new ServerCfg(IPAddress.Parse(Config.LoginBindAddress), Config.LoginPort, "Aion Connections", aionConnectionFactory);
-        var gsCfg = new ServerCfg(IPAddress.Parse(Config.GameBindAddress), Config.GamePort, "Gs Connections", gsConnectionFactory);
-
-        _nioServer = new NioServer(Config.NioReadThreads, loggerFactory, gsCfg, aionCfg);
+        _net = net.Value;
     }
 
     public void Connect()
     {
-        _nioServer.Connect();
+        _logger.LogInformation(
+            "NetConnector ready (stub) — Aion port {ClientPort}, GS port {GsPort}",
+            _net.ClientPort, _net.GameServerPort);
     }
 }
