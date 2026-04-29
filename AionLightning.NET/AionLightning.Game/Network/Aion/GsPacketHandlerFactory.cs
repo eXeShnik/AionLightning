@@ -2,6 +2,7 @@ using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion.ClientPackets;
 using AionLightning.Game.Network.Cs;
 using GameWorld = AionLightning.Game.World.World;
@@ -21,6 +22,7 @@ public sealed class GsPacketHandlerFactory
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IEventBus _eventBus;
     private readonly CsConnectionHolder _csHolder;
+    private readonly IDataManager _dataManager;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -31,17 +33,19 @@ public sealed class GsPacketHandlerFactory
         GameWorld world,
         PlayerConnectionRegistry connRegistry,
         IEventBus eventBus,
-        CsConnectionHolder csHolder)
+        CsConnectionHolder csHolder,
+        IDataManager dataManager)
     {
-        _log          = log;
-        _gsInfo       = gsInfo.Value;
-        _network      = network.Value;
-        _playerDao    = playerDao;
+        _log           = log;
+        _gsInfo        = gsInfo.Value;
+        _network       = network.Value;
+        _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
-        _world        = world;
-        _connRegistry = connRegistry;
-        _eventBus     = eventBus;
-        _csHolder     = csHolder;
+        _world         = world;
+        _connRegistry  = connRegistry;
+        _eventBus      = eventBus;
+        _csHolder      = csHolder;
+        _dataManager   = dataManager;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -59,7 +63,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0x174 => new CM_CHARACTER_LIST(conn, _playerDao, _appearanceDao),
                 0x198 => new CM_MAY_LOGIN_INTO_GAME(conn),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _world, _connRegistry),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _world, _connRegistry, _dataManager),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
                 0xC1  => new CM_QUIT(conn),

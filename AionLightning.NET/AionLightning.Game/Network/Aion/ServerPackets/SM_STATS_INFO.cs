@@ -1,29 +1,37 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Templates.Stats;
 
 namespace AionLightning.Game.Network.Aion.ServerPackets;
 
-/// <summary>
-/// Sends player stat sheet. All values are stubs sufficient to make the client functional.
-/// A full implementation requires the stat calculation system (out of M5 scope).
-/// </summary>
 public sealed class SM_STATS_INFO : AionServerPacket
 {
     private readonly Player _player;
+    private readonly PlayerStatsTemplate? _template;
 
-    public SM_STATS_INFO(Player player) : base(0x01) => _player = player;
+    public SM_STATS_INFO(Player player, PlayerStatsTemplate? template = null) : base(0x01)
+    {
+        _player   = player;
+        _template = template;
+    }
 
     public override void Write(ref PacketWriter w)
     {
         var p = _player;
+        var t = _template;
         var epoch = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         int gameTime = (int)(DateTime.UtcNow - epoch).TotalMinutes;
 
         w.WriteD(p.ObjectId);
         w.WriteD(gameTime);
 
-        // Current attributes (power, health, accuracy, agility, knowledge, will)
-        w.WriteH(100); w.WriteH(100); w.WriteH(100); w.WriteH(100); w.WriteH(100); w.WriteH(100);
+        // Current attributes (power, health, agility, accuracy, knowledge, will)
+        w.WriteH((short)(t?.Power    ?? 100));
+        w.WriteH((short)(t?.Health   ?? 100));
+        w.WriteH((short)(t?.Agility  ?? 100));
+        w.WriteH((short)(t?.Accuracy ?? 100));
+        w.WriteH((short)(t?.Knowledge ?? 100));
+        w.WriteH((short)(t?.Will     ?? 100));
 
         // Elemental resistances (water, wind, earth, fire, light, dark)
         w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0);
@@ -48,7 +56,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(60);   w.WriteD(60);  // max fly time, current fly time
         w.WriteH(0);                   // fly state
 
-        w.WriteH(100); w.WriteH(0);    // main/off-hand P-attack
+        w.WriteH((short)(t?.MainHandAttack ?? 100)); w.WriteH(0); // main/off-hand P-attack
         w.WriteH(0);                   // unk 3.0
         w.WriteD(100);                 // P-def
         w.WriteH(100); w.WriteH(0);    // main/off-hand M-attack
@@ -56,10 +64,10 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0); w.WriteH(0);      // M-resist, unk 3.0
         w.WriteF(5.0f);                // attack range
         w.WriteH(1500);                // attack speed
-        w.WriteH(100);                 // evasion
-        w.WriteH(0); w.WriteH(0);      // parry, block
-        w.WriteH(0); w.WriteH(0);      // main/off-hand P-crit
-        w.WriteH(0); w.WriteH(0);      // main/off-hand P-accuracy
+        w.WriteH((short)(t?.Evasion ?? 100)); // evasion
+        w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // parry, block
+        w.WriteH((short)(t?.MainHandCritRate ?? 0)); w.WriteH(0); // main/off-hand P-crit
+        w.WriteH((short)(t?.MainHandAccuracy ?? 0)); w.WriteH(0); // main/off-hand P-accuracy
         w.WriteH(1);                   // unk
         w.WriteH(0); w.WriteH(0);      // M-accuracy, M-crit
         w.WriteH(0);                   // unk
@@ -83,23 +91,28 @@ public sealed class SM_STATS_INFO : AionServerPacket
         // 4.3 NA
         w.WriteH(0); w.WriteH(0); w.WriteH(1); w.WriteH(0);
 
-        // Base attributes (same as current — no buff bonuses in M5)
-        w.WriteH(100); w.WriteH(100); w.WriteH(100); w.WriteH(100); w.WriteH(100); w.WriteH(100);
+        // Base attributes (same as current — no buff bonuses)
+        w.WriteH((short)(t?.Power    ?? 100));
+        w.WriteH((short)(t?.Health   ?? 100));
+        w.WriteH((short)(t?.Agility  ?? 100));
+        w.WriteH((short)(t?.Accuracy ?? 100));
+        w.WriteH((short)(t?.Knowledge ?? 100));
+        w.WriteH((short)(t?.Will     ?? 100));
         w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); // resistances
         w.WriteD(maxHp); w.WriteD(maxMp);
         w.WriteD(6000); w.WriteD(60);  // base DP, fly time
-        w.WriteH(100); w.WriteH(0);    // base main/off-hand P-attack
+        w.WriteH((short)(t?.MainHandAttack ?? 100)); w.WriteH(0); // base main/off-hand P-attack
         w.WriteD(100); w.WriteD(100);  // base M-attack, base P-def
         w.WriteD(100);                 // base M-def
         w.WriteH(0); w.WriteF(5.0f);   // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
-        w.WriteH(100);                 // base evasion
-        w.WriteH(0); w.WriteH(0);      // base parry, block
-        w.WriteH(0); w.WriteH(0);      // base main/off-hand P-crit
+        w.WriteH((short)(t?.Evasion ?? 100)); // base evasion
+        w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // base parry, block
+        w.WriteH((short)(t?.MainHandCritRate ?? 0)); w.WriteH(0); // base main/off-hand P-crit
         w.WriteH(0);                   // base M-crit
         w.WriteH(0);                   // unk
-        w.WriteH(0); w.WriteH(0);      // base main/off-hand P-accuracy
-        w.WriteH(0); w.WriteH(0);      // off-hand M-accuracy, base M-accuracy
+        w.WriteH((short)(t?.MainHandAccuracy ?? 0)); w.WriteH(0); // base main/off-hand P-accuracy
+        w.WriteH(0); w.WriteH((short)(t?.MagicAccuracy ?? 0)); // off-hand M-accuracy, base M-accuracy
         w.WriteH(0);                   // base concentration
         w.WriteH(0); w.WriteH(0);      // base M-boost, suppress
         w.WriteH(0);                   // base heal boost

@@ -36,4 +36,9 @@
             <Compile Remove="Scripts\**\*.cs" />
         </ItemGroup>
     </Target>
+    <ItemGroup>
+        <Content Include="..\..\AL-Game\data\static_data\**\*"
+                 CopyToOutputDirectory="PreserveNewest"
+                 Link="data\static_data\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
 </Project>

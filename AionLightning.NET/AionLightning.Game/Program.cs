@@ -8,6 +8,7 @@ using AionLightning.Commons.Services;
 using AionLightning.Game;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Ls;
@@ -22,7 +23,10 @@ builder.Services
     .AddAionOptions<NetworkOptions>("GameServer:Network")
     .AddAionOptions<LsConnectionOptions>("GameServer:LoginServer")
     .AddAionOptions<CsConnectionOptions>("GameServer:ChatServer")
-    .AddAionOptions<GameServerInfoOptions>("GameServer:Info");
+    .AddAionOptions<GameServerInfoOptions>("GameServer:Info")
+    .AddAionOptions<WorldOptions>("GameServer:World")
+    .AddAionOptions<RateOptions>("GameServer:Rates")
+    .AddAionOptions<GsOptions>("GameServer:Gs");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -32,6 +36,9 @@ builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 
 // World
 builder.Services.AddSingleton<GameWorld>();
+
+// Data
+builder.Services.AddSingleton<IDataManager, DataManager>();
 
 // DAOs
 builder.Services.AddSingleton<IPlayerDao, PlayerDaoImpl>();

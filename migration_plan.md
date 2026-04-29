@@ -69,4 +69,17 @@
    - [✓] GS-side CS connection (CsConnection, CsConnectionHolder, reconnect loop in GameServerHost)
    - [✓] CM_CHAT_AUTH (0x14C) in GsPacketHandlerFactory; SM_CHAT_INIT (0xE6) to Aion client
    - [✓] Player logout notification from GsClientConnection.DisposeAsync
-8. [ ] Migrate `AL-Game` module (beyond Chat wiring skeleton already in place).
+8. [In-Progress] Migrate `AL-Game` module.
+   - [✓] Player model, DAO layer (player + appearance), movement + login packet handlers
+   - [✓] World registry, event bus, scripting, LS/CS connections
+   - [✓] Config options: WorldOptions, RateOptions, GsOptions (IOptions<T> DI pattern)
+   - [✓] DataManager + XML loading infrastructure (IDataManager DI singleton)
+   - [✓] PlayerStatsData — loads per-class XML templates from data/static_data/stats/player/, post-load math (HP/MP/evasion/block/parry recalc)
+   - [✓] PlayerInitialData — loads spawn locations from player_initial_data.xml
+   - [✓] PlayerStatsTemplate + StatsTemplate + CreatureSpeeds model hierarchy
+   - [✓] CM_ENTER_WORLD wired to DataManager — real HP/MP from class+level template
+   - [✓] SM_STATS_INFO uses real attributes (power/health/agility/accuracy/knowledge/will, evasion/block/parry, combat stats) from template
+   - [ ] Skill data + PlayerSkillList (template lookup + basic cooldown)
+   - [ ] NPC template + basic spawning (SpawnTemplate → Npc in World, no AI)
+   - [ ] PlayerExperienceTable, XP gain, level-up handling
+   - [ ] Item system, inventory model, starting items from PlayerInitialData
