@@ -42,7 +42,7 @@
 2. [✓] Implement `ILogger` with console output for all projects.
 3. [✓] Refactor logging to use constructor injection.
 4. [✓] Add `BouncyCastle.Cryptography` package.
-5. [In-Progress] Migrate `AL-Commons` module.
+5. [✓] Migrate `AL-Commons` module.
    - [✓] `utils`
    - [✓] `callbacks`
    - [✓] `configuration`
@@ -51,9 +51,9 @@
    - [✓] `objects`
    - [✓] `options`
    - [✓] `scripting`
-   - [ ] `services`
-   - [ ] `taskmanager`
-   - [ ] `versionning`
+   - [✓] `services` (CronService/Quartz, ScriptService/Roslyn, FolderListenerService)
+   - [✓] `taskmanager` (AbstractLockManager → ReaderWriterLockSlim)
+   - [✓] `versionning` (Version reads from AssemblyInformationalVersionAttribute; Locator is JAR-specific, not ported)
 6. [✓] Migrate `AL-Login` module.
    - [✓] Network layer (TcpListener/TcpClient), packet framing, blowfish+RSA crypto
    - [✓] Auth flow: CM_LOGIN, CM_PLAY, CM_SERVER_LIST, CM_AUTH_GG, CM_UPDATE_SESSION
@@ -69,7 +69,7 @@
    - [✓] GS-side CS connection (CsConnection, CsConnectionHolder, reconnect loop in GameServerHost)
    - [✓] CM_CHAT_AUTH (0x14C) in GsPacketHandlerFactory; SM_CHAT_INIT (0xE6) to Aion client
    - [✓] Player logout notification from GsClientConnection.DisposeAsync
-8. [In-Progress] Migrate `AL-Game` module.
+8. [✓] Migrate `AL-Game` module.
    - [✓] Player model, DAO layer (player + appearance), movement + login packet handlers
    - [✓] World registry, event bus, scripting, LS/CS connections
    - [✓] Config options: WorldOptions, RateOptions, GsOptions (IOptions<T> DI pattern)
