@@ -44,6 +44,7 @@ builder.Services.AddSingleton<IDataManager, DataManager>();
 // DAOs
 builder.Services.AddSingleton<IPlayerDao, PlayerDaoImpl>();
 builder.Services.AddSingleton<IPlayerAppearanceDao, PlayerAppearanceDaoImpl>();
+builder.Services.AddSingleton<IItemDao, ItemDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();

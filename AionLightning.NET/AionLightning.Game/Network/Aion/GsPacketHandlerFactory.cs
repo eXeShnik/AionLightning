@@ -18,6 +18,7 @@ public sealed class GsPacketHandlerFactory
     private readonly NetworkOptions _network;
     private readonly IPlayerDao _playerDao;
     private readonly IPlayerAppearanceDao _appearanceDao;
+    private readonly IItemDao _itemDao;
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IEventBus _eventBus;
@@ -30,6 +31,7 @@ public sealed class GsPacketHandlerFactory
         IOptions<NetworkOptions> network,
         IPlayerDao playerDao,
         IPlayerAppearanceDao appearanceDao,
+        IItemDao itemDao,
         GameWorld world,
         PlayerConnectionRegistry connRegistry,
         IEventBus eventBus,
@@ -41,6 +43,7 @@ public sealed class GsPacketHandlerFactory
         _network       = network.Value;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
+        _itemDao       = itemDao;
         _world         = world;
         _connRegistry  = connRegistry;
         _eventBus      = eventBus;
@@ -63,7 +66,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0x174 => new CM_CHARACTER_LIST(conn, _playerDao, _appearanceDao),
                 0x198 => new CM_MAY_LOGIN_INTO_GAME(conn),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _world, _connRegistry, _dataManager),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _world, _connRegistry, _dataManager),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
                 0xC1  => new CM_QUIT(conn),

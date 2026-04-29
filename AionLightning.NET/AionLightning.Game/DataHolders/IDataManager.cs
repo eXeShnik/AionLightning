@@ -9,4 +9,5 @@ public interface IDataManager
     SkillTreeData         SkillTree     { get; }
     NpcData               Npcs          { get; }
     SpawnsData            Spawns        { get; }
+    ItemData              Items         { get; }
 }

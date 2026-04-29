@@ -9,6 +9,8 @@ public sealed class PlayerInitialData
     public SpawnLocation ElyosSpawn    { get; private set; } = new(210010000, 1212.94f,  1044.85f, 140.76f,  32);
     public SpawnLocation AsmodianSpawn { get; private set; } = new(220010000,  571.04f, 2787.34f, 299.88f,  32);
 
+    private readonly Dictionary<PlayerClass, List<StartingItem>> _startItems = new();
+
     public void Load(string dataRoot, ILogger log)
     {
         var file = Path.Combine(dataRoot, "player_initial_data.xml");
@@ -28,8 +30,16 @@ public sealed class PlayerInitialData
         if (root.AsmodianSpawn is { } a)
             AsmodianSpawn = new SpawnLocation(a.MapId, a.X, a.Y, a.Z, a.Heading);
 
-        log.LogInformation("PlayerInitialData: Elyos spawn map={EMap}, Asmodian spawn map={AMap}",
-            ElyosSpawn.MapId, AsmodianSpawn.MapId);
+        foreach (var pd in root.PlayerData ?? [])
+        {
+            if (!Enum.TryParse<PlayerClass>(pd.Class, ignoreCase: true, out var cls)) continue;
+            var items = pd.Items?.ItemList?.Select(i => new StartingItem(i.Id, i.Count)).ToList()
+                        ?? [];
+            _startItems[cls] = items;
+        }
+
+        log.LogInformation("PlayerInitialData: Elyos spawn map={EMap}, Asmodian spawn map={AMap}, {Classes} class item sets",
+            ElyosSpawn.MapId, AsmodianSpawn.MapId, _startItems.Count);
     }
 
     public SpawnLocation GetSpawnLocation(Race race) => race switch
@@ -38,15 +48,22 @@ public sealed class PlayerInitialData
         Race.ASMODIANS => AsmodianSpawn,
         _              => ElyosSpawn
     };
+
+    public IReadOnlyList<StartingItem> GetStartingItems(PlayerClass cls)
+        => _startItems.TryGetValue(cls, out var list) ? list : [];
 }
 
 public sealed record SpawnLocation(int MapId, float X, float Y, float Z, byte Heading);
+public sealed record StartingItem(int ItemId, long Count);
+
+// ─── XML binding ────────────────────────────────────────────────────────────
 
 [XmlRoot("player_initial_data")]
 public sealed class PlayerInitialDataXml
 {
     [XmlElement("elyos_spawn_location")]    public SpawnLocationXml? ElyosSpawn    { get; set; }
     [XmlElement("asmodian_spawn_location")] public SpawnLocationXml? AsmodianSpawn { get; set; }
+    [XmlElement("player_data")]             public List<PlayerDataXml>? PlayerData { get; set; }
 }
 
 public sealed class SpawnLocationXml
@@ -56,4 +73,21 @@ public sealed class SpawnLocationXml
     [XmlAttribute("y")]       public float Y       { get; set; }
     [XmlAttribute("z")]       public float Z       { get; set; }
     [XmlAttribute("heading")] public byte  Heading { get; set; }
+}
+
+public sealed class PlayerDataXml
+{
+    [XmlAttribute("class")] public string Class { get; set; } = string.Empty;
+    [XmlElement("items")]   public ItemListXml? Items { get; set; }
+}
+
+public sealed class ItemListXml
+{
+    [XmlElement("item")] public List<StartingItemXml>? ItemList { get; set; }
+}
+
+public sealed class StartingItemXml
+{
+    [XmlAttribute("id")]    public int  Id    { get; set; }
+    [XmlAttribute("count")] public long Count { get; set; } = 1;
 }

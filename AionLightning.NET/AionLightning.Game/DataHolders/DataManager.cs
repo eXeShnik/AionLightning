@@ -11,6 +11,7 @@ public sealed class DataManager : IDataManager
     public SkillTreeData         SkillTree     { get; } = new();
     public NpcData               Npcs          { get; } = new();
     public SpawnsData            Spawns        { get; } = new();
+    public ItemData              Items         { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -24,6 +25,7 @@ public sealed class DataManager : IDataManager
         SkillTree.Load(dataRoot, log);
         Npcs.Load(dataRoot, log);
         Spawns.Load(dataRoot, log);
+        Items.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

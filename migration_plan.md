@@ -82,4 +82,4 @@
    - [✓] Skill data + PlayerSkillList (template lookup + basic cooldown)
    - [✓] NPC template + basic spawning (NpcData, SpawnsData, Npc model, SpawnService, World NPC registry)
    - [✓] PlayerExperienceTable, XP gain, level-up handling (ExperienceService, SM_STATUPDATE_EXP, SM_LEVEL_UPDATE)
-   - [ ] Item system, inventory model, starting items from PlayerInitialData
+   - [✓] Item system, inventory model, starting items from PlayerInitialData (ItemData, Item, PlayerInventory, IItemDao, V2__items.sql migration)
