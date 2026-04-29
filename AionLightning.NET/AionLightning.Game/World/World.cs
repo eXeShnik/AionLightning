@@ -3,17 +3,17 @@ using AionLightning.Game.Model;
 
 namespace AionLightning.Game.World;
 
-/// <summary>
-/// In-memory registry of all online players. Thread-safe.
-/// </summary>
 public sealed class World
 {
-    private readonly ConcurrentDictionary<int, Player> _byObjectId = new();
-    private readonly ConcurrentDictionary<string, Player> _byName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<int, Player> _players     = new();
+    private readonly ConcurrentDictionary<string, Player> _byName   = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<int, Npc> _npcs           = new();
+
+    // --- Players ---
 
     public bool Add(Player player)
     {
-        if (!_byObjectId.TryAdd(player.ObjectId, player)) return false;
+        if (!_players.TryAdd(player.ObjectId, player)) return false;
         _byName[player.Name] = player;
         return true;
     }
@@ -21,16 +21,19 @@ public sealed class World
     public bool Remove(Player player)
     {
         _byName.TryRemove(player.Name, out _);
-        return _byObjectId.TryRemove(player.ObjectId, out _);
+        return _players.TryRemove(player.ObjectId, out _);
     }
 
-    public Player? GetByObjectId(int objectId)
-        => _byObjectId.GetValueOrDefault(objectId);
+    public Player? GetPlayerByObjectId(int objectId) => _players.GetValueOrDefault(objectId);
+    public Player? GetByName(string name)            => _byName.GetValueOrDefault(name);
+    public IEnumerable<Player> GetAll()              => _players.Values;
+    public int OnlineCount                           => _players.Count;
 
-    public Player? GetByName(string name)
-        => _byName.GetValueOrDefault(name);
+    // --- NPCs ---
 
-    public IEnumerable<Player> GetAll() => _byObjectId.Values;
-
-    public int OnlineCount => _byObjectId.Count;
+    public bool Add(Npc npc)    => _npcs.TryAdd(npc.ObjectId, npc);
+    public bool Remove(Npc npc) => _npcs.TryRemove(npc.ObjectId, out _);
+    public Npc? GetNpcByObjectId(int objectId) => _npcs.GetValueOrDefault(objectId);
+    public IEnumerable<Npc> GetAllNpcs()       => _npcs.Values;
+    public int NpcCount                        => _npcs.Count;
 }

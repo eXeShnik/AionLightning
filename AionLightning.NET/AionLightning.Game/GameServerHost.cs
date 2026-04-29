@@ -9,6 +9,7 @@ using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Scripting;
+using AionLightning.Game.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -29,6 +30,7 @@ public sealed class GameServerHost : BackgroundService
     private readonly CsConnectionHolder _csHolder;
     private readonly IConnectionFactory<GsClientConnection> _aionFactory;
     private readonly ScriptService _scriptService;
+    private readonly SpawnService  _spawnService;
     private readonly IEventBus _eventBus;
 
     public GameServerHost(
@@ -44,6 +46,7 @@ public sealed class GameServerHost : BackgroundService
         CsConnectionHolder csHolder,
         IConnectionFactory<GsClientConnection> aionFactory,
         ScriptService scriptService,
+        SpawnService spawnService,
         IEventBus eventBus)
     {
         _log           = log;
@@ -58,12 +61,14 @@ public sealed class GameServerHost : BackgroundService
         _csHolder      = csHolder;
         _aionFactory   = aionFactory;
         _scriptService = scriptService;
+        _spawnService  = spawnService;
         _eventBus      = eventBus;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         await LoadScriptsAsync(ct);
+        _spawnService.SpawnAll();
 
         var lsTask   = RunLsConnectionLoopAsync(ct);
         var csTask   = RunCsConnectionLoopAsync(ct);

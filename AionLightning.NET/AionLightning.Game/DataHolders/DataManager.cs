@@ -8,6 +8,8 @@ public sealed class DataManager : IDataManager
     public PlayerInitialData PlayerInitial { get; } = new();
     public SkillData         Skills        { get; } = new();
     public SkillTreeData     SkillTree     { get; } = new();
+    public NpcData           Npcs          { get; } = new();
+    public SpawnsData        Spawns        { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -18,6 +20,8 @@ public sealed class DataManager : IDataManager
         PlayerInitial.Load(dataRoot, log);
         Skills.Load(dataRoot, log);
         SkillTree.Load(dataRoot, log);
+        Npcs.Load(dataRoot, log);
+        Spawns.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

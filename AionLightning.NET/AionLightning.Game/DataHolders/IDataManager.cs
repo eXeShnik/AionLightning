@@ -6,4 +6,6 @@ public interface IDataManager
     PlayerInitialData PlayerInitial { get; }
     SkillData         Skills        { get; }
     SkillTreeData     SkillTree     { get; }
+    NpcData           Npcs          { get; }
+    SpawnsData        Spawns        { get; }
 }

@@ -79,7 +79,7 @@
    - [✓] PlayerStatsTemplate + StatsTemplate + CreatureSpeeds model hierarchy
    - [✓] CM_ENTER_WORLD wired to DataManager — real HP/MP from class+level template
    - [✓] SM_STATS_INFO uses real attributes (power/health/agility/accuracy/knowledge/will, evasion/block/parry, combat stats) from template
-   - [ ] Skill data + PlayerSkillList (template lookup + basic cooldown)
-   - [ ] NPC template + basic spawning (SpawnTemplate → Npc in World, no AI)
+   - [✓] Skill data + PlayerSkillList (template lookup + basic cooldown)
+   - [✓] NPC template + basic spawning (NpcData, SpawnsData, Npc model, SpawnService, World NPC registry)
    - [ ] PlayerExperienceTable, XP gain, level-up handling
    - [ ] Item system, inventory model, starting items from PlayerInitialData

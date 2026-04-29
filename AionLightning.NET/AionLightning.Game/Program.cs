@@ -12,6 +12,7 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Ls;
+using AionLightning.Game.Services;
 using Microsoft.Extensions.DependencyInjection;
 using GameWorld = AionLightning.Game.World.World;
 using Microsoft.Extensions.Hosting;
@@ -56,6 +57,9 @@ builder.Services.AddSingleton<CsConnectionHolder>();
 builder.Services.AddSingleton<LsPacketHandlerFactory>();
 builder.Services.AddSingleton<CsPacketHandlerFactory>();
 builder.Services.AddSingleton<GsPacketHandlerFactory>();
+
+// NPC spawning
+builder.Services.AddSingleton<SpawnService>();
 
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();
