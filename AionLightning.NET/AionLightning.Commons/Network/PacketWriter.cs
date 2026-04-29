@@ -81,6 +81,23 @@ public struct PacketWriter
         }
     }
 
+    /// <summary>
+    /// Write UTF-16LE string into a fixed-size field of <paramref name="byteLength"/> bytes.
+    /// The string is null-terminated and the remainder is zero-padded (Java writeS with size).
+    /// </summary>
+    public void WriteS(string? value, int byteLength)
+    {
+        var span = _writer.GetSpan(byteLength);
+        span[..byteLength].Clear();
+        if (!string.IsNullOrEmpty(value))
+        {
+            int written = Encoding.Unicode.GetBytes(value, span);
+            // null terminator already covered by Clear above
+            _ = written;
+        }
+        _writer.Advance(byteLength);
+    }
+
     /// <summary>Write raw bytes (Java writeB).</summary>
     public void WriteB(ReadOnlySpan<byte> bytes)
     {

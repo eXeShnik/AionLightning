@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
@@ -6,27 +6,20 @@ using System.Runtime.Loader;
 
 namespace AionLightning.Commons.Scripting;
 
-public class CSharpCompilerService(ILogger<CSharpCompilerService> logger)
+public sealed class CSharpCompilerService(ILogger<CSharpCompilerService> log)
 {
-    public Assembly? CompileFromFile(string filePath, IEnumerable<string>? additionalReferences = null)
+    public (AssemblyLoadContext Alc, Assembly Assembly)? Compile(string sourceCode, string name)
     {
-        var code = File.ReadAllText(filePath);
-        return CompileFromSource(code, additionalReferences);
-    }
+        var tree = CSharpSyntaxTree.ParseText(sourceCode);
 
-    public Assembly? CompileFromSource(string sourceCode, IEnumerable<string>? additionalReferences = null)
-    {
-        var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
-
-        var references = GetDefaultReferences();
-
-        if (additionalReferences != null)
-            references = references.Concat(additionalReferences.Select(r => MetadataReference.CreateFromFile(r)));
+        var refs = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location));
 
         var compilation = CSharpCompilation.Create(
-            assemblyName: $"DynamicAssembly_{Guid.NewGuid()}",
-            syntaxTrees: [syntaxTree],
-            references: references,
+            assemblyName: name,
+            syntaxTrees: [tree],
+            references: refs,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         using var ms = new MemoryStream();
@@ -34,28 +27,14 @@ public class CSharpCompilerService(ILogger<CSharpCompilerService> logger)
 
         if (!result.Success)
         {
-            foreach (var diagnostic in result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
-                logger.LogError("Compilation error: {Message}", diagnostic.ToString());
-
+            foreach (var d in result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
+                log.LogError("Compile error in {Name}: {Message}", name, d.ToString());
             return null;
         }
 
         ms.Seek(0, SeekOrigin.Begin);
-        return AssemblyLoadContext.Default.LoadFromStream(ms);
-    }
-
-    private IEnumerable<MetadataReference> GetDefaultReferences()
-    {
-        var assemblies = new[]
-        {
-            typeof(object).Assembly,
-            typeof(Console).Assembly,
-            typeof(Enumerable).Assembly,
-            Assembly.Load("System.Runtime"),
-            Assembly.Load("System.Collections"),
-            Assembly.Load("netstandard")
-        };
-
-        return assemblies.Select(a => MetadataReference.CreateFromFile(a.Location));
+        var alc = new AssemblyLoadContext(name, isCollectible: true);
+        var asm = alc.LoadFromStream(ms);
+        return (alc, asm);
     }
 }

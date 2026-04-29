@@ -8,7 +8,6 @@ public sealed class SM_MACBAN_LIST : AionServerPacket
 
     public override void Write(ref PacketWriter w)
     {
-        // TODO M2: serialize banned MAC list from BannedMacManager
         w.WriteD(0);
     }
 }

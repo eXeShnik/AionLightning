@@ -1,4 +1,6 @@
+using System.Net;
 using AionLightning.Commons.Network;
+using AionLightning.Login.Configs.Options;
 using AionLightning.Login.Model;
 using AionLightning.Login.Network.GameServer;
 using Microsoft.Extensions.Logging;
@@ -20,11 +22,20 @@ public static class GameServerTable
 
     public static ICollection<GameServerInfo> GetGameServers() => _servers.Values;
 
-    public static void Load()
+    public static void LoadFromConfig(GameServerEntry[] entries, ILogger? log = null)
     {
-        // TODO M3: load from DB
-        _servers = new Dictionary<byte, GameServerInfo>();
-        _log.LogInformation("GameServerTable loaded {Count} registered servers (stub)", _servers.Count);
+        var dict = new Dictionary<byte, GameServerInfo>();
+        foreach (var e in entries)
+        {
+            var gsi = new GameServerInfo(e.Id, e.Address, e.Password);
+            gsi.Port = e.Port;
+            gsi.MaxPlayers = e.MaxPlayers;
+            if (IPAddress.TryParse(e.Address, out var addr))
+                gsi.DefaultAddress = addr.GetAddressBytes();
+            dict[e.Id] = gsi;
+        }
+        _servers = dict;
+        (log ?? _log).LogInformation("GameServerTable loaded {Count} server(s) from config", dict.Count);
     }
 
     public static GsAuthResponse RegisterGameServer(
@@ -70,8 +81,15 @@ public static class GameServerTable
         foreach (var gsi in GetGameServers())
         {
             if (!gsi.IsAccountOnGameServer(account.Id)) continue;
-            // TODO M2: gsi.GscHandler?.SendPacketAsync(new SM_REQUEST_KICK_ACCOUNT(account.Id))
+            _ = gsi.GscHandler?.SendAsync(new Network.GameServer.ServerPackets.SM_REQUEST_KICK_ACCOUNT(account.Id))
+                    .AsTask();
             break;
         }
+    }
+
+    public static void Pong(byte serverId, int pid)
+    {
+        if (_servers.TryGetValue(serverId, out var gsi))
+            _log.LogDebug("GS #{Id} pong pid={Pid}", gsi.Id, pid);
     }
 }

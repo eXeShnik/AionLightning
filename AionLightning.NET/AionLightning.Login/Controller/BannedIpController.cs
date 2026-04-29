@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using AionLightning.Commons.Utils;
 using AionLightning.Login.Dao;
 using AionLightning.Login.Model;
@@ -7,59 +5,39 @@ using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Login.Controller;
 
-public class BannedIpController
+public sealed class BannedIpController
 {
-    private readonly ILogger<BannedIpController> _logger;
-    private readonly BannedIpDAO _bannedIpDao;
-    private ISet<BannedIP> _banList;
+    private readonly ILogger<BannedIpController> _log;
+    private readonly IBannedIpDao _dao;
+    private volatile ISet<BannedIP> _banList = new HashSet<BannedIP>();
 
-    public BannedIpController(ILogger<BannedIpController> logger, BannedIpDAO bannedIpDao)
+    public BannedIpController(ILogger<BannedIpController> log, IBannedIpDao dao)
     {
-        _logger = logger;
-        _bannedIpDao = bannedIpDao;
-        _banList = new HashSet<BannedIP>();
+        _log = log;
+        _dao = dao;
     }
 
-    public void Start()
+    public async Task StartAsync(CancellationToken ct = default)
     {
-        Clean();
-        Load();
+        await _dao.CleanExpiredAsync(ct);
+        await ReloadAsync(ct);
     }
 
-    private void Clean()
+    public async Task ReloadAsync(CancellationToken ct = default)
     {
-        _bannedIpDao.CleanExpiredBans();
+        _banList = await _dao.GetAllAsync(ct);
+        _log.LogInformation("BannedIpController loaded {Count} IP bans", _banList.Count);
     }
 
-    public void Load()
-    {
-        Reload();
-    }
+    public bool IsBanned(string ip) =>
+        _banList.Any(b => b.IsActive() && NetworkUtils.CheckIPMatching(b.Mask, ip));
 
-    public void Reload()
+    public async Task<bool> BanIpAsync(string ip, DateTime? until = null, CancellationToken ct = default)
     {
-        _banList = _bannedIpDao.GetAllBans();
-        _logger.LogInformation("BannedIpController loaded {count} IP bans.", _banList.Count);
-    }
-
-    public bool IsBanned(string ip)
-    {
-        return _banList.Any(ipBan => ipBan.IsActive() && NetworkUtils.CheckIPMatching(ipBan.Mask, ip));
-    }
-
-    public bool BanIp(string ip)
-    {
-        return BanIp(ip, null);
-    }
-
-    public bool BanIp(string ip, DateTime? time)
-    {
-        var newBan = new BannedIP { Mask = ip, TimeEnd = time };
-        if (_bannedIpDao.Insert(newBan))
-        {
-            _banList.Add(newBan);
-            return true;
-        }
-        return false;
+        var ban = new BannedIP { Mask = ip, TimeEnd = until };
+        if (!await _dao.InsertAsync(ban, ct)) return false;
+        var updated = new HashSet<BannedIP>(_banList) { ban };
+        _banList = updated;
+        return true;
     }
 }

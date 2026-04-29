@@ -1,87 +1,68 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
+using AionLightning.Commons.Scripting;
+using AionLightning.Commons.Scripting.Contracts;
 using Microsoft.Extensions.Logging;
+using System.Runtime.Loader;
 
-namespace AionLightning.Commons.Services
+namespace AionLightning.Commons.Services;
+
+public sealed class ScriptService(CSharpCompilerService compiler, ILogger<ScriptService> log) : IAsyncDisposable
 {
-    public class ScriptManager
+    private sealed record LoadedScript(WeakReference<AssemblyLoadContext> AlcRef, IScript Instance);
+
+    private readonly Dictionary<string, LoadedScript> _loaded = new(StringComparer.OrdinalIgnoreCase);
+
+    public async Task LoadAllAsync(string folder, IScriptHost host, CancellationToken ct)
     {
-        public void Load(FileInfo file)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void Shutdown()
-        {
-            throw new NotImplementedException();
-        }
-
+        foreach (var file in Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories))
+            await LoadFileAsync(file, host, ct);
     }
 
-    public class ScriptService
+    public async Task ReloadAsync(string path, IScriptHost host, CancellationToken ct)
     {
-        private readonly ILogger<ScriptService> _log;
-        private readonly Dictionary<string, ScriptManager> _map = new Dictionary<string, ScriptManager>();
+        await UnloadAsync(path);
+        await LoadFileAsync(path, host, ct);
+    }
 
-        public ScriptService(ILogger<ScriptService> log)
+    private async Task LoadFileAsync(string path, IScriptHost host, CancellationToken ct)
+    {
+        var source = await File.ReadAllTextAsync(path, ct);
+        var name = $"Script_{Path.GetFileNameWithoutExtension(path)}_{Guid.NewGuid():N}";
+
+        var compiled = compiler.Compile(source, name);
+        if (compiled is null) return;
+
+        var (alc, asm) = compiled.Value;
+        var scriptType = asm.GetExportedTypes().FirstOrDefault(t => t.IsAssignableTo(typeof(IScript)) && !t.IsAbstract);
+        if (scriptType is null)
         {
-            _log = log;
+            log.LogWarning("No IScript implementation found in {Path}", path);
+            alc.Unload();
+            return;
         }
 
-        public void Load(string file)
-        {
-            Load(new FileInfo(file));
-        }
+        var instance = (IScript)Activator.CreateInstance(scriptType)!;
+        await instance.InitializeAsync(host, ct);
 
-        public void Load(FileInfo file)
-        {
-            if (file.Exists)
-            {
-                if (file.Attributes.HasFlag(FileAttributes.Directory))
-                {
-                    LoadDir(new DirectoryInfo(file.FullName));
-                }
-                else
-                {
-                    LoadFile(file);
-                }
-            }
-        }
+        _loaded[path] = new LoadedScript(new WeakReference<AssemblyLoadContext>(alc), instance);
+        log.LogInformation("Loaded script: {Path}", path);
+    }
 
-        private void LoadFile(FileInfo file)
-        {
-            if (_map.ContainsKey(file.FullName))
-                throw new ArgumentException($"ScriptManager by file: {file.FullName} already loaded");
+    private Task UnloadAsync(string path)
+    {
+        if (!_loaded.Remove(path, out var loaded)) return Task.CompletedTask;
 
-            var sm = new ScriptManager();
-            try
-            {
-                sm.Load(file);
-            }
-            catch (Exception e)
-            {
-                _log.LogError(e, "Failed to load script file");
-                throw;
-            }
-            _map.Add(file.FullName, sm);
-        }
-
-        private void LoadDir(DirectoryInfo dir)
+        if (loaded.AlcRef.TryGetTarget(out var alc))
         {
-            foreach (var file in dir.GetFiles("*.xml", SearchOption.AllDirectories))
-            {
-                LoadFile(file);
-            }
+            alc.Unload();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
         }
+        return Task.CompletedTask;
+    }
 
-        public void Shutdown()
-        {
-            foreach (var sm in _map.Values)
-            {
-                sm.Shutdown();
-            }
-            _map.Clear();
-        }
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var path in _loaded.Keys.ToList())
+            await UnloadAsync(path);
     }
 }

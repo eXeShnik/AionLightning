@@ -10,11 +10,16 @@ public sealed class CryptEngine
         0x6c, 0x6c, 0x6c, 0x6c
     ];
 
-    private readonly BlowfishCipher _cipher;
+    private BlowfishCipher _cipher;
 
     public CryptEngine() : this(DefaultKey) { }
 
     public CryptEngine(byte[] key)
+    {
+        _cipher = new BlowfishCipher(key);
+    }
+
+    public void UpdateKey(byte[] key)
     {
         _cipher = new BlowfishCipher(key);
     }

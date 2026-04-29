@@ -1,10 +1,16 @@
 namespace AionLightning.Commons.Events;
 
 /// <summary>
-/// Bespoke Channel&lt;T&gt;-backed event bus. Implementation lands in M5.
-/// Only the interface contract is defined here so early consumers can declare dependencies.
+/// Bespoke event bus. DI-registered handlers are resolved at publish time.
+/// Scripts use Subscribe/Unsubscribe for runtime-dynamic subscriptions.
 /// </summary>
 public interface IEventBus
 {
     ValueTask PublishAsync<TEvent>(TEvent @event, CancellationToken ct) where TEvent : IGameEvent;
+
+    /// <summary>Register a runtime handler (e.g. from a hot-reloaded script).</summary>
+    void Subscribe<TEvent>(IEventHandler<TEvent> handler) where TEvent : IGameEvent;
+
+    /// <summary>Unregister a runtime handler registered via Subscribe.</summary>
+    void Unsubscribe<TEvent>(IEventHandler<TEvent> handler) where TEvent : IGameEvent;
 }

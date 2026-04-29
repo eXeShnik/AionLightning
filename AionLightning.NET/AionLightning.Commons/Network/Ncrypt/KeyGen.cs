@@ -1,5 +1,8 @@
 using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.Crypto.Engines;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Math;
 
 namespace AionLightning.Commons.Network.Ncrypt;
 
@@ -24,5 +27,21 @@ public static class KeyGen
         if (_keyPairs is null)
             throw new InvalidOperationException("KeyGen.Init() must be called before GetEncryptedRSAKeyPair().");
         return _keyPairs[Random.Shared.Next(KeyPairCount)];
+    }
+
+    public static byte[] DecryptRSA(RSAParameters rsaParams, byte[] encrypted)
+    {
+        var engine = new RsaEngine();
+        engine.Init(false, new RsaPrivateCrtKeyParameters(
+            new BigInteger(1, rsaParams.Modulus!),
+            new BigInteger(1, rsaParams.Exponent!),
+            new BigInteger(1, rsaParams.D!),
+            new BigInteger(1, rsaParams.P!),
+            new BigInteger(1, rsaParams.Q!),
+            new BigInteger(1, rsaParams.DP!),
+            new BigInteger(1, rsaParams.DQ!),
+            new BigInteger(1, rsaParams.InverseQ!)
+        ));
+        return engine.ProcessBlock(encrypted, 0, encrypted.Length);
     }
 }

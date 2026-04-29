@@ -48,7 +48,7 @@ public sealed class LoginServer : IHostedService
         _log.LogInformation("Loading banned IPs… (TODO M3: inject BannedIpController via DI)");
 
         _log.LogInformation("Loading game server table…");
-        GameServerTable.Load();
+        // GameServerTable is now seeded by LoginServerHost.ExecuteAsync via LoadFromConfig
 
         _log.LogInformation("Starting network listeners…");
         _netConnector.Connect();

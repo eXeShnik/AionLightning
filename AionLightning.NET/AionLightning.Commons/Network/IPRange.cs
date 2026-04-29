@@ -16,6 +16,13 @@ namespace AionLightning.Commons.Network
             _address = IPAddress.Parse(address);
         }
 
+        public IPRange(byte[] min, byte[] max, byte[] address)
+        {
+            _min = new IPAddress(min);
+            _max = new IPAddress(max);
+            _address = new IPAddress(address);
+        }
+
         public bool IsInRange(string address)
         {
             var addr = IPAddress.Parse(address);

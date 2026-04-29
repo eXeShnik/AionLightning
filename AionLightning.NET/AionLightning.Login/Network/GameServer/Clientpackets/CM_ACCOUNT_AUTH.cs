@@ -1,26 +1,30 @@
 using AionLightning.Commons.Network;
-using AionLightning.Login.Network.GameServer;
+using AionLightning.Login.Controller;
+using AionLightning.Login.Network.Aion;
 
 namespace AionLightning.Login.Network.GameServer.Clientpackets;
 
 public sealed class CM_ACCOUNT_AUTH : GsClientPacket
 {
-    private int _accountId;
-    private int _loginOk;
-    private int _playOk1;
-    private int _playOk2;
+    private readonly GsConnection _conn;
+    private readonly IAccountController _accountCtrl;
+    private SessionKey _sessionKey = null!;
+
+    public CM_ACCOUNT_AUTH(GsConnection conn, IAccountController accountCtrl)
+    {
+        _conn = conn;
+        _accountCtrl = accountCtrl;
+    }
 
     public override void Read(ref PacketReader r)
     {
-        _accountId = r.ReadD();
-        _loginOk = r.ReadD();
-        _playOk1 = r.ReadD();
-        _playOk2 = r.ReadD();
+        int accountId = r.ReadD();
+        int loginOk   = r.ReadD();
+        int playOk1   = r.ReadD();
+        int playOk2   = r.ReadD();
+        _sessionKey = new SessionKey(accountId, loginOk, playOk1, playOk2);
     }
 
     public override ValueTask RunAsync(CancellationToken ct)
-    {
-        // TODO M2: AccountController.CheckAuth
-        return ValueTask.CompletedTask;
-    }
+        => new(_accountCtrl.CheckAuthAsync(_sessionKey, _conn, ct));
 }

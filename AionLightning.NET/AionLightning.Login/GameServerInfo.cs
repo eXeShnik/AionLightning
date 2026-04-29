@@ -45,4 +45,14 @@ public sealed class GameServerInfo
     }
 
     public ICollection<Account> GetAccounts() => _accountsOnGameServer.Values;
+
+    public byte[] GetIpAddressForPlayer(string playerIp)
+    {
+        foreach (var range in IpRanges)
+        {
+            if (range.IsInRange(playerIp))
+                return range.GetAddress().GetAddressBytes();
+        }
+        return DefaultAddress;
+    }
 }

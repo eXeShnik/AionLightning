@@ -54,6 +54,19 @@
    - [ ] `services`
    - [ ] `taskmanager`
    - [ ] `versionning`
-6. [ ] Migrate `AL-Login` module.
-7. [ ] Migrate `AL-Chat` module.
-8. [ ] Migrate `AL-Game` module.
+6. [✓] Migrate `AL-Login` module.
+   - [✓] Network layer (TcpListener/TcpClient), packet framing, blowfish+RSA crypto
+   - [✓] Auth flow: CM_LOGIN, CM_PLAY, CM_SERVER_LIST, CM_AUTH_GG, CM_UPDATE_SESSION
+   - [✓] DAO layer: AccountDao, BannedIpDao backed by MySql.Data
+   - [✓] GameServer registry: GameServerTable, GameServerInfo, GS↔LS connection
+   - [✓] DI wiring in Program.cs; appsettings.json configuration
+7. [✓] Migrate `AL-Chat` module. (M4 — 2026-04-29)
+   - [✓] Chat server project setup (csproj, appsettings.json, options)
+   - [✓] GS↔Chat listener (port 9021): CM_CS_AUTH, CM_PLAYER_AUTH, CM_PLAYER_LOGOUT, CM_PLAYER_GAG
+   - [✓] Aion client↔Chat listener (port 10241): CM_CHAT_INI, CM_PLAYER_AUTH, CM_CHANNEL_REQUEST, CM_CHANNEL_MESSAGE
+   - [✓] ChatService: token generation (SHA-256), dynamic channel registry, rate-limiting, gag
+   - [✓] SM_GS_AUTH_RESPONSE, SM_PLAYER_AUTH_RESPONSE, SM_CHANNEL_RESPONSE, SM_CHANNEL_MESSAGE
+   - [✓] GS-side CS connection (CsConnection, CsConnectionHolder, reconnect loop in GameServerHost)
+   - [✓] CM_CHAT_AUTH (0x14C) in GsPacketHandlerFactory; SM_CHAT_INIT (0xE6) to Aion client
+   - [✓] Player logout notification from GsClientConnection.DisposeAsync
+8. [ ] Migrate `AL-Game` module (beyond Chat wiring skeleton already in place).

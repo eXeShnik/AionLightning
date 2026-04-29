@@ -13,7 +13,6 @@ public sealed class SM_REQUEST_KICK_ACCOUNT : AionServerPacket
 
     public override void Write(ref PacketWriter w)
     {
-        w.WriteC(2);
         w.WriteD(_accountId);
     }
 }

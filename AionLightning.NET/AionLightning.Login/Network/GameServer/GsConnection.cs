@@ -1,7 +1,8 @@
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Net.Sockets;
 using AionLightning.Commons.Network;
-using AionLightning.Login;
+using AionLightning.Login.Network.Factories;
 using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Login.Network.GameServer;
@@ -9,26 +10,63 @@ namespace AionLightning.Login.Network.GameServer;
 public sealed class GsConnection : AConnection
 {
     private readonly ILogger<GsConnection> _log;
+    private readonly GsPacketHandlerFactory _factory;
+    private int _disposed;
 
     public GsState State { get; set; } = GsState.CONNECTED;
     public GameServerInfo? GameServerInfo { get; set; }
 
     public enum GsState { CONNECTED, AUTHED }
 
-    public GsConnection(Socket socket, ILogger<GsConnection> log) : base(socket)
+    public GsConnection(Socket socket, ILogger<GsConnection> log, GsPacketHandlerFactory factory)
+        : base(socket)
     {
         _log = log;
+        _factory = factory;
     }
 
-    protected override ValueTask OnPacketAsync(ReadOnlySequence<byte> frame, CancellationToken ct)
+    protected override async ValueTask OnPacketAsync(ReadOnlySequence<byte> frame, CancellationToken ct)
     {
-        // TODO M2: read opcode, dispatch via GsPacketHandlerFactory
-        return ValueTask.CompletedTask;
+        if (frame.Length < 1) return;
+
+        var data = new byte[frame.Length];
+        frame.CopyTo(data);
+
+        byte opcode = data[0];
+        var body = new ReadOnlySequence<byte>(data, 1, data.Length - 1);
+
+        var packet = _factory.Resolve(opcode, State, this);
+        if (packet is null) return;
+
+        var reader = new PacketReader(body);
+        packet.Read(ref reader);
+        await packet.RunAsync(ct);
     }
 
-    public ValueTask SendPacketAsync(AionServerPacket packet, CancellationToken ct = default)
+    public async ValueTask SendAsync(AionServerPacket packet, CancellationToken ct = default)
     {
-        // TODO M2: serialize, write with length prefix
-        return ValueTask.CompletedTask;
+        var bodyBuf = new ArrayBufferWriter<byte>();
+        var w = new PacketWriter(bodyBuf);
+        packet.Write(ref w);
+
+        int payloadLen = 1 + bodyBuf.WrittenCount;
+        int wireLen = 2 + payloadLen;
+
+        byte[] wire = new byte[wireLen];
+        BinaryPrimitives.WriteInt16LittleEndian(wire, (short)wireLen);
+        wire[2] = packet.Opcode;
+        bodyBuf.WrittenSpan.CopyTo(wire.AsSpan(3));
+
+        await WriteRawAsync(wire, ct);
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0 && GameServerInfo != null)
+        {
+            GameServerInfo.GscHandler = null;
+            _log.LogInformation("GameServer #{Id} disconnected", GameServerInfo.Id);
+        }
+        await base.DisposeAsync();
     }
 }

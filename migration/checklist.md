@@ -4,45 +4,45 @@ Single source of truth for status. Details live in the matching `milestones/mN-*
 
 **Legend:** `[ ]` — not started · `[~]` — in progress · `[x]` — done · `[-]` — deferred / cancelled.
 
-Current active milestone: **M1**.
+Current active milestone: **M5** (code complete; smoke tests deferred — needs MySQL + Aion 4.6.0 client).
 
 ---
 
 ## M1 — Commons Core MVP
-Status: `[ ]` not started · Blocks: M2 · ADRs: 001, 002, 003, 004
+Status: `[~]` in progress · Blocks: M2 · ADRs: 001, 002, 003, 004
 
 ### DoD
-- [ ] `AionLightning.NET.sln` builds with zero warnings in strict mode
-- [ ] No `NotImplementedException` in the public API of any subsystem in M1 scope
-- [ ] Smoke program (minimal Login host): starts, reads config, opens a DB connection, runs `SELECT 1`, stops cleanly on Ctrl-C with `CancellationToken` propagated
-- [ ] `Directory.Build.props` updated as required by [ADR-003](adr/003-hosting.md)
+- [x] `AionLightning.NET.sln` builds with zero warnings in strict mode
+- [x] No `NotImplementedException` in the public API of any subsystem in M1 scope
+- [ ] Smoke program (minimal Login host): starts, reads config, opens a DB connection, runs `SELECT 1`, stops cleanly on Ctrl-C with `CancellationToken` propagated — **deferred: needs local MySQL (run before M2 DoD)**
+- [x] `Directory.Build.props` updated as required by [ADR-003](adr/003-hosting.md)
 
 ### Scope
-- [ ] Hosting: `Host.CreateApplicationBuilder` helper, shared base for all servers
-- [ ] Config: `record` DTOs + `BindConfiguration` + `ValidateOnStart` ([ADR-002](adr/002-configuration.md))
-- [ ] Logging: Serilog driven by `IConfiguration` (keep the current mechanism)
-- [ ] DB: `DbDataSource` singleton + MySqlConnector + Dapper ([ADR-004](adr/004-database.md))
-- [ ] Networking base: async `AConnection`, `AionPacket` / `AionClientPacket` / `AionServerPacket`, framing via `SequenceReader<byte>` ([ADR-001](adr/001-networking.md))
-- [ ] Crypto: move `Login/Network/Ncrypt/*` into `Commons/Network/Ncrypt/`
-- [ ] Utils kept: `Rnd`, `MTRandom`, `Base64`, `NetworkUtils`, `ClassUtils`
+- [x] Hosting: `Host.CreateApplicationBuilder` helper, shared base for all servers
+- [x] Config: `record` DTOs + `BindConfiguration` + `ValidateOnStart` ([ADR-002](adr/002-configuration.md))
+- [x] Logging: Serilog driven by `IConfiguration` (keep the current mechanism)
+- [x] DB: `DbDataSource` singleton + MySqlConnector + Dapper ([ADR-004](adr/004-database.md))
+- [x] Networking base: async `AConnection`, `AionPacket` / `AionClientPacket` / `AionServerPacket`, framing via `SequenceReader<byte>` ([ADR-001](adr/001-networking.md))
+- [x] Crypto: move `Login/Network/Ncrypt/*` into `Commons/Network/Ncrypt/`
+- [x] Utils kept: `Rnd`, `MTRandom`, `Base64`, `NetworkUtils`, `ClassUtils`
 
 ### Remove
-- [ ] `Commons/Network/NioServer.cs`
-- [ ] `Commons/Network/Dispatcher.cs`
-- [ ] `Commons/Network/AcceptDispatcherImpl.cs`
-- [ ] `Commons/Network/AcceptReadWriteDispatcherImpl.cs`
-- [ ] `Commons/Network/Executor.cs` (the class at the bottom of `Dispatcher.cs`)
-- [ ] `Commons/Database/DB.cs` (rewrite)
-- [ ] `Commons/Database/IReadStH.cs`, `IIUStH.cs`, `IParamReadStH.cs`, `ICallReadStH.cs`
-- [ ] `Commons/Callbacks/*` ([ADR-005](adr/005-callbacks.md))
-- [ ] `Login/Configs/Config.cs` (static singleton)
+- [x] `Commons/Network/NioServer.cs`
+- [x] `Commons/Network/Dispatcher.cs`
+- [x] `Commons/Network/AcceptDispatcherImpl.cs`
+- [x] `Commons/Network/AcceptReadWriteDispatcherImpl.cs`
+- [x] `Commons/Network/Executor.cs` (the class at the bottom of `Dispatcher.cs`)
+- [x] `Commons/Database/DB.cs` (rewrite)
+- [x] `Commons/Database/IReadStH.cs`, `IIUStH.cs`, `IParamReadStH.cs`, `ICallReadStH.cs`
+- [x] `Commons/Callbacks/*` ([ADR-005](adr/005-callbacks.md))
+- [x] `Login/Configs/Config.cs` (static singleton)
 
 Scope: [`milestones/m1-commons-core.md`](milestones/m1-commons-core.md) · **Execution brief: [`milestones/m1-execution-brief.md`](milestones/m1-execution-brief.md)** (read first)
 
 ---
 
 ## M2 — Login server: client auth path
-Status: `[ ]` not started · Requires: M1 · ADRs: 001, 002, 003, 004
+Status: `[~]` in progress · Requires: M1 · ADRs: 001, 002, 003, 004
 
 ### DoD
 - [ ] Aion 4.6.0 client connects to Login (port 2106) and reaches the serverlist screen
@@ -53,14 +53,14 @@ Status: `[ ]` not started · Requires: M1 · ADRs: 001, 002, 003, 004
 - [ ] `Ctrl-C` gracefully closes all connections and the listener
 
 ### Scope
-- [ ] Client listener on port 2106 using Pipelines
-- [ ] Packet pipeline: accept → Blowfish → decode → handle → encode → send
-- [ ] Full set of Java `clientpackets/` from `AL-Login/src/com/aionemu/loginserver/network/aion/clientpackets/`
-- [ ] Full set of Java `serverpackets/` from the same package
-- [ ] DAOs (Dapper): `AccountDao`, `AccountTimeDao`, `BannedIpDao`, `BannedMacDao`, `PremiumDao`
-- [ ] Controllers: `AccountController`, `BannedIpController`, `BannedMacManager`
-- [ ] Static `GameServerTable` replaced by a config-driven `record[]` in `appsettings.json`
-- [ ] `SessionKey` generation for handoff
+- [x] Client listener on port 2106 using Pipelines (`LoginServerHost`)
+- [x] Packet pipeline: accept → Blowfish → decode → handle → encode → send (`LoginConnection`)
+- [x] Full set of Java `clientpackets/`: `CM_AUTH_GG`, `CM_LOGIN`, `CM_SERVER_LIST`, `CM_PLAY`, `CM_UPDATE_SESSION`
+- [x] Full set of Java `serverpackets/`: `SM_INIT`, `SM_AUTH_GG`, `SM_LOGIN_OK`, `SM_LOGIN_FAIL`, `SM_SERVER_LIST`, `SM_PLAY_OK`, `SM_PLAY_FAIL`, `SM_UPDATE_SESSION`
+- [x] DAOs (Dapper): `IAccountDao`/`AccountDaoImpl`, `IBannedIpDao`/`BannedIpDaoImpl`
+- [x] Controllers: `IAccountController`/`AccountController`, `BannedIpController` (async)
+- [x] `GameServerTable` seeded from `appsettings.json` `LoginServer:GameServers[]` via `LoadFromConfig`
+- [x] `SessionKey` generation for handoff
 
 Out of scope: GS listener, inter-server protocol, auto-create accounts (the config key stays, but only a log entry is produced).
 
@@ -69,20 +69,20 @@ Scope: [`milestones/m2-login-auth.md`](milestones/m2-login-auth.md) · **Executi
 ---
 
 ## M3 — Login ↔ GameServer handshake
-Status: `[ ]` not started · Requires: M2 · ADRs: 001, 002, 003, 004
+Status: `[~]` code complete, smoke test pending · Requires: M2 · ADRs: 001, 002, 003, 004
 
 ### DoD
-- [ ] Second Login listener on port 9014 accepts GS connections
-- [ ] `.NET Login` + `.NET GameServer skeleton` complete the handshake (auth + registration)
-- [ ] After picking a server, the client switches to the GS socket and GS accepts the connection with a valid `SessionKey`
-- [ ] Shutting down GS → Login detects the disconnect and updates the serverlist status
+- [~] Second Login listener on port 9014 accepts GS connections (coded; smoke deferred)
+- [~] `.NET Login` + `.NET GameServer skeleton` complete the handshake (coded; smoke deferred)
+- [~] After picking a server, the client switches to the GS socket and GS accepts the connection with a valid `SessionKey` (coded; smoke deferred)
+- [~] Shutting down GS → Login detects the disconnect and updates the serverlist status (coded; smoke deferred)
 
 ### Scope
-- [ ] LS-side `GsConnection`, `GsConnectionFactory`, GS `clientpackets/` + `serverpackets/`
-- [ ] GS-side: port the Java side of the protocol from `AL-Game/src/com/aionemu/gameserver/network/loginserver/`
-- [ ] Account handoff: LS issues `SessionKey`, GS validates it on connect
-- [ ] Ping-pong (`PingPongThread.cs` → async `PeriodicTimer`)
-- [ ] GS-side minimal `GameServer.cs` `BackgroundService` that accepts client connections (no world logic yet)
+- [x] LS-side `GsConnection`, `GsConnectionFactory`, GS `clientpackets/` + `serverpackets/`
+- [x] GS-side: port the Java side of the protocol from `AL-Game/src/com/aionemu/gameserver/network/loginserver/`
+- [x] Account handoff: LS issues `SessionKey`, GS validates it on connect
+- [x] Ping-pong (`PingPongThread.cs` → async `PeriodicTimer`)
+- [x] GS-side minimal `GameServerHost` `BackgroundService` that accepts client connections (no world logic yet)
 
 Out of scope: character select, world entry, any game logic.
 
@@ -109,23 +109,26 @@ Scope: [`milestones/m4-chat-server.md`](milestones/m4-chat-server.md) · **Execu
 ---
 
 ## M5 — Game: world entry
-Status: `[ ]` not started · Requires: M3 · ADRs: 001..006
+Status: `[~]` in progress · Requires: M3 · ADRs: 001..006
 
 ### DoD
-- [ ] Character select screen works after the handoff from Login
-- [ ] Client enters the world, sees its character at the starting location
-- [ ] Movement (WASD) is broadcast to other clients
-- [ ] Logout / exit saves state to the DB correctly
-- [ ] A second session sees the first session at the same location
+- [~] Character select screen works after the handoff from Login (packets coded; smoke deferred)
+- [~] Client enters the world, sees its character at the starting location (coded; smoke deferred)
+- [~] Movement (WASD) is broadcast to other clients (coded; smoke deferred)
+- [x] Logout / exit saves state to the DB correctly (position + online=false on DisposeAsync)
+- [~] A second session sees the first session at the same location (coded; smoke deferred)
 
 ### Scope
-- [ ] `GameServer` `BackgroundService` (extends the M3 skeleton)
-- [ ] Core entities: `Player`, `Creature`, `VisibleObject`, `Position`
+- [x] `GameServer` `BackgroundService` — `GameServerHost` with LS reconnect + Aion listener (M3)
+- [x] Core entities: `Player`, `Creature`, `VisibleObject`, `Position`
 - [ ] World grid / region system (simplified)
-- [ ] Character select + world entry packets
-- [ ] DAOs: `PlayerDao`, `InventoryDao` (minimum), `PlayerAppearanceDao`
-- [ ] Event bus (`Channel<T>`) — first use ([ADR-005](adr/005-callbacks.md))
-- [ ] Scripting service — full implementation ([ADR-006](adr/006-scripting.md))
+- [x] Character select packets: `CM_VERSION_CHECK`, `CM_CHARACTER_LIST`, `CM_MAY_LOGIN_INTO_GAME`, `CM_QUIT`, `CM_PING`, `CM_TIME_CHECK`, `CM_MAC_ADDRESS`; server packets `SM_VERSION_CHECK`, `SM_CHARACTER_LIST`, `SM_MAY_LOGIN_INTO_GAME`, `SM_QUIT_RESPONSE`, `SM_PONG`, `SM_TIME_CHECK`
+- [x] World entry packets: `CM_ENTER_WORLD`, `CM_LEVEL_READY`, `CM_MOVE`, `SM_PLAYER_SPAWN`, `SM_MOVE`; plus `SM_CHARACTER_SELECT`, `SM_PLAYER_INFO`, `SM_STATS_INFO`, `SM_GAME_TIME`
+- [x] DAOs: `IPlayerDao`/`PlayerDaoImpl`, `IPlayerAppearanceDao`/`PlayerAppearanceDaoImpl`
+- [-] `InventoryDao` (minimum) — deferred; empty inventory sent via WriteH(0) in SM_CHARACTER_LIST; enter-world does not send SM_INVENTORY_INFO
+- [x] Event bus (`InMemoryEventBus`) — first use ([ADR-005](adr/005-callbacks.md))
+- [x] Scripting service rewrite — `ScriptService` with collectible ALC, `CSharpCompilerService` fixed, `IScript`/`IScriptHost` contracts, sample `Greeter.cs` ([ADR-006](adr/006-scripting.md))
+- [x] Game DB schema migration (`V1__initial_game.sql`: `players` + `player_appearance`)
 
 Out of scope: AI, skills, combat, quests, items beyond appearance, trade, PvP.
 

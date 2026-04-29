@@ -32,6 +32,7 @@ public abstract class AConnection : IAsyncDisposable
     {
         try
         {
+            await OnConnectedAsync(ct);
             await ReadLoopAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -41,6 +42,8 @@ public abstract class AConnection : IAsyncDisposable
             await DisposeAsync();
         }
     }
+
+    protected virtual ValueTask OnConnectedAsync(CancellationToken ct) => ValueTask.CompletedTask;
 
     private async Task ReadLoopAsync(CancellationToken ct)
     {
