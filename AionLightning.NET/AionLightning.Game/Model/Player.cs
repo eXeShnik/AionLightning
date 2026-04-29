@@ -1,3 +1,5 @@
+using AionLightning.Game.Model.Skill;
+
 namespace AionLightning.Game.Model;
 
 public sealed class Player : Creature
@@ -10,6 +12,7 @@ public sealed class Player : Creature
     public long Exp { get; set; }
     public int TitleId { get; set; } = -1;
     public PlayerAppearance Appearance { get; set; } = new();
+    public PlayerSkillList  Skills     { get; }      = new();
     public DateTime CreationDate { get; init; }
     public DateTime? LastOnline { get; set; }
 

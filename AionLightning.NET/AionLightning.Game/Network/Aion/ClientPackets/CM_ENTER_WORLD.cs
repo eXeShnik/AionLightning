@@ -61,6 +61,16 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _conn.ActivePlayer  = player;
         _conn.State         = GsClientConnection.AionState.IN_GAME;
 
+        // Auto-learn skills for class + race up to current level
+        for (int lvl = 1; lvl <= player.Level; lvl++)
+        {
+            foreach (var slt in _dataManager.SkillTree.GetTemplatesFor(player.PlayerClass, lvl, player.Race))
+            {
+                if (slt.AutoLearn)
+                    player.Skills.AddSkill(slt.SkillId, slt.SkillLevel, slt.Stigma);
+            }
+        }
+
         _world.Add(player);
         _connRegistry.Register(player.ObjectId, _conn);
 
@@ -69,6 +79,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         // Enter-world sequence: signal character select state, send stats, then spawn
         await _conn.SendAsync(new SM_CHARACTER_SELECT(0), ct);
         await _conn.SendAsync(new SM_STATS_INFO(player, tpl), ct);
+        await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills), ct);
         await _conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
         await _conn.SendAsync(new SM_GAME_TIME(), ct);
     }
