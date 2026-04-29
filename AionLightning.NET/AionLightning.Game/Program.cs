@@ -58,8 +58,9 @@ builder.Services.AddSingleton<LsPacketHandlerFactory>();
 builder.Services.AddSingleton<CsPacketHandlerFactory>();
 builder.Services.AddSingleton<GsPacketHandlerFactory>();
 
-// NPC spawning
+// Services
 builder.Services.AddSingleton<SpawnService>();
+builder.Services.AddSingleton<ExperienceService>();
 
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();

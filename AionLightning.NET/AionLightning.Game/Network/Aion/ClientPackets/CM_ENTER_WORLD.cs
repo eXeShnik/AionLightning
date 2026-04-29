@@ -78,7 +78,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
         // Enter-world sequence: signal character select state, send stats, then spawn
         await _conn.SendAsync(new SM_CHARACTER_SELECT(0), ct);
-        await _conn.SendAsync(new SM_STATS_INFO(player, tpl), ct);
+        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
         await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills), ct);
         await _conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
         await _conn.SendAsync(new SM_GAME_TIME(), ct);

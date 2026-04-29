@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Templates.Stats;
 
@@ -8,11 +9,14 @@ public sealed class SM_STATS_INFO : AionServerPacket
 {
     private readonly Player _player;
     private readonly PlayerStatsTemplate? _template;
+    private readonly PlayerExperienceTable? _expTable;
 
-    public SM_STATS_INFO(Player player, PlayerStatsTemplate? template = null) : base(0x01)
+    public SM_STATS_INFO(Player player, PlayerStatsTemplate? template = null,
+        PlayerExperienceTable? expTable = null) : base(0x01)
     {
         _player   = player;
         _template = template;
+        _expTable = expTable;
     }
 
     public override void Write(ref PacketWriter w)
@@ -39,9 +43,10 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(p.Level);
         w.WriteH(0); w.WriteH(0); w.WriteH(0); // unk
 
-        w.WriteQ(0); // exp needed
-        w.WriteQ(0); // exp recoverable
-        w.WriteQ(0); // exp current
+        long expNeeded = _expTable?.GetStartExpForLevel(_player.Level + 1) ?? 0;
+        w.WriteQ(expNeeded);       // exp needed for next level
+        w.WriteQ(0);               // exp recoverable
+        w.WriteQ(_player.Exp);     // exp current
 
         w.WriteD(0); // unk
 

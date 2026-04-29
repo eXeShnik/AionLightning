@@ -81,5 +81,5 @@
    - [✓] SM_STATS_INFO uses real attributes (power/health/agility/accuracy/knowledge/will, evasion/block/parry, combat stats) from template
    - [✓] Skill data + PlayerSkillList (template lookup + basic cooldown)
    - [✓] NPC template + basic spawning (NpcData, SpawnsData, Npc model, SpawnService, World NPC registry)
-   - [ ] PlayerExperienceTable, XP gain, level-up handling
+   - [✓] PlayerExperienceTable, XP gain, level-up handling (ExperienceService, SM_STATUPDATE_EXP, SM_LEVEL_UPDATE)
    - [ ] Item system, inventory model, starting items from PlayerInitialData
