@@ -29,10 +29,10 @@ public sealed class CM_MANASTONE : AionClientPacket
     public override void Read(ref PacketReader r)
     {
         _enchantType    = (byte)r.ReadC();
+        r.ReadC();               // targetFusedSlot (0=main, 1=fused — not yet used)
         _targetUniqueId = r.ReadD();
         _stoneUniqueId  = r.ReadD();
-        r.ReadD(); // unk
-        r.ReadD(); // supplementUniqueId (blessing stone — ignored for now)
+        r.ReadD();               // supplementUniqueId (blessing stone — ignored)
     }
 
     public override async ValueTask RunAsync(CancellationToken ct)

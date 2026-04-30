@@ -14,7 +14,8 @@ public sealed class Player : Creature
     public PlayerClass PlayerClass { get; init; }
     public byte Level { get; set; }
     public long Exp { get; set; }
-    public int TitleId { get; set; } = -1;
+    public int TitleId      { get; set; } = -1;
+    public int BonusTitleId { get; set; } = -1;
     public PlayerAppearance Appearance { get; set; } = new();
     public PlayerSkillList  Skills       { get; } = new();
     public PlayerInventory  Inventory    { get; } = new();

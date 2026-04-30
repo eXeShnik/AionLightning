@@ -14,7 +14,8 @@ public sealed class PlayerDaoImpl : IPlayerDao
         """
         id, name, account_id, exp, x, y, z, heading, world_id,
         gender, race, player_class, creation_date, last_online, title_id, display_settings, deny_settings,
-        level, deletion_date, bind_x, bind_y, bind_z, bind_world_id, note, abyss_points, abyss_rank
+        level, deletion_date, bind_x, bind_y, bind_z, bind_world_id, note, abyss_points, abyss_rank,
+        bonus_title_id
         """;
 
     public async Task<IReadOnlyList<Player>> FindByAccountIdAsync(int accountId, CancellationToken ct = default)
@@ -186,6 +187,14 @@ public sealed class PlayerDaoImpl : IPlayerDao
         await conn.ExecuteAsync("UPDATE players SET name=@name WHERE id=@playerId", new { playerId, name });
     }
 
+    public async Task UpdateBonusTitleAsync(int playerId, int bonusTitleId, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE players SET bonus_title_id=@bonusTitleId WHERE id=@playerId",
+            new { bonusTitleId, playerId });
+    }
+
     public async Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
@@ -231,6 +240,7 @@ public sealed class PlayerDaoImpl : IPlayerDao
             Note             = r.note ?? string.Empty,
             AbyssPoints      = r.abyss_points,
             AbyssRank        = r.abyss_rank > 0 ? r.abyss_rank : 1,
+            BonusTitleId     = r.bonus_title_id,
         };
 
         if (r.bind_x.HasValue && r.bind_y.HasValue && r.bind_z.HasValue && r.bind_world_id.HasValue)
@@ -247,5 +257,6 @@ public sealed class PlayerDaoImpl : IPlayerDao
         int title_id, short display_settings, short deny_settings,
         byte level, DateTime? deletion_date,
         float? bind_x, float? bind_y, float? bind_z, int? bind_world_id,
-        string? note, long abyss_points, int abyss_rank);
+        string? note, long abyss_points, int abyss_rank,
+        int bonus_title_id);
 }
