@@ -17,6 +17,7 @@ public sealed class DataManager : IDataManager
     public RecipeData            Recipes       { get; } = new();
     public QuestData             Quests        { get; } = new();
     public DropData              Drops         { get; } = new();
+    public GatherableData        Gatherables   { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -36,6 +37,7 @@ public sealed class DataManager : IDataManager
         Recipes.Load(dataRoot, log);
         Quests.Load(dataRoot, log);
         Drops.Load(dataRoot, log);
+        Gatherables.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

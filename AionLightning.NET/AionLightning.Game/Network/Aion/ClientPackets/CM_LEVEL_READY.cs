@@ -73,6 +73,10 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         foreach (var npc in _world.GetAllNpcs().Where(n => n.Position.WorldId == worldId))
             try { await _conn.SendAsync(new SM_NPC_INFO(npc), ct); } catch { }
 
+        // Introduce gatherables in the same zone
+        foreach (var g in _world.GetAllGatherables().Where(g => g.Position.WorldId == worldId && !g.IsGathered))
+            try { await _conn.SendAsync(new SM_GATHERABLE_INFO(g), ct); } catch { }
+
         await _eventBus.PublishAsync(new PlayerEnteredWorldEvent(player), ct);
     }
 }

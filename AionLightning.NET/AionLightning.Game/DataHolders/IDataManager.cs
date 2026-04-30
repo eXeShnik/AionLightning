@@ -15,4 +15,5 @@ public interface IDataManager
     RecipeData            Recipes       { get; }
     QuestData             Quests        { get; }
     DropData              Drops         { get; }
+    GatherableData        Gatherables   { get; }
 }

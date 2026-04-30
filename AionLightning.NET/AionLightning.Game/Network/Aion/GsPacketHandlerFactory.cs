@@ -42,6 +42,7 @@ public sealed class GsPacketHandlerFactory
     private readonly LegionService      _legionService;
     private readonly ILegionDao         _legionDao;
     private readonly IPlayerSettingsDao _settingsDao;
+    private readonly GatherService       _gatherService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -70,7 +71,8 @@ public sealed class GsPacketHandlerFactory
         DuelService duelService,
         LegionService legionService,
         ILegionDao legionDao,
-        IPlayerSettingsDao settingsDao)
+        IPlayerSettingsDao settingsDao,
+        GatherService gatherService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -99,6 +101,7 @@ public sealed class GsPacketHandlerFactory
         _legionService   = legionService;
         _legionDao       = legionDao;
         _settingsDao     = settingsDao;
+        _gatherService   = gatherService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -153,7 +156,7 @@ public sealed class GsPacketHandlerFactory
                 0xCE  => new CM_PING(conn),
                 0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry),
                 0xD0  => new CM_TIME_CHECK(conn),
-                0xD1  => new CM_GATHER(),
+                0xD1  => new CM_GATHER(conn, _world, _gatherService, _spawnService, _itemDao, _connRegistry),
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(),
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(),

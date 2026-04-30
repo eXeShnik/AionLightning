@@ -37,20 +37,26 @@ internal sealed class SpawnsFileXml
 
 public sealed class SpawnsData
 {
-    private readonly Dictionary<int, List<SpawnEntry>> _byWorld = new();
+    private readonly Dictionary<int, List<SpawnEntry>> _byWorld        = new();
+    private readonly Dictionary<int, List<SpawnEntry>> _gatherByWorld  = new();
     private static readonly XmlSerializer _fileSerializer = new(typeof(SpawnsFileXml));
 
     public void Load(string dataRoot, ILogger log)
     {
-        var npcsDir = Path.Combine(dataRoot, "spawns", "Npcs");
-        if (!Directory.Exists(npcsDir))
+        LoadDirectory(Path.Combine(dataRoot, "spawns", "Npcs"), _byWorld, log, "NPC spawns");
+        LoadDirectory(Path.Combine(dataRoot, "spawns", "Gather"), _gatherByWorld, log, "gather spawns");
+    }
+
+    private static void LoadDirectory(string dir, Dictionary<int, List<SpawnEntry>> target, ILogger log, string label)
+    {
+        if (!Directory.Exists(dir))
         {
-            log.LogWarning("SpawnsData: directory not found: {Dir}", npcsDir);
+            log.LogWarning("SpawnsData: {Label} directory not found: {Dir}", label, dir);
             return;
         }
 
         int total = 0;
-        foreach (var file in Directory.GetFiles(npcsDir, "*.xml"))
+        foreach (var file in Directory.GetFiles(dir, "*.xml"))
         {
             try
             {
@@ -58,10 +64,10 @@ public sealed class SpawnsData
                 var data = (SpawnsFileXml)_fileSerializer.Deserialize(fs)!;
                 foreach (var map in data.Maps)
                 {
-                    if (!_byWorld.TryGetValue(map.MapId, out var list))
+                    if (!target.TryGetValue(map.MapId, out var list))
                     {
                         list = new List<SpawnEntry>();
-                        _byWorld[map.MapId] = list;
+                        target[map.MapId] = list;
                     }
                     list.AddRange(map.Spawns);
                     total += map.Spawns.Count;
@@ -73,12 +79,19 @@ public sealed class SpawnsData
             }
         }
 
-        log.LogInformation("SpawnsData: loaded {Total} spawns across {Maps} maps", total, _byWorld.Count);
+        log.LogInformation("SpawnsData: loaded {Total} {Label} across {Maps} maps", total, label, target.Count);
     }
 
     public IEnumerable<(int MapId, SpawnEntry Entry)> All()
     {
         foreach (var (mapId, entries) in _byWorld)
+            foreach (var e in entries)
+                yield return (mapId, e);
+    }
+
+    public IEnumerable<(int MapId, SpawnEntry Entry)> AllGather()
+    {
+        foreach (var (mapId, entries) in _gatherByWorld)
             foreach (var e in entries)
                 yield return (mapId, e);
     }

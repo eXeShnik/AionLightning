@@ -74,6 +74,7 @@ builder.Services.AddSingleton<GroupService>();
 builder.Services.AddSingleton<QuestService>();
 builder.Services.AddSingleton<DuelService>();
 builder.Services.AddSingleton<LegionService>();
+builder.Services.AddSingleton<GatherService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
 

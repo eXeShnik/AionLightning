@@ -5,9 +5,10 @@ namespace AionLightning.Game.World;
 
 public sealed class World
 {
-    private readonly ConcurrentDictionary<int, Player> _players     = new();
-    private readonly ConcurrentDictionary<string, Player> _byName   = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<int, Npc> _npcs           = new();
+    private readonly ConcurrentDictionary<int, Player>      _players    = new();
+    private readonly ConcurrentDictionary<string, Player>   _byName     = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<int, Npc>         _npcs       = new();
+    private readonly ConcurrentDictionary<int, Gatherable>  _gatherables = new();
 
     // --- Players ---
 
@@ -36,4 +37,12 @@ public sealed class World
     public Npc? GetNpcByObjectId(int objectId) => _npcs.GetValueOrDefault(objectId);
     public IEnumerable<Npc> GetAllNpcs()       => _npcs.Values;
     public int NpcCount                        => _npcs.Count;
+
+    // --- Gatherables ---
+
+    public bool Add(Gatherable g)    => _gatherables.TryAdd(g.ObjectId, g);
+    public bool Remove(Gatherable g) => _gatherables.TryRemove(g.ObjectId, out _);
+    public Gatherable? GetGatherable(int objectId) => _gatherables.GetValueOrDefault(objectId);
+    public IEnumerable<Gatherable> GetAllGatherables() => _gatherables.Values;
+    public int GatherableCount => _gatherables.Count;
 }

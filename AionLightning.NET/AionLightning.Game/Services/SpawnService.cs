@@ -1,5 +1,6 @@
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Templates.Gatherable;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Logging;
@@ -27,26 +28,65 @@ public sealed class SpawnService
 
     public void SpawnAll()
     {
-        int spawned = 0;
-        int skipped = 0;
+        int npcSpawned = 0, npcSkipped = 0;
 
         foreach (var (mapId, entry) in _dataManager.Spawns.All())
         {
             var template = _dataManager.Npcs.GetTemplate(entry.NpcId);
-            if (template is null)
-            {
-                skipped++;
-                continue;
-            }
+            if (template is null) { npcSkipped++; continue; }
 
             foreach (var spot in entry.Spots)
             {
                 SpawnNpc(template, new Position(spot.X, spot.Y, spot.Z, spot.Heading, mapId));
-                spawned++;
+                npcSpawned++;
             }
         }
 
-        _log.LogInformation("SpawnService: spawned {Spawned} NPCs ({Skipped} entries skipped — no template)", spawned, skipped);
+        _log.LogInformation("SpawnService: spawned {Spawned} NPCs ({Skipped} skipped)", npcSpawned, npcSkipped);
+
+        int gSpawned = 0, gSkipped = 0;
+
+        foreach (var (mapId, entry) in _dataManager.Spawns.AllGather())
+        {
+            var template = _dataManager.Gatherables.GetTemplate(entry.NpcId);
+            if (template is null) { gSkipped++; continue; }
+
+            foreach (var spot in entry.Spots)
+            {
+                SpawnGatherable(template, new Position(spot.X, spot.Y, spot.Z, spot.Heading, mapId));
+                gSpawned++;
+            }
+        }
+
+        _log.LogInformation("SpawnService: spawned {Spawned} gatherables ({Skipped} skipped)", gSpawned, gSkipped);
+    }
+
+    private Gatherable SpawnGatherable(GatherableTemplate template, Position position)
+    {
+        var g = new Gatherable(template)
+        {
+            ObjectId     = ObjectIdFactory.Next(),
+            Position     = position,
+            HomePosition = position,
+        };
+        _world.Add(g);
+        return g;
+    }
+
+    public void ScheduleGatherableRespawn(Gatherable gatherable, int delaySeconds)
+    {
+        var template = gatherable.Template;
+        var position = gatherable.HomePosition;
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+            var respawned = SpawnGatherable(template, position);
+            var infoPacket = new SM_GATHERABLE_INFO(respawned);
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer?.Position.WorldId == position.WorldId)
+                    try { await conn.SendAsync(infoPacket); } catch { }
+        });
     }
 
     private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position)
