@@ -14,7 +14,7 @@ public sealed class PlayerDaoImpl : IPlayerDao
         """
         id, name, account_id, exp, x, y, z, heading, world_id,
         gender, race, player_class, creation_date, last_online, title_id, display_settings, deny_settings,
-        level, deletion_date, bind_x, bind_y, bind_z, bind_world_id, note
+        level, deletion_date, bind_x, bind_y, bind_z, bind_world_id, note, abyss_points, abyss_rank
         """;
 
     public async Task<IReadOnlyList<Player>> FindByAccountIdAsync(int accountId, CancellationToken ct = default)
@@ -172,6 +172,14 @@ public sealed class PlayerDaoImpl : IPlayerDao
         await conn.ExecuteAsync("UPDATE players SET note=@note WHERE id=@playerId", new { playerId, note });
     }
 
+    public async Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE players SET abyss_points=@abyssPoints, abyss_rank=@abyssRank WHERE id=@playerId",
+            new { playerId, abyssPoints, abyssRank });
+    }
+
     private static Player ToPlayer(PlayerRow r)
     {
         var player = new Player
@@ -192,6 +200,8 @@ public sealed class PlayerDaoImpl : IPlayerDao
             Level            = r.level,
             DeletionDate     = r.deletion_date,
             Note             = r.note ?? string.Empty,
+            AbyssPoints      = r.abyss_points,
+            AbyssRank        = r.abyss_rank > 0 ? r.abyss_rank : 1,
         };
 
         if (r.bind_x.HasValue && r.bind_y.HasValue && r.bind_z.HasValue && r.bind_world_id.HasValue)
@@ -208,5 +218,5 @@ public sealed class PlayerDaoImpl : IPlayerDao
         int title_id, short display_settings, short deny_settings,
         byte level, DateTime? deletion_date,
         float? bind_x, float? bind_y, float? bind_z, int? bind_world_id,
-        string? note);
+        string? note, long abyss_points, int abyss_rank);
 }

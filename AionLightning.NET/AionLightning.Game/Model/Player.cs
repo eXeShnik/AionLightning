@@ -62,4 +62,8 @@ public sealed class Player : Creature
     public float TargetX2 { get; set; }
     public float TargetY2 { get; set; }
     public float TargetZ2 { get; set; }
+
+    // Abyss rank system
+    public long AbyssPoints { get; set; }
+    public int  AbyssRank   { get; set; } = 1;
 }

@@ -222,7 +222,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         await _conn.SendAsync(SM_TITLE_INFO.EmptyList(), ct);
         await _conn.SendAsync(new SM_EMOTION_LIST(0), ct);
         await _conn.SendAsync(new SM_PRICES(), ct);
-        await _conn.SendAsync(new SM_ABYSS_RANK(), ct);
+        await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
         await _conn.SendAsync(new SM_PACKAGE_INFO_NOTIFY(), ct);
 
         // Macro and recipe lists — split at position 24 to match Java two-part send

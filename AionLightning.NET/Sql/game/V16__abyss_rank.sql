@@ -1,0 +1,3 @@
+ALTER TABLE players
+    ADD COLUMN abyss_points BIGINT NOT NULL DEFAULT 0,
+    ADD COLUMN abyss_rank   INT    NOT NULL DEFAULT 1;

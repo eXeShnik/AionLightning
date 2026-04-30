@@ -225,6 +225,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     long xp = deadNpc.Level * 50L;
                     await expSvc.AddGroupExpAsync(player, xp, CancellationToken.None);
 
+                    // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs
+                    if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
+                        || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
+                        AbyssRankService.AddAp(player, ap);
+                        try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                    }
+
                     await Task.Delay(3000);
                     var del = new SM_DELETE(deadNpc.ObjectId);
                     foreach (var c in registry.GetAll())

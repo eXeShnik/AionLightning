@@ -19,4 +19,5 @@ public interface IPlayerDao
     Task<int> MarkDeletedAsync(int playerId, CancellationToken ct = default);
     Task<bool> CancelDeletionAsync(int playerId, int accountId, CancellationToken ct = default);
     Task UpdateNoteAsync(int playerId, string note, CancellationToken ct = default);
+    Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, CancellationToken ct = default);
 }

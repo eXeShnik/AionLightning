@@ -122,6 +122,15 @@ public sealed class CM_ATTACK : AionClientPacket
             long xpReward = deadNpc.Level * 50L;
             await _expService.AddGroupExpAsync(player, xpReward, ct);
 
+            // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs
+            if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
+                || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
+            {
+                int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
+                AbyssRankService.AddAp(player, ap);
+                await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+            }
+
             // Delayed despawn + respawn; also cleans up uncollected loot after 60s
             var registry  = _connRegistry;
             var spawnSvc  = _spawnService;
