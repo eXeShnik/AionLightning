@@ -16,6 +16,10 @@ public sealed class Player : Creature
     public long Exp { get; set; }
     public int TitleId      { get; set; } = -1;
     public int BonusTitleId { get; set; } = -1;
+
+    // Flight points — not persisted, starts full each login
+    public int MaxFp     { get; set; } = 4000;
+    public int CurrentFp { get; set; } = 4000;
     public PlayerAppearance Appearance { get; set; } = new();
     public PlayerSkillList  Skills       { get; } = new();
     public PlayerInventory  Inventory    { get; } = new();

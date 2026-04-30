@@ -78,6 +78,18 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
             case ".spawn" when parts.Length >= 2 && int.TryParse(parts[1], out var spawnNpcId):
                 await HandleSpawnNpc(player, spawnNpcId, ct);
                 break;
+
+            case ".kick" when parts.Length >= 2:
+                HandleKick(parts[1]);
+                break;
+
+            case ".summon" when parts.Length >= 2:
+                await HandleSummon(player, parts[1], ct);
+                break;
+
+            case ".goto" when parts.Length >= 2:
+                await HandleGoto(player, parts[1], ct);
+                break;
         }
     }
 
@@ -186,5 +198,49 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(infoPacket, ct); } catch { }
+    }
+
+    private void HandleKick(string targetName)
+    {
+        var target = _connRegistry.GetByName(targetName);
+        if (target is null) return;
+        _ = target.DisposeAsync();
+    }
+
+    private async ValueTask HandleSummon(Player gm, string targetName, CancellationToken ct)
+    {
+        var targetConn = _connRegistry.GetByName(targetName);
+        var target = targetConn?.ActivePlayer;
+        if (target is null) return;
+
+        int oldWorldId = target.Position.WorldId;
+        int newWorldId = gm.Position.WorldId;
+
+        if (oldWorldId != newWorldId)
+        {
+            var del = new SM_DELETE(target.ObjectId);
+            foreach (var other in _connRegistry.GetAllExcept(target.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == oldWorldId)
+                    try { await other.SendAsync(del, ct); } catch { }
+        }
+
+        target.Position = gm.Position;
+        await targetConn!.SendAsync(new SM_TELEPORT_LOC(newWorldId, gm.Position.X, gm.Position.Y, gm.Position.Z), ct);
+
+        if (oldWorldId != newWorldId)
+        {
+            var equipment = target.Inventory.All.Where(i => i.IsEquipped).ToList();
+            var info = new SM_PLAYER_INFO(target, target.Appearance, enemy: false, equipment);
+            foreach (var other in _connRegistry.GetAllExcept(target.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == newWorldId)
+                    try { await other.SendAsync(info, ct); } catch { }
+        }
+    }
+
+    private async ValueTask HandleGoto(Player gm, string targetName, CancellationToken ct)
+    {
+        var target = _connRegistry.GetByName(targetName)?.ActivePlayer;
+        if (target is null) return;
+        await HandleTeleport(gm, target.Position.WorldId, target.Position.X, target.Position.Y, target.Position.Z, ct);
     }
 }

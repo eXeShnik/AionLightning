@@ -52,6 +52,10 @@ public sealed class RegenService : BackgroundService
         }
     }
 
+    // FP drain per 6s tick while flying; regen per tick while grounded
+    private const int FpDrainPerTick  = 75;
+    private const int FpRegenPerTick  = 50;
+
     private async Task TickAsync(CancellationToken ct)
     {
         var now = DateTime.UtcNow;
@@ -59,11 +63,39 @@ public sealed class RegenService : BackgroundService
         {
             var player = conn.ActivePlayer;
             if (player is null || player.IsAlreadyDead) continue;
+
+            int worldId   = player.Position.WorldId;
+            bool isFlying = player.State.HasFlag(CreatureState.Flying);
+
+            // FP drain while flying (always — not gated by combat delay)
+            if (isFlying && player.CurrentFp > 0)
+            {
+                player.CurrentFp = Math.Max(0, player.CurrentFp - FpDrainPerTick);
+                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.MaxFp), ct); } catch { }
+
+                if (player.CurrentFp <= 0)
+                {
+                    // Force-land: clear Flying flag and broadcast the landing emotion
+                    player.State &= ~CreatureState.Flying;
+                    player.State &= ~CreatureState.Gliding;
+                    var land = new SM_EMOTION(player, EmotionType.LAND);
+                    try { await conn.SendAsync(land, ct); } catch { }
+                    foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+                        if (peer.ActivePlayer?.Position.WorldId == worldId)
+                            try { await peer.SendAsync(land, ct); } catch { }
+                }
+            }
+
+            // FP regen when grounded and out of combat
+            if (!isFlying && player.CurrentFp < player.MaxFp && now - player.LastCombatTime >= OutOfCombatDelay)
+            {
+                player.CurrentFp = Math.Min(player.MaxFp, player.CurrentFp + FpRegenPerTick);
+                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.MaxFp), ct); } catch { }
+            }
+
             if (now - player.LastCombatTime < OutOfCombatDelay) continue;
 
             bool changed = false;
-
-            int worldId = player.Position.WorldId;
 
             if (player.CurrentHp < player.MaxHp)
             {
