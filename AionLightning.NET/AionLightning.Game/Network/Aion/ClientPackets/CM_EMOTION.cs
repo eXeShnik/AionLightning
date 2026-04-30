@@ -61,11 +61,11 @@ public sealed class CM_EMOTION : AionClientPacket
         var packet = new SM_EMOTION(player, _emotionType, _emotion, tgtId, _x, _y, _z, _heading);
 
         // Send to self and broadcast to others in the same zone
-        await _conn.SendAsync(packet, ct);
+        try { await _conn.SendAsync(packet, ct); } catch { }
         int worldId = player.Position.WorldId;
         foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
-                await other.SendAsync(packet, ct);
+                try { await other.SendAsync(packet, ct); } catch { }
     }
 
     private void ApplyStateChange(Player player)

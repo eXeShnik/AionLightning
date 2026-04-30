@@ -53,21 +53,21 @@ public sealed class CM_LEVEL_READY : AionClientPacket
             var otherEquipment = other.Inventory.All.Where(i => i.IsEquipped).ToList();
 
             // New player sees existing player + their motion + clear abnormal + social settings
-            await _conn.SendAsync(new SM_PLAYER_INFO(other, other.Appearance, enemy: false, otherEquipment), ct);
-            await _conn.SendAsync(SM_MOTION.Broadcast(other.ObjectId), ct);
-            await _conn.SendAsync(new SM_ABNORMAL_EFFECT(other.ObjectId, isPlayer: true), ct);
-            await _conn.SendAsync(new SM_CUSTOM_SETTINGS(other.ObjectId, other.DisplaySettings, other.DenySettings), ct);
+            try { await _conn.SendAsync(new SM_PLAYER_INFO(other, other.Appearance, enemy: false, otherEquipment), ct); } catch { }
+            try { await _conn.SendAsync(SM_MOTION.Broadcast(other.ObjectId), ct); } catch { }
+            try { await _conn.SendAsync(new SM_ABNORMAL_EFFECT(other.ObjectId, isPlayer: true), ct); } catch { }
+            try { await _conn.SendAsync(new SM_CUSTOM_SETTINGS(other.ObjectId, other.DisplaySettings, other.DenySettings), ct); } catch { }
 
             // Existing player sees new player + their social settings
-            await otherConn.SendAsync(playerInfo, ct);
-            await otherConn.SendAsync(motionBroadcast, ct);
-            await otherConn.SendAsync(new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true), ct);
-            await otherConn.SendAsync(playerSettings, ct);
+            try { await otherConn.SendAsync(playerInfo, ct); } catch { }
+            try { await otherConn.SendAsync(motionBroadcast, ct); } catch { }
+            try { await otherConn.SendAsync(new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true), ct); } catch { }
+            try { await otherConn.SendAsync(playerSettings, ct); } catch { }
         }
 
         // Introduce spawned NPCs in the same zone to the entering player
         foreach (var npc in _world.GetAllNpcs().Where(n => n.Position.WorldId == worldId))
-            await _conn.SendAsync(new SM_NPC_INFO(npc), ct);
+            try { await _conn.SendAsync(new SM_NPC_INFO(npc), ct); } catch { }
 
         await _eventBus.PublishAsync(new PlayerEnteredWorldEvent(player), ct);
     }

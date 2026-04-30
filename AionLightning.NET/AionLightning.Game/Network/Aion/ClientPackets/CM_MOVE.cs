@@ -65,6 +65,6 @@ public sealed class CM_MOVE : AionClientPacket
         var movePacket = new SM_MOVE(player);
         foreach (var otherConn in _connRegistry.GetAllExcept(player.ObjectId))
             if (otherConn.ActivePlayer?.Position.WorldId == worldId)
-                await otherConn.SendAsync(movePacket, ct);
+                try { await otherConn.SendAsync(movePacket, ct); } catch { }
     }
 }

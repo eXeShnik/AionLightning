@@ -74,10 +74,8 @@ public sealed class SpawnService
             var respawned = SpawnNpc(template, position);
             var infoPacket = new SM_NPC_INFO(respawned);
             foreach (var conn in _connRegistry.GetAll())
-            {
                 if (conn.ActivePlayer?.Position.WorldId == position.WorldId)
-                    await conn.SendAsync(infoPacket);
-            }
+                    try { await conn.SendAsync(infoPacket); } catch { }
         });
     }
 }

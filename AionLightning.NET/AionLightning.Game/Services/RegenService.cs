@@ -38,7 +38,7 @@ public sealed class RegenService : BackgroundService
             if (member.ObjectId == player.ObjectId) continue;
             var memberConn = _connRegistry.Get(member.ObjectId);
             if (memberConn is not null)
-                await memberConn.SendAsync(update, ct);
+                try { await memberConn.SendAsync(update, ct); } catch { }
         }
     }
 
