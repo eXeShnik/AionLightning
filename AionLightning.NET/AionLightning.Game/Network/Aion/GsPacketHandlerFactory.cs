@@ -249,7 +249,7 @@ public sealed class GsPacketHandlerFactory
                 0x16C => new CM_FUSION_WEAPONS(),
                 0x16D => new CM_BREAK_WEAPONS(),
                 0x16F => new CM_SUMMON_CASTSPELL(),
-                0x170 => new CM_REPLACE_ITEM(),
+                0x170 => new CM_REPLACE_ITEM(conn, _itemDao),
                 0x171 => new CM_BLOCK_SET_REASON(conn, _socialDao),
                 0x172 => new CM_MACRO_DELETE(conn, _macroDao),
                 0x176 => new CM_TELEPORT_SELECT(conn, _world, _dataManager, _itemDao, _connRegistry),
