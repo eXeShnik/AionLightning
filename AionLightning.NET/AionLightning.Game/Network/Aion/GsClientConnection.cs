@@ -240,6 +240,18 @@ public sealed class GsClientConnection : AConnection
                 if (memberConn is not null)
                     try { await memberConn.SendAsync(disconnectNotify, CancellationToken.None); } catch { /* ignore */ }
             }
+
+            // If the group disbanded (fell below 2 members), clear the survivor's group UI
+            if (leftGroup.Members.Count < 2 && leftGroup.Members.Count > 0)
+            {
+                var survivor     = leftGroup.Members[0];
+                var survivorConn = _connRegistry.Get(survivor.ObjectId);
+                if (survivorConn is not null)
+                {
+                    try { await survivorConn.SendAsync(new SM_LEAVE_GROUP_MEMBER(), CancellationToken.None); } catch { }
+                    try { await survivorConn.SendAsync(new SM_GROUP_INFO(), CancellationToken.None); } catch { }
+                }
+            }
         }
 
         var csConn = _cs.Current;
