@@ -182,6 +182,13 @@ public sealed class CM_USE_ITEM : AionClientPacket
         await _recipeDao.AddRecipeAsync(player.ObjectId, recipeId, ct);
         await _conn.SendAsync(new SM_RECIPE_LIST(player.KnownRecipes), ct);
 
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int recipeWorldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == recipeWorldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
+
         // Recipe books are non-stackable — always delete on use
         player.Inventory.Remove(item.UniqueId);
         await _itemDao.DeleteAsync(item.UniqueId, ct);

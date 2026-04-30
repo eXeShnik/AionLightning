@@ -24,9 +24,19 @@ public sealed class CM_START_LOOT : AionClientPacket
         r.ReadC(); // action byte
     }
 
+    private const float MaxLootDistance = 10f;
+
     public override async ValueTask RunAsync(CancellationToken ct)
     {
-        if (_conn.ActivePlayer is null) return;
+        var player = _conn.ActivePlayer;
+        if (player is null) return;
+
+        var lootPos = _lootService.GetLootPosition(_targetObjectId);
+        if (lootPos is not null && player.Position.DistanceTo(lootPos.Value) > MaxLootDistance)
+        {
+            await _conn.SendAsync(new SM_LOOT_STATUS(_targetObjectId, SM_LOOT_STATUS.State.Locked), ct);
+            return;
+        }
 
         await _conn.SendAsync(new SM_LOOT_STATUS(_targetObjectId, SM_LOOT_STATUS.State.Open), ct);
 

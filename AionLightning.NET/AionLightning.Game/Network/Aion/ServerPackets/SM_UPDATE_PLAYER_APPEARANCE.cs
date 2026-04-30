@@ -28,7 +28,7 @@ public sealed class SM_UPDATE_PLAYER_APPEARANCE : AionServerPacket
             w.WriteD(item.ItemId); // skin template ID — use itemId directly
             w.WriteD(0);           // godstone itemId (none)
             w.WriteD(0);           // item color (default)
-            w.WriteD(0);           // enchant/authorize bonus (none)
+            w.WriteD(item.EnchantLevel >= 15 ? 1 : 0); // enchant glow
         }
     }
 }

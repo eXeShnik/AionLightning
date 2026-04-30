@@ -11,7 +11,9 @@ public sealed class LootService
     private const int MinorLifeElixirId = 162000052; // fallback when NPC has no drop table
 
     // Maps dead NPC objectId → pending loot items (index → item)
-    private readonly ConcurrentDictionary<int, List<LootEntry>> _pending = new();
+    private readonly ConcurrentDictionary<int, List<LootEntry>> _pending   = new();
+    // Tracks where each NPC died so CM_START_LOOT can enforce proximity
+    private readonly ConcurrentDictionary<int, Position>        _positions = new();
     private readonly IDataManager _dataManager;
 
     public record LootEntry(int ItemId, long Count, bool IsTradeable);
@@ -59,8 +61,12 @@ public sealed class LootService
             }
         }
 
-        _pending[npc.ObjectId] = drops;
+        _pending[npc.ObjectId]   = drops;
+        _positions[npc.ObjectId] = npc.Position;
     }
+
+    public Position? GetLootPosition(int npcObjectId)
+        => _positions.TryGetValue(npcObjectId, out var pos) ? pos : null;
 
     public IReadOnlyList<LootEntry>? GetLoot(int npcObjectId)
         => _pending.TryGetValue(npcObjectId, out var list) ? list : null;
@@ -80,5 +86,9 @@ public sealed class LootService
         return entry;
     }
 
-    public void ClearLoot(int npcObjectId) => _pending.TryRemove(npcObjectId, out _);
+    public void ClearLoot(int npcObjectId)
+    {
+        _pending.TryRemove(npcObjectId, out _);
+        _positions.TryRemove(npcObjectId, out _);
+    }
 }

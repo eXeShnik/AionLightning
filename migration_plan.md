@@ -756,6 +756,13 @@
     - [✓] `Program.cs` — registered `DuelService` as singleton
     - Build: 0 warnings, 0 errors
 
+77. [✓] Enchant glow broadcast, recipe book animation, loot distance guard (session 2026-05-01)
+    - [✓] `SM_UPDATE_PLAYER_APPEARANCE` — `writeD(0)` for enchant/authorize bonus field replaced with `writeD(item.EnchantLevel >= 15 ? 1 : 0)`; zone peers now see weapon glow on players with +15 enchanted gear; matches Java SM_UPDATE_PLAYER_APPEARANCE.writeImpl() and the formula already used in SM_PLAYER_INFO line 84
+    - [✓] `CM_USE_ITEM.HandleRecipeBookAsync` — recipe books now broadcast `SM_ITEM_USAGE_ANIMATION` to self and zone peers after learning the recipe, matching the behavior already present in `HandleSkillBookAsync`; previously recipe book use was silent from the perspective of other players
+    - [✓] `LootService` — added `ConcurrentDictionary<int, Position> _positions`; `GenerateDrops(npc)` now stores `npc.Position`; `GetLootPosition(npcObjectId)` exposes it; `ClearLoot` removes from both dictionaries
+    - [✓] `CM_START_LOOT` — added `MaxLootDistance = 10f` guard; if the loot pile position is known and the player is more than 10 units away, sends `SM_LOOT_STATUS.Locked` and returns; prevents looting corpses from across the map; lootPos is `Position?` (value type), `.Value` used for DistanceTo call
+    - Build: 0 warnings, 0 errors
+
 76. [✓] SM_ITEM_USAGE_ANIMATION + CM_USE_ITEM zone broadcast (session 2026-05-01)
     - [✓] `SM_ITEM_USAGE_ANIMATION` (0xB7) — new server packet; wire format: `D(playerObjId)+D(targetObjId)+D(itemObjId)+D(itemId)+D(time)+C(end)+C(0)+C(1)+D(unk)+C(0)`; `end=1` for instant-use items, `time=0` for no cast animation; matches Java SM_ITEM_USAGE_ANIMATION.writeImpl() (4.5 opcode)
     - [✓] `CM_USE_ITEM` — added `PlayerConnectionRegistry` field; broadcasts `SM_ITEM_USAGE_ANIMATION` to self + zone peers immediately before applying consumable effects (HP/MP elixirs) and before the skill-book learn notification; zone peers now see the item use animation when another player uses a potion or skill book
