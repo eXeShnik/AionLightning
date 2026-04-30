@@ -604,6 +604,12 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+75. [✓] CM_PLAY_MOVIE_END read-format fix + CM_CHAT_PLAYER_INFO offline check (session 2026-04-30)
+    - [✓] `CM_PLAY_MOVIE_END` (0x113) — fixed Read() from D(movieId) to C(type)+D(targetObjectId)+D(dialogId)+H(movieId)+D(unk) matching Java readImpl(); incorrect format was consuming 2 wrong bytes from subsequent packets; RunAsync remains a no-op (quest engine movie-end triggers not yet implemented)
+    - [✓] `SM_SYSTEM_MESSAGE` — added `PlayerOffline()` factory (code 1300046 = STR_MSG_ASK_PCINFO_LOGOFF); used when a player requests info for an offline player
+    - [✓] `CM_CHAT_PLAYER_INFO` (0xC5) — reads playerName(S); if target is offline (not found in connRegistry), sends `SM_SYSTEM_MESSAGE.PlayerOffline()`; online case is a no-op (SM_CHAT_WINDOW not yet implemented — client handles absence gracefully); wired in factory with conn + connRegistry
+    - Build: 0 warnings, 0 errors
+
 74. [✓] Duel system — auto-accept PvP duels (session 2026-04-30)
     - [✓] `DuelService` — `ConcurrentDictionary<int,int>` keyed by participantObjectId → opponentObjectId; `IsDueling`, `GetOpponent`, `StartDuel`, `EndDuel`, `RemovePlayer` methods
     - [✓] `SM_DUEL` (opcode 0xB9) — type 0x00 (STARTED): C(0)+D(opponentObjId); type 0x01 (RESULT): C(1)+C(resultId)+D(msgId)+S(name); factory methods `Started(opponentId)`, `Won(opponentName)` (resultId=2, msg=1300098), `Lost(opponentName)` (resultId=0, msg=1300099)

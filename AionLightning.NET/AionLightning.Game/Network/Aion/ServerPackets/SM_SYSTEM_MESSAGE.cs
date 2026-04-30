@@ -48,4 +48,7 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_CMD_LOCATION_DESC — "/loc output: mapId=%0, x=%1, y=%2, z=%3" (msg code 230038)
     public static SM_SYSTEM_MESSAGE LocationDesc(int worldId, float x, float y, float z)
         => new(230038, worldId.ToString(), x.ToString("F2"), y.ToString("F2"), z.ToString("F2"));
+
+    // STR_MSG_ASK_PCINFO_LOGOFF — "The player is not logged in." (msg code 1300046)
+    public static SM_SYSTEM_MESSAGE PlayerOffline() => new(1300046);
 }
