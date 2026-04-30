@@ -604,6 +604,14 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+76. [✓] Batch read-format fixes — 5 stub packets (session 2026-04-30)
+    - [✓] `CM_REMOVE_ALTERED_STATE` (0xE1) — fixed Read(): was `r.ReadD()` → `r.ReadH()` (Java reads H/short for skillId, not D/int; over-consuming 2 bytes corrupted next packet)
+    - [✓] `CM_SUMMON_ATTACK` (0x169) — populated empty Read(): `r.ReadD(summonObjectId); r.ReadD(targetObjectId); r.ReadC(unk); r.ReadH(time); r.ReadC(unk);` matching Java readImpl(); RunAsync stub remains
+    - [✓] `CM_GODSTONE_SOCKET` (0x139) — populated empty Read(): `r.ReadD(npcObjectId); r.ReadD(weaponId); r.ReadD(stoneId);` matching Java readImpl(); RunAsync stub remains
+    - [✓] `CM_BUY_TRADE_IN_TRADE` (0x13A) — populated empty Read(): `r.ReadD(sellerObjectId); r.ReadD(itemId); r.ReadD(count);` matching Java readImpl(); RunAsync stub remains
+    - [✓] `CM_FAST_TRACK` (0x13E) — populated empty Read(): `r.ReadH(action); r.ReadH(unk); r.ReadD(unk); r.ReadD(unk); r.ReadD(unk); r.ReadD(unk);` matching Java readImpl(); RunAsync stub remains
+    - Build: 0 warnings, 0 errors
+
 75. [✓] CM_PLAY_MOVIE_END read-format fix + CM_CHAT_PLAYER_INFO offline check (session 2026-04-30)
     - [✓] `CM_PLAY_MOVIE_END` (0x113) — fixed Read() from D(movieId) to C(type)+D(targetObjectId)+D(dialogId)+H(movieId)+D(unk) matching Java readImpl(); incorrect format was consuming 2 wrong bytes from subsequent packets; RunAsync remains a no-op (quest engine movie-end triggers not yet implemented)
     - [✓] `SM_SYSTEM_MESSAGE` — added `PlayerOffline()` factory (code 1300046 = STR_MSG_ASK_PCINFO_LOGOFF); used when a player requests info for an offline player
