@@ -1,6 +1,14 @@
+using AionLightning.Game.Model;
 using AionLightning.Game.Model.Legion;
 
 namespace AionLightning.Game.Dao;
+
+public sealed record LegionRankEntry(
+    int    LegionId,
+    string Name,
+    byte   Level,
+    long   ContributionPoints,
+    int    MemberCount);
 
 public interface ILegionDao
 {
@@ -14,4 +22,5 @@ public interface ILegionDao
     Task UpdateAnnouncementAsync(int legionId, string announcement, CancellationToken ct);
     Task DeleteLegionAsync(int legionId, CancellationToken ct);
     Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct);
+    Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct);
 }

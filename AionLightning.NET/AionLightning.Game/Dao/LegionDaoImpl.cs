@@ -1,3 +1,4 @@
+using AionLightning.Game.Model;
 using AionLightning.Game.Model.Legion;
 using Dapper;
 using MySqlConnector;
@@ -153,6 +154,27 @@ public sealed class LegionDaoImpl : ILegionDao
         await conn.ExecuteAsync(
             "UPDATE legions SET warehouse_kinah = @kinah WHERE id = @legionId",
             new { kinah, legionId });
+    }
+
+    public async Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(int id, string name, byte level, long contribution_points, int member_count)>(
+            """
+            SELECT l.id, l.name, l.level, l.contribution_points,
+                   COUNT(m.player_id) AS member_count
+            FROM legions l
+            JOIN legion_members bg ON bg.legion_id = l.id AND bg.rank_id = 0
+            JOIN players p ON p.id = bg.player_id
+            LEFT JOIN legion_members m ON m.legion_id = l.id
+            WHERE p.race = @raceStr
+            GROUP BY l.id, l.name, l.level, l.contribution_points
+            ORDER BY l.contribution_points DESC
+            LIMIT @limit
+            """,
+            new { raceStr = race.ToString(), limit });
+        return rows.Select(r => new LegionRankEntry(r.id, r.name, r.level, r.contribution_points, r.member_count))
+                   .ToList();
     }
 
     private sealed record LegionRow(

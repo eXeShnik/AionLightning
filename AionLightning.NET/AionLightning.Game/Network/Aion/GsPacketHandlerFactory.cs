@@ -229,7 +229,7 @@ public sealed class GsPacketHandlerFactory
                 0x14D => new CM_MACRO_CREATE(conn, _macroDao),
                 0x14E => new CM_CHANGE_CHANNEL(conn, _connRegistry, _world),
                 0x153 => new CM_QUESTIONNAIRE(),
-                0x154 => new CM_ABYSS_RANKING_LEGIONS(),
+                0x154 => new CM_ABYSS_RANKING_LEGIONS(conn, _legionDao),
                 0x155 => new CM_PRIVATE_STORE(),
                 0x156 => new CM_DELETE_ITEM(conn, _itemDao),
                 0x159 => new CM_BROKER_LIST(),
