@@ -32,21 +32,24 @@ public sealed class CM_USE_ITEM : AionClientPacket
         { 10268, ( 0, 45) }, // Unique Mana Elixir  lv60
     };
 
-    private readonly GsClientConnection _conn;
-    private readonly IItemDao           _itemDao;
-    private readonly IDataManager       _dataManager;
-    private readonly IRecipeDao         _recipeDao;
+    private readonly GsClientConnection       _conn;
+    private readonly IItemDao                 _itemDao;
+    private readonly IDataManager             _dataManager;
+    private readonly IRecipeDao               _recipeDao;
+    private readonly PlayerConnectionRegistry _connRegistry;
 
     private int _uniqueItemId;
     private int _type;
     private int _targetItemId;
 
-    public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager, IRecipeDao recipeDao)
+    public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
+        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry)
     {
-        _conn        = conn;
-        _itemDao     = itemDao;
-        _dataManager = dataManager;
-        _recipeDao   = recipeDao;
+        _conn         = conn;
+        _itemDao      = itemDao;
+        _dataManager  = dataManager;
+        _recipeDao    = recipeDao;
+        _connRegistry = connRegistry;
     }
 
     public override void Read(ref PacketReader r)
@@ -84,6 +87,14 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
         if (template.UseSkillId is not int skillId) return;
         if (!SkillEffects.TryGetValue(skillId, out var effect)) return;
+
+        // Broadcast item use animation to self and zone peers
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int worldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == worldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
 
         // Apply HP restore
         if (effect.Hp > 0 && player.MaxHp > 0)
@@ -145,6 +156,13 @@ public sealed class CM_USE_ITEM : AionClientPacket
         await _conn.SendAsync(new SM_SKILL_LIST(
             [new PlayerSkillEntry(skillId, skillLevel)],
             isNew: true, msgId: 1300050, skillName: skillName, skillLevel: skillLevel), ct);
+
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int bookWorldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == bookWorldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
 
         // Skill books are non-stackable — always delete on use
         player.Inventory.Remove(item.UniqueId);
