@@ -162,7 +162,7 @@ public sealed class GsPacketHandlerFactory
                 0x100 => new CM_EXCHANGE_ADD_KINAH(conn, _connRegistry, _exchangeService),
                 0x101 => new CM_EXCHANGE_LOCK(conn, _connRegistry, _exchangeService, _itemDao),
                 0x102 => new CM_EXCHANGE_ADD_ITEM(conn, _connRegistry, _exchangeService),
-                0x105 => new CM_PING_REQUEST(),
+                0x105 => new CM_PING_REQUEST(conn),
                 0x106 => new CM_VIEW_PLAYER_DETAILS(conn, _world),
                 0x109 => new CM_CLIENT_COMMAND_ROLL(),
                 0x10C => new CM_MARK_FRIENDLIST(),
