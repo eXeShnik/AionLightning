@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Dao;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
@@ -16,6 +17,7 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly LootService _lootService;
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
+    private readonly IPlayerDao _playerDao;
 
     private int _targetObjectId;
     private int _time;
@@ -23,7 +25,7 @@ public sealed class CM_ATTACK : AionClientPacket
     public CM_ATTACK(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, ExperienceService expService,
         SpawnService spawnService, LootService lootService, QuestService questService,
-        DuelService duelService)
+        DuelService duelService, IPlayerDao playerDao)
     {
         _conn         = conn;
         _world        = world;
@@ -33,6 +35,7 @@ public sealed class CM_ATTACK : AionClientPacket
         _lootService  = lootService;
         _questService = questService;
         _duelService  = duelService;
+        _playerDao    = playerDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -104,7 +107,23 @@ public sealed class CM_ATTACK : AionClientPacket
 
             var targetConn = _connRegistry.Get(deadPlayer.ObjectId);
             if (targetConn is not null)
-                await targetConn.SendAsync(new SM_DIE(), ct);
+                try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { }
+
+            // PvP AP exchange — only in Abyss/Balaurea maps AND opposing factions
+            if (AbyssRankService.IsPvPMap(player.Position.WorldId) && player.Race != deadPlayer.Race)
+            {
+                int apGain = AbyssRankService.CalculatePvPApGained(player, deadPlayer);
+                int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
+                AbyssRankService.AddAp(player, apGain);
+                AbyssRankService.LoseAp(deadPlayer, apLoss);
+
+                await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+                if (targetConn is not null)
+                    try { await targetConn.SendAsync(new SM_ABYSS_RANK(deadPlayer.AbyssPoints, deadPlayer.AbyssRank), ct); } catch { }
+
+                await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+                await _playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, ct);
+            }
         }
         else if (target is Npc deadNpc)
         {
@@ -122,13 +141,14 @@ public sealed class CM_ATTACK : AionClientPacket
             long xpReward = deadNpc.Level * 50L;
             await _expService.AddGroupExpAsync(player, xpReward, ct);
 
-            // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs
+            // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately
             if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
                 || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
             {
                 int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
                 AbyssRankService.AddAp(player, ap);
                 await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+                await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
             }
 
             // Delayed despawn + respawn; also cleans up uncollected loot after 60s

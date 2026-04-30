@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Templates.Skill;
@@ -19,6 +20,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly LootService _lootService;
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
+    private readonly IPlayerDao _playerDao;
 
     private int _spellId;
     private int _level;
@@ -30,7 +32,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     public CM_CASTSPELL(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
-        QuestService questService, DuelService duelService)
+        QuestService questService, DuelService duelService, IPlayerDao playerDao)
     {
         _conn         = conn;
         _world        = world;
@@ -41,6 +43,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _lootService  = lootService;
         _questService = questService;
         _duelService  = duelService;
+        _playerDao    = playerDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -137,6 +140,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var questSvc   = _questService;
             var duelSvc    = _duelService;
             var conn       = _conn;
+            var playerDao  = _playerDao;
 
             _ = Task.Run(async () =>
             {
@@ -206,6 +210,22 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             try { await c.SendAsync(die); } catch { }
                     var targetConn = registry.Get(deadPlayer.ObjectId);
                     if (targetConn is not null) try { await targetConn.SendAsync(new SM_DIE()); } catch { }
+
+                    // PvP AP exchange — only in Abyss/Balaurea maps AND opposing factions
+                    if (AbyssRankService.IsPvPMap(castWorldId) && player.Race != deadPlayer.Race)
+                    {
+                        int apGain = AbyssRankService.CalculatePvPApGained(player, deadPlayer);
+                        int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
+                        AbyssRankService.AddAp(player, apGain);
+                        AbyssRankService.LoseAp(deadPlayer, apLoss);
+
+                        try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                        if (targetConn is not null)
+                            try { await targetConn.SendAsync(new SM_ABYSS_RANK(deadPlayer.AbyssPoints, deadPlayer.AbyssRank), CancellationToken.None); } catch { }
+
+                        await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
+                        await playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, CancellationToken.None);
+                    }
                 }
                 else if (target is Npc deadNpc)
                 {
@@ -225,13 +245,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     long xp = deadNpc.Level * 50L;
                     await expSvc.AddGroupExpAsync(player, xp, CancellationToken.None);
 
-                    // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs
+                    // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately
                     if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
                         || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
                     {
                         int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
                         AbyssRankService.AddAp(player, ap);
                         try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                        await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
                     }
 
                     await Task.Delay(3000);

@@ -844,6 +844,17 @@
     - [✓] `GsPacketHandlerFactory` — CM_PLAYER_STATUS_INFO now receives `conn`, `_connRegistry`, `_groupService` (was `new CM_PLAYER_STATUS_INFO()` with no deps)
     - Build: 0 warnings, 0 errors
 
+69. [✓] PvP AP reward + immediate AP persistence on kill (session 2026-05-01)
+    - [✓] `AbyssRankService` — added `PvPApGained[9]` and `PvPApLost[9]` static arrays from Java AbyssRankEnum (ranks 1–9); added `PvPWorldIds` HashSet covering Reshanta (400010000) + Balaurea (600010000–600070000) + Elyos/Asmodian abyss bases (210050000, 220070000)
+    - [✓] `AbyssRankService.IsPvPMap(worldId)` — returns true for any world in PvPWorldIds; used as gate before PvP AP exchange
+    - [✓] `AbyssRankService.CalculatePvPApGained(winner, defeated)` — mirrors Java StatFunctions.calculatePvpApGained: base = defeated rank's pointsGained; applies level-difference scaling (×0.1 if diff>4, ×0.65 if diff=4, ×0.85 if diff=3, ×1.1 if diff=-2, ×1.2 if diff≤-3)
+    - [✓] `AbyssRankService.CalculatePvPApLost(winner, defeated)` — mirrors Java StatFunctions.calculatePvPApLost: base = defeated rank's pointsLost with same level-difference scaling; AP cannot go below 0 via `LoseAp`
+    - [✓] `AbyssRankService.LoseAp(player, amount)` — new helper; subtracts AP clamped at 0 (rank never decreases from AP loss in current impl)
+    - [✓] `CM_ATTACK` — added `IPlayerDao` dependency; in player-kill path: if `IsPvPMap(worldId) && player.Race != deadPlayer.Race`, grant `CalculatePvPApGained` to killer and deduct `CalculatePvPApLost` from victim, send `SM_ABYSS_RANK` to both, call `UpdateAbyssAsync` for both immediately; in NPC-kill path: after AP gain, call `UpdateAbyssAsync` so AP survives a server crash (was previously only saved on disconnect)
+    - [✓] `CM_CASTSPELL` — same changes as CM_ATTACK for both player-kill and NPC-kill paths; `playerDao` captured in Task.Run closure alongside existing service locals
+    - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to CM_ATTACK and CM_CASTSPELL constructors
+    - Build: 0 warnings, 0 errors
+
 68. [✓] Warehouse split support in CM_SPLIT_ITEM (session 2026-05-01)
     - [✓] `CM_SPLIT_ITEM` — removed early-return guard that silently dropped all warehouse split/merge operations (`_sourceStorageType != 0 || _destinationStorageType != 0`); storage type 1 = personal warehouse, 0 = inventory
     - [✓] `CM_SPLIT_ITEM` — source and dest storage now resolved dynamically: `_sourceStorageType == 1 ? player.Warehouse : player.Inventory`; both `player.Inventory` and `player.Warehouse` are `PlayerInventory` so no cast needed
