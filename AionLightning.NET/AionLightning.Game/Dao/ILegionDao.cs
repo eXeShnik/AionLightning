@@ -13,4 +13,5 @@ public interface ILegionDao
     Task UpdateRankAsync(int playerId, LegionRank rank, CancellationToken ct);
     Task UpdateAnnouncementAsync(int legionId, string announcement, CancellationToken ct);
     Task DeleteLegionAsync(int legionId, CancellationToken ct);
+    Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct);
 }

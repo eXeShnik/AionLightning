@@ -4,16 +4,22 @@ namespace AionLightning.Game.Network.Aion.ServerPackets;
 
 /// <summary>
 /// Tells the client which channel (instance) the player is in.
-/// For open-world maps: channel 0, 1 available instance.
 /// Opcode 0xE5.
 /// </summary>
 public sealed class SM_CHANNEL_INFO : AionServerPacket
 {
-    public SM_CHANNEL_INFO() : base(0xE5) { }
+    private readonly int _currentChannel;
+    private readonly int _instanceCount;
+
+    public SM_CHANNEL_INFO(int currentChannel = 0, int instanceCount = 1) : base(0xE5)
+    {
+        _currentChannel = currentChannel;
+        _instanceCount  = instanceCount;
+    }
 
     public override void Write(ref PacketWriter w)
     {
-        w.WriteD(0); // currentChannel (0-based; open world = 0)
-        w.WriteD(1); // instanceCount (number of channels available)
+        w.WriteD(_currentChannel);
+        w.WriteD(_instanceCount);
     }
 }

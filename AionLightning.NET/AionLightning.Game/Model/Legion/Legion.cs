@@ -13,6 +13,8 @@ public sealed class Legion
     public short LegionaryPermission { get; set; }
     public short VolunteerPermission { get; set; }
 
+    public long WarehouseKinah { get; set; }
+
     public Dictionary<int, LegionMember> Members { get; } = new();
 
     public int? BrigadeGeneralId =>

@@ -1,0 +1,1 @@
+ALTER TABLE legions ADD COLUMN warehouse_kinah BIGINT NOT NULL DEFAULT 0;

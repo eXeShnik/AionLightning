@@ -24,7 +24,7 @@ public sealed class LegionDaoImpl : ILegionDao
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
         var row = await conn.QuerySingleOrDefaultAsync<LegionRow>(
-            "SELECT id, name, level, contribution_points, announcement, deputy_permission, centurion_permission, legionary_permission, volunteer_permission FROM legions WHERE id = @legionId",
+            "SELECT id, name, level, contribution_points, announcement, deputy_permission, centurion_permission, legionary_permission, volunteer_permission, warehouse_kinah FROM legions WHERE id = @legionId",
             new { legionId });
         if (row is null) return null;
 
@@ -37,7 +37,7 @@ public sealed class LegionDaoImpl : ILegionDao
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
         var row = await conn.QuerySingleOrDefaultAsync<LegionRow>(
-            "SELECT id, name, level, contribution_points, announcement, deputy_permission, centurion_permission, legionary_permission, volunteer_permission FROM legions WHERE name = @name",
+            "SELECT id, name, level, contribution_points, announcement, deputy_permission, centurion_permission, legionary_permission, volunteer_permission, warehouse_kinah FROM legions WHERE name = @name",
             new { name });
         if (row is null) return null;
 
@@ -60,7 +60,7 @@ public sealed class LegionDaoImpl : ILegionDao
         if (memberRow is null) return null;
 
         var legionRow = await conn.QuerySingleOrDefaultAsync<LegionRow>(
-            "SELECT id, name, level, contribution_points, announcement, deputy_permission, centurion_permission, legionary_permission, volunteer_permission FROM legions WHERE id = @legionId",
+            "SELECT id, name, level, contribution_points, announcement, deputy_permission, centurion_permission, legionary_permission, volunteer_permission, warehouse_kinah FROM legions WHERE id = @legionId",
             new { legionId = memberRow.legion_id });
         if (legionRow is null) return null;
 
@@ -132,6 +132,7 @@ public sealed class LegionDaoImpl : ILegionDao
         CenturionPermission  = r.centurion_permission,
         LegionaryPermission  = r.legionary_permission,
         VolunteerPermission  = r.volunteer_permission,
+        WarehouseKinah       = r.warehouse_kinah,
     };
 
     private static LegionMember ToMember(MemberRow r) => new()
@@ -146,9 +147,18 @@ public sealed class LegionDaoImpl : ILegionDao
         Nickname  = r.nickname,
     };
 
+    public async Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legions SET warehouse_kinah = @kinah WHERE id = @legionId",
+            new { kinah, legionId });
+    }
+
     private sealed record LegionRow(
         int id, string name, int level, long contribution_points, string announcement,
-        short deputy_permission, short centurion_permission, short legionary_permission, short volunteer_permission);
+        short deputy_permission, short centurion_permission, short legionary_permission, short volunteer_permission,
+        long warehouse_kinah);
 
     private sealed record MemberRow(
         int player_id, int legion_id, byte rank_id, string self_intro, string nickname,
