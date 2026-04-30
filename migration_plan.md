@@ -604,6 +604,20 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+77. [✓] SM_MARK_FRIENDLIST + CM_MARK_FRIENDLIST impl + 9 read-format fixes (session 2026-04-30)
+    - [✓] `SM_MARK_FRIENDLIST` (0x117) — new server packet: `WriteD(playerObjectId); WriteC(1); WriteH(0);` signals friend list delivery complete
+    - [✓] `CM_MARK_FRIENDLIST` (0x10C) — implemented: reads nothing; queries `ISocialDao.GetFriendsAsync`, builds online-ids set, sends `SM_FRIEND_LIST` then `SM_MARK_FRIENDLIST`; wired in factory with conn+socialDao+connRegistry
+    - [✓] `CM_BONUS_TITLE` (0x18B) — populated Read(): `r.ReadH()` (bonusTitleId; 0xFFFF=clear); stub impl
+    - [✓] `CM_CHAT_GROUP_INFO` (0x11F) — populated Read(): `r.ReadS() + r.ReadD()`; stub impl
+    - [✓] `CM_CHECK_MAIL_SIZE` (0x127) — populated Read(): `r.ReadC()` (mailSize); stub impl
+    - [✓] `CM_AUTO_GROUP` (0x16A) — populated Read(): `r.ReadD() + r.ReadC() + r.ReadC()`; stub impl
+    - [✓] `CM_OBJECT_SEARCH` (0xA9) — populated Read(): `r.ReadD()` (npcId); stub impl
+    - [✓] `CM_WINDSTREAM` (0x2E4) — populated Read(): `r.ReadD() + r.ReadD() + r.ReadD()`; stub impl
+    - [✓] `CM_SHOW_BRAND` (0x197) — populated Read(): `r.ReadD() + r.ReadD() + r.ReadD()`; stub impl
+    - [✓] `CM_ABYSS_RANKING_PLAYERS` (0x19E) — populated Read(): `r.ReadC()` (raceId); stub impl
+    - [✓] `CM_ABYSS_RANKING_LEGIONS` (0x154) — populated Read(): `r.ReadC()` (raceId); stub impl
+    - Build: 0 warnings, 0 errors
+
 76. [✓] Batch read-format fixes — 5 stub packets (session 2026-04-30)
     - [✓] `CM_REMOVE_ALTERED_STATE` (0xE1) — fixed Read(): was `r.ReadD()` → `r.ReadH()` (Java reads H/short for skillId, not D/int; over-consuming 2 bytes corrupted next packet)
     - [✓] `CM_SUMMON_ATTACK` (0x169) — populated empty Read(): `r.ReadD(summonObjectId); r.ReadD(targetObjectId); r.ReadC(unk); r.ReadH(time); r.ReadC(unk);` matching Java readImpl(); RunAsync stub remains

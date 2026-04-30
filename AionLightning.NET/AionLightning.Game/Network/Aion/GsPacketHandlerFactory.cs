@@ -168,7 +168,7 @@ public sealed class GsPacketHandlerFactory
                 0x105 => new CM_PING_REQUEST(conn),
                 0x106 => new CM_VIEW_PLAYER_DETAILS(conn, _world),
                 0x109 => new CM_CLIENT_COMMAND_ROLL(conn, _connRegistry),
-                0x10C => new CM_MARK_FRIENDLIST(),
+                0x10C => new CM_MARK_FRIENDLIST(conn, _socialDao, _connRegistry),
                 0x10D => new CM_FRIEND_ADD(conn, _playerDao, _socialDao, _connRegistry),
                 0x10E => new CM_GROUP_DISTRIBUTION(conn, _connRegistry, _groupService),
                 0x10F => new CM_UNK(),
