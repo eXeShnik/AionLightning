@@ -604,6 +604,13 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+86. [✓] Legion title display + legion chat (session 2026-04-30)
+    - [✓] `SM_LEGION_UPDATE_TITLE` (0x72) — D(objectId)+D(legionId)+S(name)+C(rankDisplay); rankDisplay: BG→0, Deputy/Centurion→1, else→2; shows legion name above player head in client
+    - [✓] `CM_ENTER_WORLD` — after SM_LEGION_MEMBERLIST, sends SM_LEGION_UPDATE_TITLE to self and broadcasts it to all online members already in the zone
+    - [✓] `CM_LEVEL_READY` — during zone-peer introduction, sends SM_LEGION_UPDATE_TITLE for each player (self to others, others to self) when either has a legion
+    - [✓] `CM_CHAT_MESSAGE_PUBLIC` — channel 0x0A (Legion): delivers to all online members of `player.Legion`; previously was silently dropped as unknown channel
+    - Build: 0 warnings, 0 errors
+
 85. [✓] Legion login integration + SM_LEGION_UPDATE_MEMBER (session 2026-04-30)
     - [✓] `SM_LEGION_UPDATE_MEMBER` (0x71) — D(objId)+C(rank)+C(class)+C(level)+D(worldId)+C(isOnline)+D(lastOnline)+D+D+S; used for online/offline status notifications
     - [✓] `CM_ENTER_WORLD` — injected ILegionDao + LegionService; after macros, calls GetMemberLegionAsync; if player is in a legion, loads full Legion from DB into service (or reuses cached instance if another member is already online); sets player.Legion; after friend-list sends, sends SM_LEGION_INFO + SM_LEGION_MEMBERLIST to self, then SM_LEGION_UPDATE_MEMBER(online) to all other online members

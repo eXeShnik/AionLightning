@@ -252,13 +252,21 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
             if (legion.Members.TryGetValue(player.ObjectId, out var selfMember))
             {
+                await _conn.SendAsync(new SM_LEGION_UPDATE_TITLE(
+                    player.ObjectId, legion.LegionId, legion.Name, selfMember.Rank), ct);
+
                 var loginPkt = new SM_LEGION_UPDATE_MEMBER(selfMember, isOnline: true);
+                var titlePkt = new SM_LEGION_UPDATE_TITLE(
+                    player.ObjectId, legion.LegionId, legion.Name, selfMember.Rank);
                 foreach (var m in legion.Members.Values)
                 {
                     if (m.ObjectId == player.ObjectId) continue;
                     var mc = _connRegistry.Get(m.ObjectId);
                     if (mc is not null)
+                    {
                         try { await mc.SendAsync(loginPkt, ct); } catch { }
+                        try { await mc.SendAsync(titlePkt, ct); } catch { }
+                    }
                 }
             }
         }

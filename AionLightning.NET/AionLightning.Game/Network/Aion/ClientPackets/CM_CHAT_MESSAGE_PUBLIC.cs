@@ -44,7 +44,22 @@ public sealed class CM_CHAT_MESSAGE_PUBLIC : AionClientPacket
             return;
         }
 
-        // Legion chat — no legion system yet; unknown channel types silently dropped
+        // Legion chat — deliver to all online legion members
+        if (_channelType == 0x0A)
+        {
+            var legion = player.Legion;
+            if (legion is null) return;
+
+            var legionPacket = new SM_MESSAGE(player, _message, SM_MESSAGE.ChatType.Legion);
+            foreach (var m in legion.Members.Values)
+            {
+                var mc = _connRegistry.Get(m.ObjectId);
+                if (mc is not null) try { await mc.SendAsync(legionPacket, ct); } catch { }
+            }
+            return;
+        }
+
+        // Unknown channel types silently dropped
         if (_channelType is not (0x00 or 0x03)) return;
 
         var chatType = _channelType == 0x03 ? SM_MESSAGE.ChatType.Shout : SM_MESSAGE.ChatType.Normal;

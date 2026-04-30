@@ -52,17 +52,21 @@ public sealed class CM_LEVEL_READY : AionClientPacket
 
             var otherEquipment = other.Inventory.All.Where(i => i.IsEquipped).ToList();
 
-            // New player sees existing player + their motion + clear abnormal + social settings
+            // New player sees existing player + their motion + clear abnormal + social settings + legion title
             try { await _conn.SendAsync(new SM_PLAYER_INFO(other, other.Appearance, enemy: false, otherEquipment), ct); } catch { }
             try { await _conn.SendAsync(SM_MOTION.Broadcast(other.ObjectId), ct); } catch { }
             try { await _conn.SendAsync(new SM_ABNORMAL_EFFECT(other.ObjectId, isPlayer: true), ct); } catch { }
             try { await _conn.SendAsync(new SM_CUSTOM_SETTINGS(other.ObjectId, other.DisplaySettings, other.DenySettings), ct); } catch { }
+            if (other.Legion is { } otherLegion && otherLegion.Members.TryGetValue(other.ObjectId, out var otherMember))
+                try { await _conn.SendAsync(new SM_LEGION_UPDATE_TITLE(other.ObjectId, otherLegion.LegionId, otherLegion.Name, otherMember.Rank), ct); } catch { }
 
-            // Existing player sees new player + their social settings
+            // Existing player sees new player + their social settings + legion title
             try { await otherConn.SendAsync(playerInfo, ct); } catch { }
             try { await otherConn.SendAsync(motionBroadcast, ct); } catch { }
             try { await otherConn.SendAsync(new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true), ct); } catch { }
             try { await otherConn.SendAsync(playerSettings, ct); } catch { }
+            if (player.Legion is { } myLegion && myLegion.Members.TryGetValue(player.ObjectId, out var myMember))
+                try { await otherConn.SendAsync(new SM_LEGION_UPDATE_TITLE(player.ObjectId, myLegion.LegionId, myLegion.Name, myMember.Rank), ct); } catch { }
         }
 
         // Introduce spawned NPCs in the same zone to the entering player
