@@ -843,3 +843,12 @@
     - [✓] `PlayerGroup` — added `SetLeader(int objectId)` method; guards on `HasMember` before updating `LeaderObjectId`
     - [✓] `GsPacketHandlerFactory` — CM_PLAYER_STATUS_INFO now receives `conn`, `_connRegistry`, `_groupService` (was `new CM_PLAYER_STATUS_INFO()` with no deps)
     - Build: 0 warnings, 0 errors
+
+68. [✓] Warehouse split support in CM_SPLIT_ITEM (session 2026-05-01)
+    - [✓] `CM_SPLIT_ITEM` — removed early-return guard that silently dropped all warehouse split/merge operations (`_sourceStorageType != 0 || _destinationStorageType != 0`); storage type 1 = personal warehouse, 0 = inventory
+    - [✓] `CM_SPLIT_ITEM` — source and dest storage now resolved dynamically: `_sourceStorageType == 1 ? player.Warehouse : player.Inventory`; both `player.Inventory` and `player.Warehouse` are `PlayerInventory` so no cast needed
+    - [✓] `CM_SPLIT_ITEM` — new item created on split now sets `StorageType = _destinationStorageType` so DB row has correct storage column from first save
+    - [✓] `CM_SPLIT_ITEM` — `SaveStoragesAsync` helper: saves inventory (`SaveAllAsync`) when either endpoint is type 0, saves warehouse (`SaveWarehouseAsync`) when either endpoint is type 1; both saves issued when cross-storage split occurs
+    - [✓] `CM_SPLIT_ITEM` — `SendUpdatesAsync` helper: sends `SM_WAREHOUSE_INFO(player.Warehouse.All)` for warehouse-side changes, `SM_INVENTORY_ADD_ITEM([items])` for inventory-side changes; matches the pattern used in CM_MOVE_ITEM
+    - [✓] `CM_SPLIT_ITEM` — cross-storage zero-count split (move full stack) sends `SM_DELETE_ITEM` for source, refreshes source storage, then adds new item to dest storage — no duplicate-slot or stale-item corruption possible
+    - Build: 0 warnings, 0 errors

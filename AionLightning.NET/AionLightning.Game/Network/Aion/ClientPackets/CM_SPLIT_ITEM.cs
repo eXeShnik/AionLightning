@@ -8,7 +8,7 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 /// <summary>
 /// Player splits a stack into two, or merges it into an existing same-item stack. Opcode 0x17F.
-/// Only inventory-to-inventory (sourceStorageType=0, destinationStorageType=0) is handled.
+/// Storage types: 0 = inventory, 1 = personal warehouse.
 /// </summary>
 public sealed class CM_SPLIT_ITEM : AionClientPacket
 {
@@ -44,17 +44,18 @@ public sealed class CM_SPLIT_ITEM : AionClientPacket
     public override async ValueTask RunAsync(CancellationToken ct)
     {
         if (_splitAmount <= 0) return;
-        // Warehouse moves not yet implemented
-        if (_sourceStorageType != 0 || _destinationStorageType != 0) return;
 
         var player = _conn.ActivePlayer;
         if (player is null) return;
 
-        var source = player.Inventory.Get(_sourceItemObjId);
+        var sourceStorage = _sourceStorageType == 1 ? player.Warehouse : player.Inventory;
+        var destStorage   = _destinationStorageType == 1 ? player.Warehouse : player.Inventory;
+
+        var source = sourceStorage.Get(_sourceItemObjId);
         if (source is null || source.IsEquipped || source.Count < _splitAmount) return;
 
         var target = _destinationItemObjId != 0
-            ? player.Inventory.Get(_destinationItemObjId)
+            ? destStorage.Get(_destinationItemObjId)
             : null;
 
         if (target is not null && target.ItemId == source.ItemId)
@@ -66,8 +67,9 @@ public sealed class CM_SPLIT_ITEM : AionClientPacket
             source.Count -= _splitAmount;
             target.Count += _splitAmount;
 
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([source, target]), ct);
+            await SaveStoragesAsync(player, _sourceStorageType, _destinationStorageType, ct);
+            await SendUpdatesAsync(player, [source], _sourceStorageType, ct);
+            await SendUpdatesAsync(player, [target], _destinationStorageType, ct);
         }
         else
         {
@@ -75,22 +77,65 @@ public sealed class CM_SPLIT_ITEM : AionClientPacket
             source.Count -= _splitAmount;
 
             long uid = await _itemDao.NextUniqueIdAsync(ct);
-            var newItem = new Item { UniqueId = uid, ItemId = source.ItemId, Count = _splitAmount, Slot = _slotNum };
-            player.Inventory.Add(newItem);
+            var newItem = new Item
+            {
+                UniqueId    = uid,
+                ItemId      = source.ItemId,
+                Count       = _splitAmount,
+                Slot        = _slotNum,
+                StorageType = _destinationStorageType,
+            };
+            destStorage.Add(newItem);
 
             if (source.Count == 0)
             {
-                player.Inventory.Remove(source.UniqueId);
+                sourceStorage.Remove(source.UniqueId);
                 await _itemDao.DeleteAsync(source.UniqueId, ct);
-                await _conn.SendAsync(new SM_DELETE_ITEM(source.UniqueId), ct);
-                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([newItem]), ct);
+
+                // If source and dest are the same storage, send one update; otherwise two
+                if (_sourceStorageType == _destinationStorageType)
+                {
+                    await SaveStoragesAsync(player, _sourceStorageType, _destinationStorageType, ct);
+                    await _conn.SendAsync(new SM_DELETE_ITEM(source.UniqueId), ct);
+                    await SendUpdatesAsync(player, [newItem], _destinationStorageType, ct);
+                }
+                else
+                {
+                    await SaveStoragesAsync(player, _sourceStorageType, _destinationStorageType, ct);
+                    await _conn.SendAsync(new SM_DELETE_ITEM(source.UniqueId), ct);
+                    await SendStorageRefreshAsync(player, _sourceStorageType, ct);
+                    await SendUpdatesAsync(player, [newItem], _destinationStorageType, ct);
+                }
             }
             else
             {
-                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([source, newItem]), ct);
+                await SaveStoragesAsync(player, _sourceStorageType, _destinationStorageType, ct);
+                await SendUpdatesAsync(player, [source], _sourceStorageType, ct);
+                await SendUpdatesAsync(player, [newItem], _destinationStorageType, ct);
             }
         }
+    }
+
+    private async Task SaveStoragesAsync(Model.Player player, byte src, byte dst, CancellationToken ct)
+    {
+        if (src == 0 || dst == 0)
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+        if (src == 1 || dst == 1)
+            await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
+    }
+
+    private async Task SendUpdatesAsync(Model.Player player, Item[] items, byte storageType, CancellationToken ct)
+    {
+        if (storageType == 1)
+            await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
+        else
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(items), ct);
+    }
+
+    private async Task SendStorageRefreshAsync(Model.Player player, byte storageType, CancellationToken ct)
+    {
+        if (storageType == 1)
+            await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
+        // inventory deletions are sent via SM_DELETE_ITEM by the caller
     }
 }
