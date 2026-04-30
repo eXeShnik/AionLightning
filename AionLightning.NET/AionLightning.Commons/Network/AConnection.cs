@@ -49,7 +49,7 @@ public abstract class AConnection : IAsyncDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            ReadResult result = await Reader.ReadAsync(ct);
+            var result = await Reader.ReadAsync(ct);
             var buffer = result.Buffer;
 
             if (result.IsCompleted && buffer.IsEmpty)

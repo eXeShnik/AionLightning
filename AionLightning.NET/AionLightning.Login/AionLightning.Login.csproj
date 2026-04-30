@@ -22,6 +22,9 @@
 
     <ItemGroup>
         <None Include="..\Sql\login\**\*.sql" CopyToOutputDirectory="PreserveNewest" LinkBase="Sql/login/" />
+        <None Update="appsettings.json">
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
     <ItemGroup>
@@ -32,7 +35,7 @@
 
     <Target Name="RemoveScriptsFromBuild" BeforeTargets="BeforeBuild">
         <ItemGroup>
-            <Compile Remove="Scripts\**\*.cs" />
+            <Compile Remove="Scripts\**\*.cs"/>
         </ItemGroup>
     </Target>
 

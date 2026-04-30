@@ -1,4 +1,6 @@
 @ECHO off
+SET "JAVA_HOME=C:\Program Files\Java\jdk-1.8"
+SET "PATH=%JAVA_HOME%\bin;%PATH%"
 TITLE Aion Lightning - Game Server Panel
 :MENU
 CLS
