@@ -177,9 +177,9 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         await _conn.SendAsync(new SM_QUEST_COMPLETED_LIST(player.Quests.Completed), ct);
         await _conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
 
-        // Titles, motion, and social settings
-        await _conn.SendAsync(SM_TITLE_INFO.ActiveTitle(-1), ct);
-        await _conn.SendAsync(SM_TITLE_INFO.BonusTitle(-1), ct);
+        // Titles, motion, and social settings — send actual persisted title IDs
+        await _conn.SendAsync(SM_TITLE_INFO.ActiveTitle(player.TitleId), ct);
+        await _conn.SendAsync(SM_TITLE_INFO.BonusTitle(player.BonusTitleId), ct);
         await _conn.SendAsync(SM_MOTION.OwnList(player.ActiveMotions), ct);
         await _conn.SendAsync(new SM_CUSTOM_SETTINGS(player.ObjectId, player.DisplaySettings, player.DenySettings), ct);
 
