@@ -142,7 +142,7 @@ public sealed class GsPacketHandlerFactory
                 0xA6  => new CM_MAY_QUIT(),
                 0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager),
                 0xA8  => new CM_UI_SETTINGS(conn, _settingsDao),
-                0xA9  => new CM_OBJECT_SEARCH(),
+                0xA9  => new CM_OBJECT_SEARCH(conn, _dataManager),
                 0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus),
                 0xAC  => new CM_CAPTCHA(),
                 0xAD  => new CM_TELEPORT_DONE(),

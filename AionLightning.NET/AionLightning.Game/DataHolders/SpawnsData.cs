@@ -99,5 +99,15 @@ public sealed class SpawnsData
     public IReadOnlyList<SpawnEntry> GetByMap(int mapId)
         => _byWorld.TryGetValue(mapId, out var list) ? list : Array.Empty<SpawnEntry>();
 
+    /// <summary>Returns the first spawn entry and its map for <paramref name="npcId"/>, or null if not found.</summary>
+    public (int MapId, SpawnEntry Entry, SpawnSpot Spot)? GetFirstSpawnByNpcId(int npcId)
+    {
+        foreach (var (mapId, entries) in _byWorld)
+            foreach (var entry in entries)
+                if (entry.NpcId == npcId && entry.Spots.Count > 0)
+                    return (mapId, entry, entry.Spots[0]);
+        return null;
+    }
+
     public int MapCount => _byWorld.Count;
 }
