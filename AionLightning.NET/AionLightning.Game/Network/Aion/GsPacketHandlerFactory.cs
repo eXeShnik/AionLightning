@@ -271,7 +271,7 @@ public sealed class GsPacketHandlerFactory
                 0x18B => new CM_BONUS_TITLE(),
                 0x18E => new CM_SELECTITEM_OK(),
                 0x192 => new CM_COMPOSITE_STONES(),
-                0x197 => new CM_SHOW_BRAND(),
+                0x197 => new CM_SHOW_BRAND(conn, _connRegistry),
                 0x19A => new CM_GROUP_LOOT(),
                 0x19B => new CM_DISTRIBUTION_SETTINGS(),
                 0x19D => new CM_REPORT_PLAYER(),
