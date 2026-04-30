@@ -18,8 +18,7 @@ public abstract class Creature : VisibleObject
     // Tracks when this creature last entered combat — used by RegenService to suppress out-of-combat regen
     public DateTime LastCombatTime { get; set; } = DateTime.MinValue;
 
-    // Placeholder stats — replace with GameStats when implemented
-    public float MovementSpeed => 6.0f;
+    public float MovementSpeed { get; protected set; } = 6.0f;
     public int BaseAttackSpeed => 1500;
     public int CurrentAttackSpeed => 1500;
 }

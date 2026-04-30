@@ -13,9 +13,10 @@ public sealed class Npc : Creature
 
     public Npc(NpcTemplate template)
     {
-        Template  = template;
-        Name      = template.Name;
-        MaxHp     = template.MaxHp;
-        CurrentHp = template.MaxHp;
+        Template       = template;
+        Name           = template.Name;
+        MaxHp          = template.MaxHp;
+        CurrentHp      = template.MaxHp;
+        MovementSpeed  = template.Stats?.RunSpeed ?? 6.0f;
     }
 }

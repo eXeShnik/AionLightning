@@ -197,7 +197,7 @@ public sealed class GsPacketHandlerFactory
                 0x138 => new CM_ITEM_REMODEL(),
                 0x139 => new CM_GODSTONE_SOCKET(),
                 0x13A => new CM_BUY_TRADE_IN_TRADE(),
-                0x13B => new CM_RECIPE_DELETE(),
+                0x13B => new CM_RECIPE_DELETE(conn),
                 0x13D => new CM_HOUSE_TELEPORT_BACK(),
                 0x13E => new CM_FAST_TRACK(),
                 0x140 => new CM_BROKER_SETTLE_ACCOUNT(),

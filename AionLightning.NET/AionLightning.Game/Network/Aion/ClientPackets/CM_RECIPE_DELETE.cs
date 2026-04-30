@@ -1,10 +1,23 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Network.Aion.ServerPackets;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
-/// <summary>Client deletes a crafting recipe. Stub — opcode 0x13B.</summary>
 public sealed class CM_RECIPE_DELETE : AionClientPacket
 {
-    public override void Read(ref PacketReader r) => r.ReadD(); // recipeId
-    public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
+    private readonly GsClientConnection _conn;
+    private int _recipeId;
+
+    public CM_RECIPE_DELETE(GsClientConnection conn) { _conn = conn; }
+
+    public override void Read(ref PacketReader r) => _recipeId = r.ReadD();
+
+    public override async ValueTask RunAsync(CancellationToken ct)
+    {
+        var player = _conn.ActivePlayer;
+        if (player is null) return;
+
+        player.KnownRecipes.Remove(_recipeId);
+        await _conn.SendAsync(new SM_RECIPE_LIST(player.KnownRecipes), ct);
+    }
 }
