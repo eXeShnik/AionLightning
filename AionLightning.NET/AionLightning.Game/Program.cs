@@ -78,6 +78,7 @@ builder.Services.AddSingleton<LegionService>();
 builder.Services.AddSingleton<GatherService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
+builder.Services.AddHostedService<AutoSaveService>();
 
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();
