@@ -39,8 +39,9 @@ public sealed class GsPacketHandlerFactory
     private readonly IMacroDao       _macroDao;
     private readonly QuestService    _questService;
     private readonly DuelService     _duelService;
-    private readonly LegionService   _legionService;
-    private readonly ILegionDao      _legionDao;
+    private readonly LegionService      _legionService;
+    private readonly ILegionDao         _legionDao;
+    private readonly IPlayerSettingsDao _settingsDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -68,7 +69,8 @@ public sealed class GsPacketHandlerFactory
         QuestService questService,
         DuelService duelService,
         LegionService legionService,
-        ILegionDao legionDao)
+        ILegionDao legionDao,
+        IPlayerSettingsDao settingsDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -96,6 +98,7 @@ public sealed class GsPacketHandlerFactory
         _duelService     = duelService;
         _legionService   = legionService;
         _legionDao       = legionDao;
+        _settingsDao     = settingsDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -113,7 +116,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA5  => new CM_CHARACTER_EDIT(),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
@@ -132,7 +135,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA6  => new CM_MAY_QUIT(),
                 0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager),
-                0xA8  => new CM_UI_SETTINGS(),
+                0xA8  => new CM_UI_SETTINGS(conn, _settingsDao),
                 0xA9  => new CM_OBJECT_SEARCH(),
                 0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus),
                 0xAC  => new CM_CAPTCHA(),

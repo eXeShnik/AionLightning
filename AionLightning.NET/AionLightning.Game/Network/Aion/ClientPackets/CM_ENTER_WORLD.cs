@@ -24,6 +24,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly ISocialDao               _socialDao;
     private readonly ILegionDao               _legionDao;
     private readonly LegionService            _legionService;
+    private readonly IPlayerSettingsDao       _settingsDao;
 
     private int _objectId;
 
@@ -31,7 +32,8 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         IPlayerAppearanceDao appearanceDao, IItemDao itemDao, IQuestDao questDao,
         GameWorld world, PlayerConnectionRegistry connRegistry,
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
-        ISocialDao socialDao, ILegionDao legionDao, LegionService legionService)
+        ISocialDao socialDao, ILegionDao legionDao, LegionService legionService,
+        IPlayerSettingsDao settingsDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -46,6 +48,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _socialDao      = socialDao;
         _legionDao      = legionDao;
         _legionService  = legionService;
+        _settingsDao    = settingsDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -129,6 +132,12 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         foreach (var kv in macros)
             player.Macros[kv.Key] = kv.Value;
 
+        // Load UI settings blobs
+        var (uiSettings, shortcuts, houseBuddies) = await _settingsDao.LoadAsync(_objectId, ct);
+        player.UiSettings   = uiSettings;
+        player.Shortcuts    = shortcuts;
+        player.HouseBuddies = houseBuddies;
+
         // Load legion membership from DB; reuse cached legion if already in service
         var legionResult = await _legionDao.GetMemberLegionAsync(player.ObjectId, ct);
         if (legionResult.HasValue)
@@ -174,6 +183,11 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
         // Second enter-world check (Java sends this after motions)
         await _conn.SendAsync(new SM_ENTER_WORLD_CHECK(), ct);
+
+        // UI settings blobs — send after SM_ENTER_WORLD_CHECK, before inventory (Java ordering)
+        if (player.UiSettings   is not null) await _conn.SendAsync(new SM_UI_SETTINGS(0, player.UiSettings),   ct);
+        if (player.Shortcuts    is not null) await _conn.SendAsync(new SM_UI_SETTINGS(1, player.Shortcuts),    ct);
+        if (player.HouseBuddies is not null) await _conn.SendAsync(new SM_UI_SETTINGS(2, player.HouseBuddies), ct);
 
         // Inventory, warehouse, stats, cube (sendItemInfos equivalent)
         // Only bag items — equipped items are sent via SM_UPDATE_PLAYER_APPEARANCE / SM_PLAYER_INFO

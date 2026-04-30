@@ -43,6 +43,11 @@ public sealed class Player : Creature
     public int DisplaySettings { get; set; }
     public int DenySettings    { get; set; }
 
+    // UI settings blobs — persisted via IPlayerSettingsDao, sent as SM_UI_SETTINGS on login
+    public byte[]? UiSettings   { get; set; }
+    public byte[]? Shortcuts    { get; set; }
+    public byte[]? HouseBuddies { get; set; }
+
     // Macros — position (1-48) → macro XML blob sent by client
     public Dictionary<int, string> Macros { get; } = new();
 
