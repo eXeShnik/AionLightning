@@ -188,7 +188,7 @@ public sealed class GsPacketHandlerFactory
                 0x127 => new CM_CHECK_MAIL_SIZE(),
                 0x12A => new CM_GET_MAIL_ATTACHMENT(conn, _mailDao, _itemDao),
                 0x12B => new CM_DELETE_MAIL(conn, _mailDao),
-                0x12C => new CM_CLIENT_COMMAND_LOC(),
+                0x12C => new CM_CLIENT_COMMAND_LOC(conn),
                 0x12F => new CM_CRAFT(conn, _itemDao, _dataManager),
                 0x129 => new CM_TITLE_SET(conn, _playerDao),
                 0x130 => new CM_DUEL_REQUEST(),

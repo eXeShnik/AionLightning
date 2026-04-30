@@ -44,4 +44,8 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_DICE_ROLL_OTHER — "%0 rolled a %1 (1~%2)." (msg code 1400127)
     public static SM_SYSTEM_MESSAGE RollOther(string name, int roll, int max) => new(1400127, name, roll.ToString(), max.ToString());
+
+    // STR_CMD_LOCATION_DESC — "/loc output: mapId=%0, x=%1, y=%2, z=%3" (msg code 230038)
+    public static SM_SYSTEM_MESSAGE LocationDesc(int worldId, float x, float y, float z)
+        => new(230038, worldId.ToString(), x.ToString("F2"), y.ToString("F2"), z.ToString("F2"));
 }

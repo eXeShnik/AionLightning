@@ -7,8 +7,9 @@ public sealed class CM_MOTION : AionClientPacket
 {
     public override void Read(ref PacketReader r)
     {
+        r.ReadC(); // unk
         r.ReadH(); // motionId
-        r.ReadC(); // speed flag
+        r.ReadC(); // motionType
     }
 
     public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
