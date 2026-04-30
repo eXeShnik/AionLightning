@@ -604,6 +604,18 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+83. [✓] Legion emblem + summon-move read-format fixes — 8 stub packets (session 2026-04-30)
+    - [✓] `CM_LEGION_WH_KINAH` (0x2EE) — Q(amount)+C(operation)
+    - [✓] `CM_LEGION_UPLOAD_EMBLEM` (0x163) — D(size)+B(size) (variable-length emblem image)
+    - [✓] `CM_LEGION_UPLOAD_INFO` (0x162) — D+C+C+C+C (legionId, RGBA)
+    - [✓] `CM_LEGION_SEND_EMBLEM_INFO` (0xD2) — D(legionId)
+    - [✓] `CM_LEGION_SEND_EMBLEM` (0xCD) — D(legionId)
+    - [✓] `CM_LEGION_MODIFY_EMBLEM` (0x119) — D+C+C+C+C+C+C (legionId, RGBA, type, id)
+    - [✓] `CM_LEGION_TABS` (0x115) — D(legionId)+C(tabId)
+    - [✓] `CM_SUMMON_MOVE` (0x16B) — D+F×3+C+C(type) then: if StartMove+Mouse→F×3; if Glide→C; if Vehicle→D+D+F×3; vector absent for summons when Mouse not set (Java comment)
+    - Remaining 21 stubs confirmed empty in Java — intentionally no-op Read()
+    - Build: 0 warnings, 0 errors
+
 82. [✓] Store/legion/pet/misc read-format fixes — 11 stub packets (session 2026-04-30)
     - [✓] `CM_APPEARANCE` (0x2E6) — C(type)+C+H+D then if type 0/1: S
     - [✓] `CM_CHARACTER_EDIT` (0x13E) — D(objectId)+B(52)

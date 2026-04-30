@@ -5,6 +5,15 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Client modifies the legion emblem. Stub — opcode 0x119.</summary>
 public sealed class CM_LEGION_MODIFY_EMBLEM : AionClientPacket
 {
-    public override void Read(ref PacketReader r) { }
+    public override void Read(ref PacketReader r)
+    {
+        r.ReadD(); // legionId
+        r.ReadC(); // red
+        r.ReadC(); // green
+        r.ReadC(); // blue
+        r.ReadC(); // alpha
+        r.ReadC(); // emblemType
+        r.ReadC(); // emblemId
+    }
     public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
 }
