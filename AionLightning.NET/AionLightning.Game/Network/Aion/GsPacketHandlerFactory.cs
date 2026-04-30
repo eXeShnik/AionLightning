@@ -239,7 +239,7 @@ public sealed class GsPacketHandlerFactory
                 0x172 => new CM_MACRO_DELETE(conn, _macroDao),
                 0x176 => new CM_TELEPORT_SELECT(conn, _world, _dataManager, _itemDao, _connRegistry),
                 0x17C => new CM_SHOW_BLOCKLIST(conn, _socialDao),
-                0x17D => new CM_PLAYER_SEARCH(),
+                0x17D => new CM_PLAYER_SEARCH(conn, _connRegistry),
                 0x17E => new CM_MOVE_ITEM(conn, _itemDao),
                 0x17F => new CM_SPLIT_ITEM(conn, _itemDao, _dataManager),
                 0x178 => new CM_START_LOOT(conn, _lootService),
