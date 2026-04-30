@@ -180,6 +180,12 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { playerId, abyssPoints, abyssRank });
     }
 
+    public async Task UpdateNameAsync(int playerId, string name, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync("UPDATE players SET name=@name WHERE id=@playerId", new { playerId, name });
+    }
+
     public async Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs sed *)"
+      "Bash(*)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(& \"C:\\\\OSPanel\\\\modules\\\\MySQL-5.7\\\\bin\\\\mysql.exe\" -u root -e \"SELECT VERSION\\(\\); SHOW DATABASES;\" 2>&1)"
     ]
   }
 }

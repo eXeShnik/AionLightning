@@ -31,4 +31,5 @@ public interface IPlayerDao
     Task UpdateNoteAsync(int playerId, string note, CancellationToken ct = default);
     Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, CancellationToken ct = default);
     Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default);
+    Task UpdateNameAsync(int playerId, string name, CancellationToken ct = default);
 }
