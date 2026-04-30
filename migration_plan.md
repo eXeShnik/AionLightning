@@ -604,6 +604,27 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+81. [✓] Housing + summon + misc read-format fixes — 18 stub packets (session 2026-04-30)
+    - [✓] `CM_CHARGE_ITEM` (0x2EC) — D+C+H(count)+N×D
+    - [✓] `CM_FAST_TRACK_CHECK` (0x1B9) — D(accountId)
+    - [✓] `CM_GROUP_DATA_EXCHANGE` (0x2ED) — C(action) then if 1→D; else C+C+D
+    - [✓] `CM_HOUSE_DECORATE` (0x2E9) — D+D+H
+    - [✓] `CM_HOUSE_EDIT` (0x110) — C(actionId) then action-specific D or D+F+F+F+C+H+H+H
+    - [✓] `CM_HOUSE_KICK` (0x2EA) — C+H
+    - [✓] `CM_HOUSE_OPEN_DOOR` (0x1A0) — D(address)+C(leaveFlag)
+    - [✓] `CM_HOUSE_PAY_RENT` (0x1BD) — C(weekCount)
+    - [✓] `CM_HOUSE_SCRIPT` (0xFC) — D+C+H(total)+if>0: D(compressed)+if<8150: D(uncompressed)+B(compressed)
+    - [✓] `CM_HOUSE_SETTINGS` (0x2EB) — C+C+S
+    - [✓] `CM_HOUSE_TELEPORT` (0x1BC) — C+D+D
+    - [✓] `CM_REPORT_PLAYER` (0x19D) — B(1)+S(playerName)
+    - [✓] `CM_SUMMON_CASTSPELL` (0x16F) — D+H+C+D+F
+    - [✓] `CM_SUMMON_COMMAND` (0x15B) — C+D+D+D
+    - [✓] `CM_SUMMON_EMOTION` (0x168) — D+C
+    - [✓] `CM_USE_HOUSE_OBJECT` (0x1A2) — D(itemObjectId)
+    - [✓] `CM_REPLACE_ITEM` (0x170) — C+D+C+D (readSC → ReadC, same 1-byte width)
+    - [✓] `CM_UNK` (0x10F) — D+C+C+C+C+D+D+D+D+D+D matching Java readImpl()
+    - Build: 0 warnings, 0 errors
+
 80. [✓] Broker + place-bid read-format fixes — 9 stub packets (session 2026-04-30)
     - [✓] `CM_BROKER_LIST` (0x159) — populated Read(): `D(brokerId)+C(sortType)+H(page)+H(listMask)`
     - [✓] `CM_BROKER_SEARCH` (0x15E) — populated Read(): `D+C+H+H+H(count)+N×D`
