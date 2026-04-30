@@ -197,7 +197,7 @@ public sealed class GsPacketHandlerFactory
                 0x118 => new CM_SET_NOTE(conn, _playerDao, _socialDao, _connRegistry),
                 0x119 => new CM_LEGION_MODIFY_EMBLEM(),
                 0x11D => new CM_EXCHANGE_REQUEST(conn, _world, _connRegistry, _exchangeService),
-                0x11E => new CM_GM_BOOKMARK(),
+                0x11E => new CM_GM_BOOKMARK(conn, _connRegistry),
                 0x11F => new CM_CHAT_GROUP_INFO(),
                 0x122 => new CM_PLAYER_STATUS_INFO(conn, _connRegistry, _groupService),
                 0x123 => new CM_INVITE_TO_GROUP(conn, _connRegistry, _groupService),

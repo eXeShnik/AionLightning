@@ -756,6 +756,16 @@
     - [✓] `Program.cs` — registered `DuelService` as singleton
     - Build: 0 warnings, 0 errors
 
+75. [✓] NPC chase behavior + CM_GM_BOOKMARK implementation (session 2026-05-01)
+    - [✓] `NpcAiService` — added `ChaseSpeed=6.0f` and `MeleeRange=2.5f` constants; NPCs now move toward their target when outside melee range (sends `SM_MOVE.StartNpcMove` with 6 m/s chase speed, tracks arrival via `_chaseState`); only attack when within 2.5 units; when target is lost or dead, `StopChaseAsync` sends a return-home move; aggro scan now uses NPC's current position (not HomePosition) so wandering NPCs detect nearby players correctly; `_chaseState` dict cleaned up on NPC death/target-loss
+    - [✓] `CM_GM_BOOKMARK` (0x11E) — was a no-op stub; now reads `"COMMAND playerName"` string from GM panel right-click menu; implements `TELEPORTTO` (GM teleports to named player's position) and `RECALL` (summons named player to GM's position); handles cross-zone delete/re-introduce broadcasts; mirrors `.goto`/`.summon` from CM_GM_COMMAND_SEND but triggered via client UI rather than chat command
+    - [✓] `GsPacketHandlerFactory` — 0x11E now passes `conn, _connRegistry` to CM_GM_BOOKMARK
+    - Build: 0 warnings, 0 errors
+
+74. [✓] CM_ENTER_WORLD title IDs fix (session 2026-05-01)
+    - [✓] `CM_ENTER_WORLD` — lines 181-182 were hardcoded to send `SM_TITLE_INFO.ActiveTitle(-1)` and `SM_TITLE_INFO.BonusTitle(-1)`, ignoring persisted title IDs; changed to `SM_TITLE_INFO.ActiveTitle(player.TitleId)` and `SM_TITLE_INFO.BonusTitle(player.BonusTitleId)` so titles appear correctly after login
+    - Build: 0 warnings, 0 errors
+
 73. [✓] /loc command + CM_MOTION read-format fix (session 2026-04-30)
     - [✓] `SM_SYSTEM_MESSAGE` — added `LocationDesc(worldId, x, y, z)` factory (code 230038 = STR_CMD_LOCATION_DESC); formats x/y/z as "F2" float strings matching Java's String.valueOf(float) output for typical coordinates
     - [✓] `CM_CLIENT_COMMAND_LOC` (0x12C) — reads nothing; sends `SM_SYSTEM_MESSAGE.LocationDesc` with player's current position; wired in factory with conn
