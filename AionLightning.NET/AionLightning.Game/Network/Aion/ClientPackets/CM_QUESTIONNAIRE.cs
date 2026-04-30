@@ -5,6 +5,12 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Client submits an in-game questionnaire. Stub — opcode 0x153.</summary>
 public sealed class CM_QUESTIONNAIRE : AionClientPacket
 {
-    public override void Read(ref PacketReader r) { }
+    public override void Read(ref PacketReader r)
+    {
+        r.ReadD(); // objectId
+        int count = r.ReadH();
+        for (int i = 0; i < count; i++)
+            r.ReadD(); // itemId[i]
+    }
     public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
 }

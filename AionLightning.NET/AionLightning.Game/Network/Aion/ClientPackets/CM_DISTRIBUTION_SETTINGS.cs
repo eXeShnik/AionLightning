@@ -5,6 +5,10 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Client sets group distribution threshold. Stub — opcode 0x19B.</summary>
 public sealed class CM_DISTRIBUTION_SETTINGS : AionClientPacket
 {
-    public override void Read(ref PacketReader r) { }
+    public override void Read(ref PacketReader r)
+    {
+        r.ReadD(); // unk1
+        r.ReadD(); // lootRule (0=ffa, 1=roundrobin, 2=leader)
+    }
     public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
 }

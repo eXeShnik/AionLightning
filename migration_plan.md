@@ -604,6 +604,19 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+78. [✓] Batch read-format fixes — 10 stub packets (session 2026-04-30)
+    - [✓] `CM_READ_EXPRESS_MAIL` (0x160) — fixed Read(): `r.ReadD()` → `r.ReadC()` (Java reads 1-byte action, not 4-byte int)
+    - [✓] `CM_RELEASE_OBJECT` (0x1A3) — populated Read(): `r.ReadD()` (targetObjectId)
+    - [✓] `CM_SELECTITEM_OK` (0x18E) — populated Read(): `r.ReadD()+r.ReadD()+r.ReadC()` (uniqueItemId+unk+index)
+    - [✓] `CM_QUESTIONNAIRE` (0x153) — populated Read(): `r.ReadD()+r.ReadH()+N×r.ReadD()` (objectId+count+itemIds)
+    - [✓] `CM_DISTRIBUTION_SETTINGS` (0x19B) — populated Read(): `r.ReadD()+r.ReadD()` (unk1+lootRule)
+    - [✓] `CM_COMPOSITE_STONES` (0x192) — populated Read(): `r.ReadD()+r.ReadD()+r.ReadD()` (tool+item1+item2)
+    - [✓] `CM_BREAK_WEAPONS` (0x16D) — populated Read(): `r.ReadD()+r.ReadD()` (unk+weaponId)
+    - [✓] `CM_FUSION_WEAPONS` (0x16C) — populated Read(): `r.ReadD()+r.ReadD()+r.ReadD()` (unk+item1+item2)
+    - [✓] `CM_GROUP_LOOT` (0x19A) — populated Read(): 4×D+4×C+D+C+D matching Java 4.6 readImpl()
+    - [✓] `CM_INSTANCE_INFO` (0x182) — populated Read(): `r.ReadD()+r.ReadC()` (unk1+unk2)
+    - Build: 0 warnings, 0 errors
+
 77. [✓] SM_MARK_FRIENDLIST + CM_MARK_FRIENDLIST impl + 9 read-format fixes (session 2026-04-30)
     - [✓] `SM_MARK_FRIENDLIST` (0x117) — new server packet: `WriteD(playerObjectId); WriteC(1); WriteH(0);` signals friend list delivery complete
     - [✓] `CM_MARK_FRIENDLIST` (0x10C) — implemented: reads nothing; queries `ISocialDao.GetFriendsAsync`, builds online-ids set, sends `SM_FRIEND_LIST` then `SM_MARK_FRIENDLIST`; wired in factory with conn+socialDao+connRegistry
