@@ -113,7 +113,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA5  => new CM_CHARACTER_EDIT(),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),

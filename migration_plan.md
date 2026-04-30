@@ -604,6 +604,12 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+85. [✓] Legion login integration + SM_LEGION_UPDATE_MEMBER (session 2026-04-30)
+    - [✓] `SM_LEGION_UPDATE_MEMBER` (0x71) — D(objId)+C(rank)+C(class)+C(level)+D(worldId)+C(isOnline)+D(lastOnline)+D+D+S; used for online/offline status notifications
+    - [✓] `CM_ENTER_WORLD` — injected ILegionDao + LegionService; after macros, calls GetMemberLegionAsync; if player is in a legion, loads full Legion from DB into service (or reuses cached instance if another member is already online); sets player.Legion; after friend-list sends, sends SM_LEGION_INFO + SM_LEGION_MEMBERLIST to self, then SM_LEGION_UPDATE_MEMBER(online) to all other online members
+    - [✓] `GsPacketHandlerFactory` — CM_ENTER_WORLD now receives _legionDao + _legionService
+    - Build: 0 warnings, 0 errors
+
 84. [✓] Legion system — create/invite/leave/kick/rank/announcement (session 2026-04-30)
     - [✓] `V11__legions.sql` — `legions` (id/name/level/contribution_points/announcement/permissions) + `legion_members` (player_id/legion_id/rank_id/self_intro/nickname) with FK constraints
     - [✓] `LegionRank` enum (BrigadeGeneral=0/Deputy=1/Centurion=2/Legionary=3/Volunteer=4)

@@ -4,6 +4,7 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -21,6 +22,8 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly IMailDao                 _mailDao;
     private readonly IMacroDao                _macroDao;
     private readonly ISocialDao               _socialDao;
+    private readonly ILegionDao               _legionDao;
+    private readonly LegionService            _legionService;
 
     private int _objectId;
 
@@ -28,7 +31,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         IPlayerAppearanceDao appearanceDao, IItemDao itemDao, IQuestDao questDao,
         GameWorld world, PlayerConnectionRegistry connRegistry,
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
-        ISocialDao socialDao)
+        ISocialDao socialDao, ILegionDao legionDao, LegionService legionService)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -41,6 +44,8 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _mailDao        = mailDao;
         _macroDao       = macroDao;
         _socialDao      = socialDao;
+        _legionDao      = legionDao;
+        _legionService  = legionService;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -123,6 +128,27 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         var macros = await _macroDao.LoadByPlayerIdAsync(_objectId, ct);
         foreach (var kv in macros)
             player.Macros[kv.Key] = kv.Value;
+
+        // Load legion membership from DB; reuse cached legion if already in service
+        var legionResult = await _legionDao.GetMemberLegionAsync(player.ObjectId, ct);
+        if (legionResult.HasValue)
+        {
+            var (dbLegion, dbMember) = legionResult.Value;
+            var existing = _legionService.GetById(dbLegion.LegionId);
+            if (existing is null)
+            {
+                // First online member — prime service with the full legion
+                _legionService.AddLegion(dbLegion);
+                player.Legion = dbLegion;
+            }
+            else
+            {
+                // Legion already loaded by another online member — update that member's entry
+                if (existing.Members.TryGetValue(player.ObjectId, out var liveMember))
+                    liveMember.IsOnline = true;
+                player.Legion = existing;
+            }
+        }
 
         _world.Add(player);
         _connRegistry.Register(player.ObjectId, _conn);
@@ -215,6 +241,25 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
                 if (fc?.ActivePlayer is null) continue;
                 var friendFriends = await _socialDao.GetFriendsAsync(f.PlayerId, ct);
                 await fc.SendAsync(new SM_FRIEND_LIST(friendFriends, onlineIds), ct);
+            }
+        }
+
+        // Legion login: send legion info to self, notify other online members
+        if (player.Legion is { } legion)
+        {
+            await _conn.SendAsync(new SM_LEGION_INFO(legion), ct);
+            await _conn.SendAsync(new SM_LEGION_MEMBERLIST(legion.Members.Values), ct);
+
+            if (legion.Members.TryGetValue(player.ObjectId, out var selfMember))
+            {
+                var loginPkt = new SM_LEGION_UPDATE_MEMBER(selfMember, isOnline: true);
+                foreach (var m in legion.Members.Values)
+                {
+                    if (m.ObjectId == player.ObjectId) continue;
+                    var mc = _connRegistry.Get(m.ObjectId);
+                    if (mc is not null)
+                        try { await mc.SendAsync(loginPkt, ct); } catch { }
+                }
             }
         }
     }
