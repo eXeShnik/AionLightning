@@ -1,5 +1,6 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -11,17 +12,20 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 public sealed class CM_EQUIP_ITEM : AionClientPacket
 {
     private readonly GsClientConnection _conn;
-    private readonly IItemDao _itemDao;
+    private readonly IItemDao           _itemDao;
+    private readonly IDataManager       _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
 
     private byte _action;   // 0 = equip, 1 = unequip
     private long _slot;
     private int _itemUniqueId;
 
-    public CM_EQUIP_ITEM(GsClientConnection conn, IItemDao itemDao, PlayerConnectionRegistry connRegistry)
+    public CM_EQUIP_ITEM(GsClientConnection conn, IItemDao itemDao,
+        IDataManager dataManager, PlayerConnectionRegistry connRegistry)
     {
         _conn         = conn;
         _itemDao      = itemDao;
+        _dataManager  = dataManager;
         _connRegistry = connRegistry;
     }
 
@@ -74,6 +78,10 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         // Notify self of updated item state(s)
         var changed = displaced is not null ? new[] { item, displaced } : new[] { item };
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(changed), ct);
+
+        // Refresh stats panel on the client (reflects any changes after equip toggle)
+        var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
 
         // Broadcast appearance change to players in the same zone
         var appearance = new SM_UPDATE_PLAYER_APPEARANCE(player.ObjectId, player.Inventory.All);

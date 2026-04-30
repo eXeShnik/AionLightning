@@ -8,11 +8,13 @@ public sealed class SM_MESSAGE : AionServerPacket
 {
     public enum ChatType
     {
-        Normal  = 0x00,
-        Shout   = 0x03,
-        Whisper = 0x04,
-        Group   = 0x05,
-        Legion  = 0x0A,
+        Normal   = 0x00,
+        Shout    = 0x03,
+        Whisper  = 0x04,
+        Group    = 0x05,
+        Alliance = 0x06,
+        Legion   = 0x0A,
+        Command  = 0x18,   // Yellow — used for GM announcements
     }
 
     private readonly ChatType _chatType;
@@ -57,7 +59,9 @@ public sealed class SM_MESSAGE : AionServerPacket
 
             case ChatType.Whisper:
             case ChatType.Group:
+            case ChatType.Alliance:
             case ChatType.Legion:
+            case ChatType.Command:
                 w.WriteS(_senderName);
                 w.WriteS(_message);
                 break;

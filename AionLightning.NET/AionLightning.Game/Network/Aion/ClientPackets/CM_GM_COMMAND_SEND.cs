@@ -90,6 +90,10 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
             case ".goto" when parts.Length >= 2:
                 await HandleGoto(player, parts[1], ct);
                 break;
+
+            case ".announce" when parts.Length >= 2:
+                await HandleAnnounce(player, string.Join(' ', parts, 1, parts.Length - 1), ct);
+                break;
         }
     }
 
@@ -198,6 +202,13 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(infoPacket, ct); } catch { }
+    }
+
+    private async ValueTask HandleAnnounce(Player gm, string message, CancellationToken ct)
+    {
+        var pkt = new SM_MESSAGE(gm, message, SM_MESSAGE.ChatType.Command);
+        foreach (var conn in _connRegistry.GetAll())
+            try { await conn.SendAsync(pkt, ct); } catch { }
     }
 
     private void HandleKick(string targetName)
