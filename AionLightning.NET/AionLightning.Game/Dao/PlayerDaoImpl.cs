@@ -180,6 +180,29 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { playerId, abyssPoints, abyssRank });
     }
 
+    public async Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(int id, string name, string race, string player_class, byte level, long abyss_points, int abyss_rank)>(
+            """
+            SELECT id, name, race, player_class, level, abyss_points, abyss_rank
+            FROM players
+            WHERE race = @raceStr AND deletion_date IS NULL
+            ORDER BY abyss_points DESC
+            LIMIT @limit
+            """,
+            new { raceStr = race.ToString(), limit });
+        return rows.Select(r => new AbyssRankEntry(
+            r.id,
+            r.name,
+            Enum.Parse<Race>(r.race, ignoreCase: true),
+            Enum.Parse<PlayerClass>(r.player_class, ignoreCase: true),
+            r.level,
+            r.abyss_points,
+            r.abyss_rank > 0 ? r.abyss_rank : 1,
+            string.Empty)).ToList();
+    }
+
     private static Player ToPlayer(PlayerRow r)
     {
         var player = new Player

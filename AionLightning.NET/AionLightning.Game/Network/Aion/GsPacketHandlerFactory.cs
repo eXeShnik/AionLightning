@@ -275,7 +275,7 @@ public sealed class GsPacketHandlerFactory
                 0x19A => new CM_GROUP_LOOT(),
                 0x19B => new CM_DISTRIBUTION_SETTINGS(),
                 0x19D => new CM_REPORT_PLAYER(),
-                0x19E => new CM_ABYSS_RANKING_PLAYERS(),
+                0x19E => new CM_ABYSS_RANKING_PLAYERS(conn, _playerDao),
                 0x19F => new CM_MAC_ADDRESS(),
                 0x1A0 => new CM_HOUSE_OPEN_DOOR(),
                 0x1A2 => new CM_USE_HOUSE_OBJECT(),

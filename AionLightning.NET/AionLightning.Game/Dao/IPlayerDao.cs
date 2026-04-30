@@ -2,6 +2,16 @@ using AionLightning.Game.Model;
 
 namespace AionLightning.Game.Dao;
 
+public sealed record AbyssRankEntry(
+    int    PlayerId,
+    string Name,
+    Race   Race,
+    PlayerClass Class,
+    byte   Level,
+    long   AbyssPoints,
+    int    AbyssRank,
+    string LegionName);
+
 public interface IPlayerDao
 {
     Task<IReadOnlyList<Player>> FindByAccountIdAsync(int accountId, CancellationToken ct = default);
@@ -20,4 +30,5 @@ public interface IPlayerDao
     Task<bool> CancelDeletionAsync(int playerId, int accountId, CancellationToken ct = default);
     Task UpdateNoteAsync(int playerId, string note, CancellationToken ct = default);
     Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, CancellationToken ct = default);
+    Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default);
 }
