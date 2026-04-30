@@ -236,18 +236,18 @@ public sealed class GsClientConnection : AConnection
         // Clear any active duel on disconnect
         _duelService.RemovePlayer(player.ObjectId);
 
-        // Mark legion member offline and notify remaining members
+        // Mark legion member offline; notify remaining members (offline status, not remove)
         var playerLegion = player.Legion;
         if (playerLegion is not null && playerLegion.Members.TryGetValue(player.ObjectId, out var legionMember))
         {
             legionMember.IsOnline = false;
-            var leavePkt = new SM_LEGION_LEAVE_MEMBER(player.ObjectId, player.Name);
+            var offlinePkt = new SM_LEGION_UPDATE_MEMBER(legionMember, isOnline: false);
             foreach (var lm in playerLegion.Members.Values)
             {
                 if (lm.ObjectId == player.ObjectId) continue;
                 var lmc = _connRegistry.Get(lm.ObjectId);
                 if (lmc is not null)
-                    try { await lmc.SendAsync(leavePkt, CancellationToken.None); } catch { }
+                    try { await lmc.SendAsync(offlinePkt, CancellationToken.None); } catch { }
             }
         }
 
