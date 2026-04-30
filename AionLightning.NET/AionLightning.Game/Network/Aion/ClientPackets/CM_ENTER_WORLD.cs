@@ -25,6 +25,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly ILegionDao               _legionDao;
     private readonly LegionService            _legionService;
     private readonly IPlayerSettingsDao       _settingsDao;
+    private readonly IRecipeDao               _recipeDao;
 
     private int _objectId;
 
@@ -33,7 +34,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         GameWorld world, PlayerConnectionRegistry connRegistry,
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
         ISocialDao socialDao, ILegionDao legionDao, LegionService legionService,
-        IPlayerSettingsDao settingsDao)
+        IPlayerSettingsDao settingsDao, IRecipeDao recipeDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -49,6 +50,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _legionDao      = legionDao;
         _legionService  = legionService;
         _settingsDao    = settingsDao;
+        _recipeDao      = recipeDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -227,8 +229,11 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         await _conn.SendAsync(new SM_MACRO_LIST(player.ObjectId, player.Macros.Where(kv => kv.Key <= 24)), ct);
         await _conn.SendAsync(new SM_MACRO_LIST(player.ObjectId, player.Macros.Where(kv => kv.Key > 24)), ct);
 
-        // Auto-learn recipes for player's race
+        // Auto-learn recipes for player's race + player-specific learned recipes from DB
         foreach (var id in _dataManager.Recipes.GetAutoLearnIds(player.Race.ToString()))
+            player.KnownRecipes.Add(id);
+        var dbRecipes = await _recipeDao.LoadByPlayerIdAsync(player.ObjectId, ct);
+        foreach (var id in dbRecipes)
             player.KnownRecipes.Add(id);
         await _conn.SendAsync(new SM_RECIPE_LIST(player.KnownRecipes), ct);
 

@@ -33,18 +33,20 @@ public sealed class CM_USE_ITEM : AionClientPacket
     };
 
     private readonly GsClientConnection _conn;
-    private readonly IItemDao _itemDao;
-    private readonly IDataManager _dataManager;
+    private readonly IItemDao           _itemDao;
+    private readonly IDataManager       _dataManager;
+    private readonly IRecipeDao         _recipeDao;
 
     private int _uniqueItemId;
     private int _type;
     private int _targetItemId;
 
-    public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager)
+    public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager, IRecipeDao recipeDao)
     {
         _conn        = conn;
         _itemDao     = itemDao;
         _dataManager = dataManager;
+        _recipeDao   = recipeDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -70,6 +72,13 @@ public sealed class CM_USE_ITEM : AionClientPacket
         if (template.SkillLearnId is int learnSkillId)
         {
             await HandleSkillBookAsync(player, item, template, learnSkillId, ct);
+            return;
+        }
+
+        // Recipe book — teaches a crafting recipe permanently
+        if (template.CraftLearnRecipeId is int recipeId)
+        {
+            await HandleRecipeBookAsync(player, item, recipeId, ct);
             return;
         }
 
@@ -138,6 +147,24 @@ public sealed class CM_USE_ITEM : AionClientPacket
             isNew: true, msgId: 1300050, skillName: skillName, skillLevel: skillLevel), ct);
 
         // Skill books are non-stackable — always delete on use
+        player.Inventory.Remove(item.UniqueId);
+        await _itemDao.DeleteAsync(item.UniqueId, ct);
+        await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+    }
+
+    private async ValueTask HandleRecipeBookAsync(Player player, Item item, int recipeId, CancellationToken ct)
+    {
+        // Already known
+        if (player.KnownRecipes.Contains(recipeId)) return;
+
+        // Must exist in data
+        if (_dataManager.Recipes.GetTemplate(recipeId) is null) return;
+
+        player.KnownRecipes.Add(recipeId);
+        await _recipeDao.AddRecipeAsync(player.ObjectId, recipeId, ct);
+        await _conn.SendAsync(new SM_RECIPE_LIST(player.KnownRecipes), ct);
+
+        // Recipe books are non-stackable — always delete on use
         player.Inventory.Remove(item.UniqueId);
         await _itemDao.DeleteAsync(item.UniqueId, ct);
         await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);

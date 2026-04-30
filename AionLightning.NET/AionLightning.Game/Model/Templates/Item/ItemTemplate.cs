@@ -17,16 +17,18 @@ public sealed class ItemTemplate
 
     [XmlElement("actions")]           public ItemActions? Actions { get; set; }
 
-    public int? UseSkillId   => Actions?.SkillUse?.SkillId;
-    public int? SkillLearnId => Actions?.SkillLearn?.SkillId;
-    public bool IsWeapon     => EquipmentType == "WEAPON";
-    public bool IsArmor      => EquipmentType == "ARMOR";
+    public int? UseSkillId        => Actions?.SkillUse?.SkillId;
+    public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
+    public int? CraftLearnRecipeId => Actions?.CraftLearn?.RecipeId;
+    public bool IsWeapon           => EquipmentType == "WEAPON";
+    public bool IsArmor            => EquipmentType == "ARMOR";
 }
 
 public sealed class ItemActions
 {
-    [XmlElement("skilluse")]   public SkillUseAction?   SkillUse   { get; set; }
-    [XmlElement("skilllearn")] public SkillLearnAction? SkillLearn { get; set; }
+    [XmlElement("skilluse")]    public SkillUseAction?    SkillUse    { get; set; }
+    [XmlElement("skilllearn")]  public SkillLearnAction?  SkillLearn  { get; set; }
+    [XmlElement("craftlearn")]  public CraftLearnAction?  CraftLearn  { get; set; }
 }
 
 public sealed class SkillUseAction
@@ -40,4 +42,9 @@ public sealed class SkillLearnAction
     [XmlAttribute("skillid")] public int    SkillId           { get; set; }
     [XmlAttribute("class")]   public string ClassRestriction  { get; set; } = "ALL";
     [XmlAttribute("level")]   public int    RequiredLevel     { get; set; }
+}
+
+public sealed class CraftLearnAction
+{
+    [XmlAttribute("recipeid")] public int RecipeId { get; set; }
 }

@@ -43,6 +43,7 @@ public sealed class GsPacketHandlerFactory
     private readonly ILegionDao         _legionDao;
     private readonly IPlayerSettingsDao _settingsDao;
     private readonly GatherService       _gatherService;
+    private readonly IRecipeDao          _recipeDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -72,7 +73,8 @@ public sealed class GsPacketHandlerFactory
         LegionService legionService,
         ILegionDao legionDao,
         IPlayerSettingsDao settingsDao,
-        GatherService gatherService)
+        GatherService gatherService,
+        IRecipeDao recipeDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -102,6 +104,7 @@ public sealed class GsPacketHandlerFactory
         _legionDao       = legionDao;
         _settingsDao     = settingsDao;
         _gatherService   = gatherService;
+        _recipeDao       = recipeDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -119,7 +122,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA5  => new CM_CHARACTER_EDIT(),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
@@ -147,7 +150,7 @@ public sealed class GsPacketHandlerFactory
                 0xC1  => new CM_QUIT(conn),
                 0xC4  => new CM_EQUIP_ITEM(conn, _itemDao, _connRegistry),
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
-                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager),
+                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao),
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao),
                 0xC9  => new CM_EMOTION(conn, _connRegistry),
                 0xCA  => new CM_PLAYER_LISTENER(),
@@ -212,7 +215,7 @@ public sealed class GsPacketHandlerFactory
                 0x138 => new CM_ITEM_REMODEL(),
                 0x139 => new CM_GODSTONE_SOCKET(),
                 0x13A => new CM_BUY_TRADE_IN_TRADE(),
-                0x13B => new CM_RECIPE_DELETE(conn),
+                0x13B => new CM_RECIPE_DELETE(conn, _recipeDao),
                 0x13D => new CM_HOUSE_TELEPORT_BACK(),
                 0x13E => new CM_FAST_TRACK(),
                 0x140 => new CM_BROKER_SETTLE_ACCOUNT(),
