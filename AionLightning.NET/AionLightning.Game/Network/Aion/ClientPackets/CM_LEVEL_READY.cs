@@ -37,7 +37,7 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         await _conn.SendAsync(new SM_PLAYER_INFO(player, player.Appearance, enemy: false, playerEquipment), ct);
 
         // Broadcast entering player's motion and clear abnormal effects to others
-        var motionBroadcast   = SM_MOTION.Broadcast(player.ObjectId);
+        var motionBroadcast   = SM_MOTION.Broadcast(player.ObjectId, player.ActiveMotions);
         var abnormalClearSelf = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true);
         await _conn.SendAsync(abnormalClearSelf, ct);
 
@@ -54,7 +54,7 @@ public sealed class CM_LEVEL_READY : AionClientPacket
 
             // New player sees existing player + their motion + clear abnormal + social settings + legion title
             try { await _conn.SendAsync(new SM_PLAYER_INFO(other, other.Appearance, enemy: false, otherEquipment), ct); } catch { }
-            try { await _conn.SendAsync(SM_MOTION.Broadcast(other.ObjectId), ct); } catch { }
+            try { await _conn.SendAsync(SM_MOTION.Broadcast(other.ObjectId, other.ActiveMotions), ct); } catch { }
             try { await _conn.SendAsync(new SM_ABNORMAL_EFFECT(other.ObjectId, isPlayer: true), ct); } catch { }
             try { await _conn.SendAsync(new SM_CUSTOM_SETTINGS(other.ObjectId, other.DisplaySettings, other.DenySettings), ct); } catch { }
             if (other.Legion is { } otherLegion && otherLegion.Members.TryGetValue(other.ObjectId, out var otherMember))

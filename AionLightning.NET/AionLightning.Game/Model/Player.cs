@@ -66,4 +66,7 @@ public sealed class Player : Creature
     // Abyss rank system
     public long AbyssPoints { get; set; }
     public int  AbyssRank   { get; set; } = 1;
+
+    // Motion slots 1-5 (combat animation style); motionId 0 = none
+    public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

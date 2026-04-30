@@ -104,7 +104,7 @@ public sealed class CM_TELEPORT_SELECT : AionClientPacket
                 var equipment = player.Inventory.All.Where(i => i.IsEquipped).ToList();
                 await _conn.SendAsync(new SM_PLAYER_INFO(player, player.Appearance, enemy: false, equipment), ct);
                 await _conn.SendAsync(new SM_STATS_INFO(player), ct);
-                await _conn.SendAsync(SM_MOTION.OwnList(), ct);
+                await _conn.SendAsync(SM_MOTION.OwnList(player.ActiveMotions), ct);
 
                 int newWorldId = player.Position.WorldId;
                 var peerInfo   = new SM_PLAYER_INFO(player, player.Appearance, enemy: false, equipment);

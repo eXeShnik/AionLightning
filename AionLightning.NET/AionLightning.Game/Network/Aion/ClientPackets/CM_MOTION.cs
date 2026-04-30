@@ -1,16 +1,48 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Network.Aion.ServerPackets;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
-/// <summary>Client plays a character motion/emote animation. Stub — opcode 0x2E5.</summary>
+/// <summary>
+/// Client activates a motion in a combat-animation slot. Opcode 0x2E5.
+/// Updates the player's active motion slot and broadcasts action=5 to zone peers.
+/// </summary>
 public sealed class CM_MOTION : AionClientPacket
 {
-    public override void Read(ref PacketReader r)
+    private readonly GsClientConnection       _conn;
+    private readonly PlayerConnectionRegistry _connRegistry;
+
+    private short _motionId;
+    private byte  _motionSlot;
+
+    public CM_MOTION(GsClientConnection conn, PlayerConnectionRegistry connRegistry)
     {
-        r.ReadC(); // unk
-        r.ReadH(); // motionId
-        r.ReadC(); // motionType
+        _conn         = conn;
+        _connRegistry = connRegistry;
     }
 
-    public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
+    public override void Read(ref PacketReader r)
+    {
+        r.ReadC();           // unk
+        _motionId   = r.ReadH();
+        _motionSlot = (byte)r.ReadC();
+    }
+
+    public override async ValueTask RunAsync(CancellationToken ct)
+    {
+        var player = _conn.ActivePlayer;
+        if (player is null) return;
+
+        if (_motionSlot is < 1 or > 5) return;
+
+        player.ActiveMotions[_motionSlot] = _motionId;
+
+        var packet  = SM_MOTION.SetSlot(_motionId, _motionSlot);
+        int worldId = player.Position.WorldId;
+
+        try { await _conn.SendAsync(packet, ct); } catch { }
+        foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+            if (other.ActivePlayer?.Position.WorldId == worldId)
+                try { await other.SendAsync(packet, ct); } catch { }
+    }
 }

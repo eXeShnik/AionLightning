@@ -180,7 +180,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         // Titles, motion, and social settings
         await _conn.SendAsync(SM_TITLE_INFO.ActiveTitle(-1), ct);
         await _conn.SendAsync(SM_TITLE_INFO.BonusTitle(-1), ct);
-        await _conn.SendAsync(SM_MOTION.OwnList(), ct);
+        await _conn.SendAsync(SM_MOTION.OwnList(player.ActiveMotions), ct);
         await _conn.SendAsync(new SM_CUSTOM_SETTINGS(player.ObjectId, player.DisplaySettings, player.DenySettings), ct);
 
         // Second enter-world check (Java sends this after motions)
