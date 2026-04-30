@@ -54,6 +54,6 @@ public sealed class CM_CHAT_MESSAGE_PUBLIC : AionClientPacket
         int worldId = player.Position.WorldId;
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
-                await conn.SendAsync(packet, ct);
+                try { await conn.SendAsync(packet, ct); } catch { }
     }
 }

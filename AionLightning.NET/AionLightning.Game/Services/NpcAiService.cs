@@ -48,6 +48,7 @@ public sealed class NpcAiService : BackgroundService
         if (players.Count == 0)
         {
             _npcTargets.Clear();
+            _lastAttackTime.Clear();
             return;
         }
 

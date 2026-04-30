@@ -103,7 +103,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int healWorldId = player.Position.WorldId;
                 foreach (var c in _connRegistry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == healWorldId)
-                        await c.SendAsync(healStatus, ct);
+                        try { await c.SendAsync(healStatus, ct); } catch { }
 
                 // Update group HP display for healed player
                 if (healTarget is Player healedPlayer)
@@ -144,7 +144,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var activation = new SM_SKILL_ACTIVATION(spellId);
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
-                        await c.SendAsync(activation);
+                        try { await c.SendAsync(activation); } catch { }
 
                 if (player.IsAlreadyDead) return;
 
@@ -178,7 +178,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, SM_ATTACK_STATUS.LogId.SpellAtk);
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
-                        await c.SendAsync(statusPkt);
+                        try { await c.SendAsync(statusPkt); } catch { }
 
                 if (target.CurrentHp > 0) return;
 
@@ -188,9 +188,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     var die = new SM_EMOTION(deadPlayer, EmotionType.DIE);
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
-                            await c.SendAsync(die);
+                            try { await c.SendAsync(die); } catch { }
                     var targetConn = registry.Get(deadPlayer.ObjectId);
-                    if (targetConn is not null) await targetConn.SendAsync(new SM_DIE());
+                    if (targetConn is not null) try { await targetConn.SendAsync(new SM_DIE()); } catch { }
                 }
                 else if (target is Npc deadNpc)
                 {
@@ -199,7 +199,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     var die = new SM_EMOTION(deadNpc, EmotionType.DIE);
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == npcWorldId)
-                            await c.SendAsync(die);
+                            try { await c.SendAsync(die); } catch { }
                     world.Remove(deadNpc);
 
                     lootSvc.GenerateDrops(deadNpc);
@@ -214,7 +214,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     var del = new SM_DELETE(deadNpc.ObjectId);
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == npcWorldId)
-                            await c.SendAsync(del);
+                            try { await c.SendAsync(del); } catch { }
                     spawnSvc.ScheduleRespawn(deadNpc);
 
                     await Task.Delay(57_000); // 60s total from kill
@@ -232,10 +232,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
     private async ValueTask BroadcastAsync(AionServerPacket packet, CancellationToken ct)
     {
-        await _conn.SendAsync(packet, ct);
+        try { await _conn.SendAsync(packet, ct); } catch { }
         int worldId = _conn.ActivePlayer!.Position.WorldId;
         foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer!.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
-                await other.SendAsync(packet, ct);
+                try { await other.SendAsync(packet, ct); } catch { }
     }
 }

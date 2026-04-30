@@ -118,7 +118,7 @@ public sealed class CM_ATTACK : AionClientPacket
                 var del = new SM_DELETE(deadNpc.ObjectId);
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == npcWorldId)
-                        await c.SendAsync(del);
+                        try { await c.SendAsync(del); } catch { }
                 spawnSvc.ScheduleRespawn(deadNpc);
 
                 await Task.Delay(57_000); // 60s total from kill
@@ -129,10 +129,10 @@ public sealed class CM_ATTACK : AionClientPacket
 
     private async ValueTask BroadcastAsync(AionServerPacket packet, CancellationToken ct)
     {
-        await _conn.SendAsync(packet, ct);
+        try { await _conn.SendAsync(packet, ct); } catch { }
         int worldId = _conn.ActivePlayer!.Position.WorldId;
         foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer!.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
-                await other.SendAsync(packet, ct);
+                try { await other.SendAsync(packet, ct); } catch { }
     }
 }
