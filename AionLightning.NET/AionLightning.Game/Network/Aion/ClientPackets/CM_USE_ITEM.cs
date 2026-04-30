@@ -132,7 +132,10 @@ public sealed class CM_USE_ITEM : AionClientPacket
         int skillLevel = _dataManager.SkillTree.GetMaxSkillLevel(skillId, player.PlayerClass, player.Race, player.Level);
         player.Skills.AddSkill(skillId, skillLevel);
 
-        await _conn.SendAsync(new SM_SKILL_LIST([new PlayerSkillEntry(skillId, skillLevel)], isNew: true), ct);
+        string skillName = _dataManager.SkillTree.GetSkillName(skillId) ?? template.Name;
+        await _conn.SendAsync(new SM_SKILL_LIST(
+            [new PlayerSkillEntry(skillId, skillLevel)],
+            isNew: true, msgId: 1300050, skillName: skillName, skillLevel: skillLevel), ct);
 
         // Skill books are non-stackable — always delete on use
         player.Inventory.Remove(item.UniqueId);

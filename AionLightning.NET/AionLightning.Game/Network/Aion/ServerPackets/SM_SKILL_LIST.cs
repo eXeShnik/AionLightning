@@ -6,13 +6,20 @@ namespace AionLightning.Game.Network.Aion.ServerPackets;
 public sealed class SM_SKILL_LIST : AionServerPacket
 {
     private readonly IReadOnlyList<PlayerSkillEntry> _skills;
-    private readonly bool _isNew;
+    private readonly bool   _isNew;
+    private readonly int    _msgId;
+    private readonly string _skillName;
+    private readonly int    _skillLevel;
 
-    public SM_SKILL_LIST(IEnumerable<PlayerSkillEntry> skills, bool isNew = true)
+    public SM_SKILL_LIST(IEnumerable<PlayerSkillEntry> skills, bool isNew = true,
+        int msgId = 0, string skillName = "", int skillLevel = 0)
         : base(0x2C)
     {
-        _skills = skills.ToList();
-        _isNew  = isNew;
+        _skills     = skills.ToList();
+        _isNew      = isNew;
+        _msgId      = msgId;
+        _skillName  = skillName;
+        _skillLevel = skillLevel;
     }
 
     public override void Write(ref PacketWriter w)
@@ -31,6 +38,11 @@ public sealed class SM_SKILL_LIST : AionServerPacket
             w.WriteC(s.IsStigma ? (byte)1 : (byte)0);
         }
 
-        w.WriteD(0); // messageId — 0 means no chat notification
+        w.WriteD(_msgId);
+        if (_msgId != 0)
+        {
+            w.WriteS(_skillName);
+            w.WriteH((short)_skillLevel);
+        }
     }
 }

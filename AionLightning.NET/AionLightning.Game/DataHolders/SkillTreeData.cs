@@ -51,6 +51,9 @@ public sealed class SkillTreeData
         return results;
     }
 
+    public string? GetSkillName(int skillId)
+        => _bySkillId.TryGetValue(skillId, out var list) && list.Count > 0 ? list[0].Name : null;
+
     /// <summary>
     /// Returns the highest skill level available for this skillId at the player's current level+class+race.
     /// Used when learning skills from skill books. Returns 1 if no tree entry exists.
