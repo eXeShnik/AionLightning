@@ -30,12 +30,13 @@ public sealed class CM_CHAT_MESSAGE_PUBLIC : AionClientPacket
         if (player is null) return;
 
         // Group chat — deliver only to party members
-        if (_channelType == 0x05)
+        if (_channelType is 0x05 or 0x07)
         {
             var group = player.Group;
             if (group is null) return;
 
-            var groupPacket = new SM_MESSAGE(player, _message, SM_MESSAGE.ChatType.Group);
+            var type        = _channelType == 0x07 ? SM_MESSAGE.ChatType.GroupLeader : SM_MESSAGE.ChatType.Group;
+            var groupPacket = new SM_MESSAGE(player, _message, type);
             foreach (var member in group.Members)
             {
                 var mc = _connRegistry.Get(member.ObjectId);
@@ -56,6 +57,21 @@ public sealed class CM_CHAT_MESSAGE_PUBLIC : AionClientPacket
                 var mc = _connRegistry.Get(m.ObjectId);
                 if (mc is not null) try { await mc.SendAsync(legionPacket, ct); } catch { }
             }
+            return;
+        }
+
+        // Trade/LFG/Region channels — server-wide broadcast (all online players)
+        if (_channelType is 0x0E or 0x0F or 0x10)
+        {
+            var channelType = _channelType switch
+            {
+                0x0E => SM_MESSAGE.ChatType.Trade,
+                0x0F => SM_MESSAGE.ChatType.Lfg,
+                _    => SM_MESSAGE.ChatType.Region,
+            };
+            var chanPacket = new SM_MESSAGE(player, _message, channelType);
+            foreach (var conn in _connRegistry.GetAll())
+                try { await conn.SendAsync(chanPacket, ct); } catch { }
             return;
         }
 

@@ -756,6 +756,11 @@
     - [✓] `Program.cs` — registered `DuelService` as singleton
     - Build: 0 warnings, 0 errors
 
+79. [✓] Trade/LFG/Region channels + GroupLeader chat (session 2026-05-01)
+    - [✓] `SM_MESSAGE.ChatType` — added `GroupLeader=0x07`, `Trade=0x0E`, `Lfg=0x0F`, `Region=0x10`; all four use the same wire format as Group/Legion (senderName+message), confirmed against Java SM_MESSAGE.writeImpl() which handles CH1-CH3 in the same switch branch
+    - [✓] `CM_CHAT_MESSAGE_PUBLIC` — added handling for: 0x07 (GroupLeader) → routes to group members with ChatType.GroupLeader; 0x0E/0x0F/0x10 (Trade/LFG/Region) → server-wide broadcast to all online players; previously all four channel bytes were silently dropped as "unknown"; GroupLeader shares the group membership check with 0x05 group chat
+    - Build: 0 warnings, 0 errors
+
 78. [✓] NpcAiService — npc.Target tracking + return-home state machine (session 2026-05-01)
     - [✓] `NpcAiService` — added `ReturnState` record and `_returnState` dictionary; `StopChaseAsync` no longer snaps `npc.Position` to HomePosition immediately — instead it sets `_returnState[npc.ObjectId]` with the travel arrival time and sends the return-move packet; `TickAsync` checks each NPC's `_returnState` before any aggro/wander logic: if arrived → snap position + remove state; if not arrived → skip AI for this tick so NPCs can't be re-aggro'd mid-return
     - [✓] `NpcAiService` — `npc.Target` now set to the locked `Player` when a combat target is acquired; cleared to `null` when the target is lost (leash break), when the player is killed, and when the NPC dies; fixes `SM_NPC_INFO` `targetObjectId` which previously was always 0 for zone-entering players during active NPC combat
