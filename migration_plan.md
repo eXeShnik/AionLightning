@@ -604,6 +604,18 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+80. [✓] Broker + place-bid read-format fixes — 9 stub packets (session 2026-04-30)
+    - [✓] `CM_BROKER_LIST` (0x159) — populated Read(): `D(brokerId)+C(sortType)+H(page)+H(listMask)`
+    - [✓] `CM_BROKER_SEARCH` (0x15E) — populated Read(): `D+C+H+H+H(count)+N×D`
+    - [✓] `CM_BROKER_REGISTERED` (0x15F) — populated Read(): `D(npcId)`
+    - [✓] `CM_REGISTER_BROKER_ITEM` (0x15D) — populated Read(): `D(brokerId)+D(itemId)+Q(price)+H(count)`
+    - [✓] `CM_BUY_BROKER_ITEM` (0x15C) — populated Read(): `D(brokerId)+D(itemId)+H(count)`
+    - [✓] `CM_BROKER_CANCEL_REGISTERED` (0x142) — populated Read(): `D(npcId)+D(brokerItemId)`
+    - [✓] `CM_BROKER_SETTLE_ACCOUNT` (0x140) — populated Read(): `D(npcId)`
+    - [✓] `CM_BROKER_SETTLE_LIST` (0x143) — populated Read(): `D(npcId)`
+    - [✓] `CM_PLACE_BID` (0x1BF) — populated Read(): `D(listIndex)+Q(bidOffer)`
+    - Build: 0 warnings, 0 errors
+
 79. [✓] Batch read-format fixes — 6 stub packets (session 2026-04-30)
     - [✓] `CM_PLAYER_LISTENER` (0xCA) — fixed Read(): removed extra `r.ReadC()` (Java reads nothing; over-consuming 1 byte corrupted next packet)
     - [✓] `CM_GM_BOOKMARK` (0x11E) — populated Read(): `r.ReadS()` (command+playerName string)
