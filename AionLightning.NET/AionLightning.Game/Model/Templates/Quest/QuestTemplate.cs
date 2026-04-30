@@ -5,10 +5,11 @@ namespace AionLightning.Game.Model.Templates.Quest;
 [XmlRoot("quest")]
 public sealed class QuestTemplate
 {
-    [XmlAttribute("id")]                 public int    Id       { get; set; }
-    [XmlAttribute("name")]               public string Name     { get; set; } = string.Empty;
-    [XmlAttribute("minlevel_permitted")] public byte   MinLevel { get; set; } = 1;
-    [XmlAttribute("race_permitted")]     public string Race     { get; set; } = "PC_ALL";
+    [XmlAttribute("id")]                 public int    Id           { get; set; }
+    [XmlAttribute("name")]               public string Name         { get; set; } = string.Empty;
+    [XmlAttribute("minlevel_permitted")] public byte   MinLevel     { get; set; } = 1;
+    [XmlAttribute("race_permitted")]     public string Race         { get; set; } = "PC_ALL";
+    [XmlAttribute("cannot_share")]       public bool   CannotShare  { get; set; } = false;
 
     [XmlElement("collect_items")]        public CollectItemsHolder? CollectItems { get; set; }
     [XmlElement("rewards")]              public QuestRewards?       Rewards      { get; set; }

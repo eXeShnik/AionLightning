@@ -217,7 +217,7 @@ public sealed class GsPacketHandlerFactory
                 0x143 => new CM_BROKER_SETTLE_LIST(),
                 0x144 => new CM_BLOCK_ADD(conn, _playerDao, _socialDao),
                 0x145 => new CM_BLOCK_DEL(conn, _socialDao),
-                0x146 => new CM_QUEST_SHARE(),
+                0x146 => new CM_QUEST_SHARE(conn, _connRegistry, _dataManager),
                 0x148 => new CM_FRIEND_STATUS(conn, _socialDao, _connRegistry),
                 0x14C => new CM_CHAT_AUTH(conn, _csHolder),
                 0x14D => new CM_MACRO_CREATE(conn, _macroDao),
