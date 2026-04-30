@@ -21,3 +21,16 @@ public enum PlayerClass : byte
     BARD         = 16,
     ALL          = 17,
 }
+
+public static class PlayerClassExtensions
+{
+    public static bool IsStartingClass(this PlayerClass cls) => cls is
+        PlayerClass.WARRIOR  or PlayerClass.SCOUT   or
+        PlayerClass.MAGE     or PlayerClass.PRIEST  or
+        PlayerClass.ENGINEER or PlayerClass.ARTIST  or
+        PlayerClass.RIDER;
+
+    public static PlayerClass FromId(byte id) => id < 17
+        ? (PlayerClass)id
+        : throw new ArgumentOutOfRangeException(nameof(id), $"Unknown class id {id}");
+}

@@ -1,24 +1,28 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
 
 namespace AionLightning.Game.Network.Aion.ServerPackets;
 
 /// <summary>
 /// Makes a player visible to another client — sent on spawn and on entering the other player's range.
-/// Port of Java SM_PLAYER_INFO.writeImpl(); uses stub values for stats/equipment not tracked in M5.
+/// Port of Java SM_PLAYER_INFO.writeImpl().
 /// </summary>
 public sealed class SM_PLAYER_INFO : AionServerPacket
 {
     private readonly Player _player;
     private readonly PlayerAppearance _appearance;
     private readonly bool _enemy;
+    private readonly IReadOnlyList<Item> _equipment;
 
-    public SM_PLAYER_INFO(Player player, PlayerAppearance appearance, bool enemy)
+    public SM_PLAYER_INFO(Player player, PlayerAppearance appearance, bool enemy,
+        IEnumerable<Item>? equipment = null)
         : base(0x20)
     {
-        _player = player;
+        _player     = player;
         _appearance = appearance;
-        _enemy = enemy;
+        _enemy      = enemy;
+        _equipment  = equipment?.ToList() ?? [];
     }
 
     public override void Write(ref PacketWriter w)
@@ -46,7 +50,7 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
         w.WriteC((byte)raceId);
         w.WriteC((byte)p.PlayerClass);
         w.WriteC((byte)genderId);
-        w.WriteH(0);            // creature state
+        w.WriteH((short)p.State);
 
         w.WriteB(new byte[8]);  // unk
 
@@ -65,8 +69,20 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
         w.WriteH(0);            // current DP
         w.WriteC(0x00);         // unk
 
-        w.WriteD(0);            // item equipment mask (0 = no items)
-        // No items to write
+        // Equipment mask: OR of each equipped slot id
+        int mask = 0;
+        foreach (var item in _equipment)
+            mask |= item.Slot;
+        w.WriteD(mask);
+
+        // Per-item entries: templateId + godstone + dye + enchant glow
+        foreach (var item in _equipment)
+        {
+            w.WriteD(item.ItemId);
+            w.WriteD(0); // no godstone
+            w.WriteD(0); // no dye
+            w.WriteD(item.EnchantLevel >= 15 ? 1 : 0);
+        }
 
         // Appearance
         w.WriteD(a.SkinRgb);
@@ -147,8 +163,8 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
         w.WriteS(string.Empty); // player note
 
         w.WriteH(p.Level);
-        w.WriteH(0);            // display settings
-        w.WriteH(0);            // deny settings
+        w.WriteH((short)p.DisplaySettings);
+        w.WriteH((short)p.DenySettings);
         w.WriteH(1);            // abyss rank 1
 
         w.WriteH(0);            // unk

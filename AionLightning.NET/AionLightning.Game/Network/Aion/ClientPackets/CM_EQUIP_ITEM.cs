@@ -1,0 +1,86 @@
+using AionLightning.Commons.Network;
+using AionLightning.Game.Dao;
+using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
+using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
+
+namespace AionLightning.Game.Network.Aion.ClientPackets;
+
+/// <summary>Client equips or unequips an item. Opcode 0xC4.</summary>
+public sealed class CM_EQUIP_ITEM : AionClientPacket
+{
+    private readonly GsClientConnection _conn;
+    private readonly IItemDao _itemDao;
+    private readonly PlayerConnectionRegistry _connRegistry;
+
+    private byte _action;   // 0 = equip, 1 = unequip
+    private long _slot;
+    private int _itemUniqueId;
+
+    public CM_EQUIP_ITEM(GsClientConnection conn, IItemDao itemDao, PlayerConnectionRegistry connRegistry)
+    {
+        _conn         = conn;
+        _itemDao      = itemDao;
+        _connRegistry = connRegistry;
+    }
+
+    public override void Read(ref PacketReader r)
+    {
+        _action       = (byte)r.ReadC();
+        _slot         = r.ReadQ();
+        _itemUniqueId = r.ReadD();
+    }
+
+    public override async ValueTask RunAsync(CancellationToken ct)
+    {
+        var player = _conn.ActivePlayer;
+        if (player is null) return;
+
+        var item = player.Inventory.Get(_itemUniqueId);
+        if (item is null) return;
+
+        Item? displaced = null;
+        if (_action == 0)
+        {
+            // Equip: if another item already occupies this slot, move it to the bag first
+            displaced = player.Inventory.All
+                .FirstOrDefault(i => i.UniqueId != item.UniqueId && i.IsEquipped && i.Slot == (int)_slot);
+            if (displaced is not null)
+            {
+                displaced.Slot       = -1;
+                displaced.IsEquipped = false;
+            }
+
+            item.Slot       = (int)_slot;
+            item.IsEquipped = true;
+        }
+        else
+        {
+            // Unequip: move to bag
+            item.Slot       = -1;
+            item.IsEquipped = false;
+        }
+
+        // Update WeaponEquipped state: set when the main-hand slot (bitmask 1) is occupied
+        bool hasMainHand = player.Inventory.All.Any(i => i.IsEquipped && i.Slot == 1);
+        if (hasMainHand)
+            player.State |= CreatureState.WeaponEquipped;
+        else
+            player.State &= ~CreatureState.WeaponEquipped;
+
+        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+
+        // Notify self of updated item state(s)
+        var changed = displaced is not null ? new[] { item, displaced } : new[] { item };
+        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(changed), ct);
+
+        // Broadcast appearance change to players in the same zone
+        var appearance = new SM_UPDATE_PLAYER_APPEARANCE(player.ObjectId, player.Inventory.All);
+        await _conn.SendAsync(appearance, ct);
+        int worldId = player.Position.WorldId;
+        foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+            if (other.ActivePlayer?.Position.WorldId == worldId)
+                await other.SendAsync(appearance, ct);
+    }
+}

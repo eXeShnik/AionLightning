@@ -1,6 +1,7 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using GameWorld = AionLightning.Game.World.World;
@@ -9,28 +10,37 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 public sealed class CM_ENTER_WORLD : AionClientPacket
 {
-    private readonly GsClientConnection     _conn;
-    private readonly IPlayerDao             _playerDao;
-    private readonly IPlayerAppearanceDao   _appearanceDao;
-    private readonly IItemDao               _itemDao;
-    private readonly GameWorld              _world;
+    private readonly GsClientConnection       _conn;
+    private readonly IPlayerDao               _playerDao;
+    private readonly IPlayerAppearanceDao     _appearanceDao;
+    private readonly IItemDao                 _itemDao;
+    private readonly IQuestDao                _questDao;
+    private readonly GameWorld                _world;
     private readonly PlayerConnectionRegistry _connRegistry;
-    private readonly IDataManager           _dataManager;
+    private readonly IDataManager             _dataManager;
+    private readonly IMailDao                 _mailDao;
+    private readonly IMacroDao                _macroDao;
+    private readonly ISocialDao               _socialDao;
 
     private int _objectId;
 
     public CM_ENTER_WORLD(GsClientConnection conn, IPlayerDao playerDao,
-        IPlayerAppearanceDao appearanceDao, IItemDao itemDao,
+        IPlayerAppearanceDao appearanceDao, IItemDao itemDao, IQuestDao questDao,
         GameWorld world, PlayerConnectionRegistry connRegistry,
-        IDataManager dataManager)
+        IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
+        ISocialDao socialDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
         _appearanceDao  = appearanceDao;
         _itemDao        = itemDao;
+        _questDao       = questDao;
         _world          = world;
         _connRegistry   = connRegistry;
         _dataManager    = dataManager;
+        _mailDao        = mailDao;
+        _macroDao       = macroDao;
+        _socialDao      = socialDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -51,16 +61,21 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
             return;
         }
 
-        var tpl       = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        bool isNewChar = player.MaxHp == 0;
-
-        if (isNewChar)
+        // Guard against corrupt/legacy WorldId=0 — reset to race starting zone
+        if (player.Position.WorldId == 0)
         {
-            player.MaxHp     = tpl?.MaxHp ?? 1000;
-            player.MaxMp     = tpl?.MaxMp ?? 500;
-            player.CurrentHp = player.MaxHp;
-            player.CurrentMp = player.MaxMp;
+            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+            player.Position = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
         }
+
+        var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+
+        // MaxHp/MaxMp are not persisted — always recompute from stat template on login.
+        // CurrentHp/CurrentMp are also not persisted, so always restore to full.
+        player.MaxHp     = tpl?.MaxHp ?? 1000;
+        player.MaxMp     = tpl?.MaxMp ?? 500;
+        player.CurrentHp = player.MaxHp;
+        player.CurrentMp = player.MaxMp;
 
         player.Appearance  = appearance;
         _conn.ActivePlayer = player;
@@ -78,7 +93,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
         // Load inventory from DB; give starting items for new characters
         var storedItems = await _itemDao.FindByPlayerIdAsync(_objectId, ct);
-        if (isNewChar && storedItems.Count == 0)
+        if (storedItems.Count == 0)
         {
             foreach (var si in _dataManager.PlayerInitial.GetStartingItems(player.PlayerClass))
             {
@@ -94,16 +109,113 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
                 player.Inventory.Add(item);
         }
 
+        // Load personal warehouse items
+        var warehouseItems = await _itemDao.FindWarehouseItemsAsync(_objectId, ct);
+        foreach (var item in warehouseItems)
+            player.Warehouse.Add(item);
+
+        // Load quests
+        var questEntries = await _questDao.LoadByPlayerIdAsync(_objectId, ct);
+        foreach (var entry in questEntries)
+            player.Quests.Add(entry);
+
+        // Load macros
+        var macros = await _macroDao.LoadByPlayerIdAsync(_objectId, ct);
+        foreach (var kv in macros)
+            player.Macros[kv.Key] = kv.Value;
+
         _world.Add(player);
         _connRegistry.Register(player.ObjectId, _conn);
 
         await _playerDao.UpdateOnlineAsync(player.ObjectId, online: true, ct);
 
-        // Enter-world sequence: signal character select state, send stats, then spawn
+        // Enter-world sequence — mirrors Java PlayerEnterWorldService.enterWorld() ordering
         await _conn.SendAsync(new SM_CHARACTER_SELECT(0), ct);
-        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+
+        // Skills and cooldowns
         await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills), ct);
+        await _conn.SendAsync(new SM_SKILL_COOLDOWN(), ct);
+
+        // Quests
+        await _conn.SendAsync(new SM_QUEST_COMPLETED_LIST(player.Quests.Completed), ct);
+        await _conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+
+        // Titles, motion, and social settings
+        await _conn.SendAsync(SM_TITLE_INFO.ActiveTitle(-1), ct);
+        await _conn.SendAsync(SM_TITLE_INFO.BonusTitle(-1), ct);
+        await _conn.SendAsync(SM_MOTION.OwnList(), ct);
+        await _conn.SendAsync(new SM_CUSTOM_SETTINGS(player.ObjectId, player.DisplaySettings, player.DenySettings), ct);
+
+        // Second enter-world check (Java sends this after motions)
+        await _conn.SendAsync(new SM_ENTER_WORLD_CHECK(), ct);
+
+        // Inventory, warehouse, stats, cube (sendItemInfos equivalent)
+        // Only bag items — equipped items are sent via SM_UPDATE_PLAYER_APPEARANCE / SM_PLAYER_INFO
+        await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: true, player.Inventory.All.Where(i => !i.IsEquipped)), ct);
+        await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: false, []), ct);
+        await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
+        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(SM_CUBE_UPDATE.StigmaSlots(0), ct);
+
+        // World placement
+        await _conn.SendAsync(new SM_INSTANCE_INFO(player), ct);
+        await _conn.SendAsync(new SM_CHANNEL_INFO(), ct);
         await _conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
         await _conn.SendAsync(new SM_GAME_TIME(), ct);
+
+        // Bind point — send obelisk location so the client knows where to respawn on death
+        Position bindPos;
+        if (player.BindPosition.HasValue)
+        {
+            bindPos = player.BindPosition.Value;
+        }
+        else
+        {
+            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+            bindPos = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
+        }
+        await _conn.SendAsync(new SM_BIND_POINT_INFO(bindPos), ct);
+
+        // Post-spawn info
+        await _conn.SendAsync(SM_TITLE_INFO.EmptyList(), ct);
+        await _conn.SendAsync(new SM_EMOTION_LIST(0), ct);
+        await _conn.SendAsync(new SM_PRICES(), ct);
+        await _conn.SendAsync(new SM_ABYSS_RANK(), ct);
+        await _conn.SendAsync(new SM_PACKAGE_INFO_NOTIFY(), ct);
+
+        // Macro and recipe lists — split at position 24 to match Java two-part send
+        await _conn.SendAsync(new SM_MACRO_LIST(player.ObjectId, player.Macros.Where(kv => kv.Key <= 24)), ct);
+        await _conn.SendAsync(new SM_MACRO_LIST(player.ObjectId, player.Macros.Where(kv => kv.Key > 24)), ct);
+
+        // Auto-learn recipes for player's race
+        foreach (var id in _dataManager.Recipes.GetAutoLearnIds(player.Race.ToString()))
+            player.KnownRecipes.Add(id);
+        await _conn.SendAsync(new SM_RECIPE_LIST(player.KnownRecipes), ct);
+
+        // Mailbox state — icon highlight if unread mail exists
+        var mails  = await _mailDao.GetReceivedMailsAsync(player.ObjectId, ct);
+        int unread = mails.Count(m => !m.IsRead);
+        await _conn.SendAsync(new SM_MAIL_SERVICE(mails.Count, unread), ct);
+
+        // Social lists — friend list with online status, block list
+        var friends = await _socialDao.GetFriendsAsync(player.ObjectId, ct);
+        var blocks  = await _socialDao.GetBlocksAsync(player.ObjectId, ct);
+        var onlineIds = new HashSet<int>(_connRegistry.GetAll()
+            .Select(c => c.ActivePlayer?.ObjectId ?? 0)
+            .Where(id => id != 0));
+        await _conn.SendAsync(new SM_FRIEND_LIST(friends, onlineIds), ct);
+        await _conn.SendAsync(new SM_BLOCK_LIST(blocks), ct);
+
+        // Notify each online friend that this player is now online (player is already registered above)
+        if (friends.Count > 0)
+        {
+            foreach (var f in friends)
+            {
+                var fc = _connRegistry.Get(f.PlayerId);
+                if (fc?.ActivePlayer is null) continue;
+                var friendFriends = await _socialDao.GetFriendsAsync(f.PlayerId, ct);
+                await fc.SendAsync(new SM_FRIEND_LIST(friendFriends, onlineIds), ct);
+            }
+        }
     }
 }

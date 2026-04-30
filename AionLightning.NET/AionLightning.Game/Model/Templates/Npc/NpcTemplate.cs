@@ -12,6 +12,7 @@ public sealed class NpcTemplate
     [XmlAttribute("height")]  public float  Height     { get; set; } = 1f;
     [XmlAttribute("srange")]  public int    AggroRange { get; set; }
     [XmlAttribute("ai")]      public string Ai         { get; set; } = "dummy";
+    [XmlAttribute("type")]    public string NpcType    { get; set; } = "GENERAL";
 
     [XmlElement("stats")]
     public NpcStatsTemplate? Stats { get; set; }

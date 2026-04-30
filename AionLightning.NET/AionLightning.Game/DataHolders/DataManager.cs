@@ -12,6 +12,11 @@ public sealed class DataManager : IDataManager
     public NpcData               Npcs          { get; } = new();
     public SpawnsData            Spawns        { get; } = new();
     public ItemData              Items         { get; } = new();
+    public ShopData              Shop          { get; } = new();
+    public TeleportData          Teleports     { get; } = new();
+    public RecipeData            Recipes       { get; } = new();
+    public QuestData             Quests        { get; } = new();
+    public DropData              Drops         { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -26,6 +31,11 @@ public sealed class DataManager : IDataManager
         Npcs.Load(dataRoot, log);
         Spawns.Load(dataRoot, log);
         Items.Load(dataRoot, log);
+        Shop.Load(dataRoot, log);
+        Teleports.Load(dataRoot, log);
+        Recipes.Load(dataRoot, log);
+        Quests.Load(dataRoot, log);
+        Drops.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

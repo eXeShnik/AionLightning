@@ -1,0 +1,10 @@
+using AionLightning.Commons.Network;
+
+namespace AionLightning.Game.Network.Aion.ClientPackets;
+
+/// <summary>Client searches the group-finder board. Stub — opcode 0x2EF.</summary>
+public sealed class CM_FIND_GROUP : AionClientPacket
+{
+    public override void Read(ref PacketReader r) { }
+    public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
+}

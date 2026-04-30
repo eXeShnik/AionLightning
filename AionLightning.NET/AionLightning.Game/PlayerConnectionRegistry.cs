@@ -18,4 +18,8 @@ public sealed class PlayerConnectionRegistry
 
     public IEnumerable<GsClientConnection> GetAllExcept(int objectId)
         => _map.Where(kv => kv.Key != objectId).Select(kv => kv.Value);
+
+    public GsClientConnection? GetByName(string name)
+        => _map.Values.FirstOrDefault(c =>
+            string.Equals(c.ActivePlayer?.Name, name, StringComparison.OrdinalIgnoreCase));
 }

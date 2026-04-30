@@ -13,4 +13,22 @@ public sealed class ItemTemplate
     [XmlAttribute("level")]           public int    Level         { get; set; }
     [XmlAttribute("quality")]         public string Quality       { get; set; } = string.Empty;
     [XmlAttribute("price")]           public long   Price         { get; set; }
+    [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
+
+    [XmlElement("actions")]           public ItemActions? Actions { get; set; }
+
+    public int? UseSkillId => Actions?.SkillUse?.SkillId;
+    public bool IsWeapon   => EquipmentType == "WEAPON";
+    public bool IsArmor    => EquipmentType == "ARMOR";
+}
+
+public sealed class ItemActions
+{
+    [XmlElement("skilluse")] public SkillUseAction? SkillUse { get; set; }
+}
+
+public sealed class SkillUseAction
+{
+    [XmlAttribute("skillid")] public int SkillId { get; set; }
+    [XmlAttribute("level")]   public int Level   { get; set; }
 }

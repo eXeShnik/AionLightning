@@ -54,7 +54,7 @@ public sealed class GsConnection : AConnection
 
         byte[] wire = new byte[wireLen];
         BinaryPrimitives.WriteInt16LittleEndian(wire, (short)wireLen);
-        wire[2] = packet.Opcode;
+        wire[2] = (byte)packet.Opcode;
         bodyBuf.WrittenSpan.CopyTo(wire.AsSpan(3));
 
         await WriteRawAsync(wire, ct);

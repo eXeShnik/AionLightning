@@ -45,6 +45,10 @@ builder.Services.AddSingleton<IDataManager, DataManager>();
 builder.Services.AddSingleton<IPlayerDao, PlayerDaoImpl>();
 builder.Services.AddSingleton<IPlayerAppearanceDao, PlayerAppearanceDaoImpl>();
 builder.Services.AddSingleton<IItemDao, ItemDaoImpl>();
+builder.Services.AddSingleton<ISocialDao, SocialDaoImpl>();
+builder.Services.AddSingleton<IMailDao, MailDaoImpl>();
+builder.Services.AddSingleton<IQuestDao, QuestDaoImpl>();
+builder.Services.AddSingleton<IMacroDao, MacroDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -62,6 +66,12 @@ builder.Services.AddSingleton<GsPacketHandlerFactory>();
 // Services
 builder.Services.AddSingleton<SpawnService>();
 builder.Services.AddSingleton<ExperienceService>();
+builder.Services.AddSingleton<LootService>();
+builder.Services.AddSingleton<ExchangeService>();
+builder.Services.AddSingleton<GroupService>();
+builder.Services.AddSingleton<QuestService>();
+builder.Services.AddHostedService<RegenService>();
+builder.Services.AddHostedService<NpcAiService>();
 
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();

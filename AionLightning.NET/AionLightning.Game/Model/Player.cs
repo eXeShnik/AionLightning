@@ -1,4 +1,6 @@
+using AionLightning.Game.Model.Group;
 using AionLightning.Game.Model.Item;
+using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Skill;
 
 namespace AionLightning.Game.Model;
@@ -13,10 +15,32 @@ public sealed class Player : Creature
     public long Exp { get; set; }
     public int TitleId { get; set; } = -1;
     public PlayerAppearance Appearance { get; set; } = new();
-    public PlayerSkillList  Skills     { get; } = new();
-    public PlayerInventory  Inventory  { get; } = new();
+    public PlayerSkillList  Skills       { get; } = new();
+    public PlayerInventory  Inventory    { get; } = new();
+    public PlayerInventory  Warehouse    { get; } = new();
+    public PlayerQuestList  Quests       { get; } = new();
+    public HashSet<int>     KnownRecipes { get; } = new();
     public DateTime CreationDate { get; init; }
     public DateTime? LastOnline { get; set; }
+    public DateTime? DeletionDate { get; set; }
+
+    /// <summary>Unix timestamp sent to client; 0 means not pending deletion.</summary>
+    public int DeletionTime => DeletionDate.HasValue
+        ? (int)new DateTimeOffset(DeletionDate.Value).ToUnixTimeSeconds()
+        : 0;
+
+    // Party group — null when not in a group
+    public PlayerGroup? Group { get; set; }
+
+    // Bind point (Obelisk) — null means no bind, CM_REVIVE stays in place
+    public Position? BindPosition { get; set; }
+
+    // Client display/social settings (from CM_CUSTOM_SETTINGS)
+    public int DisplaySettings { get; set; }
+    public int DenySettings    { get; set; }
+
+    // Macros — position (1-48) → macro XML blob sent by client
+    public Dictionary<int, string> Macros { get; } = new();
 
     // Movement state — updated by CM_MOVE, read by SM_MOVE broadcast
     public byte MovementMask { get; set; }

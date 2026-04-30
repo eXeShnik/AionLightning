@@ -10,4 +10,9 @@ public interface IDataManager
     NpcData               Npcs          { get; }
     SpawnsData            Spawns        { get; }
     ItemData              Items         { get; }
+    ShopData              Shop          { get; }
+    TeleportData          Teleports     { get; }
+    RecipeData            Recipes       { get; }
+    QuestData             Quests        { get; }
+    DropData              Drops         { get; }
 }

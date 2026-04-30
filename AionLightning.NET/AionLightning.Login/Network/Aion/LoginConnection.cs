@@ -83,7 +83,7 @@ public sealed class LoginConnection : AConnection
         int encLen = ((contentLen + 4 + 7) / 8) * 8;
 
         byte[] enc = new byte[encLen];
-        enc[0] = packet.Opcode;
+        enc[0] = (byte)packet.Opcode;
         bodyBuf.WrittenSpan.CopyTo(enc.AsSpan(1));
 
         _crypt.Encrypt(enc, 0, encLen);

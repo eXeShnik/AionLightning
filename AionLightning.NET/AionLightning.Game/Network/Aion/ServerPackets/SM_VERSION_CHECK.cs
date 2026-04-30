@@ -1,3 +1,4 @@
+using System.Net;
 using AionLightning.Commons.Network;
 using AionLightning.Game.Configs.Options;
 
@@ -11,13 +12,16 @@ public sealed class SM_VERSION_CHECK : AionServerPacket
     private readonly int _clientVersion;
     private readonly GameServerInfoOptions _info;
     private readonly NetworkOptions _network;
+    private readonly CsConnectionOptions _cs;
 
-    public SM_VERSION_CHECK(int clientVersion, GameServerInfoOptions info, NetworkOptions network)
+    public SM_VERSION_CHECK(int clientVersion, GameServerInfoOptions info, NetworkOptions network,
+        CsConnectionOptions cs)
         : base(0x00)
     {
         _clientVersion = clientVersion;
-        _info = info;
+        _info    = info;
         _network = network;
+        _cs      = cs;
     }
 
     public override void Write(ref PacketWriter w)
@@ -68,9 +72,10 @@ public sealed class SM_VERSION_CHECK : AionServerPacket
 
         // Chat server entry (spacer + address + port)
         w.WriteC(0x00);
-        // Use localhost / bind address as chat server stub (no chat server yet)
-        byte[] chatAddr = { 127, 0, 0, 1 };
+        byte[] chatAddr = IPAddress.TryParse(_cs.Host, out var ip)
+            ? ip.GetAddressBytes()
+            : new byte[] { 127, 0, 0, 1 };
         w.WriteB(chatAddr);
-        w.WriteH(7788); // stub chat port
+        w.WriteH((short)_cs.Port);
     }
 }

@@ -1,15 +1,16 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
 
 namespace AionLightning.Game.Network.Aion.ServerPackets;
 
 public sealed class SM_CHARACTER_LIST : AionServerPacket
 {
     private readonly int _playOk2;
-    private readonly IReadOnlyList<(Player Player, PlayerAppearance Appearance)> _characters;
+    private readonly IReadOnlyList<(Player Player, PlayerAppearance Appearance, IReadOnlyList<Item> Equipment, bool HasUnread)> _characters;
 
     public SM_CHARACTER_LIST(int playOk2,
-        IReadOnlyList<(Player Player, PlayerAppearance Appearance)> characters)
+        IReadOnlyList<(Player Player, PlayerAppearance Appearance, IReadOnlyList<Item> Equipment, bool HasUnread)> characters)
         : base(0xC8)
     {
         _playOk2 = playOk2;
@@ -21,14 +22,14 @@ public sealed class SM_CHARACTER_LIST : AionServerPacket
         w.WriteD(_playOk2);
         w.WriteC((byte)_characters.Count);
 
-        foreach (var (p, a) in _characters)
+        foreach (var (p, a, equip, hasUnread) in _characters)
         {
-            WritePlayerInfo(ref w, p, a);
+            WritePlayerInfo(ref w, p, a, equip);
 
-            w.WriteD(0);      // display settings
+            w.WriteD(p.DisplaySettings); // display helmet
             w.WriteD(0);
             w.WriteD(0);
-            w.WriteD(0);      // unread mail
+            w.WriteD(hasUnread ? 1 : 0); // unread mail indicator
             w.WriteD(0);
             w.WriteD(0);
             w.WriteQ(0);      // broker collected money
@@ -44,7 +45,7 @@ public sealed class SM_CHARACTER_LIST : AionServerPacket
         }
     }
 
-    private static void WritePlayerInfo(ref PacketWriter w, Player p, PlayerAppearance a)
+    internal static void WritePlayerInfo(ref PacketWriter w, Player p, PlayerAppearance a, IReadOnlyList<Item>? equipment = null)
     {
         int raceId   = (int)p.Race;
         int genderId = (int)p.Gender;
@@ -133,7 +134,23 @@ public sealed class SM_CHARACTER_LIST : AionServerPacket
             ? (int)new DateTimeOffset(p.LastOnline.Value).ToUnixTimeSeconds()
             : 0);
 
-        // No equipped items — write 0 items header
-        w.WriteH(0); // 0 items
+        // Equipment slot buffer: up to 208 bytes; 13 bytes per visible item (slot ≤ PANTS=4096)
+        int written = 0;
+        if (equipment is not null)
+        {
+            foreach (var item in equipment)
+            {
+                if (written + 13 > 208) break;
+                byte indicator = (item.Slot == 2 || item.Slot == 64 || item.Slot == 256) ? (byte)2 : (byte)1;
+                w.WriteC(indicator);
+                w.WriteD(item.ItemId);
+                w.WriteD(0); // no godstone
+                w.WriteD(0); // no dye color
+                written += 13;
+            }
+        }
+        w.WriteB(new byte[208 - written]);
+        // Deletion timer (Unix seconds); 0 = character is active
+        w.WriteD(p.DeletionTime);
     }
 }

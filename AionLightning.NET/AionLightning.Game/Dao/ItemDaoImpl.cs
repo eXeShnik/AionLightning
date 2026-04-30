@@ -10,11 +10,20 @@ public sealed class ItemDaoImpl : IItemDao
     public ItemDaoImpl(MySqlDataSource db) => _db = db;
 
     public async ValueTask<IReadOnlyList<Item>> FindByPlayerIdAsync(int playerId, CancellationToken ct)
+        => await LoadItemsAsync(playerId, storageType: 0, ct);
+
+    public async ValueTask<IReadOnlyList<Item>> FindWarehouseItemsAsync(int playerId, CancellationToken ct)
+        => await LoadItemsAsync(playerId, storageType: 1, ct);
+
+    private async ValueTask<IReadOnlyList<Item>> LoadItemsAsync(int playerId, byte storageType, CancellationToken ct)
     {
-        await using var conn = await _db.OpenConnectionAsync(ct);
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT unique_id, item_id, count, slot FROM player_items WHERE player_id = @PlayerId";
-        cmd.Parameters.AddWithValue("@PlayerId", playerId);
+        await using var conn   = await _db.OpenConnectionAsync(ct);
+        await using var cmd    = conn.CreateCommand();
+        cmd.CommandText = @"SELECT unique_id, item_id, count, slot, storage_type, enchant_level, is_equipped
+                            FROM player_items
+                            WHERE player_id = @PlayerId AND storage_type = @StorageType";
+        cmd.Parameters.AddWithValue("@PlayerId",    playerId);
+        cmd.Parameters.AddWithValue("@StorageType", storageType);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         var list = new List<Item>();
@@ -22,16 +31,25 @@ public sealed class ItemDaoImpl : IItemDao
         {
             list.Add(new Item
             {
-                UniqueId = reader.GetInt64(0),
-                ItemId   = reader.GetInt32(1),
-                Count    = reader.GetInt64(2),
-                Slot     = reader.GetInt32(3),
+                UniqueId     = reader.GetInt64(0),
+                ItemId       = reader.GetInt32(1),
+                Count        = reader.GetInt64(2),
+                Slot         = reader.GetInt32(3),
+                StorageType  = reader.GetByte(4),
+                EnchantLevel = reader.GetByte(5),
+                IsEquipped   = reader.GetBoolean(6),
             });
         }
         return list;
     }
 
-    public async ValueTask SaveAllAsync(int playerId, IEnumerable<Item> items, CancellationToken ct)
+    public ValueTask SaveAllAsync(int playerId, IEnumerable<Item> items, CancellationToken ct)
+        => ReplaceItemsAsync(playerId, items, storageType: 0, ct);
+
+    public ValueTask SaveWarehouseAsync(int playerId, IEnumerable<Item> items, CancellationToken ct)
+        => ReplaceItemsAsync(playerId, items, storageType: 1, ct);
+
+    private async ValueTask ReplaceItemsAsync(int playerId, IEnumerable<Item> items, byte storageType, CancellationToken ct)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
         await using var tx   = await conn.BeginTransactionAsync(ct);
@@ -39,8 +57,9 @@ public sealed class ItemDaoImpl : IItemDao
         await using (var del = conn.CreateCommand())
         {
             del.Transaction = tx;
-            del.CommandText = "DELETE FROM player_items WHERE player_id = @PlayerId";
-            del.Parameters.AddWithValue("@PlayerId", playerId);
+            del.CommandText = "DELETE FROM player_items WHERE player_id = @PlayerId AND storage_type = @StorageType";
+            del.Parameters.AddWithValue("@PlayerId",    playerId);
+            del.Parameters.AddWithValue("@StorageType", storageType);
             await del.ExecuteNonQueryAsync(ct);
         }
 
@@ -48,17 +67,30 @@ public sealed class ItemDaoImpl : IItemDao
         {
             await using var ins = conn.CreateCommand();
             ins.Transaction = tx;
-            ins.CommandText = @"INSERT INTO player_items (unique_id, player_id, item_id, count, slot)
-                                VALUES (@UniqueId, @PlayerId, @ItemId, @Count, @Slot)";
-            ins.Parameters.AddWithValue("@UniqueId", item.UniqueId);
-            ins.Parameters.AddWithValue("@PlayerId", playerId);
-            ins.Parameters.AddWithValue("@ItemId",   item.ItemId);
-            ins.Parameters.AddWithValue("@Count",    item.Count);
-            ins.Parameters.AddWithValue("@Slot",     item.Slot);
+            ins.CommandText = @"INSERT INTO player_items
+                                    (unique_id, player_id, item_id, count, slot, storage_type, enchant_level, is_equipped)
+                                VALUES (@UniqueId, @PlayerId, @ItemId, @Count, @Slot, @StorageType, @EnchantLevel, @IsEquipped)";
+            ins.Parameters.AddWithValue("@UniqueId",     item.UniqueId);
+            ins.Parameters.AddWithValue("@PlayerId",     playerId);
+            ins.Parameters.AddWithValue("@ItemId",       item.ItemId);
+            ins.Parameters.AddWithValue("@Count",        item.Count);
+            ins.Parameters.AddWithValue("@Slot",         item.Slot);
+            ins.Parameters.AddWithValue("@StorageType",  storageType);
+            ins.Parameters.AddWithValue("@EnchantLevel", item.EnchantLevel);
+            ins.Parameters.AddWithValue("@IsEquipped",   item.IsEquipped ? 1 : 0);
             await ins.ExecuteNonQueryAsync(ct);
         }
 
         await tx.CommitAsync(ct);
+    }
+
+    public async ValueTask DeleteAsync(long uniqueId, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await using var cmd  = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM player_items WHERE unique_id = @UniqueId";
+        cmd.Parameters.AddWithValue("@UniqueId", uniqueId);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     public async ValueTask<long> NextUniqueIdAsync(CancellationToken ct)

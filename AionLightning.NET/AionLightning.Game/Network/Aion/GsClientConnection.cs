@@ -10,6 +10,7 @@ using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Cs.ServerPackets;
 using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Network.Ls.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 using Microsoft.Extensions.Logging;
 
@@ -25,8 +26,12 @@ public sealed class GsClientConnection : AConnection
     private readonly CsConnectionHolder _cs;
     private readonly GameAccountRegistry _registry;
     private readonly IPlayerDao _playerDao;
+    private readonly IItemDao _itemDao;
+    private readonly IQuestDao _questDao;
+    private readonly ISocialDao _socialDao;
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly GroupService _groupService;
     private readonly GsCrypt _crypt = new();
 
     public AionState State { get; set; } = AionState.CONNECTED;
@@ -39,8 +44,9 @@ public sealed class GsClientConnection : AConnection
 
     public GsClientConnection(Socket socket, ILogger<GsClientConnection> log,
         GsPacketHandlerFactory factory, LsConnectionHolder ls, CsConnectionHolder cs,
-        GameAccountRegistry registry, IPlayerDao playerDao, GameWorld world,
-        PlayerConnectionRegistry connRegistry)
+        GameAccountRegistry registry, IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao,
+        ISocialDao socialDao, GameWorld world, PlayerConnectionRegistry connRegistry,
+        GroupService groupService)
         : base(socket)
     {
         _log          = log;
@@ -49,8 +55,12 @@ public sealed class GsClientConnection : AConnection
         _cs           = cs;
         _registry     = registry;
         _playerDao    = playerDao;
+        _itemDao      = itemDao;
+        _questDao     = questDao;
+        _socialDao    = socialDao;
         _world        = world;
         _connRegistry = connRegistry;
+        _groupService = groupService;
     }
 
     protected override async ValueTask OnConnectedAsync(CancellationToken ct)
@@ -85,9 +95,17 @@ public sealed class GsClientConnection : AConnection
         var packet = _factory.Resolve(opcode, State, this);
         if (packet is null) return;
 
-        var reader = new PacketReader(body);
-        packet.Read(ref reader);
-        await packet.RunAsync(ct);
+        try
+        {
+            var reader = new PacketReader(body);
+            packet.Read(ref reader);
+            await packet.RunAsync(ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Unhandled error in packet 0x{Opcode:X4} from {IP} — connection kept alive", opcode, IP);
+        }
     }
 
     private async ValueTask HandleLoginCheckAsync(ReadOnlySequence<byte> body, CancellationToken ct)
@@ -166,20 +184,62 @@ public sealed class GsClientConnection : AConnection
         var player = ActivePlayer;
         if (player is null) return;
 
-        // Unregister from broadcast registry and world
+        // Unregister from broadcast registry and world; notify zone peers before removal
+        int worldId = player.Position.WorldId;
         _connRegistry.Unregister(player.ObjectId);
         _world.Remove(player);
 
+        var deletePkt = new SM_DELETE(player.ObjectId);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(deletePkt, CancellationToken.None); } catch { /* ignore */ }
+
         _log.LogInformation("Player {Name} (id={Id}) disconnected — saving state", player.Name, player.ObjectId);
+
+        // Notify online friends that this player went offline (player already unregistered, so onlineIds excludes them)
+        try
+        {
+            var myFriends = await _socialDao.GetFriendsAsync(player.ObjectId, CancellationToken.None);
+            if (myFriends.Count > 0)
+            {
+                var nowOnlineIds = new HashSet<int>(_connRegistry.GetAll()
+                    .Select(c => c.ActivePlayer?.ObjectId ?? 0).Where(id => id != 0));
+                foreach (var f in myFriends)
+                {
+                    var fc = _connRegistry.Get(f.PlayerId);
+                    if (fc?.ActivePlayer is null) continue;
+                    var friendFriends = await _socialDao.GetFriendsAsync(f.PlayerId, CancellationToken.None);
+                    try { await fc.SendAsync(new SM_FRIEND_LIST(friendFriends, nowOnlineIds), CancellationToken.None); } catch { }
+                }
+            }
+        }
+        catch (Exception ex) { _log.LogError(ex, "Failed to notify friends of {Name} logout", player.Name); }
 
         try
         {
             await _playerDao.UpdatePositionAsync(player.ObjectId, player.Position, CancellationToken.None);
+            await _playerDao.UpdateExpLevelAsync(player.ObjectId, player.Exp, player.Level, CancellationToken.None);
             await _playerDao.UpdateOnlineAsync(player.ObjectId, online: false, CancellationToken.None);
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, CancellationToken.None);
+            await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, CancellationToken.None);
+            await _questDao.SaveAllAsync(player.ObjectId, player.Quests.Active, CancellationToken.None);
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "Failed to save player state for {Name}", player.Name);
+        }
+
+        // Leave group and notify remaining members via SM_GROUP_MEMBER_INFO(Disconnected)
+        var leftGroup = _groupService.LeaveGroup(player);
+        if (leftGroup is not null)
+        {
+            var disconnectNotify = new SM_GROUP_MEMBER_INFO(leftGroup.GroupId, player, SM_GROUP_MEMBER_INFO.GroupEvent.Disconnected);
+            foreach (var member in leftGroup.Members)
+            {
+                var memberConn = _connRegistry.Get(member.ObjectId);
+                if (memberConn is not null)
+                    try { await memberConn.SendAsync(disconnectNotify, CancellationToken.None); } catch { /* ignore */ }
+            }
         }
 
         var csConn = _cs.Current;

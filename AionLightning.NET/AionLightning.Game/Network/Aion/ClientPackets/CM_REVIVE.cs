@@ -1,0 +1,98 @@
+using AionLightning.Commons.Network;
+using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model;
+using AionLightning.Game.Network.Aion.ServerPackets;
+
+namespace AionLightning.Game.Network.Aion.ClientPackets;
+
+public sealed class CM_REVIVE : AionClientPacket
+{
+    private readonly GsClientConnection      _conn;
+    private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly IDataManager            _dataManager;
+
+    public CM_REVIVE(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
+        IDataManager dataManager)
+    {
+        _conn         = conn;
+        _connRegistry = connRegistry;
+        _dataManager  = dataManager;
+    }
+
+    public override void Read(ref PacketReader r) => r.ReadC(); // reviveId (unused for basic bind revive)
+
+    public override async ValueTask RunAsync(CancellationToken ct)
+    {
+        var player = _conn.ActivePlayer;
+        if (player is null || !player.IsAlreadyDead) return;
+
+        // Restore to 25 % HP / MP
+        player.CurrentHp = Math.Max(1, player.MaxHp / 4);
+        player.CurrentMp = Math.Max(1, player.MaxMp / 4);
+        player.State &= ~CreatureState.Dead;
+
+        // Determine destination position
+        Position destination;
+        if (player.BindPosition.HasValue)
+        {
+            destination = player.BindPosition.Value;
+        }
+        else
+        {
+            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+            destination = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
+        }
+
+        // Notify players in the old zone that this player is departing
+        int oldWorldId = player.Position.WorldId;
+        if (oldWorldId != destination.WorldId)
+        {
+            var deletePacket = new SM_DELETE(player.ObjectId);
+            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == oldWorldId)
+                    await other.SendAsync(deletePacket, ct);
+        }
+
+        player.Position = destination;
+        await _conn.SendAsync(new SM_TELEPORT_LOC(destination), ct);
+
+        bool crossZone = oldWorldId != destination.WorldId;
+        if (crossZone)
+        {
+            // Cross-zone: new-zone peers have no entity for this player yet — skip emotion broadcast.
+            // Send self a zone-load signal after the animation (~2200ms); CM_LEVEL_READY from the client
+            // will then broadcast SM_PLAYER_INFO to new-zone peers once the map finishes loading.
+            _ = SchedulePostReviveSpawnAsync(player, ct);
+        }
+        else
+        {
+            // Same-zone: peers already have the entity — broadcast resurrection emotions.
+            int worldId = destination.WorldId;
+            var resurrectEmotion = new SM_EMOTION(player, EmotionType.RESURRECT);
+            await _conn.SendAsync(resurrectEmotion, ct);
+            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == worldId)
+                    await other.SendAsync(resurrectEmotion, ct);
+
+            var standEmotion = new SM_EMOTION(player, EmotionType.STAND);
+            await _conn.SendAsync(standEmotion, ct);
+            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == worldId)
+                    await other.SendAsync(standEmotion, ct);
+        }
+
+        var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+    }
+
+    private async Task SchedulePostReviveSpawnAsync(Player player, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(2200, ct);
+            await _conn.SendAsync(new SM_CHANNEL_INFO(), ct);
+            await _conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
+        }
+        catch (OperationCanceledException) { }
+    }
+}

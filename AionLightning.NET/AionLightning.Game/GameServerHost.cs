@@ -6,6 +6,7 @@ using AionLightning.Commons.Scripting.Contracts;
 using AionLightning.Commons.Services;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Network.Aion;
+using AionLightning.Game.Dao;
 using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Scripting;
@@ -32,6 +33,7 @@ public sealed class GameServerHost : BackgroundService
     private readonly ScriptService _scriptService;
     private readonly SpawnService  _spawnService;
     private readonly IEventBus _eventBus;
+    private readonly IPlayerDao _playerDao;
 
     public GameServerHost(
         ILogger<GameServerHost> log,
@@ -47,7 +49,8 @@ public sealed class GameServerHost : BackgroundService
         IConnectionFactory<GsClientConnection> aionFactory,
         ScriptService scriptService,
         SpawnService spawnService,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        IPlayerDao playerDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -63,10 +66,15 @@ public sealed class GameServerHost : BackgroundService
         _scriptService = scriptService;
         _spawnService  = spawnService;
         _eventBus      = eventBus;
+        _playerDao     = playerDao;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        // Clear stale online flags from a previous run or crash
+        await _playerDao.ResetAllOnlineAsync(ct);
+        _log.LogInformation("Online flags reset for all players");
+
         await LoadScriptsAsync(ct);
         _spawnService.SpawnAll();
 

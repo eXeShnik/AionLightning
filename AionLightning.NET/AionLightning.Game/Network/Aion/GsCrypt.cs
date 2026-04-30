@@ -93,7 +93,7 @@ public sealed class GsCrypt
         return code == StaticClientPacketCode && (ushort)(~opcode) == notOpcode;
     }
 
-    public static ushort EncodeOpcode(byte opcode)
+    public static ushort EncodeOpcode(ushort opcode)
         => (ushort)((opcode + 0xCC) ^ 0xDD);
 
     private static long KeyAsLong(byte[] key)

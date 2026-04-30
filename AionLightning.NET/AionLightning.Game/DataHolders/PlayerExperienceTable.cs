@@ -46,7 +46,7 @@ public sealed class PlayerExperienceTable
             if (exp >= _experience[i - 1])
             {
                 int level = i;
-                return level >= MaxLevel ? MaxLevel - 1 : level;
+                return level > MaxLevel ? MaxLevel : level;
             }
         }
         return 1;

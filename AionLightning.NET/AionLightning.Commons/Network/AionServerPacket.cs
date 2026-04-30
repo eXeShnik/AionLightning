@@ -7,9 +7,9 @@ namespace AionLightning.Commons.Network;
 /// </summary>
 public abstract class AionServerPacket
 {
-    public byte Opcode { get; }
+    public ushort Opcode { get; }
 
-    protected AionServerPacket(byte opcode)
+    protected AionServerPacket(ushort opcode)
     {
         Opcode = opcode;
     }

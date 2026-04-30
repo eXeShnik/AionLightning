@@ -1,0 +1,241 @@
+using AionLightning.Commons.Network;
+using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model;
+using AionLightning.Game.Model.Templates.Skill;
+using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
+using GameWorld = AionLightning.Game.World.World;
+
+namespace AionLightning.Game.Network.Aion.ClientPackets;
+
+public sealed class CM_CASTSPELL : AionClientPacket
+{
+    private readonly GsClientConnection _conn;
+    private readonly GameWorld _world;
+    private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly IDataManager _dataManager;
+    private readonly ExperienceService _expService;
+    private readonly SpawnService _spawnService;
+    private readonly LootService _lootService;
+    private readonly QuestService _questService;
+
+    private int _spellId;
+    private int _level;
+    private int _targetType;
+    private int _targetObjectId;
+    private float _x, _y, _z;
+    private int _hitTime;
+
+    public CM_CASTSPELL(GsClientConnection conn, GameWorld world,
+        PlayerConnectionRegistry connRegistry, IDataManager dataManager,
+        ExperienceService expService, SpawnService spawnService, LootService lootService,
+        QuestService questService)
+    {
+        _conn         = conn;
+        _world        = world;
+        _connRegistry = connRegistry;
+        _dataManager  = dataManager;
+        _expService   = expService;
+        _spawnService = spawnService;
+        _lootService  = lootService;
+        _questService = questService;
+    }
+
+    public override void Read(ref PacketReader r)
+    {
+        _spellId    = r.ReadH();
+        _level      = r.ReadC();
+        _targetType = r.ReadC();
+
+        switch (_targetType)
+        {
+            case 0:
+            case 3:
+            case 4:
+                _targetObjectId = r.ReadD();
+                break;
+            case 1:
+                _x = r.ReadF(); _y = r.ReadF(); _z = r.ReadF();
+                break;
+            case 2:
+                _x = r.ReadF(); _y = r.ReadF(); _z = r.ReadF();
+                for (int i = 0; i < 8; i++) r.ReadF();
+                break;
+        }
+
+        _hitTime = r.ReadH();
+    }
+
+    public override async ValueTask RunAsync(CancellationToken ct)
+    {
+        var player = _conn.ActivePlayer;
+        if (player is null || player.IsAlreadyDead) return;
+
+        if (!player.Skills.IsPresent(_spellId)) return;
+
+        // Broadcast cast animation
+        var castPacket = _targetType is 1 or 2
+            ? new SM_CASTSPELL(player.ObjectId, _spellId, _level, _targetType, _x, _y, _z, _hitTime)
+            : new SM_CASTSPELL(player.ObjectId, _spellId, _level, _targetType, _targetObjectId, _hitTime);
+
+        await BroadcastAsync(castPacket, ct);
+
+        // Resolve template to determine skill behaviour
+        var template     = _dataManager.Skills.GetTemplate(_spellId);
+        bool isHealSkill = template?.SubType is SkillSubType.HEAL;
+        bool isDamageSkill = !isHealSkill
+            && template?.SkillType is SkillType.MAGICAL or SkillType.PHYSICAL
+            && template.SubType is not (SkillSubType.BUFF or SkillSubType.CHANT);
+        int castDelay = template?.Duration ?? 0;
+
+        if (isHealSkill && _targetType is 0 or 3 or 4)
+        {
+            // Heal target — self if targetObjectId == 0 or is the caster
+            var healTarget = (_targetObjectId == 0 || _targetObjectId == player.ObjectId)
+                ? (Creature)player
+                : (Creature?)_world.GetPlayerByObjectId(_targetObjectId);
+            if (healTarget is not null && !healTarget.IsAlreadyDead)
+            {
+                int heal = player.Level * 6 + Random.Shared.Next(15, 40);
+                healTarget.CurrentHp = Math.Min(healTarget.MaxHp, healTarget.CurrentHp + heal);
+                var healStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
+                    _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                int healWorldId = player.Position.WorldId;
+                foreach (var c in _connRegistry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == healWorldId)
+                        await c.SendAsync(healStatus, ct);
+
+                // Update group HP display for healed player
+                if (healTarget is Player healedPlayer)
+                {
+                    var grp = healedPlayer.Group;
+                    if (grp is not null)
+                    {
+                        var update = new SM_GROUP_MEMBER_INFO(grp.GroupId, healedPlayer, SM_GROUP_MEMBER_INFO.GroupEvent.Update);
+                        foreach (var m in grp.Members)
+                        {
+                            if (m.ObjectId == healedPlayer.ObjectId) continue;
+                            var mc = _connRegistry.Get(m.ObjectId);
+                            if (mc is not null) try { await mc.SendAsync(update, ct); } catch { }
+                        }
+                    }
+                }
+            }
+            var activation = new SM_SKILL_ACTIVATION(_spellId);
+            await BroadcastAsync(activation, ct);
+        }
+        else if (isDamageSkill && _targetType is 0 or 3 or 4 && _targetObjectId != 0)
+        {
+            var spellId    = _spellId;
+            var world      = _world;
+            var registry   = _connRegistry;
+            var expSvc     = _expService;
+            var spawnSvc   = _spawnService;
+            var lootSvc    = _lootService;
+            var questSvc   = _questService;
+            var conn       = _conn;
+
+            _ = Task.Run(async () =>
+            {
+                if (castDelay > 0)
+                    await Task.Delay(castDelay);
+
+                int castWorldId = player.Position.WorldId;
+                var activation = new SM_SKILL_ACTIVATION(spellId);
+                foreach (var c in registry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                        await c.SendAsync(activation);
+
+                if (player.IsAlreadyDead) return;
+
+                Creature? target = world.GetPlayerByObjectId(_targetObjectId)
+                                ?? (Creature?)world.GetNpcByObjectId(_targetObjectId);
+                if (target is null || target.IsAlreadyDead) return;
+
+                int damage = player.Level * 8 + Random.Shared.Next(20, 60);
+                target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
+
+                // Both caster and target enter combat
+                var combatNow = DateTime.UtcNow;
+                player.LastCombatTime = combatNow;
+                target.LastCombatTime = combatNow;
+
+                if (target is Player damagedPlayer)
+                {
+                    var grp = damagedPlayer.Group;
+                    if (grp is not null)
+                    {
+                        var update = new SM_GROUP_MEMBER_INFO(grp.GroupId, damagedPlayer, SM_GROUP_MEMBER_INFO.GroupEvent.Update);
+                        foreach (var m in grp.Members)
+                        {
+                            if (m.ObjectId == damagedPlayer.ObjectId) continue;
+                            var mc = registry.Get(m.ObjectId);
+                            if (mc is not null) try { await mc.SendAsync(update); } catch { }
+                        }
+                    }
+                }
+
+                var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, SM_ATTACK_STATUS.LogId.SpellAtk);
+                foreach (var c in registry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                        await c.SendAsync(statusPkt);
+
+                if (target.CurrentHp > 0) return;
+
+                if (target is Player deadPlayer)
+                {
+                    deadPlayer.State |= CreatureState.Dead;
+                    var die = new SM_EMOTION(deadPlayer, EmotionType.DIE);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            await c.SendAsync(die);
+                    var targetConn = registry.Get(deadPlayer.ObjectId);
+                    if (targetConn is not null) await targetConn.SendAsync(new SM_DIE());
+                }
+                else if (target is Npc deadNpc)
+                {
+                    deadNpc.State |= CreatureState.Dead;
+                    int npcWorldId = deadNpc.Position.WorldId;
+                    var die = new SM_EMOTION(deadNpc, EmotionType.DIE);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == npcWorldId)
+                            await c.SendAsync(die);
+                    world.Remove(deadNpc);
+
+                    lootSvc.GenerateDrops(deadNpc);
+
+                    // Update quest kill progress
+                    await questSvc.HandleNpcKillAsync(player, deadNpc, conn, CancellationToken.None);
+
+                    long xp = deadNpc.Level * 50L;
+                    await expSvc.AddGroupExpAsync(player, xp, CancellationToken.None);
+
+                    await Task.Delay(3000);
+                    var del = new SM_DELETE(deadNpc.ObjectId);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == npcWorldId)
+                            await c.SendAsync(del);
+                    spawnSvc.ScheduleRespawn(deadNpc);
+
+                    await Task.Delay(57_000); // 60s total from kill
+                    lootSvc.ClearLoot(deadNpc.ObjectId);
+                }
+            });
+        }
+        else
+        {
+            // Buff, chant, passive, or unknown — broadcast activation immediately
+            var activation = new SM_SKILL_ACTIVATION(_spellId);
+            await BroadcastAsync(activation, ct);
+        }
+    }
+
+    private async ValueTask BroadcastAsync(AionServerPacket packet, CancellationToken ct)
+    {
+        await _conn.SendAsync(packet, ct);
+        int worldId = _conn.ActivePlayer!.Position.WorldId;
+        foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer!.ObjectId))
+            if (other.ActivePlayer?.Position.WorldId == worldId)
+                await other.SendAsync(packet, ct);
+    }
+}

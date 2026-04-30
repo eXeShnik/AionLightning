@@ -57,9 +57,14 @@ public sealed class CM_MOVE : AionClientPacket
         player.VectorX       = _vx; player.VectorY = _vy; player.VectorZ = _vz;
         player.TargetX2      = _x2; player.TargetY2 = _y2; player.TargetZ2 = _z2;
 
-        // Broadcast movement to all other online players
+        // Only broadcast on movement-state transitions (start or stop).
+        // Mid-movement position fixes are NOT broadcast — observing clients interpolate from the start packet.
+        if ((_type & MovementMask.StartMove) == 0 && _type != 0) return;
+
+        int worldId    = player.Position.WorldId;
         var movePacket = new SM_MOVE(player);
         foreach (var otherConn in _connRegistry.GetAllExcept(player.ObjectId))
-            await otherConn.SendAsync(movePacket, ct);
+            if (otherConn.ActivePlayer?.Position.WorldId == worldId)
+                await otherConn.SendAsync(movePacket, ct);
     }
 }
