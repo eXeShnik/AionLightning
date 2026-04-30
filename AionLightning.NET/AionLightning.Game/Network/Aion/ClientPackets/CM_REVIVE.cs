@@ -83,6 +83,23 @@ public sealed class CM_REVIVE : AionClientPacket
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+
+        // Notify self with "revived at bind point" system message
+        await _conn.SendAsync(SM_SYSTEM_MESSAGE.Revived(), ct);
+
+        // Notify group members of the updated HP/MP
+        var group = player.Group;
+        if (group is not null)
+        {
+            var hpUpdate = new SM_GROUP_MEMBER_INFO(group.GroupId, player, SM_GROUP_MEMBER_INFO.GroupEvent.Update);
+            foreach (var member in group.Members)
+            {
+                if (member.ObjectId == player.ObjectId) continue;
+                var memberConn = _connRegistry.Get(member.ObjectId);
+                if (memberConn is not null)
+                    try { await memberConn.SendAsync(hpUpdate, ct); } catch { }
+            }
+        }
     }
 
     private async Task SchedulePostReviveSpawnAsync(Player player, CancellationToken ct)

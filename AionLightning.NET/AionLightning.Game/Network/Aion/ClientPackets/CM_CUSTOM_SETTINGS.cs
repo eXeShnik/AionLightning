@@ -37,9 +37,11 @@ public sealed class CM_CUSTOM_SETTINGS : AionClientPacket
 
         await _playerDao.UpdateDisplaySettingsAsync(player.ObjectId, _display, _deny, ct);
 
-        var packet = new SM_CUSTOM_SETTINGS(player.ObjectId, _display, _deny);
+        var packet  = new SM_CUSTOM_SETTINGS(player.ObjectId, _display, _deny);
+        int worldId = player.Position.WorldId;
         await _conn.SendAsync(packet, ct);
         foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
-            await other.SendAsync(packet, ct);
+            if (other.ActivePlayer?.Position.WorldId == worldId)
+                await other.SendAsync(packet, ct);
     }
 }

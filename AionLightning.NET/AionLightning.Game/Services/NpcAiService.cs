@@ -128,8 +128,6 @@ public sealed class NpcAiService : BackgroundService
 
             if (target.CurrentHp > 0) continue;
 
-            await BroadcastGroupHpAsync(target, ct);
-
             // Player killed by NPC — clear their target lock so NPC idles afterward
             _npcTargets.Remove(npc.ObjectId);
 

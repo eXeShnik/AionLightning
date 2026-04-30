@@ -35,4 +35,7 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_NO_ENOUGH_KINAH — "Not enough Kinah." (msg code 1300137)
     public static SM_SYSTEM_MESSAGE NoEnoughKinah() => new(1300137);
+
+    // STR_REBIRTH_MASSAGE_ME — "You have been revived at the bind point." (msg code 1300738)
+    public static SM_SYSTEM_MESSAGE Revived() => new(1300738);
 }

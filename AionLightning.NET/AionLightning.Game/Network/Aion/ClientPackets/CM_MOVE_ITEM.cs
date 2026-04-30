@@ -72,7 +72,7 @@ public sealed class CM_MOVE_ITEM : AionClientPacket
                 await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
                 await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
                 // Remove from inventory UI, then send updated warehouse
-                await _conn.SendAsync(new SM_DELETE_ITEM((int)item.UniqueId), ct);
+                await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
                 await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
                 break;
             }
