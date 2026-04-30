@@ -85,7 +85,7 @@ public sealed class CM_LOOT_ITEM : AionClientPacket
             var closePacket = new SM_LOOT_STATUS(_targetObjectId, SM_LOOT_STATUS.State.Close);
             foreach (var conn in _connRegistry.GetAll())
                 if (conn.ActivePlayer?.Position.WorldId == worldId)
-                    await conn.SendAsync(closePacket, ct);
+                    try { await conn.SendAsync(closePacket, ct); } catch { }
         }
     }
 }

@@ -81,6 +81,6 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         int worldId = player.Position.WorldId;
         foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
-                await other.SendAsync(appearance, ct);
+                try { await other.SendAsync(appearance, ct); } catch { }
     }
 }

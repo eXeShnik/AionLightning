@@ -29,6 +29,6 @@ public sealed class CM_OPEN_STATICDOOR : AionClientPacket
         await _conn.SendAsync(packet, ct);
         foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
-                await other.SendAsync(packet, ct);
+                try { await other.SendAsync(packet, ct); } catch { }
     }
 }

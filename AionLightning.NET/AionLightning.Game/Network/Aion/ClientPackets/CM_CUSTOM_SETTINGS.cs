@@ -42,6 +42,6 @@ public sealed class CM_CUSTOM_SETTINGS : AionClientPacket
         await _conn.SendAsync(packet, ct);
         foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
-                await other.SendAsync(packet, ct);
+                try { await other.SendAsync(packet, ct); } catch { }
     }
 }
