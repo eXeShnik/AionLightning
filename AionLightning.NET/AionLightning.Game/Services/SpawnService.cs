@@ -89,6 +89,10 @@ public sealed class SpawnService
         });
     }
 
+    /// <summary>Spawns an NPC at an arbitrary position (e.g. from a GM command).</summary>
+    public Npc SpawnNpcAt(Model.Templates.Npc.NpcTemplate template, Position position)
+        => SpawnNpc(template, position);
+
     private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position)
     {
         var npc = new Npc(template)

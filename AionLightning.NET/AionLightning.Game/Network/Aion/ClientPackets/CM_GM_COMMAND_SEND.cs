@@ -4,6 +4,7 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -17,12 +18,13 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
     private readonly IItemDao                 _itemDao;
     private readonly IDataManager             _dataManager;
     private readonly IPlayerDao               _playerDao;
+    private readonly SpawnService             _spawnService;
 
     private string _command = string.Empty;
 
     public CM_GM_COMMAND_SEND(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IItemDao itemDao, IDataManager dataManager,
-        IPlayerDao playerDao)
+        IPlayerDao playerDao, SpawnService spawnService)
     {
         _conn         = conn;
         _world        = world;
@@ -30,6 +32,7 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _playerDao    = playerDao;
+        _spawnService = spawnService;
     }
 
     public override void Read(ref PacketReader r) => _command = r.ReadS();
@@ -66,6 +69,14 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
             case ".item" when parts.Length >= 2 && int.TryParse(parts[1], out var itemId):
                 long count = parts.Length >= 3 && long.TryParse(parts[2], out var c) ? c : 1;
                 await HandleGiveItem(player, itemId, count, ct);
+                break;
+
+            case ".ap" when parts.Length >= 2 && long.TryParse(parts[1], out var apAmount):
+                await HandleGiveAp(player, apAmount, ct);
+                break;
+
+            case ".spawn" when parts.Length >= 2 && int.TryParse(parts[1], out var spawnNpcId):
+                await HandleSpawnNpc(player, spawnNpcId, ct);
                 break;
         }
     }
@@ -154,5 +165,26 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         player.Inventory.Add(item);
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
+    }
+
+    private async ValueTask HandleGiveAp(Player player, long amount, CancellationToken ct)
+    {
+        AbyssRankService.AddAp(player, amount);
+        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+        await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+    }
+
+    private async ValueTask HandleSpawnNpc(Player player, int npcId, CancellationToken ct)
+    {
+        var template = _dataManager.Npcs.GetTemplate(npcId);
+        if (template is null) return;
+
+        var position   = player.Position;
+        var spawned    = _spawnService.SpawnNpcAt(template, position);
+        var infoPacket = new SM_NPC_INFO(spawned);
+        int worldId    = position.WorldId;
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(infoPacket, ct); } catch { }
     }
 }
