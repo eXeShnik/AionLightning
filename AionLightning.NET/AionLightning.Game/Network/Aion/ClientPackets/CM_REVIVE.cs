@@ -50,7 +50,7 @@ public sealed class CM_REVIVE : AionClientPacket
             var deletePacket = new SM_DELETE(player.ObjectId);
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                 if (other.ActivePlayer?.Position.WorldId == oldWorldId)
-                    await other.SendAsync(deletePacket, ct);
+                    try { await other.SendAsync(deletePacket, ct); } catch { }
         }
 
         player.Position = destination;
@@ -69,16 +69,16 @@ public sealed class CM_REVIVE : AionClientPacket
             // Same-zone: peers already have the entity — broadcast resurrection emotions.
             int worldId = destination.WorldId;
             var resurrectEmotion = new SM_EMOTION(player, EmotionType.RESURRECT);
-            await _conn.SendAsync(resurrectEmotion, ct);
+            try { await _conn.SendAsync(resurrectEmotion, ct); } catch { }
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                 if (other.ActivePlayer?.Position.WorldId == worldId)
-                    await other.SendAsync(resurrectEmotion, ct);
+                    try { await other.SendAsync(resurrectEmotion, ct); } catch { }
 
             var standEmotion = new SM_EMOTION(player, EmotionType.STAND);
-            await _conn.SendAsync(standEmotion, ct);
+            try { await _conn.SendAsync(standEmotion, ct); } catch { }
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                 if (other.ActivePlayer?.Position.WorldId == worldId)
-                    await other.SendAsync(standEmotion, ct);
+                    try { await other.SendAsync(standEmotion, ct); } catch { }
         }
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);

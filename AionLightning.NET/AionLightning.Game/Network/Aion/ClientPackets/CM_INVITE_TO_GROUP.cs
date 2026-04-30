@@ -70,11 +70,11 @@ public sealed class CM_INVITE_TO_GROUP : AionClientPacket
             // Existing member gets info about the newly joined player
             var memberConn = _connRegistry.Get(member.ObjectId);
             if (memberConn is not null)
-                await memberConn.SendAsync(new SM_GROUP_MEMBER_INFO(group.GroupId, target, SM_GROUP_MEMBER_INFO.GroupEvent.Enter), ct);
+                try { await memberConn.SendAsync(new SM_GROUP_MEMBER_INFO(group.GroupId, target, SM_GROUP_MEMBER_INFO.GroupEvent.Enter), ct); } catch { }
 
             // New player gets info about each existing member
             if (targetConn2 is not null)
-                await targetConn2.SendAsync(new SM_GROUP_MEMBER_INFO(group.GroupId, member, SM_GROUP_MEMBER_INFO.GroupEvent.Enter), ct);
+                try { await targetConn2.SendAsync(new SM_GROUP_MEMBER_INFO(group.GroupId, member, SM_GROUP_MEMBER_INFO.GroupEvent.Enter), ct); } catch { }
         }
     }
 }

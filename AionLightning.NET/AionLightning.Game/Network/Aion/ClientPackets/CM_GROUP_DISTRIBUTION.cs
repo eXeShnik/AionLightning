@@ -44,7 +44,7 @@ public sealed class CM_GROUP_DISTRIBUTION : AionClientPacket
         {
             var conn = _connRegistry.Get(member.ObjectId);
             if (conn is not null)
-                await conn.SendAsync(packet, ct);
+                try { await conn.SendAsync(packet, ct); } catch { }
         }
     }
 }

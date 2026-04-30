@@ -72,7 +72,7 @@ public sealed class CM_TELEPORT_SELECT : AionClientPacket
             var deletePacket = new SM_DELETE(player.ObjectId, time: 11);
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                 if (other.ActivePlayer?.Position.WorldId == oldWorldId)
-                    await other.SendAsync(deletePacket, ct);
+                    try { await other.SendAsync(deletePacket, ct); } catch { }
         }
 
         // Update server-side player position
@@ -110,7 +110,7 @@ public sealed class CM_TELEPORT_SELECT : AionClientPacket
                 var peerInfo   = new SM_PLAYER_INFO(player, player.Appearance, enemy: false, equipment);
                 foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                     if (other.ActivePlayer?.Position.WorldId == newWorldId)
-                        await other.SendAsync(peerInfo, ct);
+                        try { await other.SendAsync(peerInfo, ct); } catch { }
             }
         }
         catch (OperationCanceledException) { }
