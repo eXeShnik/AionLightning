@@ -604,6 +604,20 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+82. [✓] Store/legion/pet/misc read-format fixes — 11 stub packets (session 2026-04-30)
+    - [✓] `CM_APPEARANCE` (0x2E6) — C(type)+C+H+D then if type 0/1: S
+    - [✓] `CM_CHARACTER_EDIT` (0x13E) — D(objectId)+B(52)
+    - [✓] `CM_IN_GAME_SHOP_INFO` (0x183) — C+D+D+S+S
+    - [✓] `CM_ITEM_REMODEL` (0x138) — D(npcId)+D(keepItemId)+D(extractItemId)
+    - [✓] `CM_MEGAPHONE` (0x1B4) — S(chatMessage)+D(itemObjectId)
+    - [✓] `CM_PETITION` (0xF6) — H(action) then if 2→D; else→S
+    - [✓] `CM_REGISTER_HOUSE` (0x1B2) — Q(bidKinah)+Q(unk1)
+    - [✓] `CM_PRIVATE_STORE` (0x155) — H(itemCount)+N×(D+D+H+D)
+    - [✓] `CM_LEGION` (0xCF) — C(exOpcode) then per-case: create/invite/kick/appoint/demote/announce/intro→D+S; leave/refresh/levelup→D+H; permissions→H×4; nickname→S+S
+    - [✓] `CM_PET` (0xF4) — H(actionId) then: ADOPT(1)→D+D+C+D+D+D+D+S; SURRENDER/SPAWN/DISMISS(2/3/4)→D; FOOD(9)→D+if3:D else:D+D+D; RENAME(10)→D+S; MOOD(12)→D+D
+    - [✓] `CM_PET_EMOTE` (0xF7) — C(emoteId) then: MOVE_STOP(0)→F×3+C; MOVETO(12)→F×3+C+F×3; else→C+C
+    - Build: 0 warnings, 0 errors
+
 81. [✓] Housing + summon + misc read-format fixes — 18 stub packets (session 2026-04-30)
     - [✓] `CM_CHARGE_ITEM` (0x2EC) — D+C+H(count)+N×D
     - [✓] `CM_FAST_TRACK_CHECK` (0x1B9) — D(accountId)
