@@ -33,6 +33,7 @@ public sealed class GsClientConnection : AConnection
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GroupService _groupService;
     private readonly DuelService  _duelService;
+    private readonly LegionService _legionService;
     private readonly GsCrypt _crypt = new();
 
     public AionState State { get; set; } = AionState.CONNECTED;
@@ -47,22 +48,23 @@ public sealed class GsClientConnection : AConnection
         GsPacketHandlerFactory factory, LsConnectionHolder ls, CsConnectionHolder cs,
         GameAccountRegistry registry, IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao,
         ISocialDao socialDao, GameWorld world, PlayerConnectionRegistry connRegistry,
-        GroupService groupService, DuelService duelService)
+        GroupService groupService, DuelService duelService, LegionService legionService)
         : base(socket)
     {
-        _log          = log;
-        _factory      = factory;
-        _ls           = ls;
-        _cs           = cs;
-        _registry     = registry;
-        _playerDao    = playerDao;
-        _itemDao      = itemDao;
-        _questDao     = questDao;
-        _socialDao    = socialDao;
-        _world        = world;
-        _connRegistry = connRegistry;
-        _groupService = groupService;
-        _duelService  = duelService;
+        _log           = log;
+        _factory       = factory;
+        _ls            = ls;
+        _cs            = cs;
+        _registry      = registry;
+        _playerDao     = playerDao;
+        _itemDao       = itemDao;
+        _questDao      = questDao;
+        _socialDao     = socialDao;
+        _world         = world;
+        _connRegistry  = connRegistry;
+        _groupService  = groupService;
+        _duelService   = duelService;
+        _legionService = legionService;
     }
 
     protected override async ValueTask OnConnectedAsync(CancellationToken ct)
@@ -233,6 +235,21 @@ public sealed class GsClientConnection : AConnection
 
         // Clear any active duel on disconnect
         _duelService.RemovePlayer(player.ObjectId);
+
+        // Mark legion member offline and notify remaining members
+        var playerLegion = player.Legion;
+        if (playerLegion is not null && playerLegion.Members.TryGetValue(player.ObjectId, out var legionMember))
+        {
+            legionMember.IsOnline = false;
+            var leavePkt = new SM_LEGION_LEAVE_MEMBER(player.ObjectId, player.Name);
+            foreach (var lm in playerLegion.Members.Values)
+            {
+                if (lm.ObjectId == player.ObjectId) continue;
+                var lmc = _connRegistry.Get(lm.ObjectId);
+                if (lmc is not null)
+                    try { await lmc.SendAsync(leavePkt, CancellationToken.None); } catch { }
+            }
+        }
 
         // Leave group and notify remaining members via SM_GROUP_MEMBER_INFO(Disconnected)
         var leftGroup = _groupService.LeaveGroup(player);

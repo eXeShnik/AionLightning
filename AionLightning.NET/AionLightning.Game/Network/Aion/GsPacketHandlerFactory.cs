@@ -39,6 +39,8 @@ public sealed class GsPacketHandlerFactory
     private readonly IMacroDao       _macroDao;
     private readonly QuestService    _questService;
     private readonly DuelService     _duelService;
+    private readonly LegionService   _legionService;
+    private readonly ILegionDao      _legionDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -64,7 +66,9 @@ public sealed class GsPacketHandlerFactory
         IQuestDao questDao,
         IMacroDao macroDao,
         QuestService questService,
-        DuelService duelService)
+        DuelService duelService,
+        LegionService legionService,
+        ILegionDao legionDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -90,6 +94,8 @@ public sealed class GsPacketHandlerFactory
         _macroDao        = macroDao;
         _questService    = questService;
         _duelService     = duelService;
+        _legionService   = legionService;
+        _legionDao       = legionDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -142,7 +148,7 @@ public sealed class GsPacketHandlerFactory
                 0xCC  => new CM_INSTANCE_LEAVE(),
                 0xCD  => new CM_LEGION_SEND_EMBLEM(),
                 0xCE  => new CM_PING(conn),
-                0xCF  => new CM_LEGION(),
+                0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry),
                 0xD0  => new CM_TIME_CHECK(conn),
                 0xD1  => new CM_GATHER(),
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(),

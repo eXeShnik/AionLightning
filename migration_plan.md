@@ -604,6 +604,24 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+84. [✓] Legion system — create/invite/leave/kick/rank/announcement (session 2026-04-30)
+    - [✓] `V11__legions.sql` — `legions` (id/name/level/contribution_points/announcement/permissions) + `legion_members` (player_id/legion_id/rank_id/self_intro/nickname) with FK constraints
+    - [✓] `LegionRank` enum (BrigadeGeneral=0/Deputy=1/Centurion=2/Legionary=3/Volunteer=4)
+    - [✓] `LegionMember` class — objectId/name/rank/classId/level/worldId/isOnline/selfIntro/nickname
+    - [✓] `Legion` class — id/name/level/rank/points/announcement/permissions + `Dictionary<int,LegionMember>` members
+    - [✓] `ILegionDao` + `LegionDaoImpl` — CRUD via MySqlConnector + Dapper; `GetMemberLegionAsync` JOINs players; `AddMemberAsync` is idempotent via ON DUPLICATE KEY UPDATE
+    - [✓] `LegionService` — `ConcurrentDictionary<legionId,Legion>` + `ConcurrentDictionary<playerId,Legion>`; AddLegion/AddMember/RemoveMember/RemoveLegion; GetByPlayerId/GetById/GetByName
+    - [✓] `Player.Legion` (`Legion?`) — nullable property; type aliased as `LegionModel` in Player.cs to avoid CS0118 with namespace
+    - [✓] `SM_LEGION_INFO` (0x6E) — S(name)+C(level)+D(rank)+H×4(perms)+Q(points)+D×3+announcement(S+D)+B(26)
+    - [✓] `SM_LEGION_ADD_MEMBER` (0x6F) — D(objId)+S(name)+C(rank)+C(isMember)+C(class)+C(level)+D(worldId)+D+D+S
+    - [✓] `SM_LEGION_LEAVE_MEMBER` (0x70) — D(objId)+C(0)+D(0)+D(0)+S(name)+S(name)
+    - [✓] `SM_LEGION_MEMBERLIST` (0x9D) — C(isFirst)+H(count)+per-member: D+S+C(class)+D(level)+C(rank)+D(world)+C(online)+S+S+D+D+D+C+C+C+C
+    - [✓] `SM_LEGION_EDIT` (0x9E) — type byte; 0x05 announcement: S+D(time); 0x06 disband: D(time)
+    - [✓] `CM_LEGION` fully implemented: 0x00 create (validate name, DB insert, BG member, notify); 0x01 invite (BG-only, add member, broadcast SM_LEGION_ADD_MEMBER); 0x02 leave (remove self, broadcast SM_LEGION_LEAVE_MEMBER, disband if last); 0x04 kick (BG-only); 0x05/06/07 rank changes; 0x09 announcement (DB update, SM_LEGION_EDIT broadcast)
+    - [✓] `GsClientConnection.DisposeAsync` — on disconnect, marks member offline in-memory, sends SM_LEGION_LEAVE_MEMBER to remaining members; does NOT disband on disconnect
+    - [✓] `GsConnectionFactory` + `GsPacketHandlerFactory` + `Program.cs` wired with LegionService + ILegionDao
+    - Build: 0 warnings, 0 errors
+
 83. [✓] Legion emblem + summon-move read-format fixes — 8 stub packets (session 2026-04-30)
     - [✓] `CM_LEGION_WH_KINAH` (0x2EE) — Q(amount)+C(operation)
     - [✓] `CM_LEGION_UPLOAD_EMBLEM` (0x163) — D(size)+B(size) (variable-length emblem image)

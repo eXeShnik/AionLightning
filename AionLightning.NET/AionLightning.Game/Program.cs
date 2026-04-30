@@ -49,6 +49,7 @@ builder.Services.AddSingleton<ISocialDao, SocialDaoImpl>();
 builder.Services.AddSingleton<IMailDao, MailDaoImpl>();
 builder.Services.AddSingleton<IQuestDao, QuestDaoImpl>();
 builder.Services.AddSingleton<IMacroDao, MacroDaoImpl>();
+builder.Services.AddSingleton<ILegionDao, LegionDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -71,6 +72,7 @@ builder.Services.AddSingleton<ExchangeService>();
 builder.Services.AddSingleton<GroupService>();
 builder.Services.AddSingleton<QuestService>();
 builder.Services.AddSingleton<DuelService>();
+builder.Services.AddSingleton<LegionService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
 

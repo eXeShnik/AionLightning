@@ -1,5 +1,6 @@
 using AionLightning.Game.Model.Group;
 using AionLightning.Game.Model.Item;
+using LegionModel = AionLightning.Game.Model.Legion.Legion;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Skill;
 
@@ -31,6 +32,9 @@ public sealed class Player : Creature
 
     // Party group — null when not in a group
     public PlayerGroup? Group { get; set; }
+
+    // Legion (guild) — null when not in a legion
+    public LegionModel? Legion { get; set; }
 
     // Bind point (Obelisk) — null means no bind, CM_REVIVE stays in place
     public Position? BindPosition { get; set; }
