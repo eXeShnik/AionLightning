@@ -9,9 +9,10 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Client initiates a crafting action. Opcode 0x12F.</summary>
 public sealed class CM_CRAFT : AionClientPacket
 {
-    private readonly GsClientConnection _conn;
-    private readonly IItemDao           _itemDao;
-    private readonly IDataManager       _dataManager;
+    private readonly GsClientConnection       _conn;
+    private readonly IItemDao                 _itemDao;
+    private readonly IDataManager             _dataManager;
+    private readonly PlayerConnectionRegistry _connRegistry;
 
     private int _unk;
     private int _targetTemplateId;
@@ -20,11 +21,13 @@ public sealed class CM_CRAFT : AionClientPacket
     private int _materialsCount;
     private int _craftType;
 
-    public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager)
+    public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
+        PlayerConnectionRegistry connRegistry)
     {
-        _conn        = conn;
-        _itemDao     = itemDao;
-        _dataManager = dataManager;
+        _conn         = conn;
+        _itemDao      = itemDao;
+        _dataManager  = dataManager;
+        _connRegistry = connRegistry;
     }
 
     public override void Read(ref PacketReader r)
@@ -45,6 +48,9 @@ public sealed class CM_CRAFT : AionClientPacket
         var recipe = _dataManager.Recipes.GetTemplate(_recipeId);
         if (recipe is null) return;
 
+        // Player must know the recipe
+        if (!player.KnownRecipes.Contains(_recipeId)) return;
+
         // Validate player has all components
         foreach (var component in recipe.Components)
         {
@@ -52,7 +58,19 @@ public sealed class CM_CRAFT : AionClientPacket
             if (item is null || item.Count < component.Quantity) return;
         }
 
-        // Consume components; track partial stacks for client update
+        int skillId = recipe.SkillId;
+        int worldId = player.Position.WorldId;
+
+        // Broadcast craft start animation
+        var startAnim = new SM_CRAFT_ANIMATION(player.ObjectId, _targetObjId, skillId, 1);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(startAnim, ct); } catch { }
+
+        // Send init update (shows craft window / progress bar)
+        await _conn.SendAsync(new SM_CRAFT_UPDATE(skillId, recipe.ProductId, 0, 100, 0, 0), ct);
+
+        // Consume components
         var partiallyConsumed = new List<Item>();
         foreach (var component in recipe.Components)
         {
@@ -72,23 +90,23 @@ public sealed class CM_CRAFT : AionClientPacket
             }
         }
 
-        // Create product item
-        var uniqueId = await _itemDao.NextUniqueIdAsync(ct);
-        var product  = new Item
-        {
-            UniqueId = uniqueId,
-            ItemId   = recipe.ProductId,
-            Count    = recipe.Quantity,
-            Slot     = -1,
-        };
+        // Create product
+        long uid    = await _itemDao.NextUniqueIdAsync(ct);
+        var product = new Item { UniqueId = uid, ItemId = recipe.ProductId, Count = recipe.Quantity, Slot = -1 };
         player.Inventory.Add(product);
-
-        // Persist full inventory state
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 
-        // Notify client: push partial-stack updates first, then the new product
+        // Notify client of consumed partial stacks and new product
         if (partiallyConsumed.Count > 0)
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([product]), ct);
+
+        // Success craft update + stop animation (broadcast)
+        await _conn.SendAsync(new SM_CRAFT_UPDATE(skillId, recipe.ProductId, 0, 100, 0, 5), ct);
+
+        var stopAnim = new SM_CRAFT_ANIMATION(player.ObjectId, _targetObjId, skillId, 2);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(stopAnim, ct); } catch { }
     }
 }

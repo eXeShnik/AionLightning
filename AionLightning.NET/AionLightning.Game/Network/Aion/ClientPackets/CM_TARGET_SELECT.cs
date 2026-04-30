@@ -43,9 +43,10 @@ public sealed class CM_TARGET_SELECT : AionClientPacket
         }
         else
         {
-            // Look up in world (players + NPCs)
+            // Look up in world (players + NPCs + gatherables)
             VisibleObject? obj = _world.GetPlayerByObjectId(_targetObjectId)
-                              ?? (VisibleObject?)_world.GetNpcByObjectId(_targetObjectId);
+                              ?? (VisibleObject?)_world.GetNpcByObjectId(_targetObjectId)
+                              ?? (VisibleObject?)_world.GetGatherable(_targetObjectId);
             player.Target = obj;
         }
 
