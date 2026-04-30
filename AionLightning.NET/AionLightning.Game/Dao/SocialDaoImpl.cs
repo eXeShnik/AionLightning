@@ -16,7 +16,7 @@ public sealed class SocialDaoImpl : ISocialDao
         await using var conn = await _db.OpenConnectionAsync(ct);
         var rows = await conn.QueryAsync<FriendRow>(
             """
-            SELECT p.id, p.name, p.level, p.player_class, p.race, f.note
+            SELECT p.id, p.name, p.level, p.player_class, p.race, f.note, p.note AS player_note
             FROM friend_list f
             JOIN players p ON p.id = f.friend_id
             WHERE f.player_id = @playerId
@@ -26,7 +26,7 @@ public sealed class SocialDaoImpl : ISocialDao
             r.id, r.name, r.level,
             Enum.Parse<PlayerClass>(r.player_class, ignoreCase: true),
             Enum.Parse<Race>(r.race, ignoreCase: true),
-            r.note)).ToList();
+            r.note, r.player_note ?? string.Empty)).ToList();
     }
 
     public async Task AddFriendAsync(int playerId, int friendId, CancellationToken ct = default)
@@ -91,6 +91,6 @@ public sealed class SocialDaoImpl : ISocialDao
             new { playerId, blockedId, reason });
     }
 
-    private sealed record FriendRow(int id, string name, byte level, string player_class, string race, string note);
+    private sealed record FriendRow(int id, string name, byte level, string player_class, string race, string note, string? player_note);
     private sealed record BlockRow(int id, string name, string reason);
 }

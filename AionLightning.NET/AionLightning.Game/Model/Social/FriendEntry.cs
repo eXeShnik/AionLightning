@@ -6,4 +6,5 @@ public sealed record FriendEntry(
     byte Level,
     PlayerClass PlayerClass,
     Race Race,
-    string Note);
+    string Note,            // private label stored in friend_list.note (not sent in packet)
+    string PlayerNote);     // friend's own bio note from players.note (sent in SM_FRIEND_LIST)

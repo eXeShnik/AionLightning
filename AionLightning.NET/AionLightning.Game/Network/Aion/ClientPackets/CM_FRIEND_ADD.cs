@@ -47,7 +47,7 @@ public sealed class CM_FRIEND_ADD : AionClientPacket
         await _socialDao.AddFriendAsync(player.ObjectId, target.ObjectId, ct);
 
         bool isOnline = _connRegistry.GetByName(target.Name) is not null;
-        var entry = new FriendEntry(target.ObjectId, target.Name, target.Level, target.PlayerClass, target.Race, "");
+        var entry = new FriendEntry(target.ObjectId, target.Name, target.Level, target.PlayerClass, target.Race, "", target.Note);
         await _conn.SendAsync(new SM_FRIEND_RESPONSE(entry, SM_FRIEND_RESPONSE.ResultCode.Added, isOnline), ct);
     }
 }

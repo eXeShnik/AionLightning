@@ -27,7 +27,7 @@ public sealed class SM_FRIEND_LIST : AionServerPacket
             w.WriteC((byte)f.Race);
             w.WriteC(_onlineIds.Contains(f.PlayerId) ? (byte)1 : (byte)0);
             w.WriteC(0); // mutual flag — not tracked in this impl
-            w.WriteS(f.Note);
+            w.WriteS(f.PlayerNote); // friend's own bio note (from players.note)
         }
         w.WriteC(0);
     }

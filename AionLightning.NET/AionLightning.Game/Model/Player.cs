@@ -43,6 +43,9 @@ public sealed class Player : Creature
     public int DisplaySettings { get; set; }
     public int DenySettings    { get; set; }
 
+    // Bio note visible to friends in their friend list
+    public string Note { get; set; } = string.Empty;
+
     // UI settings blobs — persisted via IPlayerSettingsDao, sent as SM_UI_SETTINGS on login
     public byte[]? UiSettings   { get; set; }
     public byte[]? Shortcuts    { get; set; }
