@@ -8,7 +8,8 @@ namespace AionLightning.Game.DataHolders;
 
 public sealed class SkillTreeData
 {
-    private readonly Dictionary<int, List<SkillLearnTemplate>> _byHash = new();
+    private readonly Dictionary<int, List<SkillLearnTemplate>> _byHash    = new();
+    private readonly Dictionary<int, List<SkillLearnTemplate>> _bySkillId = new();
 
     public void Load(string dataRoot, ILogger log)
     {
@@ -30,6 +31,10 @@ public sealed class SkillTreeData
             if (!_byHash.TryGetValue(hash, out var list))
                 _byHash[hash] = list = new List<SkillLearnTemplate>();
             list.Add(t);
+
+            if (!_bySkillId.TryGetValue(t.SkillId, out var idList))
+                _bySkillId[t.SkillId] = idList = new List<SkillLearnTemplate>();
+            idList.Add(t);
         }
 
         log.LogInformation("SkillTreeData: loaded {Count} skill learn entries", root.Skills.Count);
@@ -44,6 +49,27 @@ public sealed class SkillTreeData
         TryAdd(results, MakeHash((int)cls,             (int)Race.PC_ALL, level));
         TryAdd(results, MakeHash((int)PlayerClass.ALL, (int)Race.PC_ALL, level));
         return results;
+    }
+
+    /// <summary>
+    /// Returns the highest skill level available for this skillId at the player's current level+class+race.
+    /// Used when learning skills from skill books. Returns 1 if no tree entry exists.
+    /// </summary>
+    public int GetMaxSkillLevel(int skillId, PlayerClass cls, Race race, int playerLevel)
+    {
+        if (!_bySkillId.TryGetValue(skillId, out var candidates))
+            return 1;
+
+        int maxLevel = 0;
+        foreach (var t in candidates)
+        {
+            if (t.MinLevel > playerLevel) continue;
+            bool matchClass = t.ClassId == PlayerClass.ALL || t.ClassId == cls;
+            bool matchRace  = t.Race    == Race.PC_ALL     || t.Race    == race;
+            if (matchClass && matchRace && t.SkillLevel > maxLevel)
+                maxLevel = t.SkillLevel;
+        }
+        return maxLevel > 0 ? maxLevel : 1;
     }
 
     private void TryAdd(List<SkillLearnTemplate> results, int hash)

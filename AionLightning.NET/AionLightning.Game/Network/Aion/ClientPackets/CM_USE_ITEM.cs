@@ -1,6 +1,10 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
+using AionLightning.Game.Model.Skill;
+using AionLightning.Game.Model.Templates.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -60,8 +64,16 @@ public sealed class CM_USE_ITEM : AionClientPacket
         if (item is null) return;
 
         var template = _dataManager.Items.GetTemplate(item.ItemId);
-        if (template?.UseSkillId is not int skillId) return;
+        if (template is null) return;
 
+        // Skill book — teaches a skill permanently
+        if (template.SkillLearnId is int learnSkillId)
+        {
+            await HandleSkillBookAsync(player, item, template, learnSkillId, ct);
+            return;
+        }
+
+        if (template.UseSkillId is not int skillId) return;
         if (!SkillEffects.TryGetValue(skillId, out var effect)) return;
 
         // Apply HP restore
@@ -98,5 +110,33 @@ public sealed class CM_USE_ITEM : AionClientPacket
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
         }
+    }
+
+    private async ValueTask HandleSkillBookAsync(Player player, Item item, ItemTemplate template,
+        int skillId, CancellationToken ct)
+    {
+        var learnAction = template.Actions!.SkillLearn!;
+
+        // Class restriction: "ALL" or empty means anyone can use it
+        if (!string.IsNullOrEmpty(learnAction.ClassRestriction)
+            && learnAction.ClassRestriction != "ALL"
+            && !player.PlayerClass.ToString().Equals(learnAction.ClassRestriction, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Level restriction
+        if (player.Level < learnAction.RequiredLevel) return;
+
+        // Already known
+        if (player.Skills.IsPresent(skillId)) return;
+
+        int skillLevel = _dataManager.SkillTree.GetMaxSkillLevel(skillId, player.PlayerClass, player.Race, player.Level);
+        player.Skills.AddSkill(skillId, skillLevel);
+
+        await _conn.SendAsync(new SM_SKILL_LIST([new PlayerSkillEntry(skillId, skillLevel)], isNew: true), ct);
+
+        // Skill books are non-stackable — always delete on use
+        player.Inventory.Remove(item.UniqueId);
+        await _itemDao.DeleteAsync(item.UniqueId, ct);
+        await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
     }
 }
