@@ -181,7 +181,7 @@ public sealed class GsPacketHandlerFactory
                 0x11D => new CM_EXCHANGE_REQUEST(conn, _world, _connRegistry, _exchangeService),
                 0x11E => new CM_GM_BOOKMARK(),
                 0x11F => new CM_CHAT_GROUP_INFO(),
-                0x122 => new CM_PLAYER_STATUS_INFO(),
+                0x122 => new CM_PLAYER_STATUS_INFO(conn, _connRegistry, _groupService),
                 0x123 => new CM_INVITE_TO_GROUP(conn, _connRegistry, _groupService),
                 0x124 => new CM_READ_MAIL(conn, _mailDao),
                 0x126 => new CM_SEND_MAIL(conn, _playerDao, _mailDao, _itemDao, _connRegistry),

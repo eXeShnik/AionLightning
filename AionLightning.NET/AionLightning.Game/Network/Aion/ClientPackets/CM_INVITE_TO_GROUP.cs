@@ -14,6 +14,7 @@ public sealed class CM_INVITE_TO_GROUP : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GroupService             _groupService;
 
+    private byte   _inviteType;
     private string _targetName = string.Empty;
 
     public CM_INVITE_TO_GROUP(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
@@ -24,10 +25,16 @@ public sealed class CM_INVITE_TO_GROUP : AionClientPacket
         _groupService = groupService;
     }
 
-    public override void Read(ref PacketReader r) => _targetName = r.ReadS();
+    public override void Read(ref PacketReader r)
+    {
+        _inviteType = r.ReadC(); // 0=group, 12=alliance, 28=league — only 0 handled
+        _targetName = r.ReadS();
+    }
 
     public override async ValueTask RunAsync(CancellationToken ct)
     {
+        if (_inviteType != 0) return; // only group invites (alliance/league not implemented)
+
         var inviter = _conn.ActivePlayer;
         if (inviter is null) return;
         if (inviter.Group is { IsFull: true }) return;

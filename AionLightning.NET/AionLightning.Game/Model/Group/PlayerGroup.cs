@@ -43,4 +43,10 @@ public sealed class PlayerGroup
 
     public bool IsLeader(int objectId) => objectId == LeaderObjectId;
     public bool HasMember(int objectId) => _members.Any(p => p.ObjectId == objectId);
+
+    public void SetLeader(int objectId)
+    {
+        if (HasMember(objectId))
+            LeaderObjectId = objectId;
+    }
 }

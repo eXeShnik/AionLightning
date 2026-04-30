@@ -7,9 +7,13 @@ public sealed class CM_QUESTION_RESPONSE : AionClientPacket
 {
     public override void Read(ref PacketReader r)
     {
-        r.ReadD(); // npc objectId
-        r.ReadH(); // questionId
-        r.ReadC(); // response index
+        r.ReadD(); // questionId
+        r.ReadC(); // response (1=yes, 0=no)
+        r.ReadC(); // unk
+        r.ReadH(); // unk
+        r.ReadD(); // sender objectId
+        r.ReadD(); // unk
+        r.ReadH(); // unk
     }
 
     public override ValueTask RunAsync(CancellationToken ct) => ValueTask.CompletedTask;
