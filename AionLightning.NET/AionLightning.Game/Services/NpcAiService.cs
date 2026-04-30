@@ -26,6 +26,7 @@ public sealed class NpcAiService : BackgroundService
 
     private sealed record WanderState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
     private sealed record ChaseState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
+    private sealed record ReturnState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
 
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
@@ -35,6 +36,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly Dictionary<int, WanderState> _wanderState    = new(); // npcObjectId → active wander
     private readonly Dictionary<int, DateTime>    _lastWanderTime = new(); // npcObjectId → last wander start
     private readonly Dictionary<int, ChaseState>  _chaseState     = new(); // npcObjectId → active chase
+    private readonly Dictionary<int, ReturnState> _returnState    = new(); // npcObjectId → returning home
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, ILogger<NpcAiService> log)
     {
@@ -61,6 +63,7 @@ public sealed class NpcAiService : BackgroundService
             _npcTargets.Clear();
             _lastAttackTime.Clear();
             _chaseState.Clear();
+            _returnState.Clear();
             return;
         }
 
@@ -73,9 +76,25 @@ public sealed class NpcAiService : BackgroundService
                 _wanderState.Remove(npc.ObjectId);
                 _lastWanderTime.Remove(npc.ObjectId);
                 _chaseState.Remove(npc.ObjectId);
+                _returnState.Remove(npc.ObjectId);
+                npc.Target = null;
                 continue;
             }
             bool isDummy = string.Equals(npc.Template.Ai, "dummy", StringComparison.OrdinalIgnoreCase);
+
+            // If returning home, snap position on arrival; skip all AI until home
+            if (_returnState.TryGetValue(npc.ObjectId, out var rs))
+            {
+                if (DateTime.UtcNow >= rs.ArrivalTime)
+                {
+                    npc.Position = npc.Position with { X = rs.Tx, Y = rs.Ty, Z = rs.Tz };
+                    _returnState.Remove(npc.ObjectId);
+                }
+                else
+                {
+                    continue; // still returning — no aggro, no wander this tick
+                }
+            }
 
             // Aggro + combat
             Player? target = null;
@@ -99,6 +118,7 @@ public sealed class NpcAiService : BackgroundService
                         // Lost target — stop any chase and return home
                         await StopChaseAsync(npc, ct);
                         _npcTargets.Remove(npc.ObjectId);
+                        npc.Target = null;
                     }
                 }
 
@@ -119,7 +139,10 @@ public sealed class NpcAiService : BackgroundService
                         }
                     }
                     if (target is not null)
+                    {
                         _npcTargets[npc.ObjectId] = target.ObjectId;
+                        npc.Target = target;
+                    }
                 }
             }
 
@@ -184,6 +207,7 @@ public sealed class NpcAiService : BackgroundService
             // Player killed by NPC — clear their target lock so NPC idles afterward
             _npcTargets.Remove(npc.ObjectId);
             _chaseState.Remove(npc.ObjectId);
+            npc.Target = null;
 
             target.State |= CreatureState.Dead;
             var diePkt = new SM_EMOTION(target, EmotionType.DIE);
@@ -232,13 +256,19 @@ public sealed class NpcAiService : BackgroundService
         if (!_chaseState.ContainsKey(npc.ObjectId)) return;
         _chaseState.Remove(npc.ObjectId);
 
-        // Return to home position
-        float dx = npc.HomePosition.X - npc.Position.X;
-        float dy = npc.HomePosition.Y - npc.Position.Y;
+        float dx   = npc.HomePosition.X - npc.Position.X;
+        float dy   = npc.HomePosition.Y - npc.Position.Y;
         float dist = MathF.Sqrt(dx * dx + dy * dy);
         if (dist < 0.5f) return;
 
-        byte heading = CalcHeading(dx, dy);
+        byte heading  = CalcHeading(dx, dy);
+        double seconds = dist / ChaseSpeed;
+        var arrival   = DateTime.UtcNow.AddSeconds(seconds);
+
+        // Track the return so TickAsync snaps position on arrival (no instant snap)
+        _returnState[npc.ObjectId] = new ReturnState(
+            npc.HomePosition.X, npc.HomePosition.Y, npc.HomePosition.Z, arrival);
+
         var returnPkt = SM_MOVE.StartNpcMove(npc.ObjectId,
             npc.Position.X, npc.Position.Y, npc.Position.Z, heading,
             npc.HomePosition.X, npc.HomePosition.Y, npc.HomePosition.Z);
@@ -246,8 +276,6 @@ public sealed class NpcAiService : BackgroundService
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(returnPkt, ct); } catch { }
-
-        npc.Position = npc.HomePosition;
     }
 
     private async Task WanderAsync(Npc npc, CancellationToken ct)

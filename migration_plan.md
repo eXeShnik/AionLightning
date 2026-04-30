@@ -756,6 +756,12 @@
     - [✓] `Program.cs` — registered `DuelService` as singleton
     - Build: 0 warnings, 0 errors
 
+78. [✓] NpcAiService — npc.Target tracking + return-home state machine (session 2026-05-01)
+    - [✓] `NpcAiService` — added `ReturnState` record and `_returnState` dictionary; `StopChaseAsync` no longer snaps `npc.Position` to HomePosition immediately — instead it sets `_returnState[npc.ObjectId]` with the travel arrival time and sends the return-move packet; `TickAsync` checks each NPC's `_returnState` before any aggro/wander logic: if arrived → snap position + remove state; if not arrived → skip AI for this tick so NPCs can't be re-aggro'd mid-return
+    - [✓] `NpcAiService` — `npc.Target` now set to the locked `Player` when a combat target is acquired; cleared to `null` when the target is lost (leash break), when the player is killed, and when the NPC dies; fixes `SM_NPC_INFO` `targetObjectId` which previously was always 0 for zone-entering players during active NPC combat
+    - [✓] `NpcAiService` — `_returnState` cleared in the dead-NPC cleanup block and in the no-players-online early-exit; prevents stale return entries accumulating for dead or despawned NPCs
+    - Build: 0 warnings, 0 errors
+
 77. [✓] Enchant glow broadcast, recipe book animation, loot distance guard (session 2026-05-01)
     - [✓] `SM_UPDATE_PLAYER_APPEARANCE` — `writeD(0)` for enchant/authorize bonus field replaced with `writeD(item.EnchantLevel >= 15 ? 1 : 0)`; zone peers now see weapon glow on players with +15 enchanted gear; matches Java SM_UPDATE_PLAYER_APPEARANCE.writeImpl() and the formula already used in SM_PLAYER_INFO line 84
     - [✓] `CM_USE_ITEM.HandleRecipeBookAsync` — recipe books now broadcast `SM_ITEM_USAGE_ANIMATION` to self and zone peers after learning the recipe, matching the behavior already present in `HandleSkillBookAsync`; previously recipe book use was silent from the perspective of other players
