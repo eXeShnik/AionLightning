@@ -15,13 +15,15 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly SpawnService _spawnService;
     private readonly LootService _lootService;
     private readonly QuestService _questService;
+    private readonly DuelService _duelService;
 
     private int _targetObjectId;
     private int _time;
 
     public CM_ATTACK(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, ExperienceService expService,
-        SpawnService spawnService, LootService lootService, QuestService questService)
+        SpawnService spawnService, LootService lootService, QuestService questService,
+        DuelService duelService)
     {
         _conn         = conn;
         _world        = world;
@@ -30,6 +32,7 @@ public sealed class CM_ATTACK : AionClientPacket
         _spawnService = spawnService;
         _lootService  = lootService;
         _questService = questService;
+        _duelService  = duelService;
     }
 
     public override void Read(ref PacketReader r)
@@ -84,6 +87,18 @@ public sealed class CM_ATTACK : AionClientPacket
         // Target died
         if (target is Player deadPlayer)
         {
+            // Duel: end without killing — restore 1 HP, send result, clear duel state
+            if (_duelService.GetOpponent(player.ObjectId) == deadPlayer.ObjectId)
+            {
+                deadPlayer.CurrentHp = 1;
+                _duelService.EndDuel(player.ObjectId, deadPlayer.ObjectId);
+                await _conn.SendAsync(SM_DUEL.Won(deadPlayer.Name), ct);
+                var loserConn = _connRegistry.Get(deadPlayer.ObjectId);
+                if (loserConn is not null)
+                    try { await loserConn.SendAsync(SM_DUEL.Lost(player.Name), ct); } catch { }
+                return;
+            }
+
             deadPlayer.State |= CreatureState.Dead;
             await BroadcastAsync(new SM_EMOTION(deadPlayer, EmotionType.DIE), ct);
 

@@ -604,6 +604,18 @@
     - [✓] `CM_USE_ITEM` — added `HandleSkillBookAsync` branch checked before the existing elixir path: validates class restriction (string comparison against PlayerClass.ToString()), validates RequiredLevel, checks `player.Skills.IsPresent(skillId)` to prevent re-learning, calls `SkillTreeData.GetMaxSkillLevel` for skill level, calls `player.Skills.AddSkill`, sends `SM_SKILL_LIST([entry], isNew: true)`, deletes item from inventory + DB + client (SM_DELETE_ITEM); skill books are always consumed (non-stackable by design)
     - Build: 0 warnings, 0 errors
 
+74. [✓] Duel system — auto-accept PvP duels (session 2026-04-30)
+    - [✓] `DuelService` — `ConcurrentDictionary<int,int>` keyed by participantObjectId → opponentObjectId; `IsDueling`, `GetOpponent`, `StartDuel`, `EndDuel`, `RemovePlayer` methods
+    - [✓] `SM_DUEL` (opcode 0xB9) — type 0x00 (STARTED): C(0)+D(opponentObjId); type 0x01 (RESULT): C(1)+C(resultId)+D(msgId)+S(name); factory methods `Started(opponentId)`, `Won(opponentName)` (resultId=2, msg=1300098), `Lost(opponentName)` (resultId=0, msg=1300099)
+    - [✓] `CM_DUEL_REQUEST` (0x130) — reads targetObjectId(D); validates target exists, alive, not self, neither player already dueling; calls `DuelService.StartDuel`; sends `SM_DUEL.Started` to both players (auto-accept — no SM_QUESTION_WINDOW); wired with conn+connRegistry+duelService+world
+    - [✓] `CM_ATTACK` — added `DuelService` dependency; player-death path checks `GetOpponent(player.ObjectId) == deadPlayer.ObjectId`; on duel win: sets `deadPlayer.CurrentHp=1`, calls `EndDuel`, sends `SM_DUEL.Won` to winner and `SM_DUEL.Lost` to loser, returns without applying CreatureState.Dead or SM_DIE
+    - [✓] `CM_CASTSPELL` Task.Run — same duel-win check added to player-death path; captured `duelSvc` before Task.Run to avoid closure over `this`
+    - [✓] `GsClientConnection` — added `DuelService` dependency; calls `_duelService.RemovePlayer(player.ObjectId)` in DisposeAsync before LeaveGroup so disconnect clears any active duel
+    - [✓] `GsConnectionFactory` — added `DuelService` ctor param; forwards to `GsClientConnection.Create`
+    - [✓] `GsPacketHandlerFactory` — added `DuelService` ctor param; wired into CM_DUEL_REQUEST, CM_ATTACK, CM_CASTSPELL
+    - [✓] `Program.cs` — registered `DuelService` as singleton
+    - Build: 0 warnings, 0 errors
+
 73. [✓] /loc command + CM_MOTION read-format fix (session 2026-04-30)
     - [✓] `SM_SYSTEM_MESSAGE` — added `LocationDesc(worldId, x, y, z)` factory (code 230038 = STR_CMD_LOCATION_DESC); formats x/y/z as "F2" float strings matching Java's String.valueOf(float) output for typical coordinates
     - [✓] `CM_CLIENT_COMMAND_LOC` (0x12C) — reads nothing; sends `SM_SYSTEM_MESSAGE.LocationDesc` with player's current position; wired in factory with conn

@@ -18,6 +18,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly SpawnService _spawnService;
     private readonly LootService _lootService;
     private readonly QuestService _questService;
+    private readonly DuelService _duelService;
 
     private int _spellId;
     private int _level;
@@ -29,7 +30,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     public CM_CASTSPELL(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
-        QuestService questService)
+        QuestService questService, DuelService duelService)
     {
         _conn         = conn;
         _world        = world;
@@ -39,6 +40,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _spawnService = spawnService;
         _lootService  = lootService;
         _questService = questService;
+        _duelService  = duelService;
     }
 
     public override void Read(ref PacketReader r)
@@ -133,6 +135,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var spawnSvc   = _spawnService;
             var lootSvc    = _lootService;
             var questSvc   = _questService;
+            var duelSvc    = _duelService;
             var conn       = _conn;
 
             _ = Task.Run(async () =>
@@ -184,6 +187,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                 if (target is Player deadPlayer)
                 {
+                    // Duel: end without killing — restore 1 HP, send result, clear duel state
+                    if (duelSvc.GetOpponent(player.ObjectId) == deadPlayer.ObjectId)
+                    {
+                        deadPlayer.CurrentHp = 1;
+                        duelSvc.EndDuel(player.ObjectId, deadPlayer.ObjectId);
+                        try { await conn.SendAsync(SM_DUEL.Won(deadPlayer.Name)); } catch { }
+                        var loserConn = registry.Get(deadPlayer.ObjectId);
+                        if (loserConn is not null)
+                            try { await loserConn.SendAsync(SM_DUEL.Lost(player.Name)); } catch { }
+                        return;
+                    }
+
                     deadPlayer.State |= CreatureState.Dead;
                     var die = new SM_EMOTION(deadPlayer, EmotionType.DIE);
                     foreach (var c in registry.GetAll())

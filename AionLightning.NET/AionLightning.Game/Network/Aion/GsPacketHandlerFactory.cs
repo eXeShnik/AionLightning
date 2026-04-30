@@ -38,6 +38,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IQuestDao       _questDao;
     private readonly IMacroDao       _macroDao;
     private readonly QuestService    _questService;
+    private readonly DuelService     _duelService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -62,7 +63,8 @@ public sealed class GsPacketHandlerFactory
         GroupService groupService,
         IQuestDao questDao,
         IMacroDao macroDao,
-        QuestService questService)
+        QuestService questService,
+        DuelService duelService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -87,6 +89,7 @@ public sealed class GsPacketHandlerFactory
         _questDao        = questDao;
         _macroDao        = macroDao;
         _questService    = questService;
+        _duelService     = duelService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -145,8 +148,8 @@ public sealed class GsPacketHandlerFactory
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(),
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(),
-                0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _expService, _spawnService, _lootService, _questService),
-                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService),
+                0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _expService, _spawnService, _lootService, _questService, _duelService),
+                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService),
                 0xF0  => new CM_QUESTION_RESPONSE(),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry),
@@ -191,7 +194,7 @@ public sealed class GsPacketHandlerFactory
                 0x12C => new CM_CLIENT_COMMAND_LOC(conn),
                 0x12F => new CM_CRAFT(conn, _itemDao, _dataManager),
                 0x129 => new CM_TITLE_SET(conn, _playerDao),
-                0x130 => new CM_DUEL_REQUEST(),
+                0x130 => new CM_DUEL_REQUEST(conn, _connRegistry, _duelService, _world),
                 0x132 => new CM_FRIEND_DEL(conn, _socialDao),
                 0x136 => new CM_STOP_TRAINING(),
                 0x138 => new CM_ITEM_REMODEL(),

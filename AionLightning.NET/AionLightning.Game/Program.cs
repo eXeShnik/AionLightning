@@ -70,6 +70,7 @@ builder.Services.AddSingleton<LootService>();
 builder.Services.AddSingleton<ExchangeService>();
 builder.Services.AddSingleton<GroupService>();
 builder.Services.AddSingleton<QuestService>();
+builder.Services.AddSingleton<DuelService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
 

@@ -32,6 +32,7 @@ public sealed class GsClientConnection : AConnection
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GroupService _groupService;
+    private readonly DuelService  _duelService;
     private readonly GsCrypt _crypt = new();
 
     public AionState State { get; set; } = AionState.CONNECTED;
@@ -46,7 +47,7 @@ public sealed class GsClientConnection : AConnection
         GsPacketHandlerFactory factory, LsConnectionHolder ls, CsConnectionHolder cs,
         GameAccountRegistry registry, IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao,
         ISocialDao socialDao, GameWorld world, PlayerConnectionRegistry connRegistry,
-        GroupService groupService)
+        GroupService groupService, DuelService duelService)
         : base(socket)
     {
         _log          = log;
@@ -61,6 +62,7 @@ public sealed class GsClientConnection : AConnection
         _world        = world;
         _connRegistry = connRegistry;
         _groupService = groupService;
+        _duelService  = duelService;
     }
 
     protected override async ValueTask OnConnectedAsync(CancellationToken ct)
@@ -228,6 +230,9 @@ public sealed class GsClientConnection : AConnection
         {
             _log.LogError(ex, "Failed to save player state for {Name}", player.Name);
         }
+
+        // Clear any active duel on disconnect
+        _duelService.RemovePlayer(player.ObjectId);
 
         // Leave group and notify remaining members via SM_GROUP_MEMBER_INFO(Disconnected)
         var leftGroup = _groupService.LeaveGroup(player);
