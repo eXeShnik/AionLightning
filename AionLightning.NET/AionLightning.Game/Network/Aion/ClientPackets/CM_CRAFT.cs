@@ -3,6 +3,7 @@ using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -13,6 +14,7 @@ public sealed class CM_CRAFT : AionClientPacket
     private readonly IItemDao                 _itemDao;
     private readonly IDataManager             _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly ExperienceService        _expService;
 
     private int _unk;
     private int _targetTemplateId;
@@ -22,12 +24,13 @@ public sealed class CM_CRAFT : AionClientPacket
     private int _craftType;
 
     public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        PlayerConnectionRegistry connRegistry)
+        PlayerConnectionRegistry connRegistry, ExperienceService expService)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
+        _expService   = expService;
     }
 
     public override void Read(ref PacketReader r)
@@ -116,6 +119,9 @@ public sealed class CM_CRAFT : AionClientPacket
         if (partiallyConsumed.Count > 0)
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([product]), ct);
+
+        // Award crafting XP based on recipe skill point requirement
+        await _expService.AddCraftingExpAsync(player, recipe.SkillPoint, _conn, ct);
 
         // Success craft update + stop animation (broadcast)
         await _conn.SendAsync(new SM_CRAFT_UPDATE(skillId, recipe.ProductId, 0, 100, 0, 5), ct);

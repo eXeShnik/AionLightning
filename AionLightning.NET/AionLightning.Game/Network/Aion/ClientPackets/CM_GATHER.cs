@@ -19,11 +19,13 @@ public sealed class CM_GATHER : AionClientPacket
     private readonly SpawnService             _spawnService;
     private readonly IItemDao                 _itemDao;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly ExperienceService        _expService;
 
     private int _action;
 
     public CM_GATHER(GsClientConnection conn, GameWorld world, GatherService gatherService,
-        SpawnService spawnService, IItemDao itemDao, PlayerConnectionRegistry connRegistry)
+        SpawnService spawnService, IItemDao itemDao, PlayerConnectionRegistry connRegistry,
+        ExperienceService expService)
     {
         _conn          = conn;
         _world         = world;
@@ -31,6 +33,7 @@ public sealed class CM_GATHER : AionClientPacket
         _spawnService  = spawnService;
         _itemDao       = itemDao;
         _connRegistry  = connRegistry;
+        _expService    = expService;
     }
 
     public override void Read(ref PacketReader r) => _action = r.ReadD();
@@ -102,6 +105,9 @@ public sealed class CM_GATHER : AionClientPacket
 
         await _conn.SendAsync(new SM_GATHER_STATUS(player.ObjectId, target.ObjectId, SM_GATHER_STATUS.Status.Success), ct);
         await _conn.SendAsync(new SM_GATHER_UPDATE(target.Template, material, 100, 0, 7), ct);
+
+        // Award gathering XP based on the node's required skill level
+        await _expService.AddGatheringExpAsync(player, target.Template.SkillLevel, _conn, ct);
 
         if (target.IsGathered)
         {

@@ -67,6 +67,29 @@ public sealed class ExperienceService
     public async ValueTask AddQuestExpAsync(Player player, long amount, GsClientConnection conn, CancellationToken ct)
         => await AddExpAsync(player, (long)(amount * _rates.QuestXpRate), conn, ct);
 
+    /// <summary>
+    /// Awards gathering XP using the Java GatherableController formula:
+    /// base = 0.0031 * (skillLvl + 5.3) * (skillLvl + 1592.8) + 60, scaled by GatheringXpRate.
+    /// </summary>
+    public async ValueTask AddGatheringExpAsync(Player player, int skillLevel, GsClientConnection conn, CancellationToken ct)
+    {
+        long base_ = (long)(0.0031 * (skillLevel + 5.3) * (skillLevel + 1592.8) + 60);
+        long xp    = _rates.GatheringXpRate != 1.0f ? Math.Max(1, (long)(base_ * _rates.GatheringXpRate)) : base_;
+        await AddExpAsync(player, xp, conn, ct);
+    }
+
+    /// <summary>
+    /// Awards crafting XP using the Java CraftService formula:
+    /// base = 0.008 * (skillPoint + 100)^2 + 60, scaled by CraftingXpRate.
+    /// </summary>
+    public async ValueTask AddCraftingExpAsync(Player player, int skillPoint, GsClientConnection conn, CancellationToken ct)
+    {
+        long sp    = skillPoint + 100;
+        long base_ = (long)(0.008 * sp * sp + 60);
+        long xp    = _rates.CraftingXpRate != 1.0f ? Math.Max(1, (long)(base_ * _rates.CraftingXpRate)) : base_;
+        await AddExpAsync(player, xp, conn, ct);
+    }
+
     public async ValueTask AddExpAsync(Player player, long amount, GsClientConnection conn, CancellationToken ct)
     {
         if (amount <= 0) return;
