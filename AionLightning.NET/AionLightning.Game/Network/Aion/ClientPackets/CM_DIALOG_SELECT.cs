@@ -264,6 +264,21 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
         }
 
+        // Award title (auto-equip; mirrors Java TitleList.addTitle(id, true, 0))
+        int titleReward = template.Rewards?.Title ?? -1;
+        if (titleReward >= 0)
+        {
+            player.TitleId = titleReward;
+            await _playerDao.UpdateTitleAsync(player.ObjectId, titleReward, ct);
+            await _conn.SendAsync(SM_TITLE_INFO.ActiveTitle(titleReward), ct);
+            int titleWorldId = player.Position.WorldId;
+            foreach (var c in _connRegistry.GetAll())
+            {
+                if (c == _conn || c.ActivePlayer?.Position.WorldId != titleWorldId) continue;
+                try { await c.SendAsync(SM_TITLE_INFO.BroadcastTitle(player.ObjectId, titleReward), ct); } catch { }
+            }
+        }
+
         // Mark complete
         entry.Status        = QuestStatus.COMPLETE;
         entry.CompleteCount = Math.Min(entry.CompleteCount + 1, 127);
