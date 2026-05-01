@@ -231,6 +231,7 @@ public sealed class GsClientConnection : AConnection
             await _playerDao.UpdateOnlineAsync(player.ObjectId, online: false, CancellationToken.None);
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, CancellationToken.None);
             await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, CancellationToken.None);
+            await _itemDao.SaveAccountWarehouseAsync(AccountId, player.AccountWarehouse.All, CancellationToken.None);
             await _questDao.SaveAllAsync(player.ObjectId, player.Quests.Active, CancellationToken.None);
         }
         catch (Exception ex)

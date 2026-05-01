@@ -1142,3 +1142,16 @@
     - [✓] `CM_DIALOG_SELECT` — added `ISkillDao` dependency (for per-skill upsert after ascension)
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
+
+86. [✓] Account warehouse — cross-character item sharing (session 2026-05-01)
+    - [✓] `V24__account_warehouse.sql` — new `account_warehouse_items(unique_id, account_id, item_id, count, slot, enchant_level)` table
+    - [✓] `IItemDao` — added `FindAccountWarehouseAsync(int accountId, ...)` and `SaveAccountWarehouseAsync(int accountId, IEnumerable<Item> items, ...)`
+    - [✓] `ItemDaoImpl` — implemented both: `FindAccountWarehouseAsync` reads from `account_warehouse_items`; `SaveAccountWarehouseAsync` does DELETE-then-INSERT (same pattern as personal warehouse)
+    - [✓] `Player` — added `AccountWarehouse` property (`PlayerInventory`) for in-memory cross-character storage
+    - [✓] `SM_ACCOUNT_WAREHOUSE_INFO` — new packet (opcode 0x1A, storage-type byte 3); reuses `SM_WAREHOUSE_INFO.WriteItemInfo` for item encoding
+    - [✓] `CM_ENTER_WORLD` — loads account warehouse from DB into `player.AccountWarehouse` after personal warehouse
+    - [✓] `CM_DIALOG_SELECT` — added `RETRIEVE_ACCOUNT_WH=27` and `DEPOSIT_ACCOUNT_WH=28` handlers: send SM_ACCOUNT_WAREHOUSE_INFO to open/populate the UI
+    - [✓] `CM_MOVE_ITEM` — added cases (0,2), (2,0), (2,2): inventory↔account warehouse transfers and reorder; saves both storages and sends appropriate update packets
+    - [✓] `GsClientConnection.DisposeAsync` — saves account warehouse on disconnect
+    - [✓] `AutoSaveService` — saves account warehouse in 5-minute periodic save
+    - Build: 0 warnings, 0 errors

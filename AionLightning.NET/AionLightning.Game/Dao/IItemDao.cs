@@ -16,6 +16,12 @@ public interface IItemDao
     /// <summary>Replaces all warehouse (storage_type=1) items for the player.</summary>
     ValueTask SaveWarehouseAsync(int playerId, IEnumerable<Item> items, CancellationToken ct);
 
+    /// <summary>Loads account warehouse items shared across all characters on an account.</summary>
+    ValueTask<IReadOnlyList<Item>> FindAccountWarehouseAsync(int accountId, CancellationToken ct);
+
+    /// <summary>Replaces all account warehouse items for the account.</summary>
+    ValueTask SaveAccountWarehouseAsync(int accountId, IEnumerable<Item> items, CancellationToken ct);
+
     ValueTask<long> NextUniqueIdAsync(CancellationToken ct);
     ValueTask DeleteAsync(long uniqueId, CancellationToken ct);
 }

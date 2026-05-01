@@ -133,6 +133,11 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         foreach (var item in warehouseItems)
             player.Warehouse.Add(item);
 
+        // Load account warehouse items (shared across all characters on this account)
+        var accWhItems = await _itemDao.FindAccountWarehouseAsync(_conn.AccountId, ct);
+        foreach (var item in accWhItems)
+            player.AccountWarehouse.Add(item);
+
         // Initialize weapon combat stats from the equipped main-hand weapon
         var equippedMainHand = storedItems.FirstOrDefault(i => i.IsEquipped && i.Slot == 1);
         if (equippedMainHand is not null)

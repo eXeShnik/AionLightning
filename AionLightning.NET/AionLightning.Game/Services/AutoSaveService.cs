@@ -56,6 +56,7 @@ public sealed class AutoSaveService : BackgroundService
                     await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, player.SoulSicknessCount, ct);
                     await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
                     await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
+                    await _itemDao.SaveAccountWarehouseAsync(conn.AccountId, player.AccountWarehouse.All, ct);
                     await _questDao.SaveAllAsync(player.ObjectId, player.Quests.Active, ct);
                     saved++;
                 }

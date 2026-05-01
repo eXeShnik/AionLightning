@@ -5,9 +5,9 @@ using AionLightning.Game.Network.Aion.ServerPackets;
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 /// <summary>
-/// Player drags an item between bag slots or between inventory and personal warehouse.
+/// Player drags an item between bag slots or between inventory / personal / account warehouse.
 /// Opcode 0x17E.
-/// Storage types: 0 = inventory, 1 = personal warehouse.
+/// Storage types: 0 = inventory, 1 = personal warehouse, 2 = account warehouse.
 /// </summary>
 public sealed class CM_MOVE_ITEM : AionClientPacket
 {
@@ -105,6 +105,52 @@ public sealed class CM_MOVE_ITEM : AionClientPacket
                 item.Slot = _slot;
                 await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
                 await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
+                break;
+            }
+
+            case (0, 2): // inventory → account warehouse
+            {
+                var item = player.Inventory.Get(_itemObjectId);
+                if (item is null || item.IsEquipped) return;
+                player.Inventory.Remove(item.UniqueId);
+                item.StorageType = 2;
+                item.Slot        = _slot;
+                player.AccountWarehouse.Add(item);
+                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                await _itemDao.SaveAccountWarehouseAsync(_conn.AccountId, player.AccountWarehouse.All, ct);
+                await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+                await _conn.SendAsync(new SM_ACCOUNT_WAREHOUSE_INFO(player.AccountWarehouse.All), ct);
+                break;
+            }
+
+            case (2, 0): // account warehouse → inventory
+            {
+                var item = player.AccountWarehouse.Get(_itemObjectId);
+                if (item is null) return;
+                player.AccountWarehouse.Remove(item.UniqueId);
+                item.StorageType = 0;
+                item.Slot        = _slot;
+                player.Inventory.Add(item);
+                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                await _itemDao.SaveAccountWarehouseAsync(_conn.AccountId, player.AccountWarehouse.All, ct);
+                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
+                await _conn.SendAsync(new SM_ACCOUNT_WAREHOUSE_INFO(player.AccountWarehouse.All), ct);
+                break;
+            }
+
+            case (2, 2): // account warehouse → account warehouse reorder
+            {
+                var item = player.AccountWarehouse.Get(_itemObjectId);
+                if (item is null) return;
+
+                var displaced = player.AccountWarehouse.All
+                    .FirstOrDefault(i => i.Slot == _slot && i.UniqueId != item.UniqueId);
+                if (displaced is not null)
+                    displaced.Slot = item.Slot;
+
+                item.Slot = _slot;
+                await _itemDao.SaveAccountWarehouseAsync(_conn.AccountId, player.AccountWarehouse.All, ct);
+                await _conn.SendAsync(new SM_ACCOUNT_WAREHOUSE_INFO(player.AccountWarehouse.All), ct);
                 break;
             }
         }

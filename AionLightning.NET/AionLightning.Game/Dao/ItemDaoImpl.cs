@@ -84,6 +84,59 @@ public sealed class ItemDaoImpl : IItemDao
         await tx.CommitAsync(ct);
     }
 
+    public async ValueTask<IReadOnlyList<Item>> FindAccountWarehouseAsync(int accountId, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await using var cmd  = conn.CreateCommand();
+        cmd.CommandText = "SELECT unique_id, item_id, count, slot, enchant_level FROM account_warehouse_items WHERE account_id = @AccountId";
+        cmd.Parameters.AddWithValue("@AccountId", accountId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        var list = new List<Item>();
+        while (await reader.ReadAsync(ct))
+            list.Add(new Item
+            {
+                UniqueId     = reader.GetInt64(0),
+                ItemId       = reader.GetInt32(1),
+                Count        = reader.GetInt64(2),
+                Slot         = reader.GetInt32(3),
+                EnchantLevel = reader.GetByte(4),
+                StorageType  = 2,
+            });
+        return list;
+    }
+
+    public async ValueTask SaveAccountWarehouseAsync(int accountId, IEnumerable<Item> items, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await using var tx   = await conn.BeginTransactionAsync(ct);
+
+        await using (var del = conn.CreateCommand())
+        {
+            del.Transaction = tx;
+            del.CommandText = "DELETE FROM account_warehouse_items WHERE account_id = @AccountId";
+            del.Parameters.AddWithValue("@AccountId", accountId);
+            await del.ExecuteNonQueryAsync(ct);
+        }
+
+        foreach (var item in items)
+        {
+            await using var ins = conn.CreateCommand();
+            ins.Transaction = tx;
+            ins.CommandText = @"INSERT INTO account_warehouse_items
+                                    (unique_id, account_id, item_id, count, slot, enchant_level)
+                                VALUES (@UniqueId, @AccountId, @ItemId, @Count, @Slot, @EnchantLevel)";
+            ins.Parameters.AddWithValue("@UniqueId",     item.UniqueId);
+            ins.Parameters.AddWithValue("@AccountId",    accountId);
+            ins.Parameters.AddWithValue("@ItemId",       item.ItemId);
+            ins.Parameters.AddWithValue("@Count",        item.Count);
+            ins.Parameters.AddWithValue("@Slot",         item.Slot);
+            ins.Parameters.AddWithValue("@EnchantLevel", item.EnchantLevel);
+            await ins.ExecuteNonQueryAsync(ct);
+        }
+
+        await tx.CommitAsync(ct);
+    }
+
     public async ValueTask DeleteAsync(long uniqueId, CancellationToken ct)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);

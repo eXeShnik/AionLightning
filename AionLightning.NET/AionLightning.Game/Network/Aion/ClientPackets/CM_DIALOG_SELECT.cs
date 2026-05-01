@@ -16,6 +16,8 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 public sealed class CM_DIALOG_SELECT : AionClientPacket
 {
     // Dialog action IDs from Java DialogAction enum
+    private const int RETRIEVE_ACCOUNT_WH = 27;
+    private const int DEPOSIT_ACCOUNT_WH  = 28;
     private const int BUY                 = 2;
     private const int TRADE_SELL_LIST     = 103;
     private const int WAREHOUSE_OPEN      = 26;
@@ -164,6 +166,15 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 await _playerDao.UpdateBindPointAsync(player.ObjectId, npc.Position, ct);
                 await _conn.SendAsync(new SM_BIND_POINT_INFO(npc.Position), ct);
                 await _conn.SendAsync(SM_SYSTEM_MESSAGE.BindPointSet(), ct);
+                break;
+            }
+
+            case RETRIEVE_ACCOUNT_WH:
+            case DEPOSIT_ACCOUNT_WH:
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+                await _conn.SendAsync(new SM_ACCOUNT_WAREHOUSE_INFO(player.AccountWarehouse.All), ct);
                 break;
             }
 

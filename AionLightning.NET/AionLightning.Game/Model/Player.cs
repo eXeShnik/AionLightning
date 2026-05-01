@@ -21,9 +21,10 @@ public sealed class Player : Creature
     public int MaxFp     { get; set; } = 4000;
     public int CurrentFp { get; set; } = 4000;
     public PlayerAppearance Appearance { get; set; } = new();
-    public PlayerSkillList  Skills       { get; } = new();
-    public PlayerInventory  Inventory    { get; } = new();
-    public PlayerInventory  Warehouse    { get; } = new();
+    public PlayerSkillList  Skills          { get; } = new();
+    public PlayerInventory  Inventory       { get; } = new();
+    public PlayerInventory  Warehouse       { get; } = new();
+    public PlayerInventory  AccountWarehouse { get; } = new();
     public PlayerQuestList  Quests       { get; } = new();
     public HashSet<int>     KnownRecipes { get; } = new();
     public DateTime CreationDate { get; init; }
