@@ -126,6 +126,10 @@ public sealed class Player : Creature
     public List<PrivateStoreItem>? StoreItems { get; set; }
     public string StoreName { get; set; } = string.Empty;
 
+    // Recoverable XP lost from death (soul sickness) — visible on XP bar as the "grey" portion.
+    // Cleared as the player earns XP back. Capped at 25% of expNeeded-for-next-level.
+    public long ExpRecoverable { get; set; }
+
     // Item use cooldowns: delayId → expiry UTC time (mirrors Java addItemCoolDown / isItemUseDisabled)
     public Dictionary<int, DateTime> ItemCooldowns { get; } = new();
 

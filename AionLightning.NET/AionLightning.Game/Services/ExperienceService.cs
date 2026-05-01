@@ -108,6 +108,43 @@ public sealed class ExperienceService
         await AddExpAsync(player, xp, conn, ct);
     }
 
+    /// <summary>
+    /// Applies death XP loss to the player and returns the amount lost.
+    /// Mirrors Java XPLossEnum + PlayerCommonData.calculateExpLoss():
+    ///   loss = 0 for level &lt; 50; 0.25% of (nextLevelXP - currentXP) for level 50+.
+    ///   33% of loss is unrecoverable; 67% is added to ExpRecoverable.
+    ///   ExpRecoverable is capped at 25% of expNeeded.
+    ///   ExpRecoverable drains as the player re-earns XP (handled in AddExpAsync).
+    /// </summary>
+    public long ApplyDeathXpLoss(Player player, IDataManager dataManager)
+    {
+        if (player.Level < 50) return 0;
+
+        var expTable    = dataManager.ExpTable;
+        long nextLevel  = expTable.GetStartExpForLevel(player.Level + 1);
+        long expNeed    = nextLevel - player.Exp;
+        if (expNeed <= 0) return 0;
+
+        long expLost        = (long)(expNeed * 0.0025);
+        if (expLost <= 0) return 0;
+
+        long unrecoverable  = expLost / 3;                    // ≈ 33%
+        long recoverable    = expLost - unrecoverable;        // ≈ 67%
+        long cap            = (long)(expNeed * 0.25);
+
+        player.Exp           = Math.Max(expTable.GetStartExpForLevel(player.Level), player.Exp - expLost);
+        player.ExpRecoverable = Math.Min(cap, player.ExpRecoverable + recoverable);
+
+        return expLost;
+    }
+
+    /// <summary>Drains ExpRecoverable as the player earns XP back (mirrors Java addExp → expRecoverable drain).</summary>
+    private static void DrainRecoverable(Player player, long xpGained)
+    {
+        if (player.ExpRecoverable <= 0 || xpGained <= 0) return;
+        player.ExpRecoverable = Math.Max(0, player.ExpRecoverable - xpGained);
+    }
+
     /// <summary>XP reward percentage for level diff (npcLevel - playerLevel). Matches Java XPRewardEnum.</summary>
     public static int XpRewardPercent(int levelDiff) => levelDiff switch
     {
@@ -135,6 +172,8 @@ public sealed class ExperienceService
         int maxLevel = expTable.MaxLevel;
         long cap     = expTable.GetStartExpForLevel(maxLevel);
 
+        DrainRecoverable(player, amount);
+
         long newExp = Math.Min(player.Exp + amount, cap);
         int  oldLvl = player.Level;
 
@@ -145,7 +184,7 @@ public sealed class ExperienceService
             await HandleLevelUpAsync(player, conn, ct);
 
         long expNeeded = expTable.GetStartExpForLevel(player.Level + 1);
-        await conn.SendAsync(new SM_STATUPDATE_EXP(player.Exp, 0, expNeeded), ct);
+        await conn.SendAsync(new SM_STATUPDATE_EXP(player.Exp, player.ExpRecoverable, expNeeded), ct);
     }
 
     private async ValueTask HandleLevelUpAsync(Player player, GsClientConnection conn, CancellationToken ct)

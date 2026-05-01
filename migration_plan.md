@@ -1482,6 +1482,15 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+136. [✓] Death XP loss — XPLossEnum + ExpRecoverable drain-back (session 2026-05-01)
+    - [✓] `Player.ExpRecoverable` — new long property; tracks recoverable death-loss XP shown on the client XP bar
+    - [✓] `ExperienceService.ApplyDeathXpLoss(player, dataManager)` — 0 for level<50; for level 50+: loss=0.25% of (nextLevelXP−currentXP); unrecoverable≈33% deducted from player.Exp immediately; recoverable≈67% added to ExpRecoverable (capped at 25% of expNeed); mirrors Java XPLossEnum + PlayerCommonData.calculateExpLoss
+    - [✓] `ExperienceService.DrainRecoverable(player, xpGained)` — private static; each time XP is added, reduces ExpRecoverable by that amount (so the grey bar shrinks as the player hunts)
+    - [✓] `ExperienceService.AddExpAsync` — now calls DrainRecoverable before crediting XP; passes `player.ExpRecoverable` to SM_STATUPDATE_EXP (client renders it as the grey portion of the XP bar)
+    - [✓] `NpcAiService` — injected `ExperienceService _expService`; after sending SM_DIE, calls `ApplyDeathXpLoss` and sends updated SM_STATUPDATE_EXP to the dead player if xpLost > 0
+    - XP loss only kicks in at level 50+ (matches Java XPLossEnum); level 1-49 players die penalty-free (soul sickness HP/MP penalty still applies via CM_REVIVE)
+    - Build: 0 warnings, 0 errors
+
 135. [✓] Item use cooldown — parse <uselimits> + enforce delayId-based cooldown in CM_USE_ITEM (session 2026-05-01)
     - [✓] `ItemTemplate` — added `[XmlElement("uselimits")] public ItemUseLimits? UseLimits { get; set; }`
     - [✓] `ItemUseLimits` (NEW) — maps to `<uselimits usedelay="..." usedelayid="..."/>`; `DelayMs` is the cooldown in ms; `DelayId` is the shared-cooldown group ID (e.g. all HP potions = 11, delay 60000ms)

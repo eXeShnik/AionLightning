@@ -37,6 +37,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IDataManager _dataManager;
+    private readonly ExperienceService _expService;
     private readonly ILogger<NpcAiService> _log;
     private readonly RateOptions _rates;
     private readonly Dictionary<int, DateTime>    _lastAttackTime  = new();
@@ -54,11 +55,12 @@ public sealed class NpcAiService : BackgroundService
     private readonly HashSet<int>                 _attackBegunNpcs    = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
-        ILogger<NpcAiService> log, IOptions<RateOptions> rates)
+        ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates)
     {
         _world        = world;
         _connRegistry = connRegistry;
         _dataManager  = dataManager;
+        _expService   = expService;
         _log          = log;
         _rates        = rates.Value;
     }
@@ -307,6 +309,17 @@ public sealed class NpcAiService : BackgroundService
             var targetConn = _connRegistry.Get(target.ObjectId);
             if (targetConn is not null)
                 try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { /* ignore */ }
+
+            // Death XP loss — 0.25% of expNeeded for level 50+ (mirrors Java XPLossEnum)
+            if (targetConn is not null)
+            {
+                long xpLost = _expService.ApplyDeathXpLoss(target, _dataManager);
+                if (xpLost > 0)
+                {
+                    long expNeeded = _dataManager.ExpTable.GetStartExpForLevel(target.Level + 1);
+                    try { await targetConn.SendAsync(new SM_STATUPDATE_EXP(target.Exp, target.ExpRecoverable, expNeeded), ct); } catch { }
+                }
+            }
         }
     }
 
