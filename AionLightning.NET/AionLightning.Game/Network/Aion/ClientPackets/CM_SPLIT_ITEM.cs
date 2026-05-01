@@ -8,37 +8,39 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 /// <summary>
 /// Player splits a stack into two, or merges it into an existing same-item stack. Opcode 0x17F.
-/// Storage types: 0 = inventory, 1 = personal warehouse.
+/// Storage types: 0 = inventory, 1 = personal warehouse, 2 = account warehouse, 3 = legion warehouse.
 /// </summary>
 public sealed class CM_SPLIT_ITEM : AionClientPacket
 {
     private readonly GsClientConnection _conn;
     private readonly IItemDao           _itemDao;
     private readonly IDataManager       _dataManager;
+    private readonly ILegionDao         _legionDao;
 
-    private int  _sourceItemObjId;
-    private long _splitAmount;
-    private int  _destinationItemObjId;
-    private byte _sourceStorageType;
-    private byte _destinationStorageType;
+    private int   _sourceItemObjId;
+    private long  _splitAmount;
+    private int   _destinationItemObjId;
+    private byte  _sourceStorageType;
+    private byte  _destinationStorageType;
     private short _slotNum;
 
-    public CM_SPLIT_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager)
+    public CM_SPLIT_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager, ILegionDao legionDao)
     {
         _conn        = conn;
         _itemDao     = itemDao;
         _dataManager = dataManager;
+        _legionDao   = legionDao;
     }
 
     public override void Read(ref PacketReader r)
     {
-        _sourceItemObjId      = r.ReadD();
-        _splitAmount          = r.ReadD();
+        _sourceItemObjId        = r.ReadD();
+        _splitAmount            = r.ReadD();
         r.ReadB(4);                         // padding
         _sourceStorageType      = (byte)r.ReadC();
-        _destinationItemObjId = r.ReadD();
+        _destinationItemObjId   = r.ReadD();
         _destinationStorageType = (byte)r.ReadC();
-        _slotNum              = (short)r.ReadH();
+        _slotNum                = (short)r.ReadH();
     }
 
     public override async ValueTask RunAsync(CancellationToken ct)
@@ -48,8 +50,9 @@ public sealed class CM_SPLIT_ITEM : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null) return;
 
-        var sourceStorage = _sourceStorageType == 1 ? player.Warehouse : player.Inventory;
-        var destStorage   = _destinationStorageType == 1 ? player.Warehouse : player.Inventory;
+        var sourceStorage = ResolveStorage(player, _sourceStorageType);
+        var destStorage   = ResolveStorage(player, _destinationStorageType);
+        if (sourceStorage is null || destStorage is null) return;
 
         var source = sourceStorage.Get(_sourceItemObjId);
         if (source is null || source.IsEquipped || source.Count < _splitAmount) return;
@@ -92,7 +95,6 @@ public sealed class CM_SPLIT_ITEM : AionClientPacket
                 sourceStorage.Remove(source.UniqueId);
                 await _itemDao.DeleteAsync(source.UniqueId, ct);
 
-                // If source and dest are the same storage, send one update; otherwise two
                 if (_sourceStorageType == _destinationStorageType)
                 {
                     await SaveStoragesAsync(player, _sourceStorageType, _destinationStorageType, ct);
@@ -116,26 +118,60 @@ public sealed class CM_SPLIT_ITEM : AionClientPacket
         }
     }
 
+    private static Model.Item.PlayerInventory? ResolveStorage(Model.Player player, byte type) => type switch
+    {
+        0 => player.Inventory,
+        1 => player.Warehouse,
+        2 => player.AccountWarehouse,
+        3 => player.Legion?.WarehouseItems,
+        _ => null,
+    };
+
     private async Task SaveStoragesAsync(Model.Player player, byte src, byte dst, CancellationToken ct)
     {
         if (src == 0 || dst == 0)
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
         if (src == 1 || dst == 1)
             await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
+        if (src == 2 || dst == 2)
+            await _itemDao.SaveAccountWarehouseAsync(_conn.AccountId, player.AccountWarehouse.All, ct);
+        if (src == 3 || dst == 3)
+            await _legionDao.SaveWarehouseItemsAsync(player.Legion!.LegionId, player.Legion.WarehouseItems.All, ct);
     }
 
     private async Task SendUpdatesAsync(Model.Player player, Item[] items, byte storageType, CancellationToken ct)
     {
-        if (storageType == 1)
-            await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
-        else
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(items), ct);
+        switch (storageType)
+        {
+            case 0:
+                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(items), ct);
+                break;
+            case 1:
+                await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
+                break;
+            case 2:
+                await _conn.SendAsync(new SM_ACCOUNT_WAREHOUSE_INFO(player.AccountWarehouse.All), ct);
+                break;
+            case 3:
+                await _conn.SendAsync(new SM_LEGION_WAREHOUSE_INFO(player.Legion!.WarehouseItems.All), ct);
+                break;
+        }
     }
 
     private async Task SendStorageRefreshAsync(Model.Player player, byte storageType, CancellationToken ct)
     {
-        if (storageType == 1)
-            await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
-        // inventory deletions are sent via SM_DELETE_ITEM by the caller
+        switch (storageType)
+        {
+            case 1:
+                await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
+                break;
+            case 2:
+                await _conn.SendAsync(new SM_ACCOUNT_WAREHOUSE_INFO(player.AccountWarehouse.All), ct);
+                break;
+            case 3:
+                await _conn.SendAsync(new SM_LEGION_WAREHOUSE_INFO(player.Legion!.WarehouseItems.All), ct);
+                break;
+            // type 0: inventory deletions are sent via SM_DELETE_ITEM by the caller
+        }
     }
 }

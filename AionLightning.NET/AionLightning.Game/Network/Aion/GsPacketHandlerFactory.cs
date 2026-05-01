@@ -284,7 +284,7 @@ public sealed class GsPacketHandlerFactory
                 0x17C => new CM_SHOW_BLOCKLIST(conn, _socialDao),
                 0x17D => new CM_PLAYER_SEARCH(conn, _connRegistry),
                 0x17E => new CM_MOVE_ITEM(conn, _itemDao, _legionDao),
-                0x17F => new CM_SPLIT_ITEM(conn, _itemDao, _dataManager),
+                0x17F => new CM_SPLIT_ITEM(conn, _itemDao, _dataManager, _legionDao),
                 0x178 => new CM_START_LOOT(conn, _lootService),
                 0x179 => new CM_LOOT_ITEM(conn, _lootService, _itemDao, _connRegistry, _questService),
                 0x182 => new CM_INSTANCE_INFO(conn),

@@ -1344,6 +1344,15 @@
     - Storage type note: .NET uses type 4 for legion WH (personal=2, account=3 in existing protocol); Java SM_WAREHOUSE_INFO writes storageType.getId() directly (LEGION=3), but existing .NET warehouse packets use +1 offset vs Java enum
     - Build: 0 warnings, 0 errors
 
+107. [✓] CM_SPLIT_ITEM account/legion warehouse support (session 2026-05-01)
+    - Root cause: `SaveStoragesAsync` and `SendUpdatesAsync` helpers only checked types 0 (inventory) and 1 (personal WH); types 2 (account WH) and 3 (legion WH) fell through to wrong branch — account WH saves were silently dropped, legion WH saves likewise; `ResolveStorage` mapped all unknown types to `player.Inventory` causing the wrong in-memory collection to be searched
+    - [✓] `CM_SPLIT_ITEM` — added `ILegionDao _legionDao` field + constructor param; replaced inline ternary storage resolution with `ResolveStorage(player, type)` static helper returning `PlayerInventory?` for all 4 types (null for unknown); early return when either storage is null (covers missing-legion case for type 3)
+    - [✓] `SaveStoragesAsync` — extended: type 2 calls `_itemDao.SaveAccountWarehouseAsync(_conn.AccountId, ...)`, type 3 calls `_legionDao.SaveWarehouseItemsAsync(legion.LegionId, ...)`
+    - [✓] `SendUpdatesAsync` — replaced if/else with switch: type 0 → SM_INVENTORY_ADD_ITEM, type 1 → SM_WAREHOUSE_INFO, type 2 → SM_ACCOUNT_WAREHOUSE_INFO, type 3 → SM_LEGION_WAREHOUSE_INFO
+    - [✓] `SendStorageRefreshAsync` — same switch extension for types 2 and 3
+    - [✓] `GsPacketHandlerFactory` — passes `_legionDao` to `CM_SPLIT_ITEM` at opcode 0x17F
+    - Build: 0 warnings, 0 errors
+
 106. [✓] Legion level-up (CM_LEGION opcode 0x0E) (session 2026-05-01)
     - Root cause: `CM_LEGION` case 0x0E was read-only (D+H consumed) but RunAsync had no handler; brigade generals could not upgrade the legion level
     - [✓] `ILegionDao` — added `UpdateLevelAsync(int legionId, int level, ct)` interface method
