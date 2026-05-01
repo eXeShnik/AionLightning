@@ -18,13 +18,15 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
     private readonly IItemDao                 _itemDao;
     private readonly IDataManager             _dataManager;
     private readonly IPlayerDao               _playerDao;
+    private readonly IQuestDao                _questDao;
+    private readonly ISkillDao                _skillDao;
     private readonly SpawnService             _spawnService;
 
     private string _command = string.Empty;
 
     public CM_GM_COMMAND_SEND(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IItemDao itemDao, IDataManager dataManager,
-        IPlayerDao playerDao, SpawnService spawnService)
+        IPlayerDao playerDao, IQuestDao questDao, ISkillDao skillDao, SpawnService spawnService)
     {
         _conn         = conn;
         _world        = world;
@@ -32,6 +34,8 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _playerDao    = playerDao;
+        _questDao     = questDao;
+        _skillDao     = skillDao;
         _spawnService = spawnService;
     }
 
@@ -93,6 +97,30 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
 
             case ".announce" when parts.Length >= 2:
                 await HandleAnnounce(player, string.Join(' ', parts, 1, parts.Length - 1), ct);
+                break;
+
+            // .quest add <questId>  — start quest in START status
+            // .quest done <questId> — transition to REWARD
+            // .quest del <questId>  — abandon quest
+            case ".quest" when parts.Length >= 3 && int.TryParse(parts[2], out var qId):
+                await HandleQuest(player, parts[1].ToLowerInvariant(), qId, ct);
+                break;
+
+            // .cube [n] — expand cube by n NPC-expand levels (default 1, max level 5)
+            case ".cube":
+                int cubeSteps = parts.Length >= 2 && int.TryParse(parts[1], out var cs) ? cs : 1;
+                await HandleCubeExpand(player, cubeSteps, ct);
+                break;
+
+            // .ss clear — remove all soul sickness stacks
+            case ".ss" when parts.Length >= 2 && parts[1].Equals("clear", StringComparison.OrdinalIgnoreCase):
+                await HandleSoulSicknessClear(player, ct);
+                break;
+
+            // .skill <skillId> [level] — teach a skill (default level 1)
+            case ".skill" when parts.Length >= 2 && int.TryParse(parts[1], out var skId):
+                int skLevel = parts.Length >= 3 && int.TryParse(parts[2], out var sl) ? sl : 1;
+                await HandleAddSkill(player, skId, skLevel, ct);
                 break;
         }
     }
@@ -253,5 +281,84 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         var target = _connRegistry.GetByName(targetName)?.ActivePlayer;
         if (target is null) return;
         await HandleTeleport(gm, target.Position.WorldId, target.Position.X, target.Position.Y, target.Position.Z, ct);
+    }
+
+    private async ValueTask HandleQuest(Player player, string action, int questId, CancellationToken ct)
+    {
+        switch (action)
+        {
+            case "add":
+            {
+                if (player.Quests.Contains(questId)) return;
+                var template = _dataManager.Quests.GetTemplate(questId);
+                if (template is null) return;
+                var entry = new Model.Quest.QuestEntry { QuestId = questId, Status = Model.Quest.QuestStatus.START };
+                player.Quests.Add(entry);
+                await _questDao.UpsertAsync(player.ObjectId, entry, ct);
+                await _conn.SendAsync(new SM_QUEST_ACTION(entry.QuestId, SM_QUEST_ACTION.ActionType.Accept, (byte)entry.Status, entry.Step), ct);
+                await _conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+                break;
+            }
+            case "done":
+            {
+                var entry = player.Quests.Get(questId);
+                if (entry is null || entry.Status == Model.Quest.QuestStatus.COMPLETE) return;
+                entry.Status = Model.Quest.QuestStatus.REWARD;
+                await _questDao.UpsertAsync(player.ObjectId, entry, ct);
+                await _conn.SendAsync(new SM_QUEST_ACTION(entry.QuestId, SM_QUEST_ACTION.ActionType.StepUpdate, (byte)entry.Status, entry.Step), ct);
+                await _conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+                break;
+            }
+            case "del":
+            {
+                var entry = player.Quests.Get(questId);
+                if (entry is null) return;
+                player.Quests.Remove(questId);
+                await _questDao.DeleteAsync(player.ObjectId, questId, ct);
+                await _conn.SendAsync(new SM_QUEST_ACTION(questId), ct);
+                await _conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+                break;
+            }
+        }
+    }
+
+    private const int MaxNpcExpands = 5;
+
+    private async ValueTask HandleCubeExpand(Player player, int steps, CancellationToken ct)
+    {
+        int available = MaxNpcExpands - player.NpcExpands;
+        int actual    = Math.Clamp(steps, 0, available);
+        if (actual == 0) return;
+
+        player.NpcExpands         += actual;
+        player.Inventory.Capacity  = player.CubeCapacity;
+        await _playerDao.UpdateCubeExpandAsync(player.ObjectId, player.NpcExpands, ct);
+
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(SM_CUBE_UPDATE.CubeSize(
+            player.Inventory.BagSlotUsed, player.NpcExpands, player.QuestExpands), ct);
+        await _conn.SendAsync(SM_SYSTEM_MESSAGE.CubeExpanded(actual * 9), ct);
+    }
+
+    private async ValueTask HandleSoulSicknessClear(Player player, CancellationToken ct)
+    {
+        if (player.SoulSicknessCount == 0) return;
+        player.SoulSicknessCount = 0;
+        await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, 0, ct);
+
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp;
+        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp;
+        player.CurrentHp = Math.Min(player.CurrentHp, player.MaxHp);
+        player.CurrentMp = Math.Min(player.CurrentMp, player.MaxMp);
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+    }
+
+    private async ValueTask HandleAddSkill(Player player, int skillId, int skillLevel, CancellationToken ct)
+    {
+        player.Skills.AddSkill(skillId, skillLevel);
+        await _skillDao.UpsertAsync(player.ObjectId, skillId, skillLevel, ct);
+        await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
     }
 }

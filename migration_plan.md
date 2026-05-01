@@ -1112,3 +1112,14 @@
     - [✓] `GsClientConnection.DisposeAsync` — added FP, DP, and soul_sickness saves on disconnect (previously only HP/MP was saved; crash would reset these three to last in-game update)
     - [✓] `AutoSaveService` — added HP/MP, FP, DP, and soul_sickness to the 5-minute periodic save (crash safety for all volatile player stats)
     - Build: 0 warnings, 0 errors
+
+83. [✓] GM command extensions — quest, cube, soul sickness, skill (session 2026-05-01)
+    - [✓] `CM_GM_COMMAND_SEND` — added `IQuestDao` and `ISkillDao` dependencies; six new dot-commands:
+      - `.quest add <id>` — start quest in START status (creates entry, sends SM_QUEST_ACTION + SM_QUEST_LIST)
+      - `.quest done <id>` — transition active quest to REWARD state
+      - `.quest del <id>` — abandon/delete quest (mirrors CM_DELETE_QUEST flow)
+      - `.cube [n]` — grant n NPC-expand levels (default 1, max level 5); sends SM_CUBE_UPDATE + SM_STATS_INFO
+      - `.ss clear` — zero soul sickness stacks; recomputes MaxHp/MaxMp; sends SM_STATS_INFO
+      - `.skill <skillId> [level]` — teach a skill via AddSkill + ISkillDao.UpsertAsync + SM_SKILL_LIST
+    - [✓] `GsPacketHandlerFactory` — updated CM_GM_COMMAND_SEND constructor to pass _questDao and _skillDao
+    - Build: 0 warnings, 0 errors
