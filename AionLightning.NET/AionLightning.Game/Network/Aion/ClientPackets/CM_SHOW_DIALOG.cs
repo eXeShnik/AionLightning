@@ -27,6 +27,8 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
 
     public override void Read(ref PacketReader r) => _targetObjectId = r.ReadD();
 
+    private const float MaxInteractRange = 10.0f;
+
     public override async ValueTask RunAsync(CancellationToken ct)
     {
         var player = _conn.ActivePlayer;
@@ -34,6 +36,7 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
 
         var npc = _world.GetNpcByObjectId(_targetObjectId);
         if (npc is null) return;
+        if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
         if (string.Equals(npc.Template.NpcType, "BINDSTONE", StringComparison.OrdinalIgnoreCase))
         {

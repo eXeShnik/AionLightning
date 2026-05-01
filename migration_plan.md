@@ -916,3 +916,18 @@
     - [✓] `CM_BUY_ITEM.SellToShopAsync` — sell path never looked up the NPC; added NPC lookup (`GetNpcByObjectId`) at the start followed by combined null+distance guard
     - [✓] `CM_DIALOG_SELECT` — added `MaxInteractRange = 10.0f` constant; added distance guard in BUY, WAREHOUSE_OPEN, AIRLINE_SERVICE, `HandleQuestAcceptAsync`, and `HandleQuestRewardAsync`; WAREHOUSE_OPEN and quest handlers now look up the NPC by `_targetObjectId` before checking distance
     - Build: 0 warnings, 0 errors
+
+73. [✓] CM_SHOW_DIALOG proximity check (session 2026-05-01)
+    - Root cause: players could open NPC dialogs (bind, shop, quests) from any distance; Java only adds objects to the knownList when within visibility range, which serves as an implicit proximity gate that the .NET implementation lacked
+    - [✓] `CM_SHOW_DIALOG` — added `MaxInteractRange = 10.0f` constant and proximity guard after NPC null check: `if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;`
+    - Build: 0 warnings, 0 errors
+
+74. [✓] Inventory capacity enforcement (session 2026-05-01)
+    - Root cause: `PlayerInventory.Add()` had no slot limit; players could accumulate unlimited items past the 27-slot default cube capacity without server resistance
+    - [✓] `PlayerInventory` — added `Capacity = 27` property, `BagSlotUsed` (count of non-equipped items), `HasFreeSlot` (BagSlotUsed < Capacity), and `CanReceive(itemId, maxStackCount)` (true when item will stack onto existing entry OR a free slot is available)
+    - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — added `player.Inventory.CanReceive(itemId, template.MaxStackCount)` guard before each item in the purchase loop; full-inventory items are silently skipped (kinah already deducted for items that fit)
+    - [✓] `CM_LOOT_ITEM` — added `!player.Inventory.HasFreeSlot` guard for non-kinah, non-existing-stack items; on failure calls new `LootService.ReturnLoot()` to restore the entry and sends `SM_SYSTEM_MESSAGE.InventoryFull()` to the client
+    - [✓] `LootService` — added `ReturnLoot(npcObjectId, index, entry)` which re-inserts the entry at the original index so loot window ordering is preserved
+    - [✓] `SM_SYSTEM_MESSAGE` — added `InventoryFull()` factory method (msg code 1300042 = STR_UI_INVENTORY_FULL)
+    - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — added `CanReceive` guard before awarding selectable reward item and each fixed reward item; full-inventory items are skipped while quest still completes and other rewards still granted
+    - Build: 0 warnings, 0 errors

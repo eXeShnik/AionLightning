@@ -63,6 +63,14 @@ public sealed class CM_LOOT_ITEM : AionClientPacket
         else
         {
             var existing = player.Inventory.FindByItemId(entry.ItemId);
+            if (existing is null && !player.Inventory.HasFreeSlot)
+            {
+                // Inventory full — put the item back so the player can try again after making room
+                _lootService.ReturnLoot(_targetObjectId, _index, entry);
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.InventoryFull(), ct);
+                return;
+            }
+
             if (existing is not null)
             {
                 existing.Count += entry.Count;

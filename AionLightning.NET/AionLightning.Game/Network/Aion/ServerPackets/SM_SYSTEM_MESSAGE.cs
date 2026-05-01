@@ -51,4 +51,7 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_MSG_ASK_PCINFO_LOGOFF — "The player is not logged in." (msg code 1300046)
     public static SM_SYSTEM_MESSAGE PlayerOffline() => new(1300046);
+
+    // STR_UI_INVENTORY_FULL — "Inventory is full." (msg code 1300042)
+    public static SM_SYSTEM_MESSAGE InventoryFull() => new(1300042);
 }

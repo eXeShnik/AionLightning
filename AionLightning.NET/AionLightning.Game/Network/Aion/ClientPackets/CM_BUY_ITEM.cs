@@ -108,6 +108,8 @@ public sealed class CM_BUY_ITEM : AionClientPacket
             var template = _dataManager.Items.GetTemplate(itemId);
             if (template is null) continue;
 
+            if (!player.Inventory.CanReceive(itemId, template.MaxStackCount)) continue;
+
             var existing = player.Inventory.FindByItemId(itemId);
             if (existing is not null && template.MaxStackCount > 1)
             {

@@ -86,6 +86,20 @@ public sealed class LootService
         return entry;
     }
 
+    /// <summary>
+    /// Returns a previously taken loot entry back to the pending list (e.g. inventory full).
+    /// Re-inserts at the original index so the loot window ordering is preserved.
+    /// </summary>
+    public void ReturnLoot(int npcObjectId, int index, LootEntry entry)
+    {
+        if (!_pending.TryGetValue(npcObjectId, out var list))
+        {
+            _pending[npcObjectId] = [entry];
+            return;
+        }
+        list.Insert(Math.Min(index, list.Count), entry);
+    }
+
     public void ClearLoot(int npcObjectId)
     {
         _pending.TryRemove(npcObjectId, out _);

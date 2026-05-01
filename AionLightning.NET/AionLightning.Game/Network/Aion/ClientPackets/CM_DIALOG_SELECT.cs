@@ -219,21 +219,25 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         if (selectableItems is { Count: > 0 } && _rewardIndex >= 0 && _rewardIndex < selectableItems.Count)
         {
             var reward  = selectableItems[_rewardIndex];
-            var existed = player.Inventory.FindByItemId(reward.ItemId);
-            Item rewardItem;
-            if (existed is not null)
+            int maxStk  = _dataManager.Items.GetTemplate(reward.ItemId)?.MaxStackCount ?? 1;
+            if (player.Inventory.CanReceive(reward.ItemId, maxStk))
             {
-                existed.Count += reward.Count;
-                rewardItem = existed;
+                var existed = player.Inventory.FindByItemId(reward.ItemId);
+                Item rewardItem;
+                if (existed is not null)
+                {
+                    existed.Count += reward.Count;
+                    rewardItem = existed;
+                }
+                else
+                {
+                    long uid = await _itemDao.NextUniqueIdAsync(ct);
+                    rewardItem = new Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
+                    player.Inventory.Add(rewardItem);
+                }
+                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([rewardItem]), ct);
             }
-            else
-            {
-                long uid = await _itemDao.NextUniqueIdAsync(ct);
-                rewardItem = new Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
-                player.Inventory.Add(rewardItem);
-            }
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([rewardItem]), ct);
         }
 
         // Award fixed reward items (always given, no selection)
@@ -243,6 +247,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             var granted = new List<Item>();
             foreach (var reward in fixedItems)
             {
+                int maxStk = _dataManager.Items.GetTemplate(reward.ItemId)?.MaxStackCount ?? 1;
+                if (!player.Inventory.CanReceive(reward.ItemId, maxStk)) continue;
+
                 var existed = player.Inventory.FindByItemId(reward.ItemId);
                 if (existed is not null)
                 {
@@ -258,7 +265,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 }
             }
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(granted), ct);
+            if (granted.Count > 0)
+                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(granted), ct);
         }
 
         // Award kinah (gold attribute)
