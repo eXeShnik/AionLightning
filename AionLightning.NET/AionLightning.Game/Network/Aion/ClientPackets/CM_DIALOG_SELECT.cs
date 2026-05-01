@@ -31,8 +31,12 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int SELECT_QUEST_REWARD  = 1009;
     private const int EXTEND_INVENTORY     = 47;
     private const int OPEN_STIGMA_WINDOW   = 4;
-    private const int GATHER_SKILL_LEVELUP = 45;
+    private const int GATHER_SKILL_LEVELUP  = 45;
     private const int COMBINE_SKILL_LEVELUP = 46;
+    private const int RECOVERY              = 35;
+
+    // Kinah cost per soul sickness stack when recovering at a Healer NPC
+    private const long SoulSicknessCostPerStack = 5_000;
 
     // Tier costs for craft/gathering skill upgrades (Java CraftSkillUpdateService cost map).
     // Key = current skill level; value = kinah price to advance to the next tier.
@@ -268,6 +272,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             case GATHER_SKILL_LEVELUP:
             case COMBINE_SKILL_LEVELUP:
                 await HandleCraftSkillUpgradeAsync(player, ct);
+                break;
+
+            case RECOVERY:
+                await HandleSoulSicknessRecoveryAsync(player, ct);
                 break;
 
             default:
@@ -686,5 +694,38 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             if (lvl > threshold) count++;
         }
         return count;
+    }
+
+    private async ValueTask HandleSoulSicknessRecoveryAsync(Model.Player player, CancellationToken ct)
+    {
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
+        if (player.SoulSicknessCount == 0) return;
+
+        long cost = SoulSicknessCostPerStack * player.SoulSicknessCount;
+        var kinahItem = player.Inventory.FindByItemId(KinahItemId);
+        if ((kinahItem?.Count ?? 0) < cost)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
+            return;
+        }
+
+        kinahItem!.Count -= cost;
+        player.SoulSicknessCount = 0;
+        await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, 0, ct);
+
+        // Recompute MaxHp/MaxMp without soul sickness penalty
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        if (statTpl is not null)
+        {
+            player.MaxHp = statTpl.MaxHp + player.BonusMaxHp;
+            player.MaxMp = statTpl.MaxMp + player.BonusMaxMp;
+        }
+
+        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(SM_SYSTEM_MESSAGE.SoulSicknessCleared(), ct);
     }
 }

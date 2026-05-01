@@ -87,4 +87,7 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_CRAFT_SKILL_NEED_QUEST — "You must complete the required quest to advance further." (msg code 1300834)
     public static SM_SYSTEM_MESSAGE CraftSkillNeedQuest() => new(1300834);
+
+    // STR_SUCCESS_RECOVER_EXPERIENCE — "You have been cured of Soul Sickness." (msg code 1300674)
+    public static SM_SYSTEM_MESSAGE SoulSicknessCleared() => new(1300674);
 }

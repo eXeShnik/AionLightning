@@ -1143,6 +1143,12 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+95. [✓] Soul sickness recovery at Healer NPC (session 2026-05-01)
+    - [✓] `SM_SYSTEM_MESSAGE` — added `SoulSicknessCleared()` factory (msg code 1300674 = STR_SUCCESS_RECOVER_EXPERIENCE)
+    - [✓] `CM_DIALOG_SELECT` — added `RECOVERY = 35` constant and `SoulSicknessCostPerStack = 5_000`; added `case RECOVERY` branch → `HandleSoulSicknessRecoveryAsync`; validates NPC proximity and SoulSicknessCount > 0; charges 5k kinah per stack; on success: resets SoulSicknessCount to 0 via `UpdateSoulSicknessAsync`, recomputes MaxHp/MaxMp without soul sickness multiplier, persists inventory, sends SM_INVENTORY_ADD_ITEM + SM_STATS_INFO + SoulSicknessCleared message
+    - Java RECOVERY dialog action (35) clears deathCount and recoverable XP; our simplified version uses flat fee (no recoverable-XP tracking) and clears all stacks at once
+    - Build: 0 warnings, 0 errors
+
 94. [✓] Private store — buy side (session 2026-05-01)
     - [✓] `CM_BUY_ITEM` — added `PlayerConnectionRegistry` dependency; added `case 0` branch (private store buy): resolves seller player by ObjectId, validates PrivateShop state; matches each requested itemId to a `PrivateStoreItem`; validates stock, buyer kinah (NoEnoughKinah message), and inventory space (InventoryFull message); decreases seller's inventory item (removes if depleted, updates StoreItems list); adds item to buyer's inventory (stacks or new slot); transfers kinah (deduct buyer, credit seller); persists both inventories; notifies buyer via SM_INVENTORY_ADD_ITEM; notifies seller via SM_DELETE_ITEM/SM_INVENTORY_ADD_ITEM through their connection; auto-closes store with SM_EMOTION(CLOSE_PRIVATESHOP) broadcast when StoreItems empties
     - [✓] `GsPacketHandlerFactory` — updated 0xF1 (CM_BUY_ITEM) to pass `_connRegistry`
