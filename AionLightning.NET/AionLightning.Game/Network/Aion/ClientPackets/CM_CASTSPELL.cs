@@ -251,10 +251,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (rates.ApPlayerGainRate != 1.0f)
                             apGain = Math.Max(1, (int)(apGain * rates.ApPlayerGainRate));
                         int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
-                        AbyssRankService.AddAp(player, apGain);
+                        bool spellPvpRankUp = AbyssRankService.AddAp(player, apGain);
                         AbyssRankService.LoseAp(deadPlayer, apLoss);
 
                         try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                        if (spellPvpRankUp)
+                        {
+                            var rankPkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(rankPkt); } catch { }
+                        }
                         if (targetConn is not null)
                             try { await targetConn.SendAsync(new SM_ABYSS_RANK(deadPlayer.AbyssPoints, deadPlayer.AbyssRank), CancellationToken.None); } catch { }
 
@@ -288,8 +295,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
                     {
                         int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
-                        AbyssRankService.AddAp(player, ap);
+                        bool spellNpcRankUp = AbyssRankService.AddAp(player, ap);
                         try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                        if (spellNpcRankUp)
+                        {
+                            var rankPkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(rankPkt); } catch { }
+                        }
                         await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
                         await AwardLegionContributionAsync(player, ap, registry, legionDao, CancellationToken.None);
                     }
