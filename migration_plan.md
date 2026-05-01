@@ -1143,6 +1143,12 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+96. [✓] Composite stone combination (session 2026-05-01)
+    - [✓] `CM_COMPOSITE_STONES` (0x192) — reads 3 UniqueIds (tool, first stone, second stone); validates tool is Combination Tool (165010000); validates both input stones are enchantment stones (itemId 166000001–166000095, level = itemId − 166000000, level ≤ 95, count ≥ 1); inventory space check; consumes 1 of each input (deletes or updates stack); creates output stone at `166000000 + CalcOutputLevel(firstLvl, secondLvl)` (mirrors Java CompositionAction: avg then ±jitter; clamped to 1-95); stacks if output itemId already exists; persists inventory; sends delta packets to client
+    - [✓] `GsPacketHandlerFactory` — updated 0x192 to pass `conn, _itemDao`
+    - Data insight: enchantment stones are itemId 166000001..166000095 (category=ENCHANTMENT); Combination Tool = 165010000 (category=COMBINATION)
+    - Build: 0 warnings, 0 errors
+
 95. [✓] Soul sickness recovery at Healer NPC (session 2026-05-01)
     - [✓] `SM_SYSTEM_MESSAGE` — added `SoulSicknessCleared()` factory (msg code 1300674 = STR_SUCCESS_RECOVER_EXPERIENCE)
     - [✓] `CM_DIALOG_SELECT` — added `RECOVERY = 35` constant and `SoulSicknessCostPerStack = 5_000`; added `case RECOVERY` branch → `HandleSoulSicknessRecoveryAsync`; validates NPC proximity and SoulSicknessCount > 0; charges 5k kinah per stack; on success: resets SoulSicknessCount to 0 via `UpdateSoulSicknessAsync`, recomputes MaxHp/MaxMp without soul sickness multiplier, persists inventory, sends SM_INVENTORY_ADD_ITEM + SM_STATS_INFO + SoulSicknessCleared message
