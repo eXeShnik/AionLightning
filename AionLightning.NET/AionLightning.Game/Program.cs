@@ -80,6 +80,7 @@ builder.Services.AddSingleton<DuelService>();
 builder.Services.AddSingleton<LegionService>();
 builder.Services.AddSingleton<GatherService>();
 builder.Services.AddSingleton<BrokerService>();
+builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
 builder.Services.AddHostedService<AutoSaveService>();

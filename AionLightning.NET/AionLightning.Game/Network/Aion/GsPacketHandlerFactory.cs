@@ -48,6 +48,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IMotionDao          _motionDao;
     private readonly ISkillDao           _skillDao;
     private readonly BrokerService       _brokerService;
+    private readonly FindGroupService    _findGroupService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -82,7 +83,8 @@ public sealed class GsPacketHandlerFactory
         IRecipeDao recipeDao,
         IMotionDao motionDao,
         ISkillDao skillDao,
-        BrokerService brokerService)
+        BrokerService brokerService,
+        FindGroupService findGroupService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -116,7 +118,8 @@ public sealed class GsPacketHandlerFactory
         _recipeDao       = recipeDao;
         _motionDao       = motionDao;
         _skillDao        = skillDao;
-        _brokerService   = brokerService;
+        _brokerService    = brokerService;
+        _findGroupService = findGroupService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -312,7 +315,7 @@ public sealed class GsPacketHandlerFactory
                 0x2EC => new CM_CHARGE_ITEM(),
                 0x2ED => new CM_GROUP_DATA_EXCHANGE(conn, _connRegistry),
                 0x2EE => new CM_LEGION_WH_KINAH(conn, _legionDao, _itemDao),
-                0x2EF => new CM_FIND_GROUP(),
+                0x2EF => new CM_FIND_GROUP(conn, _findGroupService),
                 _     => Unknown(state, opcode),
             },
             _ => Unknown(state, opcode),
