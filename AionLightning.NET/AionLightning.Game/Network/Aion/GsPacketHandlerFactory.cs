@@ -294,7 +294,7 @@ public sealed class GsPacketHandlerFactory
                 0x1A2 => new CM_USE_HOUSE_OBJECT(),
                 0x1A3 => new CM_RELEASE_OBJECT(),
                 0x1B2 => new CM_REGISTER_HOUSE(),
-                0x1B4 => new CM_MEGAPHONE(),
+                0x1B4 => new CM_MEGAPHONE(conn, _connRegistry, _itemDao),
                 0x1B7 => new CM_CHECK_MAIL_SIZE2(),
                 0x1B8 => new CM_GET_HOUSE_BIDS(),
                 0x1B9 => new CM_FAST_TRACK_CHECK(),
