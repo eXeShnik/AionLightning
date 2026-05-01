@@ -168,7 +168,7 @@ public sealed class GsPacketHandlerFactory
                 0xCE  => new CM_PING(conn),
                 0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry),
                 0xD0  => new CM_TIME_CHECK(conn),
-                0xD1  => new CM_GATHER(conn, _world, _gatherService, _spawnService, _itemDao, _connRegistry, _expService),
+                0xD1  => new CM_GATHER(conn, _world, _gatherService, _spawnService, _itemDao, _connRegistry, _expService, _skillDao),
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(),
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(),

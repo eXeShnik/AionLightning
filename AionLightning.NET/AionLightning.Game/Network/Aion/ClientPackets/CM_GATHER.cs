@@ -12,6 +12,7 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 public sealed class CM_GATHER : AionClientPacket
 {
     private const int RespawnSeconds = 300;
+    private const int SkillAdvanceWindow = 50; // skill advances while node.SkillLevel is within this margin
 
     private readonly GsClientConnection       _conn;
     private readonly GameWorld                _world;
@@ -20,12 +21,13 @@ public sealed class CM_GATHER : AionClientPacket
     private readonly IItemDao                 _itemDao;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExperienceService        _expService;
+    private readonly ISkillDao                _skillDao;
 
     private int _action;
 
     public CM_GATHER(GsClientConnection conn, GameWorld world, GatherService gatherService,
         SpawnService spawnService, IItemDao itemDao, PlayerConnectionRegistry connRegistry,
-        ExperienceService expService)
+        ExperienceService expService, ISkillDao skillDao)
     {
         _conn          = conn;
         _world         = world;
@@ -34,6 +36,7 @@ public sealed class CM_GATHER : AionClientPacket
         _itemDao       = itemDao;
         _connRegistry  = connRegistry;
         _expService    = expService;
+        _skillDao      = skillDao;
     }
 
     public override void Read(ref PacketReader r) => _action = r.ReadD();
@@ -126,6 +129,18 @@ public sealed class CM_GATHER : AionClientPacket
         // Award gathering XP based on the node's required skill level; notify player
         await _expService.AddGatheringExpAsync(player, target.Template.SkillLevel, _conn, ct);
         await _conn.SendAsync(SM_SYSTEM_MESSAGE.GatheringSuccessExp(), ct);
+
+        // Advance gathering skill while still learning from this node
+        int harvestSkill = target.Template.HarvestSkill;
+        if (harvestSkill > 0)
+        {
+            int currentSkillLevel = player.Skills.GetLevel(harvestSkill);
+            if (currentSkillLevel > 0 && currentSkillLevel < target.Template.SkillLevel + SkillAdvanceWindow)
+            {
+                player.Skills.AddSkill(harvestSkill, currentSkillLevel + 1);
+                await _skillDao.UpsertAsync(player.ObjectId, harvestSkill, currentSkillLevel + 1, ct);
+            }
+        }
 
         if (target.IsGathered)
         {
