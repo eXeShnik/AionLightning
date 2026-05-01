@@ -17,6 +17,7 @@ public sealed class AutoSaveService : BackgroundService
     private readonly IPlayerDao               _playerDao;
     private readonly IItemDao                 _itemDao;
     private readonly IQuestDao                _questDao;
+    private readonly ILegionDao               _legionDao;
     private readonly ILogger<AutoSaveService> _log;
 
     public AutoSaveService(
@@ -24,12 +25,14 @@ public sealed class AutoSaveService : BackgroundService
         IPlayerDao playerDao,
         IItemDao itemDao,
         IQuestDao questDao,
+        ILegionDao legionDao,
         ILogger<AutoSaveService> log)
     {
         _connRegistry = connRegistry;
         _playerDao    = playerDao;
         _itemDao      = itemDao;
         _questDao     = questDao;
+        _legionDao    = legionDao;
         _log          = log;
     }
 
@@ -40,6 +43,7 @@ public sealed class AutoSaveService : BackgroundService
         while (await timer.WaitForNextTickAsync(ct))
         {
             int saved = 0;
+            var savedLegions = new HashSet<int>();
             foreach (var conn in _connRegistry.GetAll())
             {
                 var player = conn.ActivePlayer;
@@ -63,6 +67,10 @@ public sealed class AutoSaveService : BackgroundService
                     await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
                     await _itemDao.SaveAccountWarehouseAsync(conn.AccountId, player.AccountWarehouse.All, ct);
                     await _questDao.SaveAllAsync(player.ObjectId, player.Quests.Active, ct);
+
+                    if (player.Legion is { } legion && savedLegions.Add(legion.LegionId))
+                        await _legionDao.SaveWarehouseItemsAsync(legion.LegionId, legion.WarehouseItems.All, ct);
+
                     saved++;
                 }
                 catch (Exception ex)

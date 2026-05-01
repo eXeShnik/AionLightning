@@ -31,9 +31,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int SELECT_QUEST_REWARD  = 1009;
     private const int EXTEND_INVENTORY     = 47;
     private const int OPEN_STIGMA_WINDOW   = 4;
-    private const int GATHER_SKILL_LEVELUP  = 45;
-    private const int COMBINE_SKILL_LEVELUP = 46;
-    private const int RECOVERY              = 35;
+    private const int GATHER_SKILL_LEVELUP    = 45;
+    private const int COMBINE_SKILL_LEVELUP   = 46;
+    private const int RECOVERY                = 35;
+    private const int OPEN_LEGION_WAREHOUSE   = 53;
 
     // Kinah cost per soul sickness stack when recovering at a Healer NPC
     private const long SoulSicknessCostPerStack = 5_000;
@@ -96,6 +97,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly IPlayerDao                _playerDao;
     private readonly IMailDao                  _mailDao;
     private readonly ISkillDao                 _skillDao;
+    private readonly ILegionDao                _legionDao;
     private readonly ExperienceService         _expService;
     private readonly PlayerConnectionRegistry  _connRegistry;
     private readonly RateOptions               _rates;
@@ -108,8 +110,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
-        IMailDao mailDao, ISkillDao skillDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
-        RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
+        IMailDao mailDao, ISkillDao skillDao, ILegionDao legionDao, ExperienceService expService,
+        PlayerConnectionRegistry connRegistry, RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
     {
         _conn         = conn;
         _world        = world;
@@ -119,6 +121,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _playerDao    = playerDao;
         _mailDao      = mailDao;
         _skillDao     = skillDao;
+        _legionDao    = legionDao;
         _expService   = expService;
         _connRegistry = connRegistry;
         _rates        = rates;
@@ -276,6 +279,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
             case RECOVERY:
                 await HandleSoulSicknessRecoveryAsync(player, ct);
+                break;
+
+            case OPEN_LEGION_WAREHOUSE:
+                await HandleOpenLegionWarehouseAsync(player, ct);
                 break;
 
             default:
@@ -694,6 +701,19 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         await _conn.SendAsync(new SM_SKILL_LIST([upgraded], isNew: true, msgId: 1330004, skillName: skillName, skillLevel: newLevel), ct);
 
         _log.LogInformation("Player {Name} upgraded {Skill} to level {Level}", player.Name, skillName, newLevel);
+    }
+
+    private async ValueTask HandleOpenLegionWarehouseAsync(Model.Player player, CancellationToken ct)
+    {
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
+        var legion = player.Legion;
+        if (legion is null) return;
+
+        await _conn.SendAsync(SM_LEGION_EDIT.WarehouseKinah(legion.WarehouseKinah), ct);
+        await _conn.SendAsync(new SM_LEGION_WAREHOUSE_INFO(legion.WarehouseItems.All), ct);
+        await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dialogId: 25), ct);
     }
 
     private static int CountCraftingSkillsAbove(Model.Player player, int threshold)

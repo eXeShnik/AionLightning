@@ -1326,3 +1326,20 @@
     - Registration fee: 4% of price + 1000 kinah flat; max 15 listings per player; items expire after 3 days
     - Item blobs: MANA_SOCKETS writes enchant level + 48 bytes manastone padding (no actual manastones stored in broker) + godstone + dye fields; PREMIUM_OPTION writes 3 zero bytes; POLISH_INFO writes 4 zero bytes; blob sizes match Java ManaStoneInfoBlobEntry.getSize()==132
     - Build: 0 warnings, 0 errors
+
+105. [✓] Legion warehouse items (storage type 4) (session 2026-05-01)
+    - [✓] `V32__legion_warehouse.sql` — new `legion_warehouse_items(unique_id, legion_id, item_id, count, slot, enchant_level)` table with FK → legions ON DELETE CASCADE
+    - [✓] `Legion` — added `public PlayerInventory WarehouseItems { get; } = new()` property (in-memory container, loaded on first member login)
+    - [✓] `ILegionDao` — added `FindWarehouseItemsAsync(int legionId, ct)` and `SaveWarehouseItemsAsync(int legionId, IEnumerable<Item> items, ct)`
+    - [✓] `LegionDaoImpl` — implemented both: SELECT from `legion_warehouse_items WHERE legion_id`; DELETE+INSERT pattern for save (mirrors personal/account warehouse)
+    - [✓] `SM_LEGION_EDIT` — added private ctor + `static WarehouseKinah(long kinah)` factory for type 0x04; writes `WriteQ(warehouseKinah)` in switch
+    - [✓] `SM_LEGION_WAREHOUSE_INFO` — new packet (opcode 0x1A, storage-type byte 4); writes C(4)+C(0)+C(1)+C(0)+H(count) then item blobs via `SM_WAREHOUSE_INFO.WriteItemInfo`
+    - [✓] `CM_DIALOG_SELECT` — added `ILegionDao _legionDao` field; added `OPEN_LEGION_WAREHOUSE = 53` const; new `HandleOpenLegionWarehouseAsync`: sends `SM_LEGION_EDIT.WarehouseKinah(kinah)` + `SM_LEGION_WAREHOUSE_INFO` + `SM_DIALOG_WINDOW(npc, 25)`
+    - [✓] `CM_MOVE_ITEM` — added `ILegionDao _legionDao`; new cases (0,3) inv→legion, (3,0) legion→inv, (3,3) legion reorder; each saves via `SaveWarehouseItemsAsync` and refreshes UI with `SM_LEGION_WAREHOUSE_INFO`
+    - [✓] `CM_ENTER_WORLD` — after first online member primes service: loads `FindWarehouseItemsAsync` and populates `dbLegion.WarehouseItems`
+    - [✓] `GsClientConnection` — added `ILegionDao _legionDao` field; in `DisposeAsync` saves `legion.WarehouseItems` if player has a legion
+    - [✓] `GsConnectionFactory` — accepts and passes `ILegionDao legionDao` to `GsClientConnection`
+    - [✓] `AutoSaveService` — added `ILegionDao _legionDao`; 5-minute save calls `SaveWarehouseItemsAsync` once per unique legion (deduplicated via `HashSet<int> savedLegions`)
+    - [✓] `GsPacketHandlerFactory` — passes `_legionDao` to `CM_MOVE_ITEM` (0x17E) and `CM_DIALOG_SELECT` (0x114)
+    - Storage type note: .NET uses type 4 for legion WH (personal=2, account=3 in existing protocol); Java SM_WAREHOUSE_INFO writes storageType.getId() directly (LEGION=3), but existing .NET warehouse packets use +1 offset vs Java enum
+    - Build: 0 warnings, 0 errors

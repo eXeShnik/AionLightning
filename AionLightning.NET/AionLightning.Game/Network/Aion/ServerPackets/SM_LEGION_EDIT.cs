@@ -4,13 +4,14 @@ namespace AionLightning.Game.Network.Aion.ServerPackets;
 
 /// <summary>
 /// Notifies clients of a legion modification. Opcode 0x9E.
-/// Type 0x00 = level change, 0x03 = contribution points, 0x05 = announcement, 0x06 = disband.
+/// Type 0x00 = level change, 0x03 = contribution points, 0x04 = warehouse kinah, 0x05 = announcement, 0x06 = disband.
 /// </summary>
 public sealed class SM_LEGION_EDIT : AionServerPacket
 {
     private readonly byte   _type;
     private readonly int    _level;
     private readonly long   _contributionPoints;
+    private readonly long   _warehouseKinah;
     private readonly string _announcement;
 
     /// <summary>Level change (type 0x00).</summary>
@@ -29,6 +30,16 @@ public sealed class SM_LEGION_EDIT : AionServerPacket
         _announcement       = "";
     }
 
+    private SM_LEGION_EDIT(long kinah, bool isWarehouseKinah) : base(0x9E)
+    {
+        _type           = 0x04;
+        _warehouseKinah = kinah;
+        _announcement   = "";
+    }
+
+    /// <summary>Warehouse kinah update (type 0x04).</summary>
+    public static SM_LEGION_EDIT WarehouseKinah(long kinah) => new(kinah, isWarehouseKinah: true);
+
     /// <summary>Announcement update (type 0x05) or disband (type 0x06).</summary>
     public SM_LEGION_EDIT(byte type, string text = "") : base(0x9E)
     {
@@ -46,6 +57,9 @@ public sealed class SM_LEGION_EDIT : AionServerPacket
                 break;
             case 0x03:
                 w.WriteQ(_contributionPoints);
+                break;
+            case 0x04:
+                w.WriteQ(_warehouseKinah);
                 break;
             case 0x05:
                 w.WriteS(_announcement);

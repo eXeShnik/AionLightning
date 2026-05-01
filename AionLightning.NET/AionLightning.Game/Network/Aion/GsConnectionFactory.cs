@@ -20,6 +20,7 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
     private readonly IItemDao _itemDao;
     private readonly IQuestDao _questDao;
     private readonly ISocialDao _socialDao;
+    private readonly ILegionDao _legionDao;
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GroupService  _groupService;
@@ -29,8 +30,8 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
     public GsConnectionFactory(ILoggerFactory loggerFactory, GsPacketHandlerFactory factory,
         LsConnectionHolder ls, CsConnectionHolder cs, GameAccountRegistry registry,
         IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao, ISocialDao socialDao,
-        GameWorld world, PlayerConnectionRegistry connRegistry, GroupService groupService,
-        DuelService duelService, LegionService legionService)
+        ILegionDao legionDao, GameWorld world, PlayerConnectionRegistry connRegistry,
+        GroupService groupService, DuelService duelService, LegionService legionService)
     {
         _loggerFactory = loggerFactory;
         _factory       = factory;
@@ -41,6 +42,7 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
         _itemDao       = itemDao;
         _questDao      = questDao;
         _socialDao     = socialDao;
+        _legionDao     = legionDao;
         _world         = world;
         _connRegistry  = connRegistry;
         _groupService  = groupService;
@@ -50,5 +52,5 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
 
     public GsClientConnection Create(Socket socket, CancellationToken ct)
         => new(socket, _loggerFactory.CreateLogger<GsClientConnection>(),
-               _factory, _ls, _cs, _registry, _playerDao, _itemDao, _questDao, _socialDao, _world, _connRegistry, _groupService, _duelService, _legionService);
+               _factory, _ls, _cs, _registry, _playerDao, _itemDao, _questDao, _socialDao, _legionDao, _world, _connRegistry, _groupService, _duelService, _legionService);
 }

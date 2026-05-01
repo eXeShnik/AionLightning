@@ -1,3 +1,5 @@
+using AionLightning.Game.Model.Item;
+
 namespace AionLightning.Game.Model.Legion;
 
 public sealed class Legion
@@ -14,6 +16,7 @@ public sealed class Legion
     public short VolunteerPermission { get; set; }
 
     public long WarehouseKinah { get; set; }
+    public PlayerInventory WarehouseItems { get; } = new();
 
     // Emblem — in-memory only (not persisted); 0=DEFAULT, 1=CUSTOM
     public byte EmblemId   { get; set; }

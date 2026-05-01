@@ -1,4 +1,5 @@
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Legion;
 using Dapper;
 using MySqlConnector;
@@ -199,6 +200,38 @@ public sealed class LegionDaoImpl : ILegionDao
             new { raceStr = race.ToString(), limit });
         return rows.Select(r => new LegionRankEntry(r.id, r.name, r.level, r.contribution_points, r.member_count))
                    .ToList();
+    }
+
+    public async Task<IReadOnlyList<Item>> FindWarehouseItemsAsync(int legionId, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(long unique_id, int item_id, long count, int slot, byte enchant_level)>(
+            "SELECT unique_id, item_id, count, slot, enchant_level FROM legion_warehouse_items WHERE legion_id = @legionId",
+            new { legionId });
+        return rows.Select(r => new Item
+        {
+            UniqueId      = r.unique_id,
+            ItemId        = r.item_id,
+            Count         = r.count,
+            Slot          = (short)r.slot,
+            EnchantLevel  = r.enchant_level,
+            StorageType   = 3,
+        }).ToList();
+    }
+
+    public async Task SaveWarehouseItemsAsync(int legionId, IEnumerable<Item> items, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "DELETE FROM legion_warehouse_items WHERE legion_id = @legionId",
+            new { legionId });
+
+        foreach (var item in items)
+        {
+            await conn.ExecuteAsync(
+                "INSERT INTO legion_warehouse_items (unique_id, legion_id, item_id, count, slot, enchant_level) VALUES (@uniqueId, @legionId, @itemId, @count, @slot, @enchantLevel)",
+                new { uniqueId = item.UniqueId, legionId, itemId = item.ItemId, count = item.Count, slot = (int)item.Slot, enchantLevel = item.EnchantLevel });
+        }
     }
 
     private sealed record LegionRow(

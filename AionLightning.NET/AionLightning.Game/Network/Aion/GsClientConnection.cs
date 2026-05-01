@@ -29,6 +29,7 @@ public sealed class GsClientConnection : AConnection
     private readonly IItemDao _itemDao;
     private readonly IQuestDao _questDao;
     private readonly ISocialDao _socialDao;
+    private readonly ILegionDao _legionDao;
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GroupService _groupService;
@@ -47,7 +48,7 @@ public sealed class GsClientConnection : AConnection
     public GsClientConnection(Socket socket, ILogger<GsClientConnection> log,
         GsPacketHandlerFactory factory, LsConnectionHolder ls, CsConnectionHolder cs,
         GameAccountRegistry registry, IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao,
-        ISocialDao socialDao, GameWorld world, PlayerConnectionRegistry connRegistry,
+        ISocialDao socialDao, ILegionDao legionDao, GameWorld world, PlayerConnectionRegistry connRegistry,
         GroupService groupService, DuelService duelService, LegionService legionService)
         : base(socket)
     {
@@ -60,6 +61,7 @@ public sealed class GsClientConnection : AConnection
         _itemDao       = itemDao;
         _questDao      = questDao;
         _socialDao     = socialDao;
+        _legionDao     = legionDao;
         _world         = world;
         _connRegistry  = connRegistry;
         _groupService  = groupService;
@@ -239,6 +241,8 @@ public sealed class GsClientConnection : AConnection
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, CancellationToken.None);
             await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, CancellationToken.None);
             await _itemDao.SaveAccountWarehouseAsync(AccountId, player.AccountWarehouse.All, CancellationToken.None);
+            if (player.Legion is { } saveLegion)
+                await _legionDao.SaveWarehouseItemsAsync(saveLegion.LegionId, saveLegion.WarehouseItems.All, CancellationToken.None);
             await _questDao.SaveAllAsync(player.ObjectId, player.Quests.Active, CancellationToken.None);
         }
         catch (Exception ex)

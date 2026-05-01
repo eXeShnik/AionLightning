@@ -1,4 +1,5 @@
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Legion;
 
 namespace AionLightning.Game.Dao;
@@ -26,4 +27,6 @@ public interface ILegionDao
     Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct);
     Task UpdateContributionPointsAsync(int legionId, long points, CancellationToken ct);
     Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct);
+    Task<IReadOnlyList<Item>> FindWarehouseItemsAsync(int legionId, CancellationToken ct);
+    Task SaveWarehouseItemsAsync(int legionId, IEnumerable<Item> items, CancellationToken ct);
 }

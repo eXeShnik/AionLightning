@@ -203,7 +203,10 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
             var existing = _legionService.GetById(dbLegion.LegionId);
             if (existing is null)
             {
-                // First online member — prime service with the full legion
+                // First online member — prime service with the full legion and load warehouse
+                var whItems = await _legionDao.FindWarehouseItemsAsync(dbLegion.LegionId, ct);
+                foreach (var whItem in whItems)
+                    dbLegion.WarehouseItems.Add(whItem);
                 _legionService.AddLegion(dbLegion);
                 player.Legion = dbLegion;
             }
