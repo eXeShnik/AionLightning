@@ -23,6 +23,7 @@ public sealed class DataManager : IDataManager
     public PlayerTitlesData               Titles      { get; } = new();
     public WalkerData                     Walkers     { get; } = new();
     public TribeData                      Tribes      { get; } = new();
+    public NpcShoutData                   NpcShouts   { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -48,6 +49,7 @@ public sealed class DataManager : IDataManager
         Titles.Load(dataRoot, log);
         Walkers.Load(dataRoot, log);
         Tribes.Load(dataRoot, log);
+        NpcShouts.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

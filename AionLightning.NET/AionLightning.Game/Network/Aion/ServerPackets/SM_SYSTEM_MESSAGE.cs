@@ -11,24 +11,39 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 {
     private readonly int      _code;
     private readonly string[] _params;
+    private readonly int      _npcObjId; // 0 for system messages, NPC objectId for shouts
 
+    // System message (no NPC sender)
     private SM_SYSTEM_MESSAGE(int code, params string[] parms) : base(0x19)
     {
-        _code   = code;
-        _params = parms;
+        _code     = code;
+        _npcObjId = 0;
+        _params   = parms;
+    }
+
+    // NPC shout (carries the NPC's object ID)
+    private SM_SYSTEM_MESSAGE(int code, int npcObjId, string[] parms) : base(0x19)
+    {
+        _code     = code;
+        _npcObjId = npcObjId;
+        _params   = parms;
     }
 
     public override void Write(ref PacketWriter w)
     {
         w.WriteC(0x19); // text color id
         w.WriteC(0x00); // dialect unk
-        w.WriteD(0);    // npc object id (0 = not from NPC)
+        w.WriteD(_npcObjId);
         w.WriteD(_code);
         w.WriteC((byte)_params.Length);
         foreach (var p in _params)
             w.WriteS(p);
-        w.WriteC(0x00); // not a npc shout
+        w.WriteC(0x00);
     }
+
+    /// <summary>NPC shout — sent to nearby players with the NPC's object ID (mirrors Java NpcShoutsService).</summary>
+    public static SM_SYSTEM_MESSAGE NpcShout(int npcObjId, int stringId)
+        => new(stringId, npcObjId, Array.Empty<string>());
 
     // STR_NO_SUCH_USER — "Cannot find player %0." (msg code 1300627)
     public static SM_SYSTEM_MESSAGE NoSuchUser(string name) => new(1300627, name);

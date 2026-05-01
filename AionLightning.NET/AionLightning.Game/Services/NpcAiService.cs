@@ -158,6 +158,18 @@ public sealed class NpcAiService : BackgroundService
                     {
                         _npcTargets[npc.ObjectId] = target.ObjectId;
                         npc.Target = target;
+
+                        // SEE shout — NPC has just spotted a player
+                        var shout = _dataManager.NpcShouts.GetRandomShout(
+                            npc.Template.NpcId, NpcShoutData.ShoutEventType.SEE, npc.Position.WorldId);
+                        if (shout.HasValue)
+                        {
+                            var shoutPkt  = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, shout.Value.StringId);
+                            int shoutWorld = npc.Position.WorldId;
+                            foreach (var conn in _connRegistry.GetAll())
+                                if (conn.ActivePlayer?.Position.WorldId == shoutWorld)
+                                    try { await conn.SendAsync(shoutPkt, ct); } catch { }
+                        }
                     }
                 }
             }

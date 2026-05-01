@@ -1455,3 +1455,10 @@
     - [✓] `NpcAiService` scan loop — player target now guarded by `IsAggressiveToPlayer(npc.Template.Tribe, player.Race)`: GUARD tribes attack only opposite-faction players; AGGRESSIVEMONSTER/MONSTER-base tribes attack all players; GENERAL/USEALL tribes do not initiate aggro
     - Player tribe mapping: ELYOS→"PC", ASMODIANS→"PC_DARK" (mirrors Java TribeClass enum)
     - Build: 0 warnings, 0 errors
+
+118. [✓] NPC shouts — load npc_shouts.xml + SEE event broadcast (session 2026-05-02)
+    - [✓] `NpcShoutData.cs` (NEW) — streaming XmlReader loads `npc_shouts/npc_shouts.xml`; indexes by `(npcId → ShoutEventType → List<ShoutEntry>)`; `GetRandomShout(npcId, evt, worldId)` filters by `restrict_world` (0=any world, nonzero=specific map) and returns a random eligible entry; `ShoutEventType` enum covers SEE/IDLE/ATTACK/ATTACK_BEGIN/ATTACK_END/DIED/CAST_K/ATTACK_K/PLAYER_MAGIC/PLAYER_SNARE/PLAYER_DEBUFF/PLAYER_SLAVE/PLAYER_BLOW/SWITCH_TARGET/GOD_HELP/WAKEUP/OTHER
+    - [✓] `IDataManager` / `DataManager` — added `NpcShoutData NpcShouts { get; }` property; loads after Tribes
+    - [✓] `SM_SYSTEM_MESSAGE` — refactored constructor to two overloads: `(int code, params string[] parms)` for system messages (npcObjId=0) and `(int code, int npcObjId, string[] parms)` for NPC shouts; all existing factory methods unaffected; added `NpcShout(int npcObjId, int stringId)` factory using the npcObjId overload; `Write` emits real `_npcObjId` field instead of hardcoded 0
+    - [✓] `NpcAiService` — SEE shout event: when NPC newly acquires a player target (target scan finds non-null with no prior lock), calls `GetRandomShout(npc.Template.NpcId, SEE, npc.Position.WorldId)`; on match, broadcasts `SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, entry.StringId)` to all players in the NPC's WorldId with try/catch per broadcast convention; mirrors Java NpcShoutsService.broadcastNpcShout
+    - Build: 0 warnings, 0 errors
