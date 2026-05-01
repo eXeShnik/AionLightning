@@ -939,6 +939,12 @@
     - [✓] `CM_GATHER.HandleFinishAsync` — retrieves the stored material from `GetSession` instead of re-rolling; validates session target matches; adds `HasFreeSlot` guard before consuming the harvest charge: full inventory returns early with `SM_SYSTEM_MESSAGE.InventoryFull()`
     - Build: 0 warnings, 0 errors
 
+77. [✓] Craft inventory-full check + material-before-product ordering (session 2026-05-01)
+    - Root cause: `CM_CRAFT` consumed component items before checking if the crafted product could fit in inventory, creating a situation where components were lost but the product was never received
+    - [✓] `CM_CRAFT.RunAsync` — added pre-craft inventory capacity check: computes `slotsFreed` (fully-consumed components that free a slot), `productStacks` (product stacks onto existing stack → no new slot needed); if product can't fit after accounting for freed component slots, sends `InventoryFull` and aborts before consuming anything
+    - Uses `_dataManager.Items.GetTemplate(recipe.ProductId)` to look up `MaxStackCount` for stack detection
+    - Build: 0 warnings, 0 errors
+
 75. [✓] BuyFromShop kinah overcharge fix (session 2026-05-01)
     - Root cause: `totalCost` was computed for ALL trade entries before inventory-capacity filtering, so players were charged kinah for items they could not receive when the inventory was nearly full
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible

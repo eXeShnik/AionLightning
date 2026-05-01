@@ -58,6 +58,22 @@ public sealed class CM_CRAFT : AionClientPacket
             if (item is null || item.Count < component.Quantity) return;
         }
 
+        // Check inventory capacity before consuming any materials — prevents item sink if product cannot fit.
+        // A component that is fully consumed frees a slot, so we must net the freed slots.
+        int slotsFreed = recipe.Components.Count(c =>
+        {
+            var item = player.Inventory.FindByItemId(c.ItemId);
+            return item is not null && item.Count <= c.Quantity; // will be fully consumed → frees a slot
+        });
+        var productTemplate = _dataManager.Items.GetTemplate(recipe.ProductId);
+        bool productStacks  = productTemplate is { MaxStackCount: > 1 }
+                              && player.Inventory.FindByItemId(recipe.ProductId) is not null;
+        if (!productStacks && (player.Inventory.BagSlotUsed - slotsFreed) >= player.Inventory.Capacity)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.InventoryFull(), ct);
+            return;
+        }
+
         int skillId = recipe.SkillId;
         int worldId = player.Position.WorldId;
 
