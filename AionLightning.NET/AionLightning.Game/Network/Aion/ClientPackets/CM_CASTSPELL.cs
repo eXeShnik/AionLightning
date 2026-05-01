@@ -78,15 +78,23 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
         if (!player.Skills.IsPresent(_spellId)) return;
 
+        // Resolve template early to check cooldown
+        var template = _dataManager.Skills.GetTemplate(_spellId);
+
+        // Server-side cooldown enforcement (client enforces display; server enforces rules)
+        var skillEntry = player.Skills.GetEntry(_spellId);
+        if (skillEntry is not null && template is not null && skillEntry.IsOnCooldown(template.Cooldown))
+            return;
+
+        // Start cooldown immediately on cast attempt
+        skillEntry?.MarkUsed();
+
         // Broadcast cast animation
         var castPacket = _targetType is 1 or 2
             ? new SM_CASTSPELL(player.ObjectId, _spellId, _level, _targetType, _x, _y, _z, _hitTime)
             : new SM_CASTSPELL(player.ObjectId, _spellId, _level, _targetType, _targetObjectId, _hitTime);
 
         await BroadcastAsync(castPacket, ct);
-
-        // Resolve template to determine skill behaviour
-        var template     = _dataManager.Skills.GetTemplate(_spellId);
         bool isHealSkill = template?.SubType is SkillSubType.HEAL;
         bool isDamageSkill = !isHealSkill
             && template?.SkillType is SkillType.MAGICAL or SkillType.PHYSICAL

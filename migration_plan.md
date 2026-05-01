@@ -863,6 +863,13 @@
     - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to `CM_DIALOG_SELECT` constructor at opcode 0x114
     - Build: 0 warnings, 0 errors
 
+74. [✓] Skill cooldown enforcement in CM_CASTSPELL (session 2026-05-01)
+    - Root cause: `CM_CASTSPELL` only checked `player.Skills.IsPresent(skillId)` before allowing the cast; no cooldown validation existed; players could fire any skill as fast as they could send packets
+    - [✓] `PlayerSkillEntry` — added `LastUsedAt: DateTime` (default `DateTime.MinValue`); `MarkUsed()` sets it to `DateTime.UtcNow`; `IsOnCooldown(cooldownMs)` returns true if `cooldownMs > 0` and elapsed time since `LastUsedAt` is less than the cooldown
+    - [✓] `PlayerSkillList.GetEntry(skillId)` — new method: returns the matching `PlayerSkillEntry` from basic or stigma dict, or null; allows callers to modify the entry (e.g., call `MarkUsed`)
+    - [✓] `CM_CASTSPELL.RunAsync` — moved template lookup before cast animation broadcast; added cooldown gate: if `skillEntry.IsOnCooldown(template.Cooldown)` returns, no animation or damage is processed; calls `skillEntry.MarkUsed()` immediately on cast start (before animation) so rapid-fire packets within the cooldown window are all rejected; cooldown is server-side only — client display is unchanged
+    - Build: 0 warnings, 0 errors
+
 73. [✓] Quest race filter + collect-item pickup tracking (session 2026-05-01)
     - [✓] `CM_DIALOG_SELECT.HandleQuestAcceptAsync` — added race restriction check: `template.Race != "PC_ALL"` AND `!string.Equals(template.Race, player.Race.ToString(), OrdinalIgnoreCase)` → return; prevents Elyos players accepting Asmodian-only quests and vice versa; previously `QuestTemplate.Race` was parsed but never validated
     - [✓] `QuestService.HandleItemAcquiredAsync` — new method: for each active START-state quest with collect requirements, checks if the acquired `itemId` matches any `CollectItem.ItemId`; if so calls `IsRewardReady`; on readiness transitions quest to REWARD, persists, sends SM_QUEST_ACTION(StepUpdate, REWARD) + SM_QUEST_LIST; enables pure collect quests (no kill objectives) to show the map indicator after the player has all items

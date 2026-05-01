@@ -25,5 +25,7 @@ public sealed class PlayerSkillList
     public bool IsPresent(int skillId) => _basic.ContainsKey(skillId) || _stigma.ContainsKey(skillId);
     public int  GetLevel(int skillId)  => _basic.TryGetValue(skillId, out var e) ? e.SkillLevel :
                                           _stigma.TryGetValue(skillId, out e)   ? e.SkillLevel : 0;
+    public PlayerSkillEntry? GetEntry(int skillId) => _basic.TryGetValue(skillId, out var e) ? e :
+                                                       _stigma.TryGetValue(skillId, out e)   ? e : null;
     public int  Count => _basic.Count + _stigma.Count;
 }
