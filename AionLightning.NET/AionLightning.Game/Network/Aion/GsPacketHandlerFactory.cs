@@ -301,7 +301,7 @@ public sealed class GsPacketHandlerFactory
                 0x1BC => new CM_HOUSE_TELEPORT(),
                 0x1BD => new CM_HOUSE_PAY_RENT(),
                 0x1BF => new CM_PLACE_BID(),
-                0x2E4 => new CM_WINDSTREAM(),
+                0x2E4 => new CM_WINDSTREAM(conn, _connRegistry),
                 0x2E5 => new CM_MOTION(conn, _connRegistry, _motionDao),
                 0x2E6 => new CM_EXCHANGE_OK(conn, _connRegistry, _exchangeService, _itemDao),
                 0x2E7 => new CM_EXCHANGE_CANCEL(conn, _connRegistry, _exchangeService),
