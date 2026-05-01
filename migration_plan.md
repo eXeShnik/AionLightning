@@ -1363,6 +1363,14 @@
     - Contribution costs: 0 → 20K → 100K → 500K → 2.5M → 12.5M → 62.5M (levels 1→2 through 7→8)
     - Build: 0 warnings, 0 errors
 
+109. [✓] Legion WH kinah permission checks + broadcast; CM_LEGION 0x08 refresh (session 2026-05-01)
+    - Root cause: `CM_LEGION_WH_KINAH` executed deposit/withdraw without verifying the member's rank permission mask; any legion member could move kinah regardless of configured permissions; also missing `SM_LEGION_EDIT.WarehouseKinah` broadcast so other online members never saw the updated WH kinah total
+    - [✓] `CM_LEGION_WH_KINAH` — added `WH_WITHDRAWAL = 4` and `WH_DEPOSIT = 4096` constants; added `PlayerConnectionRegistry` dependency; `HasPermission` helper maps member rank → legion's `DeputyPermission / CenturionPermission / LegionaryPermission / VolunteerPermission`; BG bypasses check (always allowed); withdraw now returns early if member lacks `WH_WITHDRAWAL`; deposit returns early if member lacks `WH_DEPOSIT`
+    - [✓] `CM_LEGION_WH_KINAH` — added `BroadcastKinahAsync` which sends `SM_LEGION_EDIT.WarehouseKinah(kinah)` to all online members after every successful transaction; matches Java `LegionService.LegionWhUpdate` broadcast
+    - [✓] `GsPacketHandlerFactory` — 0x2EE now passes `_connRegistry` to `CM_LEGION_WH_KINAH`
+    - [✓] `CM_LEGION` — added `HandleRefreshAsync` (opcode 0x08): sends `SM_LEGION_INFO(legion)` back to the requester; Java sends a full refresh of the current legion state when the client requests it; no side effects
+    - Build: 0 warnings, 0 errors
+
 108. [✓] Legion permissions update (CM_LEGION opcode 0x0D) (session 2026-05-01)
     - Root cause: `CM_LEGION` Read() consumed 4 shorts for opcode 0x0D but RunAsync had no handler; brigade generals could not set per-rank warehouse/action permissions
     - [✓] `ILegionDao` — added `UpdatePermissionsAsync(int legionId, short deputy, short centurion, short legionary, short volunteer, ct)` interface method
