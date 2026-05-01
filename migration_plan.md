@@ -1482,6 +1482,12 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+129. [✓] Cube expander data-driven pricing — CubeExpanderData + CM_DIALOG_SELECT integration (session 2026-05-01)
+    - [✓] `CubeExpanderData.cs` (NEW) — streaming XmlReader loads `cube_expander/cube_expander.xml`; maps `npcId → (expandLevel → price)`; `GetExpandPrice(npcId, nextLevel)` returns `long?` (null when NPC doesn't offer that level); `IsCubeExpander(npcId)` guards unknown NPCs; NPCs in the file have NPC-specific pricing (e.g. NPC 798008 only offers level 1 at 1000 kinah; Sanctum NPCs offer levels 2–4)
+    - [✓] `IDataManager` / `DataManager` — added `CubeExpanderData CubeExpander { get; }` property; loads after InstanceExits
+    - [✓] `CM_DIALOG_SELECT.HandleExpandCubeAsync` — removed hardcoded `CubeExpandPrices` array; now checks `IsCubeExpander(npc.Template.NpcId)` (returns silently if NPC isn't a cube expander); uses `GetExpandPrice(npc.Template.NpcId, nextLevel)` for the price (null → CannotExpandCubeMore); deducts `price.Value` from kinah; all expansion limit logic now driven by XML data, not a hardcoded array length
+    - Build: 0 warnings, 0 errors
+
 128. [✓] Instance exit — InstanceExitData + CM_INSTANCE_LEAVE teleport (session 2026-05-01)
     - [✓] `InstanceExitData.cs` (NEW) — streaming XmlReader loads `instance_exit/instance_exit.xml`; maps `(instanceWorldId, race)` → `ExitLocation { ExitWorldId, X, Y, Z, Heading }`; `GetExit(instanceWorldId, playerRace)` looks up by faction string ("ELYOS"/"ASMODIANS")
     - [✓] `IDataManager` / `DataManager` — added `InstanceExitData InstanceExits { get; }` property; loads after GlobalDrops

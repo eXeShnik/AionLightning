@@ -27,4 +27,5 @@ public interface IDataManager
     WorldMapData                   WorldMaps    { get; }
     GlobalDropData                 GlobalDrops  { get; }
     InstanceExitData               InstanceExits { get; }
+    CubeExpanderData               CubeExpander  { get; }
 }

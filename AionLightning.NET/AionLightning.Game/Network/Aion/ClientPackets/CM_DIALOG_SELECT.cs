@@ -85,10 +85,6 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int   KinahItemId      = 182400001;
     private const float MaxInteractRange = 10.0f;
 
-    // Cube expansion prices by resulting expand level (index = npcExpands after expansion, 1-5).
-    // Matches Java cube_expander.xml: level 1 = 1k, 2 = 12k, 3 = 80k, 4 = 180k, 5 = 360k kinah.
-    private static readonly long[] CubeExpandPrices = [0, 1_000, 12_000, 80_000, 180_000, 360_000];
-
     private readonly GsClientConnection        _conn;
     private readonly GameWorld                 _world;
     private readonly IDataManager              _dataManager;
@@ -590,24 +586,26 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var npc = _world.GetNpcByObjectId(_targetObjectId);
         if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
+        if (!_dataManager.CubeExpander.IsCubeExpander(npc.Template.NpcId)) return;
+
         int nextLevel = player.NpcExpands + 1;
-        if (nextLevel >= CubeExpandPrices.Length)
+        long? price   = _dataManager.CubeExpander.GetExpandPrice(npc.Template.NpcId, nextLevel);
+        if (price is null)
         {
             await _conn.SendAsync(SM_SYSTEM_MESSAGE.CannotExpandCubeMore(), ct);
             return;
         }
 
-        long price   = CubeExpandPrices[nextLevel];
         var  kinah   = player.Inventory.FindByItemId(KinahItemId);
         long current = kinah?.Count ?? 0;
-        if (current < price)
+        if (current < price.Value)
         {
             await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
             return;
         }
 
         // Deduct kinah, expand cube
-        kinah!.Count         -= price;
+        kinah!.Count         -= price.Value;
         player.NpcExpands++;
         player.Inventory.Capacity = player.CubeCapacity;
 
