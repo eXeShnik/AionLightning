@@ -87,13 +87,24 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.CurrentAttackSpeed = 1500;
         }
 
-        // Recalculate total physical and magic defense from all currently equipped items
+        // Recalculate total stats from all currently equipped items
         player.PhysicalDefense = player.Inventory.All
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalDefense ?? 0);
         player.MagicDefense = player.Inventory.All
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicDefense ?? 0);
+
+        // Recalculate HP/MP bonuses from equipped items and apply to MaxHp/MaxMp
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        player.BonusMaxHp = player.Inventory.All
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxHpBonus ?? 0);
+        player.BonusMaxMp = player.Inventory.All
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
+        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp;
+        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp;
 
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 
@@ -102,8 +113,7 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(changed), ct);
 
         // Refresh stats panel on the client (reflects any changes after equip toggle)
-        var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
 
         // Broadcast appearance change to players in the same zone
         var appearance = new SM_UPDATE_PLAYER_APPEARANCE(player.ObjectId, player.Inventory.All);

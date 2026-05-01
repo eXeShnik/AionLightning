@@ -956,6 +956,15 @@
     - Uses `_dataManager.Items.GetTemplate(recipe.ProductId)` to look up `MaxStackCount` for stack detection
     - Build: 0 warnings, 0 errors
 
+62. [✓] Player MaxHp/MaxMp bonus from equipped items (session 2026-05-01)
+    - [✓] `ItemModifier` — added `[XmlAttribute("bonus")] public bool Bonus { get; set; }` to mark percentage-based modifiers; `ItemModifiers.GetStat(name)` now sums all non-bonus (flat) values for the stat (previously returned only the first match, which could miss duplicates)
+    - [✓] `ItemTemplate` — added `MaxHpBonus` (`GetStat("MAXHP")`) and `MaxMpBonus` (`GetStat("MAXMP")`) computed properties
+    - [✓] `Player` — added `BonusMaxHp` and `BonusMaxMp` properties (flat HP/MP bonus from equipped items)
+    - [✓] `CM_ENTER_WORLD` — inventory/item initialization reordered: HP/MP template values now set AFTER items are loaded; `BonusMaxHp/MaxMp` computed from equipped items; `player.MaxHp = tpl.MaxHp + BonusMaxHp` applied before sending SM_STATS_INFO
+    - [✓] `CM_EQUIP_ITEM` — recalculates `BonusMaxHp/MaxMp` on equip/unequip; updates `MaxHp/MaxMp` accordingly; `statTpl` variable reused for SM_STATS_INFO send (avoids second GetTemplate call)
+    - [✓] `ExperienceService.HandleLevelUpAsync` — `player.MaxHp = tpl.MaxHp + player.BonusMaxHp` on level-up so item bonuses are preserved across levels
+    - Build: 0 warnings, 0 errors
+
 61. [✓] NPC XP from template + skill cast range enforcement (session 2026-05-01)
     - [✓] `NpcStatsTemplate` — added `[XmlAttribute("maxXp")] public long MaxXp { get; set; }` to parse the `maxXp` attribute from NPC stats elements in npc_templates.xml
     - [✓] `SkillTemplate` — added `SkillProperties` nested class (parses `first_target_range` attribute from `<properties>` child element); added `[XmlElement("properties")] SkillProperties? Properties` and `CastRange` computed property

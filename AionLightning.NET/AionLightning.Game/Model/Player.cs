@@ -85,6 +85,10 @@ public sealed class Player : Creature
     // Sum of MAGICAL_DEFEND from all equipped items; applied in magic mitigation formula
     public int MagicDefense { get; set; }
 
+    // Flat HP/MP bonus from equipped items (MAXHP/MAXMP modifiers, non-percentage)
+    public int BonusMaxHp { get; set; }
+    public int BonusMaxMp { get; set; }
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

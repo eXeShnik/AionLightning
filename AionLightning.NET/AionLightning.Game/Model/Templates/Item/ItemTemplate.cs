@@ -26,18 +26,24 @@ public sealed class ItemTemplate
     public bool IsArmor            => EquipmentType == "ARMOR";
     public int PhysicalDefense     => Modifiers?.GetStat("PHYSICAL_DEFENSE") ?? 0;
     public int MagicDefense        => Modifiers?.GetStat("MAGICAL_DEFEND")   ?? 0;
+    public int MaxHpBonus          => Modifiers?.GetStat("MAXHP")            ?? 0;
+    public int MaxMpBonus          => Modifiers?.GetStat("MAXMP")            ?? 0;
 }
 
 public sealed class ItemModifiers
 {
     [XmlElement("add")] public List<ItemModifier> Add { get; set; } = new();
-    public int GetStat(string name) => Add.Find(m => m.Name == name)?.Value ?? 0;
+
+    // Returns sum of all non-percentage (flat) values for the given stat name.
+    public int GetStat(string name) =>
+        Add.Where(m => m.Name == name && !m.Bonus).Sum(m => m.Value);
 }
 
 public sealed class ItemModifier
 {
     [XmlAttribute("name")]  public string Name  { get; set; } = string.Empty;
     [XmlAttribute("value")] public int    Value { get; set; }
+    [XmlAttribute("bonus")] public bool   Bonus { get; set; }
 }
 
 public sealed class WeaponStats

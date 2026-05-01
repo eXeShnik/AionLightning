@@ -80,11 +80,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
 
-        // MaxHp/MaxMp and base combat stats are not persisted — recompute from template on login.
-        player.MaxHp              = tpl?.MaxHp ?? 1000;
-        player.MaxMp              = tpl?.MaxMp ?? 500;
-        player.CurrentHp          = player.MaxHp;
-        player.CurrentMp          = player.MaxMp;
+        // Base combat stats from template — HP/MP are finalized after items load (bonuses applied below)
         player.BasePhysicalAttack = tpl?.MainHandAttack ?? 0;
 
         player.Appearance  = appearance;
@@ -137,13 +133,25 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
             }
         }
 
-        // Initialize physical and magic defense from all currently equipped items
+        // Initialize combat stats from all currently equipped items
         player.PhysicalDefense = storedItems
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalDefense ?? 0);
         player.MagicDefense = storedItems
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicDefense ?? 0);
+        player.BonusMaxHp = storedItems
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxHpBonus ?? 0);
+        player.BonusMaxMp = storedItems
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
+
+        // Apply item HP/MP bonuses on top of template values
+        player.MaxHp = (tpl?.MaxHp ?? 1000) + player.BonusMaxHp;
+        player.MaxMp = (tpl?.MaxMp ?? 500)  + player.BonusMaxMp;
+        player.CurrentHp = player.MaxHp;
+        player.CurrentMp = player.MaxMp;
 
         // Load quests
         var questEntries = await _questDao.LoadByPlayerIdAsync(_objectId, ct);
