@@ -1143,6 +1143,12 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+94. [✓] Private store — buy side (session 2026-05-01)
+    - [✓] `CM_BUY_ITEM` — added `PlayerConnectionRegistry` dependency; added `case 0` branch (private store buy): resolves seller player by ObjectId, validates PrivateShop state; matches each requested itemId to a `PrivateStoreItem`; validates stock, buyer kinah (NoEnoughKinah message), and inventory space (InventoryFull message); decreases seller's inventory item (removes if depleted, updates StoreItems list); adds item to buyer's inventory (stacks or new slot); transfers kinah (deduct buyer, credit seller); persists both inventories; notifies buyer via SM_INVENTORY_ADD_ITEM; notifies seller via SM_DELETE_ITEM/SM_INVENTORY_ADD_ITEM through their connection; auto-closes store with SM_EMOTION(CLOSE_PRIVATESHOP) broadcast when StoreItems empties
+    - [✓] `GsPacketHandlerFactory` — updated 0xF1 (CM_BUY_ITEM) to pass `_connRegistry`
+    - Private store system is now complete: open → list → view → buy → auto-close
+    - Build: 0 warnings, 0 errors
+
 93. [✓] Private store — open/list/view (session 2026-05-01)
     - [✓] `PrivateStoreItem` — new record: `UniqueId`, `ItemId`, `Count`, `Price`
     - [✓] `Player` — added `List<PrivateStoreItem>? StoreItems` and `string StoreName` properties
