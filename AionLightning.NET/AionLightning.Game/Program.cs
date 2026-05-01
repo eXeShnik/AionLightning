@@ -54,6 +54,7 @@ builder.Services.AddSingleton<IPlayerSettingsDao, PlayerSettingsDaoImpl>();
 builder.Services.AddSingleton<IRecipeDao, RecipeDaoImpl>();
 builder.Services.AddSingleton<IMotionDao, MotionDaoImpl>();
 builder.Services.AddSingleton<ISkillDao, SkillDaoImpl>();
+builder.Services.AddSingleton<IBrokerDao, BrokerDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -78,6 +79,7 @@ builder.Services.AddSingleton<QuestService>();
 builder.Services.AddSingleton<DuelService>();
 builder.Services.AddSingleton<LegionService>();
 builder.Services.AddSingleton<GatherService>();
+builder.Services.AddSingleton<BrokerService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
 builder.Services.AddHostedService<AutoSaveService>();

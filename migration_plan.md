@@ -1305,3 +1305,24 @@
     - [✓] `SM_SYSTEM_MESSAGE` — added `DyeRemoved()` (1300510), `DyeApplied()` (1300511), `DyeCannotDye()` (1300512), `DyeCannotRemove()` (1300513)
     - [✓] `CM_USE_ITEM` — when `_type == 2` and template has `DyeAction`: validates target exists and is dyeable, applies/removes dye (`DyeColor = dyeItem.ItemId` or 0 for "no" color), consumes dye item, persists, broadcasts `SM_UPDATE_PLAYER_APPEARANCE` if target is equipped
     - Build: 0 warnings, 0 errors
+
+104. [✓] Broker (auction house) system (session 2026-05-01)
+    - [✓] `V30__broker.sql` — new `broker_items(id, item_id, seller_id, seller_name, creator_name, item_count, price, race, enchant_level, is_settled, is_sold, is_canceled, expire_time, settle_time)` table
+    - [✓] `BrokerItem` — new model class in `Model/Broker/`; fields: Id, ItemId, SellerId, SellerName, CreatorName, ItemCount, Price, Race(0=Elyos/1=Asmodian), EnchantLevel, IsSettled, IsSold, IsCanceled, ExpireTime, SettleTime
+    - [✓] `IBrokerDao` / `BrokerDaoImpl` — `LoadAllAsync`, `InsertAsync`, `MarkSoldAsync`, `MarkCanceledAsync`, `MarkSettledAsync`, `DeleteAsync`
+    - [✓] `BrokerService` — in-memory dictionaries per race (active + settled); `InitAsync` loads from DB on startup; `GetPage(race, page, filterItemIds)`, `GetTotalCount`, `GetListings(playerId, race)`, `GetSettledItems`, `GetSettledKinah`; `RegisterAsync` (4% price + 1000 kinah fee, max 15 listings, consumes item from inventory); `CancelAsync` (returns to seller's listing view); `BuyAsync` (deducts kinah, marks sold, notifies seller of settled kinah icon); `SettleAsync` (credits seller kinah for all sold items, removes settled records)
+    - [✓] `SM_BROKER_SERVICE` (opcode 0x92) — multi-type server packet: `SearchedItems(items, total, page)`, `RegisteredItems(items)`, `BuyResult(remainingKinah)`, `RegisterSuccess(item, newCount)`, `RegisterError(code)`, `SettledItems(items, kinah)`, `ShowSettledIcon(kinah)`, `RemoveSettledIcon()`; writes fixed-size item blobs: MANA_SOCKETS (132 bytes: enchant, skin, optional socket, manastones×12, godstone, dye, idian, padding), PREMIUM_OPTION (3 bytes), POLISH_INFO (4 bytes)
+    - [✓] `CM_BROKER_LIST` (0x159) — browses all active listings for player's race; returns page via `GetPage(race, page, null)`
+    - [✓] `CM_BROKER_SEARCH` (0x15E) — searches by item IDs; returns filtered page via `GetPage(race, page, itemIds)`
+    - [✓] `CM_BROKER_REGISTERED` (0x15F) — views own listings via `GetListings(playerId, race)`
+    - [✓] `CM_REGISTER_BROKER_ITEM` (0x15D) — registers item: validates price/count, calls `RegisterAsync`
+    - [✓] `CM_BROKER_CANCEL_REGISTERED` (0x142) — cancels listing via `CancelAsync`
+    - [✓] `CM_BUY_BROKER_ITEM` (0x15C) — buys item via `BuyAsync`; notifies seller if online
+    - [✓] `CM_BROKER_SETTLE_LIST` (0x143) — views settled items + kinah via `GetSettledItems` + `GetSettledKinah`
+    - [✓] `CM_BROKER_SETTLE_ACCOUNT` (0x140) — collects kinah from sold items via `SettleAsync`; persists inventory; sends SM_INVENTORY_ADD_ITEM with kinah update
+    - [✓] `GsPacketHandlerFactory` — all 8 broker packets now pass `conn` + `_brokerService` (+ `_itemDao` for settle account); `BrokerService` injected as new ctor param
+    - [✓] `GameServerHost` — injects `BrokerService`; calls `InitAsync` before server starts listening
+    - [✓] `Program.cs` — registers `IBrokerDao → BrokerDaoImpl` and `BrokerService` as singletons
+    - Registration fee: 4% of price + 1000 kinah flat; max 15 listings per player; items expire after 3 days
+    - Item blobs: MANA_SOCKETS writes enchant level + 48 bytes manastone padding (no actual manastones stored in broker) + godstone + dye fields; PREMIUM_OPTION writes 3 zero bytes; POLISH_INFO writes 4 zero bytes; blob sizes match Java ManaStoneInfoBlobEntry.getSize()==132
+    - Build: 0 warnings, 0 errors

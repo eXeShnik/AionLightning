@@ -34,6 +34,7 @@ public sealed class GameServerHost : BackgroundService
     private readonly SpawnService  _spawnService;
     private readonly IEventBus _eventBus;
     private readonly IPlayerDao _playerDao;
+    private readonly BrokerService _brokerService;
 
     public GameServerHost(
         ILogger<GameServerHost> log,
@@ -50,7 +51,8 @@ public sealed class GameServerHost : BackgroundService
         ScriptService scriptService,
         SpawnService spawnService,
         IEventBus eventBus,
-        IPlayerDao playerDao)
+        IPlayerDao playerDao,
+        BrokerService brokerService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -67,6 +69,7 @@ public sealed class GameServerHost : BackgroundService
         _spawnService  = spawnService;
         _eventBus      = eventBus;
         _playerDao     = playerDao;
+        _brokerService = brokerService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -74,6 +77,9 @@ public sealed class GameServerHost : BackgroundService
         // Clear stale online flags from a previous run or crash
         await _playerDao.ResetAllOnlineAsync(ct);
         _log.LogInformation("Online flags reset for all players");
+
+        await _brokerService.InitAsync(ct);
+        _log.LogInformation("Broker service initialized");
 
         await LoadScriptsAsync(ct);
         _spawnService.SpawnAll();

@@ -47,6 +47,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IRecipeDao          _recipeDao;
     private readonly IMotionDao          _motionDao;
     private readonly ISkillDao           _skillDao;
+    private readonly BrokerService       _brokerService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -80,7 +81,8 @@ public sealed class GsPacketHandlerFactory
         GatherService gatherService,
         IRecipeDao recipeDao,
         IMotionDao motionDao,
-        ISkillDao skillDao)
+        ISkillDao skillDao,
+        BrokerService brokerService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -114,6 +116,7 @@ public sealed class GsPacketHandlerFactory
         _recipeDao       = recipeDao;
         _motionDao       = motionDao;
         _skillDao        = skillDao;
+        _brokerService   = brokerService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -227,9 +230,9 @@ public sealed class GsPacketHandlerFactory
                 0x13B => new CM_RECIPE_DELETE(conn, _recipeDao),
                 0x13D => new CM_HOUSE_TELEPORT_BACK(),
                 0x13E => new CM_FAST_TRACK(),
-                0x140 => new CM_BROKER_SETTLE_ACCOUNT(),
-                0x142 => new CM_BROKER_CANCEL_REGISTERED(),
-                0x143 => new CM_BROKER_SETTLE_LIST(),
+                0x140 => new CM_BROKER_SETTLE_ACCOUNT(conn, _brokerService, _itemDao),
+                0x142 => new CM_BROKER_CANCEL_REGISTERED(conn, _brokerService),
+                0x143 => new CM_BROKER_SETTLE_LIST(conn, _brokerService),
                 0x144 => new CM_BLOCK_ADD(conn, _playerDao, _socialDao),
                 0x145 => new CM_BLOCK_DEL(conn, _socialDao),
                 0x146 => new CM_QUEST_SHARE(conn, _connRegistry, _dataManager),
@@ -241,13 +244,13 @@ public sealed class GsPacketHandlerFactory
                 0x154 => new CM_ABYSS_RANKING_LEGIONS(conn, _legionDao),
                 0x155 => new CM_PRIVATE_STORE(conn, _connRegistry),
                 0x156 => new CM_DELETE_ITEM(conn, _itemDao),
-                0x159 => new CM_BROKER_LIST(),
+                0x159 => new CM_BROKER_LIST(conn, _brokerService),
                 0x15A => new CM_PRIVATE_STORE_NAME(conn, _connRegistry),
                 0x15B => new CM_SUMMON_COMMAND(),
-                0x15C => new CM_BUY_BROKER_ITEM(),
-                0x15D => new CM_REGISTER_BROKER_ITEM(),
-                0x15E => new CM_BROKER_SEARCH(),
-                0x15F => new CM_BROKER_REGISTERED(),
+                0x15C => new CM_BUY_BROKER_ITEM(conn, _brokerService),
+                0x15D => new CM_REGISTER_BROKER_ITEM(conn, _brokerService),
+                0x15E => new CM_BROKER_SEARCH(conn, _brokerService),
+                0x15F => new CM_BROKER_REGISTERED(conn, _brokerService),
                 0x160 => new CM_READ_EXPRESS_MAIL(),
                 0x161 => new CM_SUBZONE_CHANGE(),
                 0x162 => new CM_LEGION_UPLOAD_INFO(),
