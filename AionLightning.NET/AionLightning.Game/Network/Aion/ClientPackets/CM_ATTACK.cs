@@ -46,6 +46,8 @@ public sealed class CM_ATTACK : AionClientPacket
         r.ReadC();           // type (unused)
     }
 
+    private const float MaxMeleeRange = 7.0f; // lenient for latency; retail is ~5m
+
     public override async ValueTask RunAsync(CancellationToken ct)
     {
         var player = _conn.ActivePlayer;
@@ -60,6 +62,10 @@ public sealed class CM_ATTACK : AionClientPacket
         Creature? target = _world.GetPlayerByObjectId(_targetObjectId)
                         ?? (Creature?)_world.GetNpcByObjectId(_targetObjectId);
         if (target is null || target.IsAlreadyDead) return;
+
+        // Target must be in same zone and within melee range
+        if (target.Position.WorldId != player.Position.WorldId) return;
+        if (player.Position.DistanceTo(target.Position) > MaxMeleeRange) return;
 
         // Placeholder physical damage: level-scaled with small random spread
         int damage = player.Level * 6 + Random.Shared.Next(10, 40);

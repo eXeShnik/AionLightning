@@ -166,6 +166,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 Creature? target = world.GetPlayerByObjectId(_targetObjectId)
                                 ?? (Creature?)world.GetNpcByObjectId(_targetObjectId);
                 if (target is null || target.IsAlreadyDead) return;
+                if (target.Position.WorldId != castWorldId) return;
 
                 int damage = player.Level * 8 + Random.Shared.Next(20, 60);
                 target.CurrentHp = Math.Max(0, target.CurrentHp - damage);

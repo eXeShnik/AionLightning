@@ -863,6 +863,12 @@
     - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to `CM_DIALOG_SELECT` constructor at opcode 0x114
     - Build: 0 warnings, 0 errors
 
+76. [✓] Cross-zone combat guard + melee range validation (session 2026-05-01)
+    - Root cause: `CM_ATTACK` and `CM_CASTSPELL` resolved targets from the global world registry without checking WorldId; a player could attack a target in a different zone; additionally `CM_ATTACK` had no melee range limit
+    - [✓] `CM_ATTACK` — added `MaxMeleeRange = 7.0f` constant (lenient for latency; retail melee is ~5m); after target resolution: `if (target.Position.WorldId != player.Position.WorldId) return` + `if (player.Position.DistanceTo(target.Position) > MaxMeleeRange) return`; both guards prevent cross-zone and out-of-range auto-attacks
+    - [✓] `CM_CASTSPELL` Task.Run damage path — added `if (target.Position.WorldId != castWorldId) return` after target resolution (castWorldId captured before Task.Run from player's pre-cast position); spell damage cannot cross zone boundaries; note: spell range check omitted until `SkillTemplate` exposes a range attribute
+    - Build: 0 warnings, 0 errors
+
 75. [✓] Player auto-attack cooldown enforcement in CM_ATTACK (session 2026-05-01)
     - Root cause: `CM_ATTACK` allowed unlimited attacks per packet — a packet-speed exploit could deal unlimited damage with no timing gate
     - [✓] `Creature` — added `LastAttackTime: DateTime` (default `DateTime.MinValue`); all creatures (player + NPC) can track their last auto-attack timestamp; NPC AI already had its own cooldown tracking — this unifies the concept at the Creature level
