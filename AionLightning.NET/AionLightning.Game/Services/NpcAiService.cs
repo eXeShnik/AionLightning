@@ -315,7 +315,12 @@ public sealed class NpcAiService : BackgroundService
         var skills = _dataManager.NpcSkills.GetSkills(npc.Template.NpcId);
         if (skills is null || skills.Count == 0) return;
 
-        var entry = skills[Random.Shared.Next(skills.Count)];
+        // Filter to skills whose HP% range covers the NPC's current health
+        int npcHpPct = npc.HpPercentage;
+        var eligible = skills.Where(s => s.IsReadyForNpcHp(npcHpPct)).ToList();
+        if (eligible.Count == 0) return;
+
+        var entry = eligible[Random.Shared.Next(eligible.Count)];
         if (Random.Shared.Next(100) >= entry.Probability) return;
 
         _lastSkillTime[npc.ObjectId] = now;

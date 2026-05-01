@@ -1482,6 +1482,13 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+126. [✓] NPC skill HP% threshold — parse minhp/maxhp attributes + filter eligible skills (session 2026-05-01)
+    - [✓] `NpcSkillData.NpcSkillEntry` — added `MinHp int = 0` and `MaxHp int = 100` fields; `IsReadyForNpcHp(int hpPct)` returns true when `minhp <= hpPct <= maxhp`; default 0–100 = no restriction (fires at any HP)
+    - [✓] `NpcSkillData.LoadFile` — now parses `minhp` and `maxhp` from `<npcskill>` element; both optional (default 0/100 respectively)
+    - [✓] `NpcAiService.TryCastNpcSkillAsync` — filters skill list to entries whose HP range covers `npc.HpPercentage` before random selection; NPCs with threshold-based skills (e.g. heal at <50% HP) now fire those skills correctly; mirrors Java NpcSkillEntry.hpReady()
+    - 778 skill entries in the data file have explicit minhp/maxhp; entries without the attribute get defaults and behave as before
+    - Build: 0 warnings, 0 errors
+
 125. [✓] NPC shout — ATTACK_END event on target-loss or player-kill (session 2026-05-01)
     - [✓] `NpcAiService` — added `BroadcastAttackEndShoutAsync(npc, ct)` private helper; calls `GetRandomShout(npcId, ATTACK_END, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone; called from two points: leash-break target-loss (NPC exceeds leash range) and player-killed-by-NPC cleanup; mirrors Java ShoutEventHandler.onAttackEnd() which fires in AttackEventHandler.onFinishAttack()
     - Build: 0 warnings, 0 errors

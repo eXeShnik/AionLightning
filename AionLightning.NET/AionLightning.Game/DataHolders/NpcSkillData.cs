@@ -5,7 +5,12 @@ namespace AionLightning.Game.DataHolders;
 
 public sealed class NpcSkillData
 {
-    public sealed record NpcSkillEntry(int SkillId, int SkillLevel, int Probability);
+    /// <param name="MinHp">Minimum NPC HP% required to cast (0–100). Default 0 (no lower limit).</param>
+    /// <param name="MaxHp">Maximum NPC HP% allowed to cast (0–100). Default 100 (no upper limit).</param>
+    public sealed record NpcSkillEntry(int SkillId, int SkillLevel, int Probability, int MinHp = 0, int MaxHp = 100)
+    {
+        public bool IsReadyForNpcHp(int hpPercentage) => hpPercentage >= MinHp && hpPercentage <= MaxHp;
+    }
 
     private readonly Dictionary<int, List<NpcSkillEntry>> _skills = new();
 
@@ -52,7 +57,11 @@ public sealed class NpcSkillData
                             && int.TryParse(reader.GetAttribute("skilllevel"), out int skillLevel))
                         {
                             int.TryParse(reader.GetAttribute("probability"), out int prob);
-                            _skills[currentNpcId].Add(new NpcSkillEntry(skillId, skillLevel, Math.Clamp(prob, 1, 100)));
+                            int minHp = 0, maxHp = 100;
+                            if (int.TryParse(reader.GetAttribute("minhp"), out int mh)) minHp = mh;
+                            if (int.TryParse(reader.GetAttribute("maxhp"), out int xh)) maxHp = xh;
+                            _skills[currentNpcId].Add(new NpcSkillEntry(skillId, skillLevel,
+                                Math.Clamp(prob, 1, 100), minHp, maxHp));
                         }
                         break;
 
