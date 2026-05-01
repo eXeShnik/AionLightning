@@ -3,15 +3,22 @@ using AionLightning.Game.Dao;
 using AionLightning.Game.Model.Legion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
+using AionLightning.Game.Model.Item;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 public sealed class CM_LEGION : AionClientPacket
 {
+    private static readonly long[] KinahPrices        = [0, 100_000, 1_000_000, 5_000_000, 25_000_000, 50_000_000, 75_000_000, 100_000_000];
+    private static readonly long[] ContributionPrices = [0,       0,    20_000,   100_000,    500_000,  2_500_000,  12_500_000,  62_500_000];
+    private const int MaxLegionLevel = 8;
+    private const int KinahItemId    = 182400001;
+
     private readonly GsClientConnection       _conn;
     private readonly LegionService            _legionService;
     private readonly ILegionDao               _legionDao;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly IItemDao                 _itemDao;
 
     private int    _exOpcode;
     private string _legionName   = "";
@@ -19,12 +26,13 @@ public sealed class CM_LEGION : AionClientPacket
     private string _announcement = "";
 
     public CM_LEGION(GsClientConnection conn, LegionService legionService,
-        ILegionDao legionDao, PlayerConnectionRegistry connRegistry)
+        ILegionDao legionDao, PlayerConnectionRegistry connRegistry, IItemDao itemDao)
     {
         _conn          = conn;
         _legionService = legionService;
         _legionDao     = legionDao;
         _connRegistry  = connRegistry;
+        _itemDao       = itemDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -78,6 +86,9 @@ public sealed class CM_LEGION : AionClientPacket
                 break;
             case 0x09:
                 await HandleAnnouncementAsync(player, ct);
+                break;
+            case 0x0E:
+                await HandleLevelUpAsync(player, ct);
                 break;
         }
     }
@@ -239,6 +250,53 @@ public sealed class CM_LEGION : AionClientPacket
             var mc = _connRegistry.Get(m.ObjectId);
             if (mc is not null)
                 try { await mc.SendAsync(editPkt, ct); } catch { }
+        }
+    }
+
+    private async ValueTask HandleLevelUpAsync(Model.Player player, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null) return;
+        if (!legion.Members.TryGetValue(player.ObjectId, out var member)) return;
+        if (member.Rank != LegionRank.BrigadeGeneral) return;
+        if (legion.Level >= MaxLegionLevel) return;
+
+        long kinahCost        = KinahPrices[legion.Level];
+        long contributionCost = ContributionPrices[legion.Level];
+
+        if (legion.ContributionPoints < contributionCost) return;
+
+        var kinahItem = player.Inventory.FindByItemId(KinahItemId, includeEquipped: true);
+        if (kinahItem is null || kinahItem.Count < kinahCost) return;
+
+        // Deduct kinah from player inventory
+        kinahItem.Count -= kinahCost;
+        if (kinahItem.Count == 0)
+        {
+            player.Inventory.Remove(kinahItem.UniqueId);
+            await _itemDao.DeleteAsync(kinahItem.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(kinahItem.UniqueId), ct);
+        }
+        else
+        {
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
+        }
+
+        // Deduct contribution points and increment level
+        legion.ContributionPoints -= contributionCost;
+        legion.Level++;
+
+        await _legionDao.UpdateContributionPointsAsync(legion.LegionId, legion.ContributionPoints, ct);
+        await _legionDao.UpdateLevelAsync(legion.LegionId, legion.Level, ct);
+
+        // Notify all online members of the new level
+        var levelPkt = new SM_LEGION_EDIT(legion.Level);
+        foreach (var m in legion.Members.Values)
+        {
+            var mc = _connRegistry.Get(m.ObjectId);
+            if (mc is not null)
+                try { await mc.SendAsync(levelPkt, ct); } catch { }
         }
     }
 }

@@ -182,7 +182,7 @@ public sealed class GsPacketHandlerFactory
                 0xCC  => new CM_INSTANCE_LEAVE(),
                 0xCD  => new CM_LEGION_SEND_EMBLEM(conn, _legionService),
                 0xCE  => new CM_PING(conn),
-                0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry),
+                0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry, _itemDao),
                 0xD0  => new CM_TIME_CHECK(conn),
                 0xD1  => new CM_GATHER(conn, _world, _gatherService, _spawnService, _itemDao, _connRegistry, _expService, _skillDao, _questService),
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(conn, _legionService),

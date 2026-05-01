@@ -1343,3 +1343,13 @@
     - [✓] `GsPacketHandlerFactory` — passes `_legionDao` to `CM_MOVE_ITEM` (0x17E) and `CM_DIALOG_SELECT` (0x114)
     - Storage type note: .NET uses type 4 for legion WH (personal=2, account=3 in existing protocol); Java SM_WAREHOUSE_INFO writes storageType.getId() directly (LEGION=3), but existing .NET warehouse packets use +1 offset vs Java enum
     - Build: 0 warnings, 0 errors
+
+106. [✓] Legion level-up (CM_LEGION opcode 0x0E) (session 2026-05-01)
+    - Root cause: `CM_LEGION` case 0x0E was read-only (D+H consumed) but RunAsync had no handler; brigade generals could not upgrade the legion level
+    - [✓] `ILegionDao` — added `UpdateLevelAsync(int legionId, int level, ct)` interface method
+    - [✓] `LegionDaoImpl` — implemented: `UPDATE legions SET level = @level WHERE id = @legionId`
+    - [✓] `CM_LEGION` — added `IItemDao` field + constructor param; added kinah/contribution static price tables (7 entries each, indexed by current level); `HandleLevelUpAsync`: validates BG rank, max level 8 guard, contribution points check, kinah check; deducts kinah from player inventory (delete if exhausted, else update), saves inventory; deducts `ContributionPoints` from legion, persists; increments `Legion.Level`, persists; broadcasts `SM_LEGION_EDIT(newLevel)` (type 0x00) to all online members
+    - [✓] `GsPacketHandlerFactory` — passes `_itemDao` to `CM_LEGION` constructor at opcode 0xCF
+    - Kinah costs: 100K → 1M → 5M → 25M → 50M → 75M → 100M (levels 1→2 through 7→8)
+    - Contribution costs: 0 → 20K → 100K → 500K → 2.5M → 12.5M → 62.5M (levels 1→2 through 7→8)
+    - Build: 0 warnings, 0 errors

@@ -26,6 +26,7 @@ public interface ILegionDao
     Task DeleteLegionAsync(int legionId, CancellationToken ct);
     Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct);
     Task UpdateContributionPointsAsync(int legionId, long points, CancellationToken ct);
+    Task UpdateLevelAsync(int legionId, int level, CancellationToken ct);
     Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct);
     Task<IReadOnlyList<Item>> FindWarehouseItemsAsync(int legionId, CancellationToken ct);
     Task SaveWarehouseItemsAsync(int legionId, IEnumerable<Item> items, CancellationToken ct);
