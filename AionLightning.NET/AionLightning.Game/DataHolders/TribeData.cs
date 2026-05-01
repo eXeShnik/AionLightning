@@ -117,5 +117,17 @@ public sealed class TribeData
         return string.Equals(baseTribe, "MONSTER", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Returns true if an NPC of <paramref name="helperTribe"/> will assist an NPC of
+    /// <paramref name="victimTribe"/> that is under attack. Same tribe or same base tribe = support.
+    /// </summary>
+    public bool IsSupport(string helperTribe, string victimTribe)
+    {
+        if (string.Equals(helperTribe, victimTribe, StringComparison.OrdinalIgnoreCase)) return true;
+        string helperBase = _data.TryGetValue(helperTribe, out var hr) ? hr.Base : helperTribe;
+        string victimBase = _data.TryGetValue(victimTribe, out var vr) ? vr.Base : victimTribe;
+        return string.Equals(helperBase, victimBase, StringComparison.OrdinalIgnoreCase);
+    }
+
     public int Count => _data.Count;
 }

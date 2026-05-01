@@ -1482,6 +1482,13 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+130. [✓] NPC assist system — same-tribe NPCs join combat on aggro (session 2026-05-01)
+    - [✓] `TribeData.IsSupport(helperTribe, victimTribe)` — returns true if same tribe name OR same base tribe; mirrors Java TribeRelationService.isSupport()
+    - [✓] `NpcAiService.AlertNearbyAllies(aggressor, target)` — when an NPC acquires a new target, iterates all non-dead, non-dummy NPCs in the same world; for each ally within its own aggro range that has no current target and shares a tribe/base with the aggressor, assigns the same player target; allies then engage on their next tick (no extra packets needed — existing combat logic handles the follow-through)
+    - [✓] Called immediately after `_npcTargets[npc.ObjectId] = target.ObjectId` in the new-target acquisition block of `TickAsync`; synchronous (no async overhead since no packets are sent here)
+    - Mirrors Java AggroEventHandler.onCreatureNeedsSupport() + AggroNotifier broadcast (our 2-second tick replaces the 500ms Java delay)
+    - Build: 0 warnings, 0 errors
+
 129. [✓] Cube expander data-driven pricing — CubeExpanderData + CM_DIALOG_SELECT integration (session 2026-05-01)
     - [✓] `CubeExpanderData.cs` (NEW) — streaming XmlReader loads `cube_expander/cube_expander.xml`; maps `npcId → (expandLevel → price)`; `GetExpandPrice(npcId, nextLevel)` returns `long?` (null when NPC doesn't offer that level); `IsCubeExpander(npcId)` guards unknown NPCs; NPCs in the file have NPC-specific pricing (e.g. NPC 798008 only offers level 1 at 1000 kinah; Sanctum NPCs offer levels 2–4)
     - [✓] `IDataManager` / `DataManager` — added `CubeExpanderData CubeExpander { get; }` property; loads after InstanceExits

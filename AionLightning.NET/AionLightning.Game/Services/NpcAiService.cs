@@ -168,6 +168,7 @@ public sealed class NpcAiService : BackgroundService
                     {
                         _npcTargets[npc.ObjectId] = target.ObjectId;
                         npc.Target = target;
+                        AlertNearbyAllies(npc, target);
 
                         // SEE shout — NPC has just spotted a player
                         var shout = _dataManager.NpcShouts.GetRandomShout(
@@ -531,6 +532,28 @@ public sealed class NpcAiService : BackgroundService
                     if (conn.ActivePlayer?.Position.WorldId == worldId)
                         try { await conn.SendAsync(shoutPkt, ct); } catch { }
             }
+        }
+    }
+
+    // When an NPC engages a player, notify nearby same-tribe NPCs to also engage.
+    // Uses each potential ally's own aggro range as the assist radius.
+    private void AlertNearbyAllies(Npc aggressor, Player target)
+    {
+        int worldId = aggressor.Position.WorldId;
+        foreach (var ally in _world.GetAllNpcs())
+        {
+            if (ally.ObjectId == aggressor.ObjectId) continue;
+            if (ally.IsAlreadyDead) continue;
+            if (ally.Position.WorldId != worldId) continue;
+            if (_npcTargets.ContainsKey(ally.ObjectId)) continue;
+            if (string.Equals(ally.Template.Ai, "dummy", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!_dataManager.Tribes.IsSupport(ally.Template.Tribe, aggressor.Template.Tribe)) continue;
+
+            float checkRange = ally.Template.AggroRange > 0 ? ally.Template.AggroRange : MeleeRange * 4;
+            if (ally.Position.DistanceTo(aggressor.Position) > checkRange) continue;
+
+            _npcTargets[ally.ObjectId] = target.ObjectId;
+            ally.Target = target;
         }
     }
 
