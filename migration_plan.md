@@ -939,6 +939,11 @@
     - [✓] `CM_GATHER.HandleFinishAsync` — retrieves the stored material from `GetSession` instead of re-rolling; validates session target matches; adds `HasFreeSlot` guard before consuming the harvest charge: full inventory returns early with `SM_SYSTEM_MESSAGE.InventoryFull()`
     - Build: 0 warnings, 0 errors
 
+78. [✓] SM_STATS_INFO inventory slot count (session 2026-05-01)
+    - Root cause: the inventory limit and current size fields in SM_STATS_INFO were hardcoded to (27, 0), so the client always displayed "0/27 slots used" regardless of how many items the player had
+    - [✓] `SM_STATS_INFO.Write` — replaced hardcoded `(27, 0)` with `(p.Inventory.Capacity, p.Inventory.BagSlotUsed)` so the client UI reflects the actual bag state
+    - Build: 0 warnings, 0 errors
+
 77. [✓] Craft inventory-full check + material-before-product ordering (session 2026-05-01)
     - Root cause: `CM_CRAFT` consumed component items before checking if the crafted product could fit in inventory, creating a situation where components were lost but the product was never received
     - [✓] `CM_CRAFT.RunAsync` — added pre-craft inventory capacity check: computes `slotsFreed` (fully-consumed components that free a slot), `productStacks` (product stacks onto existing stack → no new slot needed); if product can't fit after accounting for freed component slots, sends `InventoryFull` and aborts before consuming anything

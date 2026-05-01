@@ -84,7 +84,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0); w.WriteH(0);      // P-crit resist, M-crit resist
         w.WriteH(0); w.WriteH(0);      // P-crit fortitude, M-crit fortitude
         w.WriteH(0);                   // unk 3.5
-        w.WriteD(27); w.WriteD(0);     // inventory limit, current size
+        w.WriteD(p.Inventory.Capacity); w.WriteD(p.Inventory.BagSlotUsed); // inventory limit, current size
         w.WriteD(0); w.WriteD(0);      // unk
         w.WriteD((int)p.PlayerClass);
 
