@@ -222,7 +222,7 @@ public sealed class GsPacketHandlerFactory
                 0x132 => new CM_FRIEND_DEL(conn, _socialDao),
                 0x136 => new CM_STOP_TRAINING(),
                 0x138 => new CM_ITEM_REMODEL(),
-                0x139 => new CM_GODSTONE_SOCKET(),
+                0x139 => new CM_GODSTONE_SOCKET(conn, _itemDao, _dataManager, _connRegistry),
                 0x13A => new CM_BUY_TRADE_IN_TRADE(),
                 0x13B => new CM_RECIPE_DELETE(conn, _recipeDao),
                 0x13D => new CM_HOUSE_TELEPORT_BACK(),

@@ -1249,3 +1249,16 @@
     - [✓] `GsPacketHandlerFactory` — updated 0xE2 (CM_ATTACK) and 0xE3 (CM_CASTSPELL) to pass `_legionDao`
     - Mirrors Java AbyssPointsService.addAp: when a player earns AP, the same amount is contributed to their legion's `contribution_points` and broadcast to all online members
     - Build: 0 warnings, 0 errors
+
+99. [✓] Godstone socketing (CM_GODSTONE_SOCKET) (session 2026-05-01)
+    - [✓] `V25__godstone.sql` — `ALTER TABLE player_items ADD COLUMN godstone_item_id INT NOT NULL DEFAULT 0`
+    - [✓] `ItemTemplate` — added `[XmlAttribute("mask")] Mask int`; `[XmlElement("godstone")] GodstoneInfo?`; `CanSocketGodstone => (Mask & 1024) != 0` (CAN_PROC_ENCHANT = 1 << 10 per Java ItemMask)
+    - [✓] `GodstoneInfo` — new record with `SkillId`, `SkillLvl`, `Probability`, `ProbabilityLeft` (maps XML `<godstone skillid=X skilllvl=Y probability=Z probabilityleft=W>`)
+    - [✓] `Item` — added `GodStoneItemId int = 0`
+    - [✓] `ItemDaoImpl` — updated SELECT to include `godstone_item_id` (index 6); `is_equipped` shifted to index 7; INSERT includes `godstone_item_id`
+    - [✓] `SM_UPDATE_PLAYER_APPEARANCE` — writes `item.GodStoneItemId` instead of hardcoded 0
+    - [✓] `SM_SYSTEM_MESSAGE` — added `GodstoneApplied()` (1300502), `GodstoneInvalid()` (1300503), `GodstoneAlreadySlotted()` (1300504), `GodstoneNoKinah()` (1300505)
+    - [✓] `CM_GODSTONE_SOCKET` — full implementation: finds weapon (inventory or equipped), validates `CanSocketGodstone`, checks `GodStoneItemId == 0` (not already slotted), validates stone has godstone data, kinah ≥ 100,000; deducts kinah; consumes 1 stone; sets `weapon.GodStoneItemId = stone.ItemId`; persists; sends SM_INVENTORY_ADD_ITEM([weapon, kinahItem]) + SM_SYSTEM_MESSAGE; broadcasts SM_UPDATE_PLAYER_APPEARANCE if equipped
+    - [✓] `GsPacketHandlerFactory` — updated 0x139 to pass `conn, _itemDao, _dataManager, _connRegistry`
+    - Godstone proc (combat trigger) is NOT implemented — stored itemId enables correct wire format encoding; proc effect is future work
+    - Build: 0 warnings, 0 errors

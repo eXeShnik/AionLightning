@@ -91,6 +91,18 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_SUCCESS_RECOVER_EXPERIENCE — "You have been cured of Soul Sickness." (msg code 1300674)
     public static SM_SYSTEM_MESSAGE SoulSicknessCleared() => new(1300674);
 
+    // STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM — "Godstone has been applied to %0." (msg code 1300502)
+    public static SM_SYSTEM_MESSAGE GodstoneApplied() => new(1300502);
+
+    // STR_GIVE_ITEM_PROC_NO_PROC_GIVE_ITEM — "This item cannot be used as a Godstone." (msg code 1300503)
+    public static SM_SYSTEM_MESSAGE GodstoneInvalid() => new(1300503);
+
+    // STR_GIVE_ITEM_PROC_CANNOT_GIVE_PROC_TO_EQUIPPED_ITEM — "Cannot apply Godstone to an equipped item." (msg code 1300504)
+    public static SM_SYSTEM_MESSAGE GodstoneAlreadySlotted() => new(1300504);
+
+    // STR_GIVE_ITEM_PROC_NOT_ENOUGH_MONEY — "Not enough Kinah to apply Godstone." (msg code 1300505)
+    public static SM_SYSTEM_MESSAGE GodstoneNoKinah() => new(1300505);
+
     // Legion rename messages (STR_LEGION_RENAME_*)
     // 1400152: invalid or forbidden name
     public static SM_SYSTEM_MESSAGE LegionNameInvalid() => new(1400152);

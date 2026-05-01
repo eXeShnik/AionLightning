@@ -14,10 +14,12 @@ public sealed class ItemTemplate
     [XmlAttribute("quality")]         public string Quality       { get; set; } = string.Empty;
     [XmlAttribute("price")]           public long   Price         { get; set; }
     [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
+    [XmlAttribute("mask")]            public int    Mask          { get; set; }
 
     [XmlElement("actions")]           public ItemActions?   Actions     { get; set; }
     [XmlElement("weapon_stats")]      public WeaponStats?   WeaponStats { get; set; }
     [XmlElement("modifiers")]         public ItemModifiers? Modifiers   { get; set; }
+    [XmlElement("godstone")]          public GodstoneInfo?  Godstone    { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
@@ -28,6 +30,9 @@ public sealed class ItemTemplate
     public int MagicDefense        => Modifiers?.GetStat("MAGICAL_DEFEND")   ?? 0;
     public int MaxHpBonus          => Modifiers?.GetStat("MAXHP")            ?? 0;
     public int MaxMpBonus          => Modifiers?.GetStat("MAXMP")            ?? 0;
+
+    // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
+    public bool CanSocketGodstone  => (Mask & 1024) != 0;
 }
 
 public sealed class ItemModifiers
@@ -76,4 +81,12 @@ public sealed class SkillLearnAction
 public sealed class CraftLearnAction
 {
     [XmlAttribute("recipeid")] public int RecipeId { get; set; }
+}
+
+public sealed class GodstoneInfo
+{
+    [XmlAttribute("skillid")]          public int SkillId          { get; set; }
+    [XmlAttribute("skilllvl")]         public int SkillLvl         { get; set; }
+    [XmlAttribute("probability")]      public int Probability      { get; set; }
+    [XmlAttribute("probabilityleft")]  public int ProbabilityLeft  { get; set; }
 }
