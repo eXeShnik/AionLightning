@@ -265,6 +265,20 @@ public sealed class NpcAiService : BackgroundService
 
             await BroadcastGroupHpAsync(target, ct);
 
+            // ATTACK shout — fires on subsequent attacks with ~20% probability
+            if (Random.Shared.Next(100) < 20)
+            {
+                var atkShout = _dataManager.NpcShouts.GetRandomShout(
+                    npc.Template.NpcId, NpcShoutData.ShoutEventType.ATTACK, npc.Position.WorldId);
+                if (atkShout.HasValue)
+                {
+                    var shoutPkt = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, atkShout.Value.StringId);
+                    foreach (var conn in _connRegistry.GetAll())
+                        if (conn.ActivePlayer?.Position.WorldId == npcWorld)
+                            try { await conn.SendAsync(shoutPkt, ct); } catch { }
+                }
+            }
+
             // Occasional NPC skill use (independent of melee cooldown)
             if (target.CurrentHp > 0)
                 await TryCastNpcSkillAsync(npc, target, now, npcWorld, ct);

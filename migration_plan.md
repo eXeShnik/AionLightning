@@ -1482,6 +1482,11 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+123. [✓] NpcTemplate rank/rating/race attributes + ATTACK shout (session 2026-05-01)
+    - [✓] `NpcTemplate` — added three new XML-parsed properties: `Rank` (`[XmlAttribute("rank")]`, default "NOVICE"), `Rating` (`[XmlAttribute("rating")]`, default "NORMAL"), `NpcRace` (`[XmlAttribute("race")]`, default "GENERAL"); mirrors Java NpcTemplate fields; required by global drop rules (rating=NORMAL/ELITE/HERO, race=BEAST/ELEMENTAL/etc.)
+    - [✓] `NpcAiService` — added ATTACK shout block after damage broadcast; fires with 20% probability per attack tick; calls `GetRandomShout(npcId, ATTACK, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone; mirrors Java ShoutEventHandler.onAttack (periodic, distinct from ATTACK_BEGIN which fires exactly once)
+    - Build: 0 warnings, 0 errors
+
 118. [✓] NPC shouts — load npc_shouts.xml + SEE event broadcast (session 2026-05-02)
     - [✓] `NpcShoutData.cs` (NEW) — streaming XmlReader loads `npc_shouts/npc_shouts.xml`; indexes by `(npcId → ShoutEventType → List<ShoutEntry>)`; `GetRandomShout(npcId, evt, worldId)` filters by `restrict_world` (0=any world, nonzero=specific map) and returns a random eligible entry; `ShoutEventType` enum covers SEE/IDLE/ATTACK/ATTACK_BEGIN/ATTACK_END/DIED/CAST_K/ATTACK_K/PLAYER_MAGIC/PLAYER_SNARE/PLAYER_DEBUFF/PLAYER_SLAVE/PLAYER_BLOW/SWITCH_TARGET/GOD_HELP/WAKEUP/OTHER
     - [✓] `IDataManager` / `DataManager` — added `NpcShoutData NpcShouts { get; }` property; loads after Tribes

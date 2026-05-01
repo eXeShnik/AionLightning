@@ -16,6 +16,9 @@ public sealed class NpcTemplate
     [XmlAttribute("ai")]       public string Ai          { get; set; } = "dummy";
     [XmlAttribute("type")]     public string NpcType     { get; set; } = "GENERAL";
     [XmlAttribute("tribe")]    public string Tribe       { get; set; } = "GENERAL";
+    [XmlAttribute("rank")]     public string Rank        { get; set; } = "NOVICE";
+    [XmlAttribute("rating")]   public string Rating      { get; set; } = "NORMAL";
+    [XmlAttribute("race")]     public string NpcRace     { get; set; } = "GENERAL";
 
     [XmlElement("stats")]
     public NpcStatsTemplate? Stats { get; set; }
