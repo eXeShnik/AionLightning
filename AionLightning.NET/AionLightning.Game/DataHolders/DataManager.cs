@@ -26,6 +26,8 @@ public sealed class DataManager : IDataManager
     public NpcShoutData                   NpcShouts   { get; } = new();
     public PortalData                     Portals     { get; } = new();
     public BindPointData                  BindPoints  { get; } = new();
+    public WorldMapData                   WorldMaps   { get; } = new();
+    public GlobalDropData                 GlobalDrops { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -54,6 +56,8 @@ public sealed class DataManager : IDataManager
         NpcShouts.Load(dataRoot, log);
         Portals.Load(dataRoot, log);
         BindPoints.Load(dataRoot, log);
+        WorldMaps.Load(dataRoot, log);
+        GlobalDrops.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

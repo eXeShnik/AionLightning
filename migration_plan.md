@@ -1482,6 +1482,15 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+124. [✓] Global drop rules — WorldMapData + GlobalDropData + LootService integration (session 2026-05-01)
+    - [✓] `WorldMapData.cs` (NEW) — streaming XmlReader loads `world_maps.xml`; indexes `drop_type` attribute per map id (e.g. ELYSEA, ABYSS_INSTANCE, BALAUREA); `GetDropType(worldId)` returns empty string when no `drop_type` attribute (e.g. maps with `world_type` only); used by GlobalDropData to match `gd_world` filters
+    - [✓] `GlobalDropData.cs` (NEW) — streaming XmlReader loads `global_drops/global_rules.xml`; parses 66 rules (gd_worlds, gd_races, gd_ratings, gd_maps, gd_items, base_chance, min/max_count, min/max_diff, restriction_race); `GetGlobalDrops(...)` applies all filters per rule: world-type match, specific-map match, NPC-race match, NPC-rating match, level-diff range, player-race restriction; rolls `base_chance` (0–100); picks one item randomly from `gd_items` list; yields `(itemId, count)` pairs
+    - [✓] `IDataManager` / `DataManager` — added `WorldMapData WorldMaps` and `GlobalDropData GlobalDrops` properties; loaded after BindPoints in startup sequence
+    - [✓] `LootService.GenerateDrops(Npc npc)` → `GenerateDrops(Npc npc, Player killer)` — resolves NPC world's drop-type string, player's faction string, then appends all matching global drops to the loot list after NPC-specific drops
+    - [✓] `CM_ATTACK` / `CM_CASTSPELL` — updated `GenerateDrops` calls to pass the killing player
+    - Level-diff semantics: `playerLevel - npcLevel` must fall in `[minDiff, maxDiff]`; when no diff attributes in XML, defaults to [int.MinValue, int.MaxValue] (no restriction)
+    - Build: 0 warnings, 0 errors
+
 123. [✓] NpcTemplate rank/rating/race attributes + ATTACK shout (session 2026-05-01)
     - [✓] `NpcTemplate` — added three new XML-parsed properties: `Rank` (`[XmlAttribute("rank")]`, default "NOVICE"), `Rating` (`[XmlAttribute("rating")]`, default "NORMAL"), `NpcRace` (`[XmlAttribute("race")]`, default "GENERAL"); mirrors Java NpcTemplate fields; required by global drop rules (rating=NORMAL/ELITE/HERO, race=BEAST/ELEMENTAL/etc.)
     - [✓] `NpcAiService` — added ATTACK shout block after damage broadcast; fires with 20% probability per attack tick; calls `GetRandomShout(npcId, ATTACK, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone; mirrors Java ShoutEventHandler.onAttack (periodic, distinct from ATTACK_BEGIN which fires exactly once)

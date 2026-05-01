@@ -192,7 +192,7 @@ public sealed class CM_ATTACK : AionClientPacket
             _world.Remove(deadNpc);
 
             // Generate drops keyed by the NPC's objectId (now removed from world)
-            _lootService.GenerateDrops(deadNpc);
+            _lootService.GenerateDrops(deadNpc, player);
 
             // Update quest kill progress for active quests
             await _questService.HandleNpcKillAsync(player, deadNpc, _conn, ct);

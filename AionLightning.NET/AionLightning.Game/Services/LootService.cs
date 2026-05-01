@@ -28,7 +28,7 @@ public sealed class LootService
     }
 
     /// <summary>Generates drops for a killed NPC and stores them keyed by the NPC's (now-removed) objectId.</summary>
-    public void GenerateDrops(Npc npc)
+    public void GenerateDrops(Npc npc, Player killer)
     {
         var drops = new List<LootEntry>();
 
@@ -66,6 +66,17 @@ public sealed class LootService
                 int potionCount = 1 + Random.Shared.Next(0, Math.Min(3, 1 + npc.Level / 5));
                 drops.Add(new LootEntry(MinorLifeElixirId, potionCount, IsTradeable: true));
             }
+        }
+
+        // Global drop rules (world-type, NPC race/rating, level-diff, player-race filters)
+        var worldDropType = _dataManager.WorldMaps.GetDropType(npc.Position.WorldId);
+        var playerRace    = killer.Race == Race.ELYOS ? "ELYOS" : "ASMODIANS";
+        foreach (var (itemId, count) in _dataManager.GlobalDrops.GetGlobalDrops(
+            npc.Level, npc.Template.Rating, npc.Template.NpcRace,
+            worldDropType, npc.Position.WorldId,
+            killer.Level, playerRace))
+        {
+            drops.Add(new LootEntry(itemId, count, IsTradeable: true));
         }
 
         _pending[npc.ObjectId]   = drops;

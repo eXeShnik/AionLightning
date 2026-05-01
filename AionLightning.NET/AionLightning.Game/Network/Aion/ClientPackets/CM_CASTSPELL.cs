@@ -298,7 +298,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                     world.Remove(deadNpc);
 
-                    lootSvc.GenerateDrops(deadNpc);
+                    lootSvc.GenerateDrops(deadNpc, player);
 
                     // Update quest kill progress
                     await questSvc.HandleNpcKillAsync(player, deadNpc, conn, CancellationToken.None);
