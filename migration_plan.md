@@ -863,6 +863,13 @@
     - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to `CM_DIALOG_SELECT` constructor at opcode 0x114
     - Build: 0 warnings, 0 errors
 
+72. [✓] Quest REWARD state transition on objective completion (session 2026-05-01)
+    - Root cause: quest status stayed START after completing kill objectives; client never received REWARD state signal so the "Return to NPC" map indicator never appeared; Java `QuestService` calls `updateQuestStatus` to set REWARD when all objectives are met
+    - [✓] `QuestService.HandleNpcKillAsync` — added `if (entry.Status != QuestStatus.START) continue` guard so REWARD/COMPLETE quests are skipped; after updating kill vars, calls new `IsRewardReady(entry, template, player)` helper; if all objectives met, sets `entry.Status = QuestStatus.REWARD` before persisting; sends `SM_QUEST_LIST` update only on REWARD transition so the map indicator appears immediately
+    - [✓] `QuestService.IsRewardReady` — static helper: iterates `QuestKills` checking `entry.GetVar(seq) >= count`; iterates `CollectItems` checking inventory count via `FindByItemId`; returns false on first unsatisfied condition, true when all pass
+    - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — added `entry.Status == QuestStatus.START`-gated validation block: re-validates kills and collect-items before granting rewards; when status is already REWARD, validation is skipped (was already satisfied at transition time)
+    - Build: 0 warnings, 0 errors
+
 71. [✓] Quest title reward on completion (session 2026-05-01)
     - Root cause: `QuestRewards.Title` is parsed (was added in M56) but never applied; quest completion silently dropped the title reward; Java `QuestService.giveReward()` calls `player.getTitleList().addTitle(titleId, true, 0)` where the second parameter means auto-equip
     - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — after AP award, checks `template.Rewards?.Title >= 0`; sets `player.TitleId = titleId`, calls `UpdateTitleAsync`, sends `SM_TITLE_INFO.ActiveTitle(titleId)` to self, broadcasts `SM_TITLE_INFO.BroadcastTitle(player.ObjectId, titleId)` to zone peers (WorldId-filtered, try/catch per broadcast convention); mirrors Java auto-equip behavior

@@ -147,10 +147,18 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var template = _dataManager.Quests.GetTemplate(_questId);
         if (template is null) return;
 
-        // Validate kill requirements
-        foreach (var kill in template.QuestKills)
+        // When status is START, validate objectives here (REWARD state was already validated at transition)
+        if (entry.Status == QuestStatus.START)
         {
-            if (entry.GetVar(kill.Seq) < kill.Count) return;
+            foreach (var kill in template.QuestKills)
+                if (entry.GetVar(kill.Seq) < kill.Count) return;
+
+            if (template.CollectItems is { Items.Count: > 0 })
+                foreach (var req in template.CollectItems.Items)
+                {
+                    var chk = player.Inventory.FindByItemId(req.ItemId);
+                    if (chk is null || chk.Count < req.Count) return;
+                }
         }
 
         // Validate and consume collect_item requirements
