@@ -108,4 +108,8 @@ public sealed class Player : Creature
 
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
+
+    // Private store — null when store is closed
+    public List<PrivateStoreItem>? StoreItems { get; set; }
+    public string StoreName { get; set; } = string.Empty;
 }

@@ -1,6 +1,7 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using GameWorld = AionLightning.Game.World.World;
 
@@ -33,6 +34,15 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
     {
         var player = _conn.ActivePlayer;
         if (player is null) return;
+
+        // Private store: if the target is a player with an open shop, send the store listing
+        var storeOwner = _world.GetPlayerByObjectId(_targetObjectId);
+        if (storeOwner is not null)
+        {
+            if ((storeOwner.State & CreatureState.PrivateShop) != 0)
+                await _conn.SendAsync(new SM_PRIVATE_STORE(storeOwner), ct);
+            return;
+        }
 
         var npc = _world.GetNpcByObjectId(_targetObjectId);
         if (npc is null) return;

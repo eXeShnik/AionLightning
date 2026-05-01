@@ -1143,6 +1143,18 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+93. [✓] Private store — open/list/view (session 2026-05-01)
+    - [✓] `PrivateStoreItem` — new record: `UniqueId`, `ItemId`, `Count`, `Price`
+    - [✓] `Player` — added `List<PrivateStoreItem>? StoreItems` and `string StoreName` properties
+    - [✓] `SM_PRIVATE_STORE_NAME` — new server packet (0x9E): broadcasts seller ObjId + store name string to zone
+    - [✓] `SM_PRIVATE_STORE` — new server packet (0x9D): sends store listing (seller ObjId + per-item: uniqueId, itemId, count, price, WriteItemInfo) to viewer; reuses SM_INVENTORY_INFO.WriteItemInfo helper
+    - [✓] `CM_PRIVATE_STORE_NAME` (0x15A) — reads store name; sets `CreatureState.PrivateShop` on seller; broadcasts `SM_EMOTION(OPEN_PRIVATESHOP)` + `SM_PRIVATE_STORE_NAME` to all zone players
+    - [✓] `CM_PRIVATE_STORE` (0x155) — reads item list; validates each item is in seller's inventory (uniqueId, itemId, count, price > 0); stores as `StoreItems` on player; 0-item submission closes the store (`~PrivateShop` state + `SM_EMOTION(CLOSE_PRIVATESHOP)` broadcast)
+    - [✓] `CM_SHOW_DIALOG` — added player-target branch: if target is a player with `PrivateShop` state set, sends `SM_PRIVATE_STORE` to the viewer (store browsing); NPC dialog flow unchanged
+    - [✓] `GsPacketHandlerFactory` — updated 0x155 and 0x15A registrations to pass `_connRegistry`
+    - Buy-from-store (CM_BUY_TRADE_IN_TRADE or equivalent) is a separate milestone
+    - Build: 0 warnings, 0 errors
+
 92. [✓] NPC and gatherable respawn times from spawn data (session 2026-05-01)
     - [✓] `Npc` — added `public int RespawnTime { get; set; }` property
     - [✓] `Gatherable` — added `public int RespawnTime { get; set; }` property
