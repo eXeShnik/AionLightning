@@ -15,8 +15,8 @@ namespace AionLightning.Game.Services;
 /// </summary>
 public sealed class NpcAiService : BackgroundService
 {
-    private static readonly TimeSpan Interval       = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan AttackCooldown = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan Interval            = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan DefaultAttackCooldown = TimeSpan.FromMilliseconds(1500); // fallback when template adelay=0
     private static readonly TimeSpan WanderCooldown = TimeSpan.FromSeconds(10);
     private const float LeashMultiplier = 1.5f;
     private const float WanderRadius    = 5.0f;
@@ -181,11 +181,15 @@ public sealed class NpcAiService : BackgroundService
             }
 
             var now = DateTime.UtcNow;
-            if (now - _lastAttackTime.GetValueOrDefault(npc.ObjectId) < AttackCooldown) continue;
+            int atkDelayMs = npc.Template.AttackDelay > 0 ? npc.Template.AttackDelay : (int)DefaultAttackCooldown.TotalMilliseconds;
+            if ((now - _lastAttackTime.GetValueOrDefault(npc.ObjectId)).TotalMilliseconds < atkDelayMs) continue;
             _lastAttackTime[npc.ObjectId] = now;
 
             // Deal damage — both NPC and target enter combat (suppresses regen for both)
-            int damage = npc.Level * 5 + Random.Shared.Next(5, 20);
+            int baseAtk = npc.Template.Stats?.MainHandAttack ?? 0;
+            int damage  = baseAtk > 0
+                ? Math.Max(1, baseAtk + Random.Shared.Next(-(baseAtk / 4), baseAtk / 4 + 1))
+                : Math.Max(1, npc.Level * 5 + Random.Shared.Next(5, 20));
             target.CurrentHp      = Math.Max(0, target.CurrentHp - damage);
             target.LastCombatTime = now;
             npc.LastCombatTime    = now;

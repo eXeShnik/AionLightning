@@ -939,6 +939,12 @@
     - [✓] `CM_GATHER.HandleFinishAsync` — retrieves the stored material from `GetSession` instead of re-rolling; validates session target matches; adds `HasFreeSlot` guard before consuming the harvest charge: full inventory returns early with `SM_SYSTEM_MESSAGE.InventoryFull()`
     - Build: 0 warnings, 0 errors
 
+79. [✓] NpcAiService: use template attack delay and MainHandAttack for combat (session 2026-05-01)
+    - Root cause: NPC attack cooldown was hardcoded to 4 000ms regardless of `NpcTemplate.adelay`; damage was always a level×5 formula regardless of the NPC's actual stat data
+    - [✓] `NpcAiService` — replaced `AttackCooldown = 4s` constant with `DefaultAttackCooldown = 1500ms` fallback; per-tick attack check now reads `npc.Template.AttackDelay` (in ms) if > 0, else uses the default
+    - [✓] `NpcAiService` — damage formula now checks `npc.Template.Stats?.MainHandAttack > 0`; if present uses ±25% variance around the template value; falls back to level×5 formula when the stat is missing
+    - Build: 0 warnings, 0 errors
+
 78. [✓] SM_STATS_INFO inventory slot count (session 2026-05-01)
     - Root cause: the inventory limit and current size fields in SM_STATS_INFO were hardcoded to (27, 0), so the client always displayed "0/27 slots used" regardless of how many items the player had
     - [✓] `SM_STATS_INFO.Write` — replaced hardcoded `(27, 0)` with `(p.Inventory.Capacity, p.Inventory.BagSlotUsed)` so the client UI reflects the actual bag state
