@@ -172,6 +172,14 @@ public sealed class LegionDaoImpl : ILegionDao
             new { kinah, legionId });
     }
 
+    public async Task UpdateContributionPointsAsync(int legionId, long points, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legions SET contribution_points = @points WHERE id = @legionId",
+            new { points, legionId });
+    }
+
     public async Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);

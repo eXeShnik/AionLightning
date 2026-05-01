@@ -19,6 +19,7 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
     private readonly IPlayerDao _playerDao;
+    private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
 
     private int _targetObjectId;
@@ -27,7 +28,7 @@ public sealed class CM_ATTACK : AionClientPacket
     public CM_ATTACK(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, ExperienceService expService,
         SpawnService spawnService, LootService lootService, QuestService questService,
-        DuelService duelService, IPlayerDao playerDao, RateOptions rates)
+        DuelService duelService, IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
     {
         _conn         = conn;
         _world        = world;
@@ -38,6 +39,7 @@ public sealed class CM_ATTACK : AionClientPacket
         _questService = questService;
         _duelService  = duelService;
         _playerDao    = playerDao;
+        _legionDao    = legionDao;
         _rates        = rates;
     }
 
@@ -155,6 +157,7 @@ public sealed class CM_ATTACK : AionClientPacket
 
                 await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
                 await _playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, ct);
+                await AwardLegionContributionAsync(player, apGain, ct);
             }
         }
         else if (target is Npc deadNpc)
@@ -183,6 +186,7 @@ public sealed class CM_ATTACK : AionClientPacket
                 AbyssRankService.AddAp(player, ap);
                 await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
                 await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+                await AwardLegionContributionAsync(player, ap, ct);
             }
 
             // Delayed despawn + respawn; also cleans up uncollected loot after 60s
@@ -212,5 +216,22 @@ public sealed class CM_ATTACK : AionClientPacket
         foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer!.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
                 try { await other.SendAsync(packet, ct); } catch { }
+    }
+
+    private async ValueTask AwardLegionContributionAsync(Model.Player player, long apAmount, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null || apAmount <= 0) return;
+
+        legion.ContributionPoints += apAmount;
+        await _legionDao.UpdateContributionPointsAsync(legion.LegionId, legion.ContributionPoints, ct);
+
+        var update = new SM_LEGION_EDIT(legion.ContributionPoints);
+        foreach (var member in legion.Members.Values)
+        {
+            var mConn = _connRegistry.Get(member.ObjectId);
+            if (mConn is not null)
+                try { await mConn.SendAsync(update, ct); } catch { }
+        }
     }
 }

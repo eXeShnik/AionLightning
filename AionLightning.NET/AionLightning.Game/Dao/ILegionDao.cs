@@ -24,5 +24,6 @@ public interface ILegionDao
     Task<bool> IsNameUsedAsync(string name, CancellationToken ct);
     Task DeleteLegionAsync(int legionId, CancellationToken ct);
     Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct);
+    Task UpdateContributionPointsAsync(int legionId, long points, CancellationToken ct);
     Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct);
 }

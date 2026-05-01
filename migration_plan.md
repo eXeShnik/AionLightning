@@ -1239,3 +1239,13 @@
     - [✓] `GsClientConnection.DisposeAsync` — saves account warehouse on disconnect
     - [✓] `AutoSaveService` — saves account warehouse in 5-minute periodic save
     - Build: 0 warnings, 0 errors
+
+98. [✓] Legion contribution points from AP gains (session 2026-05-01)
+    - [✓] `SM_LEGION_EDIT` — added type 0x03 constructor (`SM_LEGION_EDIT(long contributionPoints)`) writing `WriteQ(contributionPoints)`; mirrors Java SM_LEGION_EDIT case 0x03 (change legion contributions)
+    - [✓] `ILegionDao` — added `UpdateContributionPointsAsync(int legionId, long points, ct)` interface method
+    - [✓] `LegionDaoImpl` — implemented: `UPDATE legions SET contribution_points = @points WHERE id = @legionId`
+    - [✓] `CM_ATTACK` — added `ILegionDao` dependency; after PvP AP gain (player kill in Abyss) and NPC AP gain (Abyss guard kill): adds `apGain` to `player.Legion.ContributionPoints`, persists, and broadcasts `SM_LEGION_EDIT(0x03)` to all online legion members via `AwardLegionContributionAsync` helper
+    - [✓] `CM_CASTSPELL` — same: added `ILegionDao` dependency; static `AwardLegionContributionAsync` helper; called after PvP and Abyss NPC kill AP grants within fire-and-forget task
+    - [✓] `GsPacketHandlerFactory` — updated 0xE2 (CM_ATTACK) and 0xE3 (CM_CASTSPELL) to pass `_legionDao`
+    - Mirrors Java AbyssPointsService.addAp: when a player earns AP, the same amount is contributed to their legion's `contribution_points` and broadcast to all online members
+    - Build: 0 warnings, 0 errors

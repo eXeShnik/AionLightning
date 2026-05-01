@@ -22,6 +22,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
     private readonly IPlayerDao _playerDao;
+    private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
 
     private int _spellId;
@@ -34,7 +35,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     public CM_CASTSPELL(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
-        QuestService questService, DuelService duelService, IPlayerDao playerDao, RateOptions rates)
+        QuestService questService, DuelService duelService, IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
     {
         _conn         = conn;
         _world        = world;
@@ -46,6 +47,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _questService = questService;
         _duelService  = duelService;
         _playerDao    = playerDao;
+        _legionDao    = legionDao;
         _rates        = rates;
     }
 
@@ -153,6 +155,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var duelSvc    = _duelService;
             var conn       = _conn;
             var playerDao  = _playerDao;
+            var legionDao  = _legionDao;
             var rates      = _rates;
 
             _ = Task.Run(async () =>
@@ -257,6 +260,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                         await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
                         await playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, CancellationToken.None);
+                        await AwardLegionContributionAsync(player, apGain, registry, legionDao, CancellationToken.None);
                     }
                 }
                 else if (target is Npc deadNpc)
@@ -287,6 +291,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         AbyssRankService.AddAp(player, ap);
                         try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
                         await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
+                        await AwardLegionContributionAsync(player, ap, registry, legionDao, CancellationToken.None);
                     }
 
                     await Task.Delay(3000);
@@ -316,5 +321,23 @@ public sealed class CM_CASTSPELL : AionClientPacket
         foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer!.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
                 try { await other.SendAsync(packet, ct); } catch { }
+    }
+
+    private static async Task AwardLegionContributionAsync(Model.Player player, long apAmount,
+        PlayerConnectionRegistry registry, ILegionDao legionDao, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null || apAmount <= 0) return;
+
+        legion.ContributionPoints += apAmount;
+        await legionDao.UpdateContributionPointsAsync(legion.LegionId, legion.ContributionPoints, ct);
+
+        var update = new SM_LEGION_EDIT(legion.ContributionPoints);
+        foreach (var member in legion.Members.Values)
+        {
+            var mConn = registry.Get(member.ObjectId);
+            if (mConn is not null)
+                try { await mConn.SendAsync(update, ct); } catch { }
+        }
     }
 }
