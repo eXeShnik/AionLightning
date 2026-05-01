@@ -288,7 +288,7 @@ public sealed class GsPacketHandlerFactory
                 0x18E => new CM_SELECTITEM_OK(conn, _itemDao, _dataManager),
                 0x192 => new CM_COMPOSITE_STONES(conn, _itemDao),
                 0x197 => new CM_SHOW_BRAND(conn, _connRegistry),
-                0x19A => new CM_GROUP_LOOT(),
+                0x19A => new CM_GROUP_LOOT(conn, _connRegistry),
                 0x19B => new CM_DISTRIBUTION_SETTINGS(conn, _connRegistry, _groupService),
                 0x19D => new CM_REPORT_PLAYER(),
                 0x19E => new CM_ABYSS_RANKING_PLAYERS(conn, _playerDao),
