@@ -15,6 +15,13 @@ public sealed class Legion
 
     public long WarehouseKinah { get; set; }
 
+    // Emblem — in-memory only (not persisted); 0=DEFAULT, 1=CUSTOM
+    public byte EmblemId   { get; set; }
+    public byte EmblemType { get; set; }
+    public byte EmblemR    { get; set; }
+    public byte EmblemG    { get; set; }
+    public byte EmblemB    { get; set; }
+
     public Dictionary<int, LegionMember> Members { get; } = new();
 
     public int? BrigadeGeneralId =>
