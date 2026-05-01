@@ -67,10 +67,11 @@ public sealed class CM_ATTACK : AionClientPacket
         if (target.Position.WorldId != player.Position.WorldId) return;
         if (player.Position.DistanceTo(target.Position) > MaxMeleeRange) return;
 
-        // Physical damage: weapon min-max range when equipped, level-scaled fallback
+        // Physical damage: weapon range + base stat bonus, or stat-based fallback
+        int baseAtk = player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6;
         int rawDmg = player.MainHandMinDmg > 0
-            ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1))
-            : player.Level * 6 + Random.Shared.Next(10, 40);
+            ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtk
+            : baseAtk + Random.Shared.Next(10, 40);
 
         // Apply physical defense mitigation from the target's armor (player targets only)
         int pdef   = target is Player pvpTarget ? pvpTarget.PhysicalDefense : 0;

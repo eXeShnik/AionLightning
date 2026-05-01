@@ -72,6 +72,9 @@ public sealed class Player : Creature
     public long AbyssPoints { get; set; }
     public int  AbyssRank   { get; set; } = 1;
 
+    // Base physical attack from class/level stat template (updated on login and level-up)
+    public int BasePhysicalAttack { get; set; }
+
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped
     public int MainHandMinDmg { get; set; }
     public int MainHandMaxDmg { get; set; }

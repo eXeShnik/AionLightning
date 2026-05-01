@@ -28,6 +28,8 @@ public sealed class ExperienceService
     /// Awards XP to a player and their group members in the same world.
     /// XP is split equally among eligible group members; solo kill receives the full amount.
     /// </summary>
+    private const float MaxGroupXpRange = 1500f;
+
     public async ValueTask AddGroupExpAsync(Player killer, long xpPool, CancellationToken ct)
     {
         var group = killer.Group;
@@ -40,7 +42,10 @@ public sealed class ExperienceService
         }
 
         var eligible = group.Members
-            .Where(m => !m.IsAlreadyDead && m.Position.WorldId == killer.Position.WorldId)
+            .Where(m => !m.IsAlreadyDead
+                     && m.Position.WorldId == killer.Position.WorldId
+                     && (m.ObjectId == killer.ObjectId
+                         || killer.Position.DistanceTo(m.Position) <= MaxGroupXpRange))
             .ToList();
 
         if (eligible.Count == 0) return;
@@ -82,10 +87,11 @@ public sealed class ExperienceService
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         if (tpl is not null)
         {
-            player.MaxHp     = tpl.MaxHp;
-            player.MaxMp     = tpl.MaxMp;
-            player.CurrentHp = tpl.MaxHp;
-            player.CurrentMp = tpl.MaxMp;
+            player.MaxHp              = tpl.MaxHp;
+            player.MaxMp              = tpl.MaxMp;
+            player.CurrentHp          = tpl.MaxHp;
+            player.CurrentMp          = tpl.MaxMp;
+            player.BasePhysicalAttack = tpl.MainHandAttack;
         }
 
         // Auto-learn new skills for the new level

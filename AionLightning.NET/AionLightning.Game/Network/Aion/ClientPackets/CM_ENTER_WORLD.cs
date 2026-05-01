@@ -80,12 +80,12 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
 
-        // MaxHp/MaxMp are not persisted — always recompute from stat template on login.
-        // CurrentHp/CurrentMp are also not persisted, so always restore to full.
-        player.MaxHp     = tpl?.MaxHp ?? 1000;
-        player.MaxMp     = tpl?.MaxMp ?? 500;
-        player.CurrentHp = player.MaxHp;
-        player.CurrentMp = player.MaxMp;
+        // MaxHp/MaxMp and base combat stats are not persisted — recompute from template on login.
+        player.MaxHp              = tpl?.MaxHp ?? 1000;
+        player.MaxMp              = tpl?.MaxMp ?? 500;
+        player.CurrentHp          = player.MaxHp;
+        player.CurrentMp          = player.MaxMp;
+        player.BasePhysicalAttack = tpl?.MainHandAttack ?? 0;
 
         player.Appearance  = appearance;
         _conn.ActivePlayer = player;
