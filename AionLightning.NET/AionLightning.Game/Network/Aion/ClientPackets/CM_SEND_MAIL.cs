@@ -45,6 +45,9 @@ public sealed class CM_SEND_MAIL : AionClientPacket
         _letterType    = r.ReadC();
     }
 
+    private const int  KinahId     = 182400001;
+    private const long BasePostage = 10; // 10 kinah base fee (matches Java MailService)
+
     public override async ValueTask RunAsync(CancellationToken ct)
     {
         var sender = _conn.ActivePlayer;
@@ -57,20 +60,24 @@ public sealed class CM_SEND_MAIL : AionClientPacket
             return;
         }
 
-        // Deduct attached kinah
-        int kinahToSend = Math.Max(0, _kinahCount);
-        if (kinahToSend > 0)
+        long kinahToSend    = Math.Max(0, _kinahCount);
+        long commission     = kinahToSend > 0 ? (long)Math.Round(kinahToSend * 0.01f) : 0;
+        long totalKinahCost = kinahToSend + BasePostage + commission;
+
+        var kinahItem = sender.Inventory.FindByItemId(KinahId);
+        long currentKinah = kinahItem?.Count ?? 0;
+        if (currentKinah < totalKinahCost)
         {
-            const int KinahId = 182400001;
-            var kinah = sender.Inventory.FindByItemId(KinahId);
-            if (kinah is null || kinah.Count < kinahToSend)
-            {
-                await _conn.SendAsync(new SM_MAIL_SERVICE(sendResult: 2), ct); // not enough kinah
-                return;
-            }
-            kinah.Count -= kinahToSend;
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
+            return;
+        }
+
+        // Deduct postage + commission + attached kinah in one step
+        if (kinahItem is not null)
+        {
+            kinahItem.Count -= totalKinahCost;
             await _itemDao.SaveAllAsync(sender.ObjectId, sender.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
         }
 
         // Detach item from sender inventory if attaching one
