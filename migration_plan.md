@@ -1008,6 +1008,12 @@
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible
     - Build: 0 warnings, 0 errors
 
+66. [✓] XP rate multipliers from RateOptions config (session 2026-05-01)
+    - Root cause: `RateOptions` was registered in DI and configuration but never actually applied; kill XP and quest XP both ignored the configured multipliers
+    - [✓] `ExperienceService` — injected `IOptions<RateOptions>`; in `AddGroupExpAsync` applied `_rates.XpRate` to `xpPerMember` (kill XP); added `AddQuestExpAsync(player, amount, conn, ct)` which pre-multiplies `amount * _rates.QuestXpRate` before calling `AddExpAsync`
+    - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — changed `_expService.AddExpAsync(...)` to `_expService.AddQuestExpAsync(...)` so quest XP uses the `QuestXpRate` multiplier (default 2.0×)
+    - Build: 0 warnings, 0 errors
+
 65. [✓] Divine Power (DP) tracking and drain on revive (session 2026-05-01)
     - [✓] `Player` — added `int Dp { get; set; }` (default 0, max 8000 in Aion retail; DB column `dp` was already in V1 schema)
     - [✓] `SM_DP_INFO` (NEW) — opcode 0x07; writes `playerObjectId(D)` + `currentDp(H)`; mirrors Java `SM_DP_INFO`

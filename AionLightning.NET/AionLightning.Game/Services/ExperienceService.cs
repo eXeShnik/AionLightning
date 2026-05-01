@@ -1,8 +1,10 @@
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using AionLightning.Game;
 using GameWorld = AionLightning.Game.World.World;
 
@@ -14,14 +16,16 @@ public sealed class ExperienceService
     private readonly ILogger<ExperienceService> _log;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GameWorld _world;
+    private readonly RateOptions _rates;
 
     public ExperienceService(IDataManager dataManager, ILogger<ExperienceService> log,
-        PlayerConnectionRegistry connRegistry, GameWorld world)
+        PlayerConnectionRegistry connRegistry, GameWorld world, IOptions<RateOptions> rates)
     {
         _dataManager  = dataManager;
         _log          = log;
         _connRegistry = connRegistry;
         _world        = world;
+        _rates        = rates.Value;
     }
 
     /// <summary>
@@ -50,7 +54,8 @@ public sealed class ExperienceService
 
         if (eligible.Count == 0) return;
 
-        long xpPerMember = Math.Max(1, xpPool / eligible.Count);
+        long rawPerMember = Math.Max(1, xpPool / eligible.Count);
+        long xpPerMember  = (long)(rawPerMember * _rates.XpRate);
         foreach (var member in eligible)
         {
             var memberConn = _connRegistry.Get(member.ObjectId);
@@ -58,6 +63,9 @@ public sealed class ExperienceService
                 await AddExpAsync(member, xpPerMember, memberConn, ct);
         }
     }
+
+    public async ValueTask AddQuestExpAsync(Player player, long amount, GsClientConnection conn, CancellationToken ct)
+        => await AddExpAsync(player, (long)(amount * _rates.QuestXpRate), conn, ct);
 
     public async ValueTask AddExpAsync(Player player, long amount, GsClientConnection conn, CancellationToken ct)
     {

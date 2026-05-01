@@ -221,10 +221,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
         }
 
-        // Award experience
+        // Award experience (quest rate applied inside AddQuestExpAsync)
         long expReward = template.Rewards?.Exp ?? 0;
         if (expReward > 0)
-            await _expService.AddExpAsync(player, expReward, _conn, ct);
+            await _expService.AddQuestExpAsync(player, expReward, _conn, ct);
 
         // Award selected reward item
         var selectableItems = template.Rewards?.SelectableItems;
