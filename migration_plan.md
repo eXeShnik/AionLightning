@@ -932,6 +932,13 @@
     - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — added `CanReceive` guard before awarding selectable reward item and each fixed reward item; full-inventory items are skipped while quest still completes and other rewards still granted
     - Build: 0 warnings, 0 errors
 
+76. [✓] Gather material consistency + inventory full check (session 2026-05-01)
+    - Root cause: `PickMaterial()` uses `Random.Shared.Next(10_000_000)` on each call; `CM_GATHER` called it independently in `HandleStartAsync` (for the animation) and again in `HandleFinishAsync` (for the reward), so the player could receive a different item than shown
+    - [✓] `GatherService` — replaced `int`-keyed session map with `GatherSession(GatherableObjectId, Material)` record; `StartGathering` now takes the pre-rolled `GatherableMaterial` and stores it in the session; `GetSession` replaces `GetActiveTarget`
+    - [✓] `CM_GATHER.HandleStartAsync` — rolls `PickMaterial()` once, passes result to `StartGathering` for storage
+    - [✓] `CM_GATHER.HandleFinishAsync` — retrieves the stored material from `GetSession` instead of re-rolling; validates session target matches; adds `HasFreeSlot` guard before consuming the harvest charge: full inventory returns early with `SM_SYSTEM_MESSAGE.InventoryFull()`
+    - Build: 0 warnings, 0 errors
+
 75. [✓] BuyFromShop kinah overcharge fix (session 2026-05-01)
     - Root cause: `totalCost` was computed for ALL trade entries before inventory-capacity filtering, so players were charged kinah for items they could not receive when the inventory was nearly full
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible

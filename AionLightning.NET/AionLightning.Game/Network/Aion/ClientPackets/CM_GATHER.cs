@@ -53,10 +53,13 @@ public sealed class CM_GATHER : AionClientPacket
     private async ValueTask HandleStartAsync(Player player, Gatherable target, CancellationToken ct)
     {
         if (target.IsGathered) return;
-        if (!_gatherService.StartGathering(player.ObjectId, target.ObjectId)) return;
 
+        // Roll material once here; the same result is stored in GatherService and used in HandleFinish
+        // so the player cannot receive a different item than the one shown in the gather animation.
         var material = target.Template.PickMaterial();
-        if (material is null) { _gatherService.StopGathering(player.ObjectId); return; }
+        if (material is null) return;
+
+        if (!_gatherService.StartGathering(player.ObjectId, target.ObjectId, material)) return;
 
         await _conn.SendAsync(new SM_USE_OBJECT(player.ObjectId, target.ObjectId, 3000, 1), ct);
         await _conn.SendAsync(new SM_GATHER_STATUS(player.ObjectId, target.ObjectId, SM_GATHER_STATUS.Status.Start), ct);
@@ -65,18 +68,23 @@ public sealed class CM_GATHER : AionClientPacket
 
     private async ValueTask HandleFinishAsync(Player player, Gatherable target, CancellationToken ct)
     {
-        int? locked = _gatherService.GetActiveTarget(player.ObjectId);
-        if (locked != target.ObjectId) return;
+        var session = _gatherService.GetSession(player.ObjectId);
+        if (session is null || session.GatherableObjectId != target.ObjectId) return;
+        var material = session.Material;
         _gatherService.StopGathering(player.ObjectId);
 
         if (target.IsGathered) return;
 
-        var material = target.Template.PickMaterial();
-        if (material is null) return;
+        // Check inventory capacity before consuming the harvest charge
+        var existing = player.Inventory.FindByItemId(material.ItemId);
+        if (existing is null && !player.Inventory.HasFreeSlot)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.InventoryFull(), ct);
+            return;
+        }
 
         target.HarvestsRemaining--;
 
-        var existing = player.Inventory.FindByItemId(material.ItemId);
         Item gathered;
         if (existing is not null)
         {
