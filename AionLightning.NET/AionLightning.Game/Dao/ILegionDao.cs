@@ -28,6 +28,8 @@ public interface ILegionDao
     Task UpdateContributionPointsAsync(int legionId, long points, CancellationToken ct);
     Task UpdateLevelAsync(int legionId, int level, CancellationToken ct);
     Task UpdatePermissionsAsync(int legionId, short deputy, short centurion, short legionary, short volunteer, CancellationToken ct);
+    Task UpdateSelfIntroAsync(int playerId, string selfIntro, CancellationToken ct);
+    Task UpdateNicknameAsync(int playerId, string nickname, CancellationToken ct);
     Task<IReadOnlyList<LegionRankEntry>> GetTopLegionRankAsync(Race race, int limit, CancellationToken ct);
     Task<IReadOnlyList<Item>> FindWarehouseItemsAsync(int legionId, CancellationToken ct);
     Task SaveWarehouseItemsAsync(int legionId, IEnumerable<Item> items, CancellationToken ct);

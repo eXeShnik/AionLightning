@@ -1363,6 +1363,16 @@
     - Contribution costs: 0 → 20K → 100K → 500K → 2.5M → 12.5M → 62.5M (levels 1→2 through 7→8)
     - Build: 0 warnings, 0 errors
 
+110. [✓] Legion self-intro + nickname (CM_LEGION 0x0A / 0x0F) (session 2026-05-01)
+    - [✓] `SM_LEGION_UPDATE_SELF_INTRO` (0x77) — NEW packet: `D(playerObjId) + S(selfIntro)`; broadcast to all online legion members when a player updates their intro text; mirrors Java SM_LEGION_UPDATE_SELF_INTRO.writeImpl()
+    - [✓] `SM_LEGION_UPDATE_NICKNAME` (0x0B) — NEW packet: `D(playerObjId) + S(newNickname)`; broadcast to all online members when BG sets a member's nickname; mirrors Java SM_LEGION_UPDATE_NICKNAME.writeImpl()
+    - [✓] `ILegionDao` — added `UpdateSelfIntroAsync(int playerId, string selfIntro, ct)` and `UpdateNicknameAsync(int playerId, string nickname, ct)`
+    - [✓] `LegionDaoImpl` — implemented both: `UPDATE legion_members SET self_intro=...` / `UPDATE legion_members SET nickname=...`
+    - [✓] `CM_LEGION` — added `_selfIntro` and `_newNickname` fields; Read() 0x0A now stores selfIntro string (was discarded); Read() 0x0F now stores charName + newNickname (was discarded); RunAsync added cases 0x0A → HandleSelfIntroAsync and 0x0F → HandleNicknameAsync
+    - [✓] `HandleSelfIntroAsync` — any member can update own intro: updates `member.SelfIntro`, persists via UpdateSelfIntroAsync, broadcasts SM_LEGION_UPDATE_SELF_INTRO to all online members; 200-char length guard
+    - [✓] `HandleNicknameAsync` — BG-only: finds target member by name in legion.Members dict, updates `targetMember.Nickname`, persists via UpdateNicknameAsync, broadcasts SM_LEGION_UPDATE_NICKNAME to all online members; 20-char length guard
+    - Build: 0 warnings, 0 errors
+
 109. [✓] Legion WH kinah permission checks + broadcast; CM_LEGION 0x08 refresh (session 2026-05-01)
     - Root cause: `CM_LEGION_WH_KINAH` executed deposit/withdraw without verifying the member's rank permission mask; any legion member could move kinah regardless of configured permissions; also missing `SM_LEGION_EDIT.WarehouseKinah` broadcast so other online members never saw the updated WH kinah total
     - [✓] `CM_LEGION_WH_KINAH` — added `WH_WITHDRAWAL = 4` and `WH_DEPOSIT = 4096` constants; added `PlayerConnectionRegistry` dependency; `HasPermission` helper maps member rank → legion's `DeputyPermission / CenturionPermission / LegionaryPermission / VolunteerPermission`; BG bypasses check (always allowed); withdraw now returns early if member lacks `WH_WITHDRAWAL`; deposit returns early if member lacks `WH_DEPOSIT`

@@ -21,9 +21,11 @@ public sealed class CM_LEGION : AionClientPacket
     private readonly IItemDao                 _itemDao;
 
     private int    _exOpcode;
-    private string _legionName   = "";
-    private string _charName     = "";
-    private string _announcement = "";
+    private string _legionName    = "";
+    private string _charName      = "";
+    private string _announcement  = "";
+    private string _selfIntro     = "";
+    private string _newNickname   = "";
     private short  _deputyPermission;
     private short  _centurionPermission;
     private short  _legionaryPermission;
@@ -53,7 +55,7 @@ public sealed class CM_LEGION : AionClientPacket
             case 0x07: r.ReadD(); _charName     = r.ReadS(); break;
             case 0x08: r.ReadD(); r.ReadH();                 break;
             case 0x09: r.ReadD(); _announcement = r.ReadS(); break;
-            case 0x0A: r.ReadD(); r.ReadS();                 break;
+            case 0x0A: r.ReadD(); _selfIntro   = r.ReadS(); break;
             case 0x0D:
                 _deputyPermission    = (short)r.ReadH();
                 _centurionPermission = (short)r.ReadH();
@@ -61,7 +63,7 @@ public sealed class CM_LEGION : AionClientPacket
                 _volunteerPermission = (short)r.ReadH();
                 break;
             case 0x0E: r.ReadD(); r.ReadH();                 break;
-            case 0x0F: r.ReadS(); r.ReadS();                 break;
+            case 0x0F: _charName = r.ReadS(); _newNickname = r.ReadS(); break;
         }
     }
 
@@ -98,6 +100,12 @@ public sealed class CM_LEGION : AionClientPacket
                 break;
             case 0x09:
                 await HandleAnnouncementAsync(player, ct);
+                break;
+            case 0x0A:
+                await HandleSelfIntroAsync(player, ct);
+                break;
+            case 0x0F:
+                await HandleNicknameAsync(player, ct);
                 break;
             case 0x0D:
                 await HandlePermissionsAsync(player, ct);
@@ -265,6 +273,49 @@ public sealed class CM_LEGION : AionClientPacket
             var mc = _connRegistry.Get(m.ObjectId);
             if (mc is not null)
                 try { await mc.SendAsync(editPkt, ct); } catch { }
+        }
+    }
+
+    private async ValueTask HandleSelfIntroAsync(Model.Player player, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null) return;
+        if (!legion.Members.TryGetValue(player.ObjectId, out var member)) return;
+        if (_selfIntro.Length > 200) return; // guard against oversized text
+
+        member.SelfIntro = _selfIntro;
+        await _legionDao.UpdateSelfIntroAsync(player.ObjectId, _selfIntro, ct);
+
+        var pkt = new SM_LEGION_UPDATE_SELF_INTRO(player.ObjectId, _selfIntro);
+        foreach (var m in legion.Members.Values)
+        {
+            var mc = _connRegistry.Get(m.ObjectId);
+            if (mc is not null)
+                try { await mc.SendAsync(pkt, ct); } catch { }
+        }
+    }
+
+    private async ValueTask HandleNicknameAsync(Model.Player player, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null) return;
+        if (!legion.Members.TryGetValue(player.ObjectId, out var actorMember)) return;
+        if (actorMember.Rank != LegionRank.BrigadeGeneral) return;
+        if (_newNickname.Length > 20) return; // guard against oversized text
+
+        // Find the target member by name (online or in-legion dict)
+        var targetMember = legion.Members.Values.FirstOrDefault(m => m.Name == _charName);
+        if (targetMember is null) return;
+
+        targetMember.Nickname = _newNickname;
+        await _legionDao.UpdateNicknameAsync(targetMember.ObjectId, _newNickname, ct);
+
+        var pkt = new SM_LEGION_UPDATE_NICKNAME(targetMember.ObjectId, _newNickname);
+        foreach (var m in legion.Members.Values)
+        {
+            var mc = _connRegistry.Get(m.ObjectId);
+            if (mc is not null)
+                try { await mc.SendAsync(pkt, ct); } catch { }
         }
     }
 

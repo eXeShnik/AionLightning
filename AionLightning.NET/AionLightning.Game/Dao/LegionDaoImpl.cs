@@ -242,6 +242,22 @@ public sealed class LegionDaoImpl : ILegionDao
             new { legionId, level });
     }
 
+    public async Task UpdateSelfIntroAsync(int playerId, string selfIntro, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legion_members SET self_intro = @selfIntro WHERE player_id = @playerId",
+            new { selfIntro, playerId });
+    }
+
+    public async Task UpdateNicknameAsync(int playerId, string nickname, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legion_members SET nickname = @nickname WHERE player_id = @playerId",
+            new { nickname, playerId });
+    }
+
     public async Task UpdatePermissionsAsync(int legionId, short deputy, short centurion, short legionary, short volunteer, CancellationToken ct)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
