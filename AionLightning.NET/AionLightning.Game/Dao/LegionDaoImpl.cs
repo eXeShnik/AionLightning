@@ -242,6 +242,14 @@ public sealed class LegionDaoImpl : ILegionDao
             new { legionId, level });
     }
 
+    public async Task UpdatePermissionsAsync(int legionId, short deputy, short centurion, short legionary, short volunteer, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legions SET deputy_permission = @deputy, centurion_permission = @centurion, legionary_permission = @legionary, volunteer_permission = @volunteer WHERE id = @legionId",
+            new { legionId, deputy, centurion, legionary, volunteer });
+    }
+
     private sealed record LegionRow(
         int id, string name, int level, long contribution_points, string announcement,
         short deputy_permission, short centurion_permission, short legionary_permission, short volunteer_permission,

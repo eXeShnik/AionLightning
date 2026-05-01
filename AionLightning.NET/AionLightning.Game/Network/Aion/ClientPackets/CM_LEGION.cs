@@ -24,6 +24,10 @@ public sealed class CM_LEGION : AionClientPacket
     private string _legionName   = "";
     private string _charName     = "";
     private string _announcement = "";
+    private short  _deputyPermission;
+    private short  _centurionPermission;
+    private short  _legionaryPermission;
+    private short  _volunteerPermission;
 
     public CM_LEGION(GsClientConnection conn, LegionService legionService,
         ILegionDao legionDao, PlayerConnectionRegistry connRegistry, IItemDao itemDao)
@@ -50,7 +54,12 @@ public sealed class CM_LEGION : AionClientPacket
             case 0x08: r.ReadD(); r.ReadH();                 break;
             case 0x09: r.ReadD(); _announcement = r.ReadS(); break;
             case 0x0A: r.ReadD(); r.ReadS();                 break;
-            case 0x0D: r.ReadH(); r.ReadH(); r.ReadH(); r.ReadH(); break;
+            case 0x0D:
+                _deputyPermission    = (short)r.ReadH();
+                _centurionPermission = (short)r.ReadH();
+                _legionaryPermission = (short)r.ReadH();
+                _volunteerPermission = (short)r.ReadH();
+                break;
             case 0x0E: r.ReadD(); r.ReadH();                 break;
             case 0x0F: r.ReadS(); r.ReadS();                 break;
         }
@@ -86,6 +95,9 @@ public sealed class CM_LEGION : AionClientPacket
                 break;
             case 0x09:
                 await HandleAnnouncementAsync(player, ct);
+                break;
+            case 0x0D:
+                await HandlePermissionsAsync(player, ct);
                 break;
             case 0x0E:
                 await HandleLevelUpAsync(player, ct);
@@ -250,6 +262,30 @@ public sealed class CM_LEGION : AionClientPacket
             var mc = _connRegistry.Get(m.ObjectId);
             if (mc is not null)
                 try { await mc.SendAsync(editPkt, ct); } catch { }
+        }
+    }
+
+    private async ValueTask HandlePermissionsAsync(Model.Player player, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null) return;
+        if (!legion.Members.TryGetValue(player.ObjectId, out var member)) return;
+        if (member.Rank != LegionRank.BrigadeGeneral) return;
+
+        legion.DeputyPermission    = _deputyPermission;
+        legion.CenturionPermission = _centurionPermission;
+        legion.LegionaryPermission = _legionaryPermission;
+        legion.VolunteerPermission = _volunteerPermission;
+
+        await _legionDao.UpdatePermissionsAsync(legion.LegionId,
+            _deputyPermission, _centurionPermission, _legionaryPermission, _volunteerPermission, ct);
+
+        var permPkt = SM_LEGION_EDIT.Permissions(legion);
+        foreach (var m in legion.Members.Values)
+        {
+            var mc = _connRegistry.Get(m.ObjectId);
+            if (mc is not null)
+                try { await mc.SendAsync(permPkt, ct); } catch { }
         }
     }
 

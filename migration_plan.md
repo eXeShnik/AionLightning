@@ -1362,3 +1362,11 @@
     - Kinah costs: 100K → 1M → 5M → 25M → 50M → 75M → 100M (levels 1→2 through 7→8)
     - Contribution costs: 0 → 20K → 100K → 500K → 2.5M → 12.5M → 62.5M (levels 1→2 through 7→8)
     - Build: 0 warnings, 0 errors
+
+108. [✓] Legion permissions update (CM_LEGION opcode 0x0D) (session 2026-05-01)
+    - Root cause: `CM_LEGION` Read() consumed 4 shorts for opcode 0x0D but RunAsync had no handler; brigade generals could not set per-rank warehouse/action permissions
+    - [✓] `ILegionDao` — added `UpdatePermissionsAsync(int legionId, short deputy, short centurion, short legionary, short volunteer, ct)` interface method
+    - [✓] `LegionDaoImpl` — implemented: single `UPDATE legions SET deputy_permission=..., centurion_permission=..., legionary_permission=..., volunteer_permission=... WHERE id=@legionId`; all 4 columns updated atomically
+    - [✓] `SM_LEGION_EDIT` — added type 0x02 (permissions broadcast): private constructor storing 4 shorts; `static Permissions(Legion)` factory; `Write` switch case 0x02 writes `H(deputy)+H(centurion)+H(legionary)+H(volunteer)`
+    - [✓] `CM_LEGION` — added 4 private short fields (`_deputyPermission`, `_centurionPermission`, `_legionaryPermission`, `_volunteerPermission`); Read() case 0x0D now stores all 4 shorts instead of discarding them; added RunAsync `case 0x0D: await HandlePermissionsAsync`; `HandlePermissionsAsync`: validates BG rank, updates Legion in-memory, persists via `UpdatePermissionsAsync`, broadcasts `SM_LEGION_EDIT.Permissions(legion)` to all online members
+    - Build: 0 warnings, 0 errors
