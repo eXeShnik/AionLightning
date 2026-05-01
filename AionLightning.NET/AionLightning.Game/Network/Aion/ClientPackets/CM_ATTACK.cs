@@ -51,6 +51,11 @@ public sealed class CM_ATTACK : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null || player.IsAlreadyDead) return;
 
+        // Enforce auto-attack cooldown (weapon attack speed; default 1500ms)
+        var now = DateTime.UtcNow;
+        if ((now - player.LastAttackTime).TotalMilliseconds < player.CurrentAttackSpeed) return;
+        player.LastAttackTime = now;
+
         // Resolve target from world
         Creature? target = _world.GetPlayerByObjectId(_targetObjectId)
                         ?? (Creature?)_world.GetNpcByObjectId(_targetObjectId);
@@ -61,7 +66,7 @@ public sealed class CM_ATTACK : AionClientPacket
         target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 
         // Both attacker and target enter combat — suppresses regen for both
-        var combatNow = DateTime.UtcNow;
+        var combatNow = now;
         player.LastCombatTime = combatNow;
         target.LastCombatTime = combatNow;
 

@@ -863,6 +863,12 @@
     - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to `CM_DIALOG_SELECT` constructor at opcode 0x114
     - Build: 0 warnings, 0 errors
 
+75. [✓] Player auto-attack cooldown enforcement in CM_ATTACK (session 2026-05-01)
+    - Root cause: `CM_ATTACK` allowed unlimited attacks per packet — a packet-speed exploit could deal unlimited damage with no timing gate
+    - [✓] `Creature` — added `LastAttackTime: DateTime` (default `DateTime.MinValue`); all creatures (player + NPC) can track their last auto-attack timestamp; NPC AI already had its own cooldown tracking — this unifies the concept at the Creature level
+    - [✓] `CM_ATTACK.RunAsync` — added auto-attack speed guard at the top: computes `now = DateTime.UtcNow`, returns if `(now - player.LastAttackTime).TotalMilliseconds < player.CurrentAttackSpeed` (default 1500ms); sets `player.LastAttackTime = now` on successful pass; `var combatNow = now` reuses the captured timestamp
+    - Build: 0 warnings, 0 errors
+
 74. [✓] Skill cooldown enforcement in CM_CASTSPELL (session 2026-05-01)
     - Root cause: `CM_CASTSPELL` only checked `player.Skills.IsPresent(skillId)` before allowing the cast; no cooldown validation existed; players could fire any skill as fast as they could send packets
     - [✓] `PlayerSkillEntry` — added `LastUsedAt: DateTime` (default `DateTime.MinValue`); `MarkUsed()` sets it to `DateTime.UtcNow`; `IsOnCooldown(cooldownMs)` returns true if `cooldownMs > 0` and elapsed time since `LastUsedAt` is less than the cooldown
