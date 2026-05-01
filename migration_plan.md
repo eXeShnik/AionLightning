@@ -1143,6 +1143,14 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+92. [✓] NPC and gatherable respawn times from spawn data (session 2026-05-01)
+    - [✓] `Npc` — added `public int RespawnTime { get; set; }` property
+    - [✓] `Gatherable` — added `public int RespawnTime { get; set; }` property
+    - [✓] `SpawnService` — `SpawnNpc(template, position, int respawnTime = 0)` and `SpawnGatherable(template, position, int respawnTime = 0)` now store `respawnTime` on the entity; `SpawnAll()` passes `entry.RespawnTime` for both NPC and gatherable loops; `ScheduleRespawn(Npc)` uses `npc.RespawnTime > 0 ? npc.RespawnTime : DefaultRespawnSeconds` (no longer accepts explicit seconds); `ScheduleGatherableRespawn(Gatherable)` uses `gatherable.RespawnTime > 0 ? gatherable.RespawnTime : DefaultRespawnSeconds` (no longer accepts explicit seconds); respawned entity inherits original respawn time so the value persists across respawn cycles
+    - [✓] `CM_GATHER` — removed `const int RespawnSeconds = 300`; calls `ScheduleGatherableRespawn(target)` without explicit delay; data drives the delay (e.g. 295s Poeta, 230s Eltnen vs old hardcoded 300s)
+    - Previously NPCs always respawned in 30 s and gatherables in 300 s regardless of XML data; now Sanctum city NPCs use 295 s, Eltnen gatherables use 230 s, etc.
+    - Build: 0 warnings, 0 errors
+
 91. [✓] Quest item tracking for gather and craft (session 2026-05-01)
     - [✓] `CM_GATHER` — injected `QuestService`; calls `HandleItemAcquiredAsync(player, material.ItemId, ...)` after the gathered item is persisted and notified to client; gathering quest items now transitions quests to REWARD state immediately
     - [✓] `CM_CRAFT` — injected `QuestService`; calls `HandleItemAcquiredAsync(player, recipe.ProductId, ...)` after the crafted product is persisted and notified to client; crafting quest items now triggers quest progress

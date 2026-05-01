@@ -11,7 +11,6 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Player starts (action=0) or finishes (action!=0) gathering. Opcode 0xD1.</summary>
 public sealed class CM_GATHER : AionClientPacket
 {
-    private const int RespawnSeconds = 300;
     private const int SkillAdvanceWindow = 50; // skill advances while node.SkillLevel is within this margin
 
     private readonly GsClientConnection       _conn;
@@ -156,7 +155,7 @@ public sealed class CM_GATHER : AionClientPacket
                 if (conn.ActivePlayer?.Position.WorldId == worldId)
                     try { await conn.SendAsync(deletePacket, ct); } catch { }
 
-            _spawnService.ScheduleGatherableRespawn(target, RespawnSeconds);
+            _spawnService.ScheduleGatherableRespawn(target);
         }
     }
 }

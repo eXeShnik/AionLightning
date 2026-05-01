@@ -9,6 +9,9 @@ public sealed class Gatherable : VisibleObject
     public int                HarvestsRemaining { get; set; }
     public bool               IsGathered => HarvestsRemaining <= 0;
 
+    /// <summary>Seconds until this node respawns after being depleted. 0 means use the service default.</summary>
+    public int RespawnTime { get; set; }
+
     public Gatherable(GatherableTemplate template)
     {
         Template          = template;
