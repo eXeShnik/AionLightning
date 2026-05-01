@@ -1,4 +1,5 @@
 using AionLightning.Game.Configs.Options;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -17,14 +18,15 @@ namespace AionLightning.Game.Services;
 /// </summary>
 public sealed class NpcAiService : BackgroundService
 {
-    private static readonly TimeSpan Interval            = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan DefaultAttackCooldown = TimeSpan.FromMilliseconds(1500); // fallback when template adelay=0
-    private static readonly TimeSpan WanderCooldown = TimeSpan.FromSeconds(10);
-    private const float LeashMultiplier = 1.5f;
-    private const float WanderRadius    = 5.0f;
-    private const float WanderSpeed     = 1.5f;  // units/s for idle wander
-    private const float ChaseSpeed      = 6.0f;  // units/s for combat chase
-    private const float MeleeRange      = 2.5f;  // must be this close to hit
+    private static readonly TimeSpan Interval              = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan DefaultAttackCooldown = TimeSpan.FromMilliseconds(1500);
+    private static readonly TimeSpan WanderCooldown        = TimeSpan.FromSeconds(10);
+    private const float LeashMultiplier   = 1.5f;
+    private const float WanderRadius      = 5.0f;
+    private const float WanderSpeed       = 1.5f;
+    private const float ChaseSpeed        = 6.0f;
+    private const float MeleeRange        = 2.5f;
+    private const int   NpcSkillCooldownMs = 8000;
 
     private sealed record WanderState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
     private sealed record ChaseState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
@@ -32,20 +34,23 @@ public sealed class NpcAiService : BackgroundService
 
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly IDataManager _dataManager;
     private readonly ILogger<NpcAiService> _log;
     private readonly RateOptions _rates;
     private readonly Dictionary<int, DateTime>    _lastAttackTime = new();
-    private readonly Dictionary<int, int>         _npcTargets     = new(); // npcObjectId → locked playerObjectId
-    private readonly Dictionary<int, WanderState> _wanderState    = new(); // npcObjectId → active wander
-    private readonly Dictionary<int, DateTime>    _lastWanderTime = new(); // npcObjectId → last wander start
-    private readonly Dictionary<int, ChaseState>  _chaseState     = new(); // npcObjectId → active chase
-    private readonly Dictionary<int, ReturnState> _returnState    = new(); // npcObjectId → returning home
+    private readonly Dictionary<int, DateTime>    _lastSkillTime  = new();
+    private readonly Dictionary<int, int>         _npcTargets     = new();
+    private readonly Dictionary<int, WanderState> _wanderState    = new();
+    private readonly Dictionary<int, DateTime>    _lastWanderTime = new();
+    private readonly Dictionary<int, ChaseState>  _chaseState     = new();
+    private readonly Dictionary<int, ReturnState> _returnState    = new();
 
-    public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, ILogger<NpcAiService> log,
-        IOptions<RateOptions> rates)
+    public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
+        ILogger<NpcAiService> log, IOptions<RateOptions> rates)
     {
         _world        = world;
         _connRegistry = connRegistry;
+        _dataManager  = dataManager;
         _log          = log;
         _rates        = rates.Value;
     }
@@ -67,6 +72,7 @@ public sealed class NpcAiService : BackgroundService
         {
             _npcTargets.Clear();
             _lastAttackTime.Clear();
+            _lastSkillTime.Clear();
             _chaseState.Clear();
             _returnState.Clear();
             return;
@@ -77,6 +83,7 @@ public sealed class NpcAiService : BackgroundService
             if (npc.IsAlreadyDead)
             {
                 _lastAttackTime.Remove(npc.ObjectId);
+                _lastSkillTime.Remove(npc.ObjectId);
                 _npcTargets.Remove(npc.ObjectId);
                 _wanderState.Remove(npc.ObjectId);
                 _lastWanderTime.Remove(npc.ObjectId);
@@ -218,11 +225,16 @@ public sealed class NpcAiService : BackgroundService
 
             await BroadcastGroupHpAsync(target, ct);
 
+            // Occasional NPC skill use (independent of melee cooldown)
+            if (target.CurrentHp > 0)
+                await TryCastNpcSkillAsync(npc, target, now, npcWorld, ct);
+
             if (target.CurrentHp > 0) continue;
 
             // Player killed by NPC — clear their target lock so NPC idles afterward
             _npcTargets.Remove(npc.ObjectId);
             _chaseState.Remove(npc.ObjectId);
+            _lastSkillTime.Remove(npc.ObjectId);
             npc.Target = null;
 
             target.State |= CreatureState.Dead;
@@ -237,6 +249,36 @@ public sealed class NpcAiService : BackgroundService
             if (targetConn is not null)
                 try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { /* ignore */ }
         }
+    }
+
+    private async Task TryCastNpcSkillAsync(Npc npc, Player target, DateTime now, int worldId, CancellationToken ct)
+    {
+        if ((now - _lastSkillTime.GetValueOrDefault(npc.ObjectId)).TotalMilliseconds < NpcSkillCooldownMs) return;
+
+        var skills = _dataManager.NpcSkills.GetSkills(npc.Template.NpcId);
+        if (skills is null || skills.Count == 0) return;
+
+        var entry = skills[Random.Shared.Next(skills.Count)];
+        if (Random.Shared.Next(100) >= entry.Probability) return;
+
+        _lastSkillTime[npc.ObjectId] = now;
+
+        var castPkt = new SM_CASTSPELL(npc.ObjectId, entry.SkillId, entry.SkillLevel, 3, target.ObjectId, 0);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(castPkt, ct); } catch { }
+
+        int rawSpellDmg = Math.Max(1, npc.Level * 8 + Random.Shared.Next(10, 40));
+        int mdef        = target.MagicDefense;
+        int spellDmg    = mdef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + mdef)) : rawSpellDmg;
+        target.CurrentHp      = Math.Max(0, target.CurrentHp - spellDmg);
+        target.LastCombatTime = now;
+        npc.LastCombatTime    = now;
+
+        var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, entry.SkillId, spellDmg);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(statusPkt, ct); } catch { }
     }
 
     private async Task ChaseAsync(Npc npc, Player target, CancellationToken ct)

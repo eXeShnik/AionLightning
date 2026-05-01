@@ -18,6 +18,7 @@ public sealed class DataManager : IDataManager
     public QuestData             Quests        { get; } = new();
     public DropData              Drops         { get; } = new();
     public GatherableData        Gatherables   { get; } = new();
+    public NpcSkillData          NpcSkills     { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -38,6 +39,7 @@ public sealed class DataManager : IDataManager
         Quests.Load(dataRoot, log);
         Drops.Load(dataRoot, log);
         Gatherables.Load(dataRoot, log);
+        NpcSkills.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

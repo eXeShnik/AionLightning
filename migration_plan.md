@@ -1143,6 +1143,13 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+89. [✓] NPC skill casting in combat (session 2026-05-01)
+    - [✓] `NpcSkillData` — new data holder; parses `npc_skills.xml` (`<npcskills npcid><npcskill skillid skilllevel probability>`); exposes `GetSkills(npcId)`
+    - [✓] `IDataManager` / `DataManager` — added `NpcSkillData NpcSkills` property; loaded in `DataManager` constructor
+    - [✓] `NpcAiService` — injected `IDataManager`; added `_lastSkillTime` dictionary (per-NPC 8-second cooldown); added `TryCastNpcSkillAsync`: picks random skill, rolls probability, sends `SM_CASTSPELL(npc→player, targetType=3)`, applies magic damage with `MagicDefense` mitigation, sends `SM_ATTACK_STATUS`
+    - [✓] `NpcAiService` — `_lastSkillTime` cleared in zero-players path and dead-NPC cleanup; also cleared on player kill
+    - Build: 0 warnings, 0 errors
+
 88. [✓] DP (Divine Power) generation from combat (session 2026-05-01)
     - [✓] `CM_ATTACK` — after successful hit, adds 100 DP (capped at 6000), sends `SM_DP_INFO` to caster; previously DP never grew from combat
     - [✓] `CM_CASTSPELL` — inside fire-and-forget damage task, after hit status broadcast, adds 150 DP (capped at 6000), sends `SM_DP_INFO`; covers spell hits in addition to basic attacks
