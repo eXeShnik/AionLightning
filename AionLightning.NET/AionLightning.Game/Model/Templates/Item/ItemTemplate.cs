@@ -15,14 +15,28 @@ public sealed class ItemTemplate
     [XmlAttribute("price")]           public long   Price         { get; set; }
     [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
 
-    [XmlElement("actions")]           public ItemActions?  Actions     { get; set; }
-    [XmlElement("weapon_stats")]      public WeaponStats?  WeaponStats { get; set; }
+    [XmlElement("actions")]           public ItemActions?   Actions     { get; set; }
+    [XmlElement("weapon_stats")]      public WeaponStats?   WeaponStats { get; set; }
+    [XmlElement("modifiers")]         public ItemModifiers? Modifiers   { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
     public int? CraftLearnRecipeId => Actions?.CraftLearn?.RecipeId;
     public bool IsWeapon           => EquipmentType == "WEAPON";
     public bool IsArmor            => EquipmentType == "ARMOR";
+    public int PhysicalDefense     => Modifiers?.GetStat("PHYSICAL_DEFENSE") ?? 0;
+}
+
+public sealed class ItemModifiers
+{
+    [XmlElement("add")] public List<ItemModifier> Add { get; set; } = new();
+    public int GetStat(string name) => Add.Find(m => m.Name == name)?.Value ?? 0;
+}
+
+public sealed class ItemModifier
+{
+    [XmlAttribute("name")]  public string Name  { get; set; } = string.Empty;
+    [XmlAttribute("value")] public int    Value { get; set; }
 }
 
 public sealed class WeaponStats

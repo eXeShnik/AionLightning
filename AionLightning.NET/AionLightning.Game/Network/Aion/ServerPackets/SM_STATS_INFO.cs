@@ -65,7 +65,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
         int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus);
         w.WriteH((short)totalAtk); w.WriteH(0); // main/off-hand P-attack
         w.WriteH(0);                   // unk 3.0
-        w.WriteD(100);                 // P-def
+        int pdef = Math.Max(100, p.PhysicalDefense);
+        w.WriteD(pdef);                // P-def
         w.WriteH(100); w.WriteH(0);    // main/off-hand M-attack
         w.WriteD(100);                 // M-def
         w.WriteH(0); w.WriteH(0);      // M-resist, unk 3.0
@@ -109,7 +110,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(maxHp); w.WriteD(maxMp);
         w.WriteD(6000); w.WriteD(60);  // base DP, fly time
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
-        w.WriteD(100); w.WriteD(100);  // base M-attack, base P-def
+        w.WriteD(100); w.WriteD(pdef); // base M-attack, base P-def
         w.WriteD(100);                 // base M-def
         w.WriteH(0); w.WriteF(5.0f);   // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5

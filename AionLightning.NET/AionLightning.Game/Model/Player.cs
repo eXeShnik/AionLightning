@@ -76,6 +76,9 @@ public sealed class Player : Creature
     public int MainHandMinDmg { get; set; }
     public int MainHandMaxDmg { get; set; }
 
+    // Sum of PHYSICAL_DEFENSE from all equipped items; applied in mitigation formula
+    public int PhysicalDefense { get; set; }
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

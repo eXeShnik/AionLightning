@@ -87,6 +87,11 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.CurrentAttackSpeed = 1500;
         }
 
+        // Recalculate total physical defense from all currently equipped items
+        player.PhysicalDefense = player.Inventory.All
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalDefense ?? 0);
+
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 
         // Notify self of updated item state(s)

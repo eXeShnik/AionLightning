@@ -187,9 +187,14 @@ public sealed class NpcAiService : BackgroundService
 
             // Deal damage — both NPC and target enter combat (suppresses regen for both)
             int baseAtk = npc.Template.Stats?.MainHandAttack ?? 0;
-            int damage  = baseAtk > 0
+            int rawDmg  = baseAtk > 0
                 ? Math.Max(1, baseAtk + Random.Shared.Next(-(baseAtk / 4), baseAtk / 4 + 1))
                 : Math.Max(1, npc.Level * 5 + Random.Shared.Next(5, 20));
+
+            // Apply physical defense mitigation (diminishing returns: pdef / (pdef + 1000))
+            int pdef   = target is Player tp ? tp.PhysicalDefense : 0;
+            int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
+
             target.CurrentHp      = Math.Max(0, target.CurrentHp - damage);
             target.LastCombatTime = now;
             npc.LastCombatTime    = now;
