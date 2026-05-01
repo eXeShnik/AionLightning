@@ -1,8 +1,10 @@
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Services;
@@ -31,6 +33,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ILogger<NpcAiService> _log;
+    private readonly RateOptions _rates;
     private readonly Dictionary<int, DateTime>    _lastAttackTime = new();
     private readonly Dictionary<int, int>         _npcTargets     = new(); // npcObjectId → locked playerObjectId
     private readonly Dictionary<int, WanderState> _wanderState    = new(); // npcObjectId → active wander
@@ -38,11 +41,13 @@ public sealed class NpcAiService : BackgroundService
     private readonly Dictionary<int, ChaseState>  _chaseState     = new(); // npcObjectId → active chase
     private readonly Dictionary<int, ReturnState> _returnState    = new(); // npcObjectId → returning home
 
-    public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, ILogger<NpcAiService> log)
+    public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, ILogger<NpcAiService> log,
+        IOptions<RateOptions> rates)
     {
         _world        = world;
         _connRegistry = connRegistry;
         _log          = log;
+        _rates        = rates.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -190,6 +195,8 @@ public sealed class NpcAiService : BackgroundService
             int rawDmg  = baseAtk > 0
                 ? Math.Max(1, baseAtk + Random.Shared.Next(-(baseAtk / 4), baseAtk / 4 + 1))
                 : Math.Max(1, npc.Level * 5 + Random.Shared.Next(5, 20));
+            if (_rates.NormalMobsRatePw != 1.0)
+                rawDmg = Math.Max(1, (int)(rawDmg * _rates.NormalMobsRatePw));
 
             // Apply physical defense mitigation (diminishing returns: pdef / (pdef + 1000))
             int pdef   = target is Player tp ? tp.PhysicalDefense : 0;

@@ -1,9 +1,11 @@
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Templates.Gatherable;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Services;
@@ -16,14 +18,17 @@ public sealed class SpawnService
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ILogger<SpawnService> _log;
+    private readonly RateOptions _rates;
 
     public SpawnService(IDataManager dataManager, GameWorld world,
-        PlayerConnectionRegistry connRegistry, ILogger<SpawnService> log)
+        PlayerConnectionRegistry connRegistry, ILogger<SpawnService> log,
+        IOptions<RateOptions> rates)
     {
         _dataManager  = dataManager;
         _world        = world;
         _connRegistry = connRegistry;
         _log          = log;
+        _rates        = rates.Value;
     }
 
     public void SpawnAll()
@@ -102,6 +107,14 @@ public sealed class SpawnService
             Position     = position,
             HomePosition = position,
         };
+
+        // Scale HP by NormalMobsRateHp (elite mobs use the same scale for now)
+        if (_rates.NormalMobsRateHp != 1.0)
+        {
+            npc.MaxHp     = Math.Max(1, (int)(npc.MaxHp * _rates.NormalMobsRateHp));
+            npc.CurrentHp = npc.MaxHp;
+        }
+
         _world.Add(npc);
         return npc;
     }

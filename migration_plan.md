@@ -1008,6 +1008,12 @@
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible
     - Build: 0 warnings, 0 errors
 
+67. [✓] NPC HP and attack power scaling from RateOptions (session 2026-05-01)
+    - [✓] `SpawnService` — injected `IOptions<RateOptions>`; in `SpawnNpc` applies `_rates.NormalMobsRateHp` to `npc.MaxHp` and `npc.CurrentHp` when rate != 1.0 (clamps to at least 1)
+    - [✓] `NpcAiService` — injected `IOptions<RateOptions>`; applies `_rates.NormalMobsRatePw` to `rawDmg` after damage roll when rate != 1.0 (clamps to at least 1)
+    - Both SpawnService and NpcAiService now respect the configured NPC scaling — server operators can tune mob difficulty via `GameServer:Rates` in appsettings.json
+    - Build: 0 warnings, 0 errors
+
 66. [✓] XP rate multipliers from RateOptions config (session 2026-05-01)
     - Root cause: `RateOptions` was registered in DI and configuration but never actually applied; kill XP and quest XP both ignored the configured multipliers
     - [✓] `ExperienceService` — injected `IOptions<RateOptions>`; in `AddGroupExpAsync` applied `_rates.XpRate` to `xpPerMember` (kill XP); added `AddQuestExpAsync(player, amount, conn, ct)` which pre-multiplies `amount * _rates.QuestXpRate` before calling `AddExpAsync`
