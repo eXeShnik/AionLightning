@@ -24,6 +24,7 @@ public interface IDataManager
     NpcShoutData                   NpcShouts   { get; }
     PortalData                     Portals     { get; }
     BindPointData                  BindPoints  { get; }
-    WorldMapData                   WorldMaps   { get; }
-    GlobalDropData                 GlobalDrops { get; }
+    WorldMapData                   WorldMaps    { get; }
+    GlobalDropData                 GlobalDrops  { get; }
+    InstanceExitData               InstanceExits { get; }
 }

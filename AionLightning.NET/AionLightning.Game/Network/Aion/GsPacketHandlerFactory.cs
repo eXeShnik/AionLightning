@@ -185,7 +185,7 @@ public sealed class GsPacketHandlerFactory
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillDao, _spawnService),
                 0xC9  => new CM_EMOTION(conn, _connRegistry),
                 0xCA  => new CM_PLAYER_LISTENER(),
-                0xCC  => new CM_INSTANCE_LEAVE(),
+                0xCC  => new CM_INSTANCE_LEAVE(conn, _world, _dataManager, _connRegistry),
                 0xCD  => new CM_LEGION_SEND_EMBLEM(conn, _legionService),
                 0xCE  => new CM_PING(conn),
                 0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry, _itemDao),

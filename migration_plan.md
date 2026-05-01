@@ -1482,6 +1482,13 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+128. [✓] Instance exit — InstanceExitData + CM_INSTANCE_LEAVE teleport (session 2026-05-01)
+    - [✓] `InstanceExitData.cs` (NEW) — streaming XmlReader loads `instance_exit/instance_exit.xml`; maps `(instanceWorldId, race)` → `ExitLocation { ExitWorldId, X, Y, Z, Heading }`; `GetExit(instanceWorldId, playerRace)` looks up by faction string ("ELYOS"/"ASMODIANS")
+    - [✓] `IDataManager` / `DataManager` — added `InstanceExitData InstanceExits { get; }` property; loads after GlobalDrops
+    - [✓] `CM_INSTANCE_LEAVE` (0xCC) — upgraded from stub: accepts `GsClientConnection`, `GameWorld`, `IDataManager`, `PlayerConnectionRegistry`; on leave, calls `InstanceExits.GetExit(player.Position.WorldId, player.Race)` and if found, broadcasts `SM_DELETE(time=11)` to old-zone peers, updates `player.Position`, sends `SM_TELEPORT_LOC`, fire-and-forgets `SchedulePostTeleportAsync`; if no exit defined for instance, returns silently (some instances may lack exit data); mirrors Java InstanceLeaveService flow
+    - [✓] `GsPacketHandlerFactory` — updated 0xCC to pass `conn + _world + _dataManager + _connRegistry` to `CM_INSTANCE_LEAVE`
+    - Build: 0 warnings, 0 errors
+
 127. [✓] NPC skill data path fix — npc_skills.xml was silently not loading (session 2026-05-01)
     - Root cause: `NpcSkillData.Load` used `Path.Combine(dataRoot, "npc_skills.xml")` but the file lives at `data/static_data/npc_skills/npc_skills.xml` (subdirectory) — the `File.Exists` check returned false, warning was logged, and all NPC skills were silently skipped; this means all prior NPC skill code (M63, earlier) was shipping dead logic because the data was never loaded
     - [✓] `NpcSkillData` — corrected path to `Path.Combine(dataRoot, "npc_skills", "npc_skills.xml")`; NPC skills now load correctly; verified by build; runtime logging will show "loaded skill sets for N NPCs" on server start
