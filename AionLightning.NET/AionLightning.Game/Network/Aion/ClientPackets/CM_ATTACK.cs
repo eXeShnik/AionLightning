@@ -20,6 +20,7 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly LootService _lootService;
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
+    private readonly NpcAiService _npcAi;
     private readonly IPlayerDao _playerDao;
     private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
@@ -31,7 +32,8 @@ public sealed class CM_ATTACK : AionClientPacket
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService,
         SpawnService spawnService, LootService lootService, QuestService questService,
-        DuelService duelService, IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
+        DuelService duelService, NpcAiService npcAi,
+        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
     {
         _conn         = conn;
         _world        = world;
@@ -42,6 +44,7 @@ public sealed class CM_ATTACK : AionClientPacket
         _lootService  = lootService;
         _questService = questService;
         _duelService  = duelService;
+        _npcAi        = npcAi;
         _playerDao    = playerDao;
         _legionDao    = legionDao;
         _rates        = rates;
@@ -104,6 +107,10 @@ public sealed class CM_ATTACK : AionClientPacket
             player.Dp = Math.Min(6000, player.Dp + 100);
             try { await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct); } catch { }
         }
+
+        // NPC retaliation: force non-aggressive NPCs to engage the player when hit
+        if (target is Npc attackedNpc && target.CurrentHp > 0)
+            _npcAi.ForceEngage(attackedNpc, player);
 
         // Update group HP display for player targets (PvP)
         if (target is Player damagedPlayer)

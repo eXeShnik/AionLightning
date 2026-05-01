@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
@@ -40,7 +41,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly RateOptions _rates;
     private readonly Dictionary<int, DateTime>    _lastAttackTime  = new();
     private readonly Dictionary<int, DateTime>    _lastSkillTime   = new();
-    private readonly Dictionary<int, int>         _npcTargets      = new();
+    private readonly ConcurrentDictionary<int, int> _npcTargets    = new();
     private readonly Dictionary<int, WanderState> _wanderState     = new();
     private readonly Dictionary<int, DateTime>    _lastWanderTime  = new();
     private readonly Dictionary<int, ChaseState>  _chaseState      = new();
@@ -92,7 +93,7 @@ public sealed class NpcAiService : BackgroundService
             {
                 _lastAttackTime.Remove(npc.ObjectId);
                 _lastSkillTime.Remove(npc.ObjectId);
-                _npcTargets.Remove(npc.ObjectId);
+                _npcTargets.TryRemove(npc.ObjectId, out _);
                 _wanderState.Remove(npc.ObjectId);
                 _lastWanderTime.Remove(npc.ObjectId);
                 _chaseState.Remove(npc.ObjectId);
@@ -140,7 +141,7 @@ public sealed class NpcAiService : BackgroundService
                     {
                         // Lost target — stop any chase and return home
                         await StopChaseAsync(npc, ct);
-                        _npcTargets.Remove(npc.ObjectId);
+                        _npcTargets.TryRemove(npc.ObjectId, out _);
                         _attackBegunNpcs.Remove(npc.ObjectId);
                         npc.Target = null;
                         await BroadcastAttackEndShoutAsync(npc, ct);
@@ -288,7 +289,7 @@ public sealed class NpcAiService : BackgroundService
             if (target.CurrentHp > 0) continue;
 
             // Player killed by NPC — clear their target lock so NPC idles afterward
-            _npcTargets.Remove(npc.ObjectId);
+            _npcTargets.TryRemove(npc.ObjectId, out _);
             _chaseState.Remove(npc.ObjectId);
             _lastSkillTime.Remove(npc.ObjectId);
             _attackBegunNpcs.Remove(npc.ObjectId);
@@ -532,6 +533,21 @@ public sealed class NpcAiService : BackgroundService
                     if (conn.ActivePlayer?.Position.WorldId == worldId)
                         try { await conn.SendAsync(shoutPkt, ct); } catch { }
             }
+        }
+    }
+
+    /// <summary>
+    /// Called from packet handlers when a player hits an NPC directly.
+    /// Forces the NPC to engage the player even if it is outside its natural aggro range.
+    /// Thread-safe: uses ConcurrentDictionary for target registration.
+    /// </summary>
+    public void ForceEngage(Npc npc, Player player)
+    {
+        if (npc.IsAlreadyDead) return;
+        if (_npcTargets.TryAdd(npc.ObjectId, player.ObjectId))
+        {
+            npc.Target         = player;
+            npc.LastCombatTime = DateTime.UtcNow;
         }
     }
 

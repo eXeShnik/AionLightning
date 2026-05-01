@@ -1482,6 +1482,15 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+131. [✓] NPC forced engagement on player hit — passive NPCs retaliate when attacked (session 2026-05-01)
+    - [✓] `NpcAiService._npcTargets` — changed from `Dictionary<int,int>` to `ConcurrentDictionary<int,int>` (thread-safe; ForceEngage called from packet handler thread); all `Remove` → `TryRemove`
+    - [✓] `NpcAiService.ForceEngage(Npc npc, Player player)` — public; calls `_npcTargets.TryAdd` (idempotent — won't override an existing target); sets `npc.Target` and `npc.LastCombatTime`; NPC picks up the target on its next tick
+    - [✓] `Program.cs` — changed from `AddHostedService<NpcAiService>()` to `AddSingleton<NpcAiService>()` + `AddHostedService(sp => sp.GetRequiredService<NpcAiService>())` so the singleton is injectable elsewhere
+    - [✓] `CM_ATTACK` — injected `NpcAiService _npcAi`; after applying damage, if target is a live Npc, calls `_npcAi.ForceEngage(attackedNpc, player)`; mirrors Java AggroEventHandler.onAggro() which adds the player to the NPC's aggro list on any hit
+    - [✓] `GsPacketHandlerFactory` — added `NpcAiService npcAi` parameter; passes `_npcAi` to `CM_ATTACK` constructor
+    - Passive NPCs (aggroRange == 0) now correctly fight back when a player hits them
+    - Build: 0 warnings, 0 errors
+
 130. [✓] NPC assist system — same-tribe NPCs join combat on aggro (session 2026-05-01)
     - [✓] `TribeData.IsSupport(helperTribe, victimTribe)` — returns true if same tribe name OR same base tribe; mirrors Java TribeRelationService.isSupport()
     - [✓] `NpcAiService.AlertNearbyAllies(aggressor, target)` — when an NPC acquires a new target, iterates all non-dead, non-dummy NPCs in the same world; for each ally within its own aggro range that has no current target and shares a tribe/base with the aggressor, assigns the same player target; allies then engage on their next tick (no extra packets needed — existing combat logic handles the follow-through)

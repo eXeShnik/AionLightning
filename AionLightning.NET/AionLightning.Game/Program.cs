@@ -84,7 +84,8 @@ builder.Services.AddSingleton<GatherService>();
 builder.Services.AddSingleton<BrokerService>();
 builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddHostedService<RegenService>();
-builder.Services.AddHostedService<NpcAiService>();
+builder.Services.AddSingleton<NpcAiService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NpcAiService>());
 builder.Services.AddHostedService<AutoSaveService>();
 builder.Services.AddHostedService<AbyssResetService>();
 
