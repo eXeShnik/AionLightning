@@ -33,6 +33,7 @@ public interface IPlayerDao
     Task UpdateAbyssKillStatsAsync(int playerId, int allKill, int maxRank,
         int dailyKill, long dailyAp, int weeklyKill, long weeklyAp,
         int lastKill, long lastAp, CancellationToken ct = default);
+    Task ResetAbyssDailyStatsAsync(bool weekly, CancellationToken ct = default);
     Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default);
     Task UpdateNameAsync(int playerId, string name, CancellationToken ct = default);
     Task UpdateBonusTitleAsync(int playerId, int bonusTitleId, CancellationToken ct = default);

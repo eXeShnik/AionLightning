@@ -84,6 +84,7 @@ builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddHostedService<NpcAiService>();
 builder.Services.AddHostedService<AutoSaveService>();
+builder.Services.AddHostedService<AbyssResetService>();
 
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();

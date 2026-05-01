@@ -200,6 +200,25 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { playerId, allKill, maxRank, dailyKill, dailyAp, weeklyKill, weeklyAp, lastKill, lastAp });
     }
 
+    public async Task ResetAbyssDailyStatsAsync(bool weekly, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        if (weekly)
+        {
+            await conn.ExecuteAsync(
+                """
+                UPDATE players SET
+                    abyss_last_kill=abyss_weekly_kill, abyss_last_ap=abyss_weekly_ap,
+                    abyss_weekly_kill=0, abyss_weekly_ap=0,
+                    abyss_daily_kill=0,  abyss_daily_ap=0
+                """);
+        }
+        else
+        {
+            await conn.ExecuteAsync("UPDATE players SET abyss_daily_kill=0, abyss_daily_ap=0");
+        }
+    }
+
     public async Task UpdateNameAsync(int playerId, string name, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
