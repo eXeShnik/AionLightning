@@ -18,6 +18,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int TRADE_SELL_LIST     = 103;
     private const int WAREHOUSE_OPEN      = 26;
     private const int AIRLINE_SERVICE     = 44;
+    private const int RESURRECT_BIND      = 34;
     private const int QUEST_ACCEPT        = 29;
     private const int QUEST_ACCEPT_1      = 1002;
     private const int SELECT_QUEST_REWARD = 1009;
@@ -105,6 +106,17 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 var tpId = _dataManager.Teleports.GetTeleportId(npc.Template.NpcId);
                 if (tpId is null) return;
                 await _conn.SendAsync(new SM_TELEPORT_MAP(_targetObjectId, tpId.Value), ct);
+                break;
+            }
+
+            case RESURRECT_BIND:
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+                player.BindPosition = npc.Position;
+                await _playerDao.UpdateBindPointAsync(player.ObjectId, npc.Position, ct);
+                await _conn.SendAsync(new SM_BIND_POINT_INFO(npc.Position), ct);
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.BindPointSet(), ct);
                 break;
             }
 

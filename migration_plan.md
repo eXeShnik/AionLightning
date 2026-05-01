@@ -1008,6 +1008,11 @@
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible
     - Build: 0 warnings, 0 errors
 
+64. [✓] Obelisk bind point via dialog (session 2026-05-01)
+    - [✓] `CM_DIALOG_SELECT` — added `RESURRECT_BIND = 34` constant; new case: resolves NPC by `_targetObjectId`, checks proximity (`MaxInteractRange = 10f`), sets `player.BindPosition = npc.Position`, calls `UpdateBindPointAsync`, sends `SM_BIND_POINT_INFO(npc.Position)` + `SM_SYSTEM_MESSAGE.BindPointSet()`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `BindPointSet()` factory method (msg code 1300670 = STR_DEATH_REGISTER_RESURRECT_POINT, "You have set your resurrection point.")
+    - Build: 0 warnings, 0 errors
+
 63. [✓] Motion persistence (session 2026-05-01)
     - [✓] `V18__motions.sql` — new `player_motions` table (`player_id`, `slot`, `motion_id`; PK on both; FK → players ON DELETE CASCADE)
     - [✓] `IMotionDao` / `MotionDaoImpl` — `LoadByPlayerIdAsync` (SELECT), `UpsertAsync` (INSERT … ON DUPLICATE KEY UPDATE), `DeleteAsync` (DELETE WHERE player_id + slot)
