@@ -16,20 +16,66 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 public sealed class CM_DIALOG_SELECT : AionClientPacket
 {
     // Dialog action IDs from Java DialogAction enum
-    private const int RETRIEVE_ACCOUNT_WH = 27;
-    private const int DEPOSIT_ACCOUNT_WH  = 28;
-    private const int BUY                 = 2;
-    private const int TRADE_SELL_LIST     = 103;
-    private const int WAREHOUSE_OPEN      = 26;
-    private const int AIRLINE_SERVICE     = 44;
-    private const int RESURRECT_BIND      = 34;
-    private const int QUEST_SELECT        = 31;
-    private const int OPEN_POSTBOX        = 38;
-    private const int OPEN_VENDOR         = 33;
-    private const int QUEST_ACCEPT        = 29;
-    private const int QUEST_ACCEPT_1      = 1002;
-    private const int SELECT_QUEST_REWARD = 1009;
-    private const int EXTEND_INVENTORY    = 47;
+    private const int RETRIEVE_ACCOUNT_WH  = 27;
+    private const int DEPOSIT_ACCOUNT_WH   = 28;
+    private const int BUY                  = 2;
+    private const int TRADE_SELL_LIST      = 103;
+    private const int WAREHOUSE_OPEN       = 26;
+    private const int AIRLINE_SERVICE      = 44;
+    private const int RESURRECT_BIND       = 34;
+    private const int QUEST_SELECT         = 31;
+    private const int OPEN_POSTBOX         = 38;
+    private const int OPEN_VENDOR          = 33;
+    private const int QUEST_ACCEPT         = 29;
+    private const int QUEST_ACCEPT_1       = 1002;
+    private const int SELECT_QUEST_REWARD  = 1009;
+    private const int EXTEND_INVENTORY     = 47;
+    private const int OPEN_STIGMA_WINDOW   = 4;
+    private const int GATHER_SKILL_LEVELUP = 45;
+    private const int COMBINE_SKILL_LEVELUP = 46;
+
+    // Tier costs for craft/gathering skill upgrades (Java CraftSkillUpdateService cost map).
+    // Key = current skill level; value = kinah price to advance to the next tier.
+    private static readonly Dictionary<int, long> CraftTierCosts = new()
+    {
+        [0]   = 3_500,       // learn basic (level 0 → 1)
+        [99]  = 17_000,      // apprentice (99 → 100)
+        [199] = 115_000,     // journeyman (199 → 200)
+        [299] = 460_000,     // expert unlock (299 → 300)
+        [399] = -1,          // expert cap — requires quest; -1 = blocked
+        [449] = 6_004_900,   // gathering advanced (449 → 450)
+        [499] = -1,          // master cap — requires quest; -1 = blocked
+    };
+
+    // NPC ID → (skillId, skillName). Mirrors Java CraftSkillUpdateService.npcBySkill.
+    private static readonly Dictionary<int, (int SkillId, string Name)> NpcSkillMap = new()
+    {
+        // Asmodian gatherers
+        [204096] = (30002, "Extract Vitality"), [830158] = (30002, "Extract Vitality"),
+        [204257] = (30003, "Extract Aether"),   [830148] = (30003, "Extract Aether"),
+        // Asmodian crafters
+        [204100] = (40001, "Cooking"),          [830142] = (40001, "Cooking"),
+        [204104] = (40002, "Weaponsmithing"),   [830146] = (40002, "Weaponsmithing"),
+        [204106] = (40003, "Armorsmithing"),    [830144] = (40003, "Armorsmithing"),
+        [204110] = (40004, "Tailoring"),        [830136] = (40004, "Tailoring"),
+        [204102] = (40007, "Alchemy"),          [830138] = (40007, "Alchemy"),
+        [204108] = (40008, "Handicrafting"),    [830140] = (40008, "Handicrafting"),
+        [798452] = (40010, "Menusier"),         [798456] = (40010, "Menusier"),
+        // Elyos gatherers
+        [203780] = (30002, "Extract Vitality"), [830066] = (30002, "Extract Vitality"),
+        [203782] = (30003, "Extract Aether"),   [830064] = (30003, "Extract Aether"),
+        // Elyos crafters
+        [203784] = (40001, "Cooking"),          [830058] = (40001, "Cooking"),
+        [203788] = (40002, "Weaponsmithing"),   [830062] = (40002, "Weaponsmithing"),
+        [203790] = (40003, "Armorsmithing"),    [830060] = (40003, "Armorsmithing"),
+        [203793] = (40004, "Tailoring"),        [830052] = (40004, "Tailoring"),
+        [203786] = (40007, "Alchemy"),          [830054] = (40007, "Alchemy"),
+        [203792] = (40008, "Handicrafting"),    [830056] = (40008, "Handicrafting"),
+        [798450] = (40010, "Menusier"),         [798454] = (40010, "Menusier"),
+    };
+
+    // Crafting skill IDs (vs gathering). Max 2 expert (≥400) crafting skills, max 1 master (≥500).
+    private static readonly HashSet<int> CraftingSkillIds = [40001, 40002, 40003, 40004, 40007, 40008, 40010];
 
     private const int   KinahItemId      = 182400001;
     private const float MaxInteractRange = 10.0f;
@@ -209,6 +255,19 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
             case EXTEND_INVENTORY:
                 await HandleExpandCubeAsync(player, ct);
+                break;
+
+            case OPEN_STIGMA_WINDOW:
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+                await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dialogId: 1), ct);
+                break;
+            }
+
+            case GATHER_SKILL_LEVELUP:
+            case COMBINE_SKILL_LEVELUP:
+                await HandleCraftSkillUpgradeAsync(player, ct);
                 break;
 
             default:
@@ -539,5 +598,93 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
         _log.LogInformation("Player {Name} expanded cube to {Slots} slots (npcExpands={Level})",
             player.Name, player.CubeCapacity, player.NpcExpands);
+    }
+
+    private async ValueTask HandleCraftSkillUpgradeAsync(Model.Player player, CancellationToken ct)
+    {
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
+        if (player.Level < 10) return;
+
+        if (!NpcSkillMap.TryGetValue(npc.Template.NpcId, out var skillInfo)) return;
+        int skillId   = skillInfo.SkillId;
+        string skillName = skillInfo.Name;
+
+        int currentLevel = player.Skills.GetLevel(skillId);
+
+        if (!CraftTierCosts.TryGetValue(currentLevel, out long cost))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CraftSkillMaxLevel(), ct);
+            return;
+        }
+
+        // -1 means this tier requires quest completion
+        if (cost < 0)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CraftSkillNeedQuest(), ct);
+            return;
+        }
+
+        // Gathering skills (30002/30003) have no upgrade at level 449
+        if (currentLevel == 449 && (skillId == 30002 || skillId == 30003))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CraftSkillMaxLevel(), ct);
+            return;
+        }
+
+        // Crafting cap: max 2 expert (≥400), max 1 master (≥500)
+        if (CraftingSkillIds.Contains(skillId))
+        {
+            if (currentLevel == 399)
+            {
+                int expertCount = CountCraftingSkillsAbove(player, 399);
+                if (expertCount >= 2)
+                {
+                    await _conn.SendAsync(SM_SYSTEM_MESSAGE.CraftSkillMaxLevel(), ct);
+                    return;
+                }
+            }
+            else if (currentLevel == 499)
+            {
+                int masterCount = CountCraftingSkillsAbove(player, 499);
+                if (masterCount >= 1)
+                {
+                    await _conn.SendAsync(SM_SYSTEM_MESSAGE.CraftSkillMaxLevel(), ct);
+                    return;
+                }
+            }
+        }
+
+        var kinah = player.Inventory.FindByItemId(KinahItemId);
+        if (kinah is null || kinah.Count < cost)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
+            return;
+        }
+
+        kinah.Count -= cost;
+        int newLevel = currentLevel + 1;
+        player.Skills.AddSkill(skillId, newLevel, isStigma: false);
+        await _skillDao.UpsertAsync(player.ObjectId, skillId, newLevel, ct);
+        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+
+        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
+
+        var upgraded = player.Skills.GetEntry(skillId)!;
+        await _conn.SendAsync(new SM_SKILL_LIST([upgraded], isNew: true, msgId: 1330004, skillName: skillName, skillLevel: newLevel), ct);
+
+        _log.LogInformation("Player {Name} upgraded {Skill} to level {Level}", player.Name, skillName, newLevel);
+    }
+
+    private static int CountCraftingSkillsAbove(Model.Player player, int threshold)
+    {
+        int count = 0;
+        foreach (int id in CraftingSkillIds)
+        {
+            int lvl = player.Skills.GetLevel(id);
+            if (lvl > threshold) count++;
+        }
+        return count;
     }
 }

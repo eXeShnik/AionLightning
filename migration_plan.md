@@ -1143,6 +1143,17 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+87. [✓] Crafting/gathering skill tier upgrade from NPC + stigma window (session 2026-05-01)
+    - [✓] `SM_SYSTEM_MESSAGE` — added `CraftSkillMaxLevel()` (1390233) and `CraftSkillNeedQuest()` (1300834)
+    - [✓] `CM_DIALOG_SELECT` — added `OPEN_STIGMA_WINDOW=4`, `GATHER_SKILL_LEVELUP=45`, `COMBINE_SKILL_LEVELUP=46` constants
+    - [✓] `CM_DIALOG_SELECT` — added `NpcSkillMap` (NPC ID → skillId + name) covering all Elyos/Asmodian gathering (30002/30003) and crafting (40001–40010) trainer NPCs (mirrors Java CraftSkillUpdateService.npcBySkill)
+    - [✓] `CM_DIALOG_SELECT` — added `CraftTierCosts` dictionary: 0→3500, 99→17k, 199→115k, 299→460k, 399→blocked(quest), 449→6M, 499→blocked(quest)
+    - [✓] `CM_DIALOG_SELECT` — `OPEN_STIGMA_WINDOW` sends `SM_DIALOG_WINDOW(npcId, 1)` to open stigma UI
+    - [✓] `CM_DIALOG_SELECT.HandleCraftSkillUpgradeAsync` — validates player level≥10, NPC trainer type, tier boundary, kinah; deducts kinah, increments skill level by 1, persists via ISkillDao, sends SM_INVENTORY_ADD_ITEM + SM_SKILL_LIST(msgId=1330004)
+    - [✓] Expert cap guard: max 2 crafting skills at level≥400; master cap: max 1 at level≥500 (mirrors Java CraftConfig.MAX_EXPERT/MASTER)
+    - [✓] `CountCraftingSkillsAbove` — counts player's crafting skills above a threshold level
+    - Build: 0 warnings, 0 errors
+
 86. [✓] Account warehouse — cross-character item sharing (session 2026-05-01)
     - [✓] `V24__account_warehouse.sql` — new `account_warehouse_items(unique_id, account_id, item_id, count, slot, enchant_level)` table
     - [✓] `IItemDao` — added `FindAccountWarehouseAsync(int accountId, ...)` and `SaveAccountWarehouseAsync(int accountId, IEnumerable<Item> items, ...)`
