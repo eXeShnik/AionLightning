@@ -1043,3 +1043,52 @@
     - [✓] `GsPacketHandlerFactory` — added `IMotionDao` field + constructor param; wired into `CM_ENTER_WORLD` (0xAA) and `CM_MOTION` (0x2E5) constructors
     - [✓] `Program.cs` — registered `IMotionDao → MotionDaoImpl` as singleton
     - Build: 0 warnings, 0 errors
+
+72. [✓] Gathering skill level guard (session 2026-05-01)
+    - [✓] `CM_GATHER.HandleStartAsync` — checks `HarvestSkill > 0`; if player lacks skill → sends `GatherNoSkill` (1330054); if skill level < template SkillLevel → sends `GatherSkillLevelLow` (1330001); mirrors Java `GatherableController.checkPlayerSkill`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `GatherNoSkill(skillName)` (1330054) and `GatherSkillLevelLow(skillName)` (1330001) factory methods
+    - Build: 0 warnings, 0 errors
+
+73. [✓] Soul sickness death penalty on bind revive (session 2026-05-01)
+    - [✓] `V19__soul_sickness.sql` — adds `soul_sickness TINYINT UNSIGNED NOT NULL DEFAULT 0` to players
+    - [✓] `Player` — added `SoulSicknessCount` (0–10) + `SoulSicknessMultiplier` (5% reduction per stack, min 0.5×)
+    - [✓] `IPlayerDao` / `PlayerDaoImpl` — added `UpdateSoulSicknessAsync`; soul_sickness in SelectColumns/PlayerRow/ToPlayer
+    - [✓] `CM_ENTER_WORLD` — applies `SoulSicknessMultiplier` when computing MaxHp/MaxMp
+    - [✓] `CM_REVIVE` — increments SoulSicknessCount (max 10) on bind revive; recomputes penalised MaxHp/MaxMp before restoring to 25%
+    - Build: 0 warnings, 0 errors
+
+74. [✓] Crafting skill level guard in CM_CRAFT (session 2026-05-01)
+    - [✓] `CM_CRAFT` — added gate: player must have recipe.SkillId present and GetLevel >= recipe.SkillPoint; mirrors Java CraftService.checkCraft
+    - Build: 0 warnings, 0 errors
+
+75. [✓] Enchantment stone failure chance + success/fail messages (session 2026-05-01)
+    - [✓] `CM_MANASTONE` case 1 — success rate: 60% base − 5% per current enchant level (min 5%); on failure, level drops by 1 (or clamps to 10 if > 10); mirrors Java EnchantService.enchantItem / enchantItemAct
+    - [✓] `SM_SYSTEM_MESSAGE` — added `EnchantSuccess(itemName, level)` (1401681) and `EnchantFailed(itemName)` (1300456)
+    - Build: 0 warnings, 0 errors
+
+76. [✓] Skill persistence — player_skills table + ISkillDao (session 2026-05-01)
+    - [✓] `V20__player_skills.sql` — creates `player_skills(player_id, skill_id, skill_level)` with PK + FK
+    - [✓] `ISkillDao` / `SkillDaoImpl` — `LoadByPlayerIdAsync` + `UpsertAsync`
+    - [✓] `CM_ENTER_WORLD` — loads persisted skills (crafting, skill books) from DB after auto-learn loop
+    - [✓] `CM_USE_ITEM` — persists newly learned skills via `ISkillDao.UpsertAsync`
+    - [✓] `Program.cs` / `GsPacketHandlerFactory` — registered and wired
+    - Build: 0 warnings, 0 errors
+
+77. [✓] Crafting skill advancement on successful craft (session 2026-05-01)
+    - [✓] `CM_CRAFT` — after crafting, if player skill level < recipe.SkillPoint + 50, increments the skill and persists via ISkillDao; mirrors Java CraftService.finishCrafting addSkillXp gate
+    - Build: 0 warnings, 0 errors
+
+78. [✓] Gathering skill advancement on successful harvest (session 2026-05-01)
+    - [✓] `CM_GATHER` — after successful harvest, if player HarvestSkill level < node.SkillLevel + 50, increments the skill and persists via ISkillDao; parallel to crafting skill advancement (M77)
+    - Build: 0 warnings, 0 errors
+
+79. [✓] Mail postage fee (session 2026-05-01)
+    - [✓] `CM_SEND_MAIL` — deducts 10 kinah base + 1% commission on attached kinah before sending; sends NoEnoughKinah if insufficient; mirrors Java MailService fee formula
+    - Build: 0 warnings, 0 errors
+
+80. [✓] HP/MP persistence across sessions (session 2026-05-01)
+    - [✓] `V21__player_hp_mp.sql` — adds `current_hp` / `current_mp` (nullable INT) to players table
+    - [✓] `IPlayerDao` / `PlayerDaoImpl` — `UpdateHpMpAsync`; columns in SelectColumns/PlayerRow/ToPlayer (nullable → 0)
+    - [✓] `GsClientConnection.DisposeAsync` — calls `UpdateHpMpAsync` before UpdateOnlineAsync so HP/MP survives relog
+    - [✓] `CM_ENTER_WORLD` — uses persisted HP/MP (clamped to MaxHp/MaxMp); falls back to MaxHp/MaxMp for new characters (0 = not yet persisted)
+    - Build: 0 warnings, 0 errors
