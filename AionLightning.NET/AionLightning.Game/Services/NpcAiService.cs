@@ -145,6 +145,7 @@ public sealed class NpcAiService : BackgroundService
                     {
                         if (player.IsAlreadyDead) continue;
                         if (player.Position.WorldId != npc.Position.WorldId) continue;
+                        if (!_dataManager.Tribes.IsAggressiveToPlayer(npc.Template.Tribe, player.Race)) continue;
 
                         float dist = npc.Position.DistanceTo(player.Position);
                         if (dist <= npc.Template.AggroRange && dist < minDist)

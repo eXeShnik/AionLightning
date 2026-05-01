@@ -20,4 +20,5 @@ public interface IDataManager
     DecomposableSelectItemsData    SelectItems { get; }
     PlayerTitlesData               Titles      { get; }
     WalkerData                     Walkers     { get; }
+    TribeData                      Tribes      { get; }
 }

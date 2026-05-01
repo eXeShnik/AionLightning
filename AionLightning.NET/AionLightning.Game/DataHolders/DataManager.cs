@@ -22,6 +22,7 @@ public sealed class DataManager : IDataManager
     public DecomposableSelectItemsData    SelectItems { get; } = new();
     public PlayerTitlesData               Titles      { get; } = new();
     public WalkerData                     Walkers     { get; } = new();
+    public TribeData                      Tribes      { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -46,6 +47,7 @@ public sealed class DataManager : IDataManager
         SelectItems.Load(dataRoot, log);
         Titles.Load(dataRoot, log);
         Walkers.Load(dataRoot, log);
+        Tribes.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

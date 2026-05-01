@@ -1447,3 +1447,11 @@
     - [✓] `NpcAiService` — added `_walkerStepIndex: Dictionary<int, int>` (step index per NPC); renamed old `WanderAsync` to `WanderRandomAsync`; new `WanderAsync` dispatches to `PatrolAsync` for walker NPCs or `WanderRandomAsync` for others; `PatrolAsync` follows route steps in sequence (cycling), broadcasts SM_MOVE on each advance, advances step index on arrival; walker NPCs skip the 10-second wander cooldown (continuous patrol)
     - Walker state reuses `_wanderState` dict (WanderState record) — patrol move tracked same as wander move; step index cleared on NPC death
     - Build: 0 warnings, 0 errors
+
+117. [✓] Tribe relations — load tribe_relations.xml + faction-aware NPC aggro (session 2026-05-01)
+    - [✓] `TribeData.cs` (NEW) — streaming XmlReader loads `tribe/tribe_relations.xml` (553 entries); models `TribeRelation { Base, Aggro (HashSet), Hostile (HashSet) }`; `IsAggressiveToPlayer(npcTribe, playerRace)` implements Java TribeRelationService.isAggressive() logic: hardcoded GUARD/GUARD_DARK/GUARD_DRAGON base-type rules first, then explicit aggro/hostile set lookup, then MONSTER default
+    - [✓] `IDataManager` / `DataManager` — added `TribeData Tribes { get; }` property; loads after Walkers
+    - [✓] `NpcTemplate` — added `[XmlAttribute("tribe")] string Tribe` (default "GENERAL")
+    - [✓] `NpcAiService` scan loop — player target now guarded by `IsAggressiveToPlayer(npc.Template.Tribe, player.Race)`: GUARD tribes attack only opposite-faction players; AGGRESSIVEMONSTER/MONSTER-base tribes attack all players; GENERAL/USEALL tribes do not initiate aggro
+    - Player tribe mapping: ELYOS→"PC", ASMODIANS→"PC_DARK" (mirrors Java TribeClass enum)
+    - Build: 0 warnings, 0 errors
