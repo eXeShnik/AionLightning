@@ -276,6 +276,7 @@ public sealed class GsPacketHandlerFactory
                 0x184 => new CM_SHOW_FRIENDLIST(conn, _socialDao, _connRegistry),
                 0x187 => new CM_SECURITY_TOKEN(),
                 0x188 => new CM_USE_CHARGE_SKILL(),
+                0x189 => new CM_TUNE(conn, _itemDao, _dataManager),
                 0x18A => new CM_CHALLENGE_LIST(),
                 0x18B => new CM_BONUS_TITLE(conn, _playerDao),
                 0x18E => new CM_SELECTITEM_OK(),

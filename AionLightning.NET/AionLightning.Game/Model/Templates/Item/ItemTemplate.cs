@@ -14,7 +14,8 @@ public sealed class ItemTemplate
     [XmlAttribute("quality")]         public string Quality       { get; set; } = string.Empty;
     [XmlAttribute("price")]           public long   Price         { get; set; }
     [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
-    [XmlAttribute("mask")]            public int    Mask          { get; set; }
+    [XmlAttribute("mask")]             public int    Mask             { get; set; }
+    [XmlAttribute("option_slot_bonus")] public int   OptionSlotBonus  { get; set; }
 
     [XmlElement("actions")]           public ItemActions?   Actions     { get; set; }
     [XmlElement("weapon_stats")]      public WeaponStats?   WeaponStats { get; set; }

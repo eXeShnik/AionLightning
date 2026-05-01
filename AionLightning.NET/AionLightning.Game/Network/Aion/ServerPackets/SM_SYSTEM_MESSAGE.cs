@@ -91,6 +91,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_SUCCESS_RECOVER_EXPERIENCE — "You have been cured of Soul Sickness." (msg code 1300674)
     public static SM_SYSTEM_MESSAGE SoulSicknessCleared() => new(1300674);
 
+    // STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM — "Item tuning complete." (msg code 1401626)
+    public static SM_SYSTEM_MESSAGE TuningComplete() => new(1401626);
+
     // STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM — "Godstone has been applied to %0." (msg code 1300502)
     public static SM_SYSTEM_MESSAGE GodstoneApplied() => new(1300502);
 

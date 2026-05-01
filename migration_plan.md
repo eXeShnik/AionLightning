@@ -1262,3 +1262,14 @@
     - [✓] `GsPacketHandlerFactory` — updated 0x139 to pass `conn, _itemDao, _dataManager, _connRegistry`
     - Godstone proc (combat trigger) is NOT implemented — stored itemId enables correct wire format encoding; proc effect is future work
     - Build: 0 warnings, 0 errors
+
+100. [✓] Item tuning — optional socket (CM_TUNE) (session 2026-05-01)
+    - [✓] `V26__tuning.sql` — `ALTER TABLE player_items ADD COLUMN optional_socket TINYINT(1) NOT NULL DEFAULT -1`
+    - [✓] `ItemTemplate` — added `[XmlAttribute("option_slot_bonus")] OptionSlotBonus int`
+    - [✓] `Item` — added `OptionalSocket int = -1` (−1 = untuned; 0+ = extra socket slots from tuning)
+    - [✓] `ItemDaoImpl` — updated SELECT to include `optional_socket` (index 7); `is_equipped` shifted to index 8; INSERT includes `optional_socket`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `TuningComplete()` (msg code 1401626)
+    - [✓] `CM_TUNE` (new file, 0x189): free initial tuning path — validates `OptionalSocket == -1`, template has `OptionSlotBonus > 0`; assigns `Random.Next(0, OptionSlotBonus + 1)`; persists via `SaveAllAsync`; sends `SM_INVENTORY_ADD_ITEM([item])` + `SM_SYSTEM_MESSAGE.TuningComplete()`; scroll re-tuning path (`tuningScrollId != 0`) is stub (TuningAction not yet ported)
+    - [✓] `GsPacketHandlerFactory` — registered 0x189 → `CM_TUNE(conn, _itemDao, _dataManager)`
+    - Tuning does not affect the manastone socket count wire format (SM_INVENTORY_INFO.WriteItemInfo remains simplified); random bonus stats (setRndBonus) not implemented (requires ITEM_RANDOM_BONUSES data)
+    - Build: 0 warnings, 0 errors
