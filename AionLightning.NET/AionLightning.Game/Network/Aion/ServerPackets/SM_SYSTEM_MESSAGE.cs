@@ -63,4 +63,10 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_MSG_MANASTONE_SUCCEED — "You have succeeded in the manastone socketing of %0." (msg code 1300252)
     public static SM_SYSTEM_MESSAGE ManastoneSuccess(string itemName) => new(1300252, itemName);
+
+    // STR_EXTRACT_NO_SKILL — "You must learn the %0 skill to start gathering." (msg code 1330054)
+    public static SM_SYSTEM_MESSAGE GatherNoSkill(string skillName) => new(1330054, skillName);
+
+    // STR_EXTRACT_INSUFFICIENT_SKILL — "Your %0 skill level is not high enough." (msg code 1330001)
+    public static SM_SYSTEM_MESSAGE GatherSkillLevelLow(string skillName) => new(1330001, skillName);
 }

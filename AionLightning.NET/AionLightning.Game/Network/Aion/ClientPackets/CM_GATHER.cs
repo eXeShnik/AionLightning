@@ -57,6 +57,23 @@ public sealed class CM_GATHER : AionClientPacket
     {
         if (target.IsGathered) return;
 
+        // Skill gate — player must have the required gathering skill at sufficient level
+        int harvestSkill = target.Template.HarvestSkill;
+        if (harvestSkill > 0)
+        {
+            string skillTag = harvestSkill.ToString();
+            if (!player.Skills.IsPresent(harvestSkill))
+            {
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.GatherNoSkill(skillTag), ct);
+                return;
+            }
+            if (player.Skills.GetLevel(harvestSkill) < target.Template.SkillLevel)
+            {
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.GatherSkillLevelLow(skillTag), ct);
+                return;
+            }
+        }
+
         // Roll material once here; the same result is stored in GatherService and used in HandleFinish
         // so the player cannot receive a different item than the one shown in the gather animation.
         var material = target.Template.PickMaterial();
