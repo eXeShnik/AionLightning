@@ -1456,6 +1456,13 @@
     - Player tribe mapping: ELYOS→"PC", ASMODIANS→"PC_DARK" (mirrors Java TribeClass enum)
     - Build: 0 warnings, 0 errors
 
+119. [✓] NPC shouts — DIED event + IDLE ambient shout (session 2026-05-02)
+    - [✓] `CM_ATTACK` — added `IDataManager _dataManager` field + constructor param; in NPC death path, after SM_EMOTION(DIE) broadcast, calls `NpcShouts.GetRandomShout(npcId, DIED, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to all zone players; mirrors Java ShoutEventHandler.onDied
+    - [✓] `CM_CASTSPELL` Task.Run NPC death path — same DIED shout logic added after SM_EMOTION(DIE) broadcast; `_dataManager` already injected
+    - [✓] `GsPacketHandlerFactory` — updated 0xE2 (CM_ATTACK) to pass `_dataManager`
+    - [✓] `NpcAiService` — added `_lastIdleShoutTime: Dictionary<int, DateTime>` (30-second per-NPC cooldown); in `WanderRandomAsync` after broadcasting SM_MOVE start, checks IDLE shout cooldown and calls `GetRandomShout(npcId, IDLE, worldId)`; if entry found, broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone players and stamps cooldown; NPC ambient shouts now fire periodically during wander; cleaned up `_lastIdleShoutTime` in dead-NPC block
+    - Build: 0 warnings, 0 errors
+
 118. [✓] NPC shouts — load npc_shouts.xml + SEE event broadcast (session 2026-05-02)
     - [✓] `NpcShoutData.cs` (NEW) — streaming XmlReader loads `npc_shouts/npc_shouts.xml`; indexes by `(npcId → ShoutEventType → List<ShoutEntry>)`; `GetRandomShout(npcId, evt, worldId)` filters by `restrict_world` (0=any world, nonzero=specific map) and returns a random eligible entry; `ShoutEventType` enum covers SEE/IDLE/ATTACK/ATTACK_BEGIN/ATTACK_END/DIED/CAST_K/ATTACK_K/PLAYER_MAGIC/PLAYER_SNARE/PLAYER_DEBUFF/PLAYER_SLAVE/PLAYER_BLOW/SWITCH_TARGET/GOD_HELP/WAKEUP/OTHER
     - [✓] `IDataManager` / `DataManager` — added `NpcShoutData NpcShouts { get; }` property; loads after Tribes

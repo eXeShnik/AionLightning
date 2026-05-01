@@ -1,6 +1,7 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
@@ -13,6 +14,7 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly GsClientConnection _conn;
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly IDataManager _dataManager;
     private readonly ExperienceService _expService;
     private readonly SpawnService _spawnService;
     private readonly LootService _lootService;
@@ -26,13 +28,15 @@ public sealed class CM_ATTACK : AionClientPacket
     private int _time;
 
     public CM_ATTACK(GsClientConnection conn, GameWorld world,
-        PlayerConnectionRegistry connRegistry, ExperienceService expService,
+        PlayerConnectionRegistry connRegistry, IDataManager dataManager,
+        ExperienceService expService,
         SpawnService spawnService, LootService lootService, QuestService questService,
         DuelService duelService, IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
     {
         _conn         = conn;
         _world        = world;
         _connRegistry = connRegistry;
+        _dataManager  = dataManager;
         _expService   = expService;
         _spawnService = spawnService;
         _lootService  = lootService;
@@ -172,6 +176,19 @@ public sealed class CM_ATTACK : AionClientPacket
         {
             deadNpc.State |= CreatureState.Dead;
             await BroadcastAsync(new SM_EMOTION(deadNpc, EmotionType.DIE), ct);
+
+            // DIED shout — NPC death cry
+            var diedShout = _dataManager.NpcShouts.GetRandomShout(
+                deadNpc.Template.NpcId, NpcShoutData.ShoutEventType.DIED, deadNpc.Position.WorldId);
+            if (diedShout.HasValue)
+            {
+                var shoutPkt  = SM_SYSTEM_MESSAGE.NpcShout(deadNpc.ObjectId, diedShout.Value.StringId);
+                int shoutWorld = deadNpc.Position.WorldId;
+                foreach (var c in _connRegistry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == shoutWorld)
+                        try { await c.SendAsync(shoutPkt, ct); } catch { }
+            }
+
             _world.Remove(deadNpc);
 
             // Generate drops keyed by the NPC's objectId (now removed from world)

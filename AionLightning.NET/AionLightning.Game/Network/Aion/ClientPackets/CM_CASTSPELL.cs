@@ -284,6 +284,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == npcWorldId)
                             try { await c.SendAsync(die); } catch { }
+
+                    // DIED shout — NPC death cry
+                    var diedShout = _dataManager.NpcShouts.GetRandomShout(
+                        deadNpc.Template.NpcId, NpcShoutData.ShoutEventType.DIED, npcWorldId);
+                    if (diedShout.HasValue)
+                    {
+                        var shoutPkt = SM_SYSTEM_MESSAGE.NpcShout(deadNpc.ObjectId, diedShout.Value.StringId);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == npcWorldId)
+                                try { await c.SendAsync(shoutPkt); } catch { }
+                    }
+
                     world.Remove(deadNpc);
 
                     lootSvc.GenerateDrops(deadNpc);

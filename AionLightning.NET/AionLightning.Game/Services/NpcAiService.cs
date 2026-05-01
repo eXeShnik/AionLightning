@@ -21,6 +21,7 @@ public sealed class NpcAiService : BackgroundService
     private static readonly TimeSpan Interval              = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan DefaultAttackCooldown = TimeSpan.FromMilliseconds(1500);
     private static readonly TimeSpan WanderCooldown        = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan IdleShoutCooldown     = TimeSpan.FromSeconds(30);
     private const float LeashMultiplier   = 1.5f;
     private const float WanderRadius      = 5.0f;
     private const float WanderSpeed       = 1.5f;
@@ -45,7 +46,9 @@ public sealed class NpcAiService : BackgroundService
     private readonly Dictionary<int, ChaseState>  _chaseState      = new();
     private readonly Dictionary<int, ReturnState> _returnState     = new();
     // Walker patrol: NPC objectId → current route step index
-    private readonly Dictionary<int, int>         _walkerStepIndex = new();
+    private readonly Dictionary<int, int>         _walkerStepIndex  = new();
+    // Idle shout: NPC objectId → last shout time
+    private readonly Dictionary<int, DateTime>    _lastIdleShoutTime = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ILogger<NpcAiService> log, IOptions<RateOptions> rates)
@@ -92,6 +95,7 @@ public sealed class NpcAiService : BackgroundService
                 _chaseState.Remove(npc.ObjectId);
                 _returnState.Remove(npc.ObjectId);
                 _walkerStepIndex.Remove(npc.ObjectId);
+                _lastIdleShoutTime.Remove(npc.ObjectId);
                 npc.Target = null;
                 continue;
             }
@@ -459,6 +463,21 @@ public sealed class NpcAiService : BackgroundService
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(start, ct); } catch { }
+
+        // IDLE shout — periodic ambient NPC shout (at most once per 30 s)
+        if (now - _lastIdleShoutTime.GetValueOrDefault(npc.ObjectId) >= IdleShoutCooldown)
+        {
+            var idleShout = _dataManager.NpcShouts.GetRandomShout(
+                npc.Template.NpcId, NpcShoutData.ShoutEventType.IDLE, worldId);
+            if (idleShout.HasValue)
+            {
+                _lastIdleShoutTime[npc.ObjectId] = now;
+                var shoutPkt = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, idleShout.Value.StringId);
+                foreach (var conn in _connRegistry.GetAll())
+                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                        try { await conn.SendAsync(shoutPkt, ct); } catch { }
+            }
+        }
     }
 
     private static byte CalcHeading(float dx, float dy)

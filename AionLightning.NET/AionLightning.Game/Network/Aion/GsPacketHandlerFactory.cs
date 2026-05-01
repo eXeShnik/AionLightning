@@ -194,7 +194,7 @@ public sealed class GsPacketHandlerFactory
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(conn, _legionService),
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(),
-                0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _expService, _spawnService, _lootService, _questService, _duelService, _playerDao, _legionDao, _rates),
+                0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _playerDao, _legionDao, _rates),
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _playerDao, _legionDao, _rates),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry),
