@@ -99,6 +99,10 @@ public sealed class Player : Creature
     public int BonusMaxHp { get; set; }
     public int BonusMaxMp { get; set; }
 
+    // Flat HP/MP bonus from the active title (from player_titles.xml <add> modifiers)
+    public int TitleBonusMaxHp { get; set; }
+    public int TitleBonusMaxMp { get; set; }
+
     // Divine Power — drained to 0 on bind revive (cleared via CM_REVIVE), max 8000
     public int Dp { get; set; }
 

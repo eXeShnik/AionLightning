@@ -189,10 +189,21 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
 
-        // Apply item HP/MP bonuses and soul sickness penalty on top of template values
+        // Apply title MAXHP/MAXMP bonuses from player_titles.xml <add> modifiers
+        if (player.TitleId > 0)
+        {
+            var titleTpl = _dataManager.Titles.GetTemplate(player.TitleId);
+            if (titleTpl is not null)
+            {
+                player.TitleBonusMaxHp = titleTpl.GetAddStat("MAXHP");
+                player.TitleBonusMaxMp = titleTpl.GetAddStat("MAXMP");
+            }
+        }
+
+        // Apply item HP/MP bonuses, title bonuses, and soul sickness penalty on top of template values
         float ssMult = player.SoulSicknessMultiplier;
-        player.MaxHp = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp) * ssMult);
-        player.MaxMp = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp) * ssMult);
+        player.MaxHp = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
         // Restore persisted HP/MP/FP; fall back to full if none saved (new character or never persisted)
         player.CurrentHp = player.CurrentHp > 0 ? Math.Min(player.CurrentHp, player.MaxHp) : player.MaxHp;
         player.CurrentMp = player.CurrentMp > 0 ? Math.Min(player.CurrentMp, player.MaxMp) : player.MaxMp;

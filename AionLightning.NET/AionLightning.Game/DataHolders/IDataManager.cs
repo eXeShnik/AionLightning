@@ -18,4 +18,5 @@ public interface IDataManager
     GatherableData        Gatherables   { get; }
     NpcSkillData                   NpcSkills   { get; }
     DecomposableSelectItemsData    SelectItems { get; }
+    PlayerTitlesData               Titles      { get; }
 }

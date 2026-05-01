@@ -20,6 +20,7 @@ public sealed class DataManager : IDataManager
     public GatherableData        Gatherables   { get; } = new();
     public NpcSkillData                   NpcSkills   { get; } = new();
     public DecomposableSelectItemsData    SelectItems { get; } = new();
+    public PlayerTitlesData               Titles      { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -42,6 +43,7 @@ public sealed class DataManager : IDataManager
         Gatherables.Load(dataRoot, log);
         NpcSkills.Load(dataRoot, log);
         SelectItems.Load(dataRoot, log);
+        Titles.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

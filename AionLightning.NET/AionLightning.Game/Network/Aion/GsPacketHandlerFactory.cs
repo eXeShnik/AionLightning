@@ -239,7 +239,7 @@ public sealed class GsPacketHandlerFactory
                 0x12B => new CM_DELETE_MAIL(conn, _mailDao),
                 0x12C => new CM_CLIENT_COMMAND_LOC(conn),
                 0x12F => new CM_CRAFT(conn, _itemDao, _dataManager, _connRegistry, _expService, _skillDao, _questService),
-                0x129 => new CM_TITLE_SET(conn, _playerDao, _connRegistry),
+                0x129 => new CM_TITLE_SET(conn, _playerDao, _connRegistry, _dataManager),
                 0x130 => new CM_DUEL_REQUEST(conn, _connRegistry, _duelService, _world, _responseRegistry),
                 0x132 => new CM_FRIEND_DEL(conn, _socialDao, _connRegistry),
                 0x136 => new CM_STOP_TRAINING(),

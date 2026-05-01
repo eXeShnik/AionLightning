@@ -329,8 +329,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var tpl = _dataManager.PlayerStats.GetTemplate(newClass, player.Level);
         if (tpl is not null)
         {
-            player.MaxHp     = (int)(tpl.MaxHp * player.SoulSicknessMultiplier) + player.BonusMaxHp;
-            player.MaxMp     = (int)(tpl.MaxMp * player.SoulSicknessMultiplier) + player.BonusMaxMp;
+            player.MaxHp     = (int)(tpl.MaxHp * player.SoulSicknessMultiplier) + player.BonusMaxHp + player.TitleBonusMaxHp;
+            player.MaxMp     = (int)(tpl.MaxMp * player.SoulSicknessMultiplier) + player.BonusMaxMp + player.TitleBonusMaxMp;
             player.CurrentHp = player.MaxHp;
             player.CurrentMp = player.MaxMp;
             player.BasePhysicalAttack = tpl.MainHandAttack;
@@ -750,8 +750,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         if (statTpl is not null)
         {
-            player.MaxHp = statTpl.MaxHp + player.BonusMaxHp;
-            player.MaxMp = statTpl.MaxMp + player.BonusMaxMp;
+            player.MaxHp = statTpl.MaxHp + player.BonusMaxHp + player.TitleBonusMaxHp;
+            player.MaxMp = statTpl.MaxMp + player.BonusMaxMp + player.TitleBonusMaxMp;
         }
 
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);

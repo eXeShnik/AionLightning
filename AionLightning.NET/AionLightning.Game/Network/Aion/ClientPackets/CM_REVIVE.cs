@@ -39,8 +39,8 @@ public sealed class CM_REVIVE : AionClientPacket
         // Recompute MaxHp/MaxMp with the updated soul sickness penalty before restoring HP/MP
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         float ssMult = player.SoulSicknessMultiplier;
-        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp) * ssMult);
-        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp) * ssMult);
+        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
 
         // Restore to 25 % HP / MP; drain DP to 0 (mirrors Java PlayerReviveService.revive)
         player.CurrentHp = Math.Max(1, player.MaxHp / 4);

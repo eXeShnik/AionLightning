@@ -1425,3 +1425,15 @@
     - [✓] `Program.cs` — `AddSingleton<IPlayerTitleDao, PlayerTitleDaoImpl>()`
     - Timed titles (minutes > 0) stored as permanent — expiry system deferred
     - Build: 0 warnings, 0 errors
+
+115. [✓] Title stat modifiers — load player_titles.xml + apply MAXHP/MAXMP bonuses on title equip (session 2026-05-01)
+    - [✓] `PlayerTitleTemplate.cs` (NEW) — XML model: `id`, `nameId`, `desc`, `race`; `<modifiers>` with `<add>` (flat) and `<rate>` (percentage) sub-elements; `GetAddStat(name)` sums flat modifiers for a stat name
+    - [✓] `PlayerTitlesData.cs` (NEW) — data holder: loads `player_titles.xml` (root `<player_titles>`/`<title>` elements) via XmlSerializer; `GetTemplate(id)` lookup; 274 templates loaded
+    - [✓] `IDataManager` / `DataManager` — added `PlayerTitlesData Titles { get; }` property; loads during startup
+    - [✓] `Player` — added `TitleBonusMaxHp` and `TitleBonusMaxMp` int properties (mirror `BonusMaxHp/BonusMaxMp` pattern)
+    - [✓] `CM_TITLE_SET` — added `IDataManager _dataManager`; on title equip/unequip: resolves template, updates `TitleBonusMaxHp/MaxMp`, recomputes `MaxHp/MaxMp` (with BonusMaxHp + TitleBonusMaxHp + ssMult), clamps CurrentHp/Mp, persists, sends SM_STATS_INFO + SM_TITLE_INFO.ActiveTitle + BroadcastTitle
+    - [✓] `CM_ENTER_WORLD` — initializes `TitleBonusMaxHp/MaxMp` from title template before computing MaxHp/MaxMp on login
+    - [✓] `CM_REVIVE` / `CM_EQUIP_ITEM` / `CM_DIALOG_SELECT` / `CM_GM_COMMAND_SEND` / `ExperienceService` — all MaxHp/MaxMp recomputations updated to include `+ player.TitleBonusMaxHp/MaxMp`
+    - [✓] `GsPacketHandlerFactory` — passes `_dataManager` to CM_TITLE_SET (0x129)
+    - Only `<add>` (flat) modifiers implemented: MAXHP+MAXMP; `<rate>` (speed/attack speed) deferred (complex combat formula)
+    - Build: 0 warnings, 0 errors

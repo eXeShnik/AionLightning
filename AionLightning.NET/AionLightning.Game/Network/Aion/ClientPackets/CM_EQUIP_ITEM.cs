@@ -103,8 +103,8 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         player.BonusMaxMp = player.Inventory.All
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
-        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp;
-        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp;
+        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
+        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
 
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 
