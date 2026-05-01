@@ -149,9 +149,10 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
 
-        // Apply item HP/MP bonuses on top of template values
-        player.MaxHp = (tpl?.MaxHp ?? 1000) + player.BonusMaxHp;
-        player.MaxMp = (tpl?.MaxMp ?? 500)  + player.BonusMaxMp;
+        // Apply item HP/MP bonuses and soul sickness penalty on top of template values
+        float ssMult = player.SoulSicknessMultiplier;
+        player.MaxHp = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp) * ssMult);
         player.CurrentHp = player.MaxHp;
         player.CurrentMp = player.MaxMp;
 

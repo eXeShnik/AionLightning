@@ -29,6 +29,19 @@ public sealed class CM_REVIVE : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null || !player.IsAlreadyDead) return;
 
+        // Apply soul sickness (bind revive increments death count, max 10) — mirrors Java PlayerReviveService.revive
+        if (player.SoulSicknessCount < 10)
+        {
+            player.SoulSicknessCount++;
+            await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, player.SoulSicknessCount, ct);
+        }
+
+        // Recompute MaxHp/MaxMp with the updated soul sickness penalty before restoring HP/MP
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        float ssMult = player.SoulSicknessMultiplier;
+        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp) * ssMult);
+
         // Restore to 25 % HP / MP; drain DP to 0 (mirrors Java PlayerReviveService.revive)
         player.CurrentHp = Math.Max(1, player.MaxHp / 4);
         player.CurrentMp = Math.Max(1, player.MaxMp / 4);

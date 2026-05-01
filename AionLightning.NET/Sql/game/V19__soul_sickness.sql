@@ -1,0 +1,2 @@
+ALTER TABLE `players`
+    ADD COLUMN `soul_sickness` TINYINT UNSIGNED NOT NULL DEFAULT 0;

@@ -34,4 +34,5 @@ public interface IPlayerDao
     Task UpdateNameAsync(int playerId, string name, CancellationToken ct = default);
     Task UpdateBonusTitleAsync(int playerId, int bonusTitleId, CancellationToken ct = default);
     Task UpdateDpAsync(int playerId, int dp, CancellationToken ct = default);
+    Task UpdateSoulSicknessAsync(int playerId, int count, CancellationToken ct = default);
 }

@@ -92,6 +92,12 @@ public sealed class Player : Creature
     // Divine Power — drained to 0 on bind revive (cleared via CM_REVIVE), max 8000
     public int Dp { get; set; }
 
+    // Soul sickness stacks (0-10); each stack reduces MaxHp/MaxMp by 5 % (Java deathCount)
+    public int SoulSicknessCount { get; set; }
+
+    /// <summary>Multiplier applied to base MaxHp/MaxMp per soul sickness stack (5% reduction each, min 0.5).</summary>
+    public float SoulSicknessMultiplier => Math.Max(0.5f, 1f - SoulSicknessCount * 0.05f);
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }
