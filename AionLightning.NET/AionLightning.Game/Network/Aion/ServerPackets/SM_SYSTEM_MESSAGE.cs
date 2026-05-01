@@ -106,6 +106,16 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_GIVE_ITEM_PROC_NOT_ENOUGH_MONEY — "Not enough Kinah to apply Godstone." (msg code 1300505)
     public static SM_SYSTEM_MESSAGE GodstoneNoKinah() => new(1300505);
 
+    // Item remodel messages (STR_CHANGE_ITEM_SKIN_*)
+    // 1300476: STR_CHANGE_ITEM_SKIN_PC_LEVEL_LIMIT — "You must be level 10 or higher."
+    public static SM_SYSTEM_MESSAGE RemodelLevelLimit() => new(1300476);
+    // 1300480: STR_CHANGE_ITEM_SKIN_NOT_COMPATIBLE — "Items are not compatible."
+    public static SM_SYSTEM_MESSAGE RemodelNotCompatible() => new(1300480);
+    // 1300481: STR_CHANGE_ITEM_SKIN_NOT_ENOUGH_GOLD — "Not enough Kinah for remodeling."
+    public static SM_SYSTEM_MESSAGE RemodelNoKinah() => new(1300481);
+    // 1300483: STR_CHANGE_ITEM_SKIN_SUCCEED — "Item remodeling successful."
+    public static SM_SYSTEM_MESSAGE RemodelSuccess() => new(1300483);
+
     // Legion rename messages (STR_LEGION_RENAME_*)
     // 1400152: invalid or forbidden name
     public static SM_SYSTEM_MESSAGE LegionNameInvalid() => new(1400152);

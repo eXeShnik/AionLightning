@@ -1273,3 +1273,13 @@
     - [✓] `GsPacketHandlerFactory` — registered 0x189 → `CM_TUNE(conn, _itemDao, _dataManager)`
     - Tuning does not affect the manastone socket count wire format (SM_INVENTORY_INFO.WriteItemInfo remains simplified); random bonus stats (setRndBonus) not implemented (requires ITEM_RANDOM_BONUSES data)
     - Build: 0 warnings, 0 errors
+
+101. [✓] Item remodel — skin change (CM_ITEM_REMODEL) (session 2026-05-01)
+    - [✓] `V27__item_skin.sql` — `ALTER TABLE player_items ADD COLUMN skin_item_id INT NOT NULL DEFAULT 0`
+    - [✓] `Item` — added `SkinItemId int = 0` (0 = use ItemId for appearance)
+    - [✓] `ItemDaoImpl` — updated SELECT to include `skin_item_id` (index 8); `is_equipped` shifted to index 9; INSERT includes `skin_item_id`
+    - [✓] `SM_UPDATE_PLAYER_APPEARANCE` — `w.WriteD` now uses `SkinItemId != 0 ? SkinItemId : ItemId` for the skin template field
+    - [✓] `SM_SYSTEM_MESSAGE` — added `RemodelLevelLimit()` (1300476), `RemodelNotCompatible()` (1300480), `RemodelNoKinah()` (1300481), `RemodelSuccess()` (1300483)
+    - [✓] `CM_ITEM_REMODEL` (full rewrite, 0x138): validates player level >= 10, kinah >= 1000, slot compatibility (`keepTemplate.Slot == extractTemplate.Slot`); deducts kinah, consumes extractItem (delete if count reaches 0); sets `keepItem.SkinItemId = extractSkinId`; persists via `SaveAllAsync`; broadcasts `SM_UPDATE_PLAYER_APPEARANCE` if keepItem is equipped; Pattern Reshaper (168100000) not yet ported
+    - [✓] `GsPacketHandlerFactory` — wired 0x138 → `CM_ITEM_REMODEL(conn, _itemDao, _dataManager, _connRegistry)`
+    - Build: 0 warnings, 0 errors
