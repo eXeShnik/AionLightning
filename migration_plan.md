@@ -931,3 +931,8 @@
     - [✓] `SM_SYSTEM_MESSAGE` — added `InventoryFull()` factory method (msg code 1300042 = STR_UI_INVENTORY_FULL)
     - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — added `CanReceive` guard before awarding selectable reward item and each fixed reward item; full-inventory items are skipped while quest still completes and other rewards still granted
     - Build: 0 warnings, 0 errors
+
+75. [✓] BuyFromShop kinah overcharge fix (session 2026-05-01)
+    - Root cause: `totalCost` was computed for ALL trade entries before inventory-capacity filtering, so players were charged kinah for items they could not receive when the inventory was nearly full
+    - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible
+    - Build: 0 warnings, 0 errors

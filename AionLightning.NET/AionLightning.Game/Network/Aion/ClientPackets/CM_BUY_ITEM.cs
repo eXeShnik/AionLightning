@@ -73,19 +73,34 @@ public sealed class CM_BUY_ITEM : AionClientPacket
         if (npc is null) return;
         if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
-        var itemsAdded = new List<Item>();
-        long totalCost = 0;
+        // Single-pass: filter to items that can be received and accumulate cost.
+        // CanReceive is evaluated in order so that each accepted item correctly
+        // consumes a simulated slot before the next item is checked.
+        var purchasePlan = new List<(int ItemId, long Count, long Cost, int MaxStack)>();
+        var simulatedInventory = player.Inventory; // checks run against live inventory first
+        int simulatedSlots = simulatedInventory.BagSlotUsed;
 
         foreach (var (itemId, count) in _tradeEntries)
         {
             if (!_dataManager.Shop.NpcSellsItem(npc.Template.NpcId, itemId)) continue;
-
             var template = _dataManager.Items.GetTemplate(itemId);
             if (template is null) continue;
 
-            long cost = template.Price * count;
-            totalCost += cost;
+            // Capacity check: stackable items that already have a stack don't consume a slot.
+            bool hasExisting = simulatedInventory.FindByItemId(itemId) is not null;
+            bool canStack    = hasExisting && template.MaxStackCount > 1;
+            if (!canStack)
+            {
+                if (simulatedSlots >= simulatedInventory.Capacity) continue; // full
+                simulatedSlots++;
+            }
+
+            purchasePlan.Add((itemId, count, template.Price * count, template.MaxStackCount));
         }
+
+        if (purchasePlan.Count == 0) return;
+
+        long totalCost = purchasePlan.Sum(p => p.Cost);
 
         // Check player has enough kinah
         var kinahItem = player.Inventory.FindByItemId(KinahItemId);
@@ -100,18 +115,12 @@ public sealed class CM_BUY_ITEM : AionClientPacket
         if (kinahItem is not null)
             kinahItem.Count -= totalCost;
 
-        // Add purchased items in memory
-        foreach (var (itemId, count) in _tradeEntries)
+        // Add purchased items (always fit because plan was validated above)
+        var itemsAdded = new List<Item>();
+        foreach (var (itemId, count, _, maxStack) in purchasePlan)
         {
-            if (!_dataManager.Shop.NpcSellsItem(npc.Template.NpcId, itemId)) continue;
-
-            var template = _dataManager.Items.GetTemplate(itemId);
-            if (template is null) continue;
-
-            if (!player.Inventory.CanReceive(itemId, template.MaxStackCount)) continue;
-
             var existing = player.Inventory.FindByItemId(itemId);
-            if (existing is not null && template.MaxStackCount > 1)
+            if (existing is not null && maxStack > 1)
             {
                 existing.Count += count;
                 itemsAdded.Add(existing);
