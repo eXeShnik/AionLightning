@@ -106,8 +106,9 @@ public sealed class CM_GATHER : AionClientPacket
         await _conn.SendAsync(new SM_GATHER_STATUS(player.ObjectId, target.ObjectId, SM_GATHER_STATUS.Status.Success), ct);
         await _conn.SendAsync(new SM_GATHER_UPDATE(target.Template, material, 100, 0, 7), ct);
 
-        // Award gathering XP based on the node's required skill level
+        // Award gathering XP based on the node's required skill level; notify player
         await _expService.AddGatheringExpAsync(player, target.Template.SkillLevel, _conn, ct);
+        await _conn.SendAsync(SM_SYSTEM_MESSAGE.GatheringSuccessExp(), ct);
 
         if (target.IsGathered)
         {

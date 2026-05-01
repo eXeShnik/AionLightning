@@ -57,4 +57,10 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_DEATH_REGISTER_RESURRECT_POINT — "You have set your resurrection point." (msg code 1300670)
     public static SM_SYSTEM_MESSAGE BindPointSet() => new(1300670, string.Empty);
+
+    // STR_EXTRACT_GATHERING_SUCCESS_GETEXP — "You've gained exp from successful gathering." (msg code 1330082)
+    public static SM_SYSTEM_MESSAGE GatheringSuccessExp() => new(1330082);
+
+    // STR_MSG_MANASTONE_SUCCEED — "You have succeeded in the manastone socketing of %0." (msg code 1300252)
+    public static SM_SYSTEM_MESSAGE ManastoneSuccess(string itemName) => new(1300252, itemName);
 }
