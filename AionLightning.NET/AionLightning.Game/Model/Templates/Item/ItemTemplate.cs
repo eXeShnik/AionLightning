@@ -15,13 +15,15 @@ public sealed class ItemTemplate
     [XmlAttribute("price")]           public long   Price         { get; set; }
     [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
     [XmlAttribute("weapon_type")]        public string WeaponTypeName    { get; set; } = string.Empty;
+    [XmlAttribute("armor_type")]         public string ArmorTypeName     { get; set; } = string.Empty;
     [XmlAttribute("mask")]              public int    Mask             { get; set; }
     [XmlAttribute("option_slot_bonus")] public int   OptionSlotBonus  { get; set; }
 
-    [XmlElement("actions")]           public ItemActions?   Actions     { get; set; }
-    [XmlElement("weapon_stats")]      public WeaponStats?   WeaponStats { get; set; }
-    [XmlElement("modifiers")]         public ItemModifiers? Modifiers   { get; set; }
-    [XmlElement("godstone")]          public GodstoneInfo?  Godstone    { get; set; }
+    [XmlElement("actions")]           public ItemActions?      Actions     { get; set; }
+    [XmlElement("weapon_stats")]      public WeaponStats?      WeaponStats { get; set; }
+    [XmlElement("modifiers")]         public ItemModifiers?    Modifiers   { get; set; }
+    [XmlElement("godstone")]          public GodstoneInfo?     Godstone    { get; set; }
+    [XmlElement("enchant")]           public ItemEnchantInfo?  EnchantInfo { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
@@ -33,6 +35,12 @@ public sealed class ItemTemplate
     public bool IsCanFuse => Actions?.FusionAction != null;
     // DYEABLE = 1 << 15 = 32768 (Java ItemMask)
     public bool IsItemDyePermitted => (Mask & 32768) != 0;
+    // mirrors Java isCloth() — armor with a non-ARROW armor type
+    public bool IsCloth => IsArmor && !string.IsNullOrEmpty(ArmorTypeName) && ArmorTypeName != "ARROW";
+    // mirrors Java getMaxEnchantBonus() — from enchant sub-element's rnd_enchant attribute
+    public int MaxEnchantBonus => EnchantInfo?.RndEnchant ?? 0;
+    // selectable reward box — presence of <decompose select="true"/> in <actions>
+    public bool IsSelectableBox => Actions?.Decompose?.IsSelect ?? false;
 
     // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
@@ -72,11 +80,12 @@ public sealed class WeaponStats
 
 public sealed class ItemActions
 {
-    [XmlElement("skilluse")]    public SkillUseAction?    SkillUse    { get; set; }
-    [XmlElement("skilllearn")]  public SkillLearnAction?  SkillLearn  { get; set; }
-    [XmlElement("craftlearn")]  public CraftLearnAction?  CraftLearn  { get; set; }
+    [XmlElement("skilluse")]    public SkillUseAction?    SkillUse     { get; set; }
+    [XmlElement("skilllearn")]  public SkillLearnAction?  SkillLearn   { get; set; }
+    [XmlElement("craftlearn")]  public CraftLearnAction?  CraftLearn   { get; set; }
     [XmlElement("fusionaction")] public FusionAction?     FusionAction { get; set; }
     [XmlElement("dye")]          public DyeAction?        Dye          { get; set; }
+    [XmlElement("decompose")]    public DecomposeAction?  Decompose    { get; set; }
 }
 
 public sealed class DyeAction
@@ -111,4 +120,20 @@ public sealed class GodstoneInfo
     [XmlAttribute("skilllvl")]         public int SkillLvl         { get; set; }
     [XmlAttribute("probability")]      public int Probability      { get; set; }
     [XmlAttribute("probabilityleft")]  public int ProbabilityLeft  { get; set; }
+}
+
+public sealed class ItemEnchantInfo
+{
+    [XmlAttribute("rnd_enchant")] public int RndEnchant { get; set; }
+    [XmlAttribute("max_enchant")] public int MaxEnchant { get; set; }
+    [XmlAttribute("wake_level")]  public int WakeLevel  { get; set; }
+    [XmlAttribute("waken_id")]    public int WakenId    { get; set; }
+    [XmlAttribute("m_slots")]     public int MSlots     { get; set; }
+    [XmlAttribute("s_slots")]     public int SSlots     { get; set; }
+    [XmlAttribute("rnd_slots")]   public int RndSlots   { get; set; }
+}
+
+public sealed class DecomposeAction
+{
+    [XmlAttribute("select")] public bool IsSelect { get; set; }
 }

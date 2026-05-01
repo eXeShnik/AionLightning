@@ -282,7 +282,7 @@ public sealed class GsPacketHandlerFactory
                 0x189 => new CM_TUNE(conn, _itemDao, _dataManager),
                 0x18A => new CM_CHALLENGE_LIST(),
                 0x18B => new CM_BONUS_TITLE(conn, _playerDao),
-                0x18E => new CM_SELECTITEM_OK(),
+                0x18E => new CM_SELECTITEM_OK(conn, _itemDao, _dataManager),
                 0x192 => new CM_COMPOSITE_STONES(conn, _itemDao),
                 0x197 => new CM_SHOW_BRAND(conn, _connRegistry),
                 0x19A => new CM_GROUP_LOOT(),

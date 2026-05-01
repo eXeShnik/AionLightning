@@ -80,6 +80,15 @@ public sealed class CM_USE_ITEM : AionClientPacket
             return;
         }
 
+        // Selectable reward box — opens item-choice dialog
+        if (template.IsSelectableBox)
+        {
+            var selectItems = _dataManager.SelectItems.GetSelectItems(player.PlayerClass, item.ItemId);
+            if (selectItems is not null)
+                await _conn.SendAsync(new SM_SELECT_ITEM_LIST((int)item.UniqueId, selectItems, _dataManager), ct);
+            return;
+        }
+
         // Skill book — teaches a skill permanently
         if (template.SkillLearnId is int learnSkillId)
         {

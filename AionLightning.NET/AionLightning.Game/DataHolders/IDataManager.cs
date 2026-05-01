@@ -16,5 +16,6 @@ public interface IDataManager
     QuestData             Quests        { get; }
     DropData              Drops         { get; }
     GatherableData        Gatherables   { get; }
-    NpcSkillData          NpcSkills     { get; }
+    NpcSkillData                   NpcSkills   { get; }
+    DecomposableSelectItemsData    SelectItems { get; }
 }
