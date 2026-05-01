@@ -22,7 +22,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int QUEST_ACCEPT_1      = 1002;
     private const int SELECT_QUEST_REWARD = 1009;
 
-    private const int KinahItemId = 182400001;
+    private const int   KinahItemId      = 182400001;
+    private const float MaxInteractRange = 10.0f;
 
     private readonly GsClientConnection        _conn;
     private readonly GameWorld                 _world;
@@ -75,6 +76,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             {
                 var npc = _world.GetNpcByObjectId(_targetObjectId);
                 if (npc is null) return;
+                if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
                 var goodsListIds = _dataManager.Shop.GetGoodsListIds(npc.Template.NpcId);
                 if (goodsListIds is { Count: > 0 })
                     await _conn.SendAsync(new SM_TRADELIST(_targetObjectId, goodsListIds), ct);
@@ -88,13 +90,18 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 break;
 
             case WAREHOUSE_OPEN:
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
                 await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
                 break;
+            }
 
             case AIRLINE_SERVICE:
             {
                 var npc = _world.GetNpcByObjectId(_targetObjectId);
                 if (npc is null) return;
+                if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
                 var tpId = _dataManager.Teleports.GetTeleportId(npc.Template.NpcId);
                 if (tpId is null) return;
                 await _conn.SendAsync(new SM_TELEPORT_MAP(_targetObjectId, tpId.Value), ct);
@@ -122,6 +129,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         if (_questId <= 0) return;
         if (player.Quests.Contains(_questId)) return;
 
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
         var template = _dataManager.Quests.GetTemplate(_questId);
         if (template is null) return;
         if (player.Level < template.MinLevel) return;
@@ -144,6 +154,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private async ValueTask HandleQuestRewardAsync(Model.Player player, CancellationToken ct)
     {
         if (_questId <= 0) return;
+
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
         var entry = player.Quests.Get(_questId);
         if (entry is null || entry.Status == QuestStatus.COMPLETE) return;

@@ -11,8 +11,9 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Client buys from or sells to an NPC shop. Opcode 0xF1.</summary>
 public sealed class CM_BUY_ITEM : AionClientPacket
 {
-    private const int KinahItemId = 182400001;
-    private const int SellPriceDivisor = 2; // players get 50% of item price when selling
+    private const int   KinahItemId       = 182400001;
+    private const int   SellPriceDivisor  = 2;    // players get 50% of item price when selling
+    private const float MaxInteractRange  = 10.0f; // lenient for latency; retail NPC interaction is ~5m
 
     private readonly GsClientConnection _conn;
     private readonly IItemDao _itemDao;
@@ -70,6 +71,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
     {
         var npc = _world.GetNpcByObjectId(_sellerObjectId);
         if (npc is null) return;
+        if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
         var itemsAdded = new List<Item>();
         long totalCost = 0;
@@ -131,6 +133,9 @@ public sealed class CM_BUY_ITEM : AionClientPacket
 
     private async ValueTask SellToShopAsync(Player player, CancellationToken ct)
     {
+        var npc = _world.GetNpcByObjectId(_sellerObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
         long kinahGained = 0;
         var itemsToDelete = new List<long>();
         var itemsToUpdate = new List<Item>();

@@ -909,3 +909,10 @@
     - [✓] `CM_SPLIT_ITEM` — `SendUpdatesAsync` helper: sends `SM_WAREHOUSE_INFO(player.Warehouse.All)` for warehouse-side changes, `SM_INVENTORY_ADD_ITEM([items])` for inventory-side changes; matches the pattern used in CM_MOVE_ITEM
     - [✓] `CM_SPLIT_ITEM` — cross-storage zero-count split (move full stack) sends `SM_DELETE_ITEM` for source, refreshes source storage, then adds new item to dest storage — no duplicate-slot or stale-item corruption possible
     - Build: 0 warnings, 0 errors
+
+72. [✓] NPC proximity enforcement for shop, warehouse, airline, and quest interactions (session 2026-05-01)
+    - Root cause: all NPC interaction handlers accepted packets regardless of player distance — a client could buy, sell, open warehouse, or accept quests from across the map
+    - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — added `player.Position.DistanceTo(npc.Position) > MaxInteractRange` guard immediately after NPC null check; constant `MaxInteractRange = 10.0f` (lenient for latency; retail NPC interaction is ~5m)
+    - [✓] `CM_BUY_ITEM.SellToShopAsync` — sell path never looked up the NPC; added NPC lookup (`GetNpcByObjectId`) at the start followed by combined null+distance guard
+    - [✓] `CM_DIALOG_SELECT` — added `MaxInteractRange = 10.0f` constant; added distance guard in BUY, WAREHOUSE_OPEN, AIRLINE_SERVICE, `HandleQuestAcceptAsync`, and `HandleQuestRewardAsync`; WAREHOUSE_OPEN and quest handlers now look up the NPC by `_targetObjectId` before checking distance
+    - Build: 0 warnings, 0 errors
