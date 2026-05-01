@@ -12,7 +12,8 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// </summary>
 public sealed class CM_MANASTONE : AionClientPacket
 {
-    private const byte MaxEnchantLevel = 15;
+    private const byte  MaxEnchantLevel   = 15;
+    private const float BaseEnchantChance = 60f; // Java EnchantsConfig.ENCHANT_STONE default
 
     private readonly GsClientConnection _conn;
     private readonly IItemDao _itemDao;
@@ -56,7 +57,7 @@ public sealed class CM_MANASTONE : AionClientPacket
 
         switch (_actionType)
         {
-            case 1: // enchantment stone — increase enchant level, always succeeds
+            case 1: // enchantment stone — success chance decreases with enchant level
             {
                 var target = player.Inventory.Get(_targetUniqueId)
                           ?? player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.UniqueId == _targetUniqueId);
@@ -64,7 +65,16 @@ public sealed class CM_MANASTONE : AionClientPacket
                 if (target is null || stone is null || stone.UniqueId == target.UniqueId) return;
                 if (target.EnchantLevel >= MaxEnchantLevel) return;
 
-                target.EnchantLevel++;
+                // Success rate: 60% base, −5% per current enchant level, min 5% (mirrors Java EnchantService)
+                float successRate = Math.Max(5f, BaseEnchantChance - target.EnchantLevel * 5f);
+                bool success = Random.Shared.NextSingle() * 100f < successRate;
+
+                if (success)
+                    target.EnchantLevel++;
+                else if (target.EnchantLevel > 10)
+                    target.EnchantLevel = 10;
+                else if (target.EnchantLevel > 0)
+                    target.EnchantLevel--;
 
                 stone.Count--;
                 if (stone.Count <= 0)
@@ -80,6 +90,11 @@ public sealed class CM_MANASTONE : AionClientPacket
 
                 await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
                 await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([target]), ct);
+
+                string itemTag = target.UniqueId.ToString();
+                await _conn.SendAsync(success
+                    ? SM_SYSTEM_MESSAGE.EnchantSuccess(itemTag, target.EnchantLevel)
+                    : SM_SYSTEM_MESSAGE.EnchantFailed(itemTag), ct);
                 break;
             }
 

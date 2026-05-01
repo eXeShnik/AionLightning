@@ -69,4 +69,10 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_EXTRACT_INSUFFICIENT_SKILL — "Your %0 skill level is not high enough." (msg code 1330001)
     public static SM_SYSTEM_MESSAGE GatherSkillLevelLow(string skillName) => new(1330001, skillName);
+
+    // STR_MSG_ENCHANT_ITEM_SUCCEED_NEW — "You have enchanted %0 to +%1." (msg code 1401681)
+    public static SM_SYSTEM_MESSAGE EnchantSuccess(string itemName, int level) => new(1401681, itemName, level.ToString());
+
+    // STR_ENCHANT_ITEM_FAILED — "You have failed to enchant %0." (msg code 1300456)
+    public static SM_SYSTEM_MESSAGE EnchantFailed(string itemName) => new(1300456, itemName);
 }
