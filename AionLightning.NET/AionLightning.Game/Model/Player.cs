@@ -89,6 +89,9 @@ public sealed class Player : Creature
     public int BonusMaxHp { get; set; }
     public int BonusMaxMp { get; set; }
 
+    // Divine Power — drained to 0 on bind revive (cleared via CM_REVIVE), max 8000
+    public int Dp { get; set; }
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

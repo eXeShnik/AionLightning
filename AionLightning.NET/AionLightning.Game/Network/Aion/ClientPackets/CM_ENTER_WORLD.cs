@@ -233,6 +233,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: false, []), ct);
         await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
         await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct);
         await _conn.SendAsync(SM_CUBE_UPDATE.StigmaSlots(0), ct);
 
         // World placement

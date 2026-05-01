@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -7,16 +8,18 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 public sealed class CM_REVIVE : AionClientPacket
 {
-    private readonly GsClientConnection      _conn;
+    private readonly GsClientConnection       _conn;
     private readonly PlayerConnectionRegistry _connRegistry;
-    private readonly IDataManager            _dataManager;
+    private readonly IDataManager             _dataManager;
+    private readonly IPlayerDao               _playerDao;
 
     public CM_REVIVE(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
-        IDataManager dataManager)
+        IDataManager dataManager, IPlayerDao playerDao)
     {
         _conn         = conn;
         _connRegistry = connRegistry;
         _dataManager  = dataManager;
+        _playerDao    = playerDao;
     }
 
     public override void Read(ref PacketReader r) => r.ReadC(); // reviveId (unused for basic bind revive)
@@ -26,10 +29,16 @@ public sealed class CM_REVIVE : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null || !player.IsAlreadyDead) return;
 
-        // Restore to 25 % HP / MP
+        // Restore to 25 % HP / MP; drain DP to 0 (mirrors Java PlayerReviveService.revive)
         player.CurrentHp = Math.Max(1, player.MaxHp / 4);
         player.CurrentMp = Math.Max(1, player.MaxMp / 4);
         player.State &= ~CreatureState.Dead;
+        if (player.Dp > 0)
+        {
+            player.Dp = 0;
+            await _playerDao.UpdateDpAsync(player.ObjectId, 0, ct);
+            await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, 0), ct);
+        }
 
         // Determine destination position
         Position destination;

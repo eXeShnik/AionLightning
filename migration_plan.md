@@ -1008,6 +1008,16 @@
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible
     - Build: 0 warnings, 0 errors
 
+65. [✓] Divine Power (DP) tracking and drain on revive (session 2026-05-01)
+    - [✓] `Player` — added `int Dp { get; set; }` (default 0, max 8000 in Aion retail; DB column `dp` was already in V1 schema)
+    - [✓] `SM_DP_INFO` (NEW) — opcode 0x07; writes `playerObjectId(D)` + `currentDp(H)`; mirrors Java `SM_DP_INFO`
+    - [✓] `IPlayerDao` — added `UpdateDpAsync(int playerId, int dp, CancellationToken ct)`
+    - [✓] `PlayerDaoImpl` — added `dp` to `SelectColumns`; added `dp` to `PlayerRow` record; mapped `Dp = r.dp` in `ToPlayer`; implemented `UpdateDpAsync`
+    - [✓] `CM_ENTER_WORLD` — sends `SM_DP_INFO(player.ObjectId, player.Dp)` after `SM_STATS_INFO` so client displays the DP bar on login
+    - [✓] `CM_REVIVE` — added `IPlayerDao` field; on bind revive, if `player.Dp > 0`: sets to 0, calls `UpdateDpAsync`, sends `SM_DP_INFO(player.ObjectId, 0)`; mirrors Java `PlayerReviveService.revive()` `dp = 0` logic
+    - [✓] `GsPacketHandlerFactory` — updated CM_REVIVE constructor call to pass `_playerDao`
+    - Build: 0 warnings, 0 errors
+
 64. [✓] Obelisk bind point via dialog (session 2026-05-01)
     - [✓] `CM_DIALOG_SELECT` — added `RESURRECT_BIND = 34` constant; new case: resolves NPC by `_targetObjectId`, checks proximity (`MaxInteractRange = 10f`), sets `player.BindPosition = npc.Position`, calls `UpdateBindPointAsync`, sends `SM_BIND_POINT_INFO(npc.Position)` + `SM_SYSTEM_MESSAGE.BindPointSet()`
     - [✓] `SM_SYSTEM_MESSAGE` — added `BindPointSet()` factory method (msg code 1300670 = STR_DEATH_REGISTER_RESURRECT_POINT, "You have set your resurrection point.")
