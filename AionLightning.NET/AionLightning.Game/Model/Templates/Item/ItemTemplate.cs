@@ -41,6 +41,8 @@ public sealed class ItemTemplate
     public int MaxEnchantBonus => EnchantInfo?.RndEnchant ?? 0;
     // selectable reward box — presence of <decompose select="true"/> in <actions>
     public bool IsSelectableBox => Actions?.Decompose?.IsSelect ?? false;
+    // tuning scroll — presence of <tuning> in <actions> (mirrors Java TuningAction presence check)
+    public bool IsTuningScroll  => Actions?.Tuning != null;
 
     // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
@@ -86,6 +88,7 @@ public sealed class ItemActions
     [XmlElement("fusionaction")] public FusionAction?     FusionAction { get; set; }
     [XmlElement("dye")]          public DyeAction?        Dye          { get; set; }
     [XmlElement("decompose")]    public DecomposeAction?  Decompose    { get; set; }
+    [XmlElement("tuning")]       public TuningAction?     Tuning       { get; set; }
 }
 
 public sealed class DyeAction
@@ -136,4 +139,10 @@ public sealed class ItemEnchantInfo
 public sealed class DecomposeAction
 {
     [XmlAttribute("select")] public bool IsSelect { get; set; }
+}
+
+public sealed class TuningAction
+{
+    // target="WEAPON" | "ARMOR" | "EQUIPMENT" — which item types this scroll can re-tune
+    [XmlAttribute("target")] public string Target { get; set; } = string.Empty;
 }

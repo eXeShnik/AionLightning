@@ -1389,6 +1389,12 @@
     - [✓] `CM_LEGION` — added 4 private short fields (`_deputyPermission`, `_centurionPermission`, `_legionaryPermission`, `_volunteerPermission`); Read() case 0x0D now stores all 4 shorts instead of discarding them; added RunAsync `case 0x0D: await HandlePermissionsAsync`; `HandlePermissionsAsync`: validates BG rank, updates Legion in-memory, persists via `UpdatePermissionsAsync`, broadcasts `SM_LEGION_EDIT.Permissions(legion)` to all online members
     - Build: 0 warnings, 0 errors
 
+113. [✓] Item re-tuning via scroll (CM_TUNE scroll path) (session 2026-05-01)
+    - [✓] `ItemTemplate` — added `TuningAction` sealed class with `Target` attribute (`WEAPON|ARMOR|EQUIPMENT`); added `[XmlElement("tuning")]` to `ItemActions`; added `IsTuningScroll` convenience property to `ItemTemplate`
+    - [✓] `CM_TUNE` — replaced scroll-based stub with `HandleScrollTuningAsync`: validates scroll `IsTuningScroll`, looks up target item, checks scroll target type compatibility (`EQUIPMENT` = any, `WEAPON`/`ARMOR` = type-matched), consumes scroll (delete if exhausted), re-assigns `OptionalSocket = Rnd(0..OptionSlotBonus)`, persists + sends SM_INVENTORY_ADD_ITEM + SM_SYSTEM_MESSAGE.TuningComplete; initial free tuning path unchanged
+    - Java TuningAction.act() also resets randomStats — not ported (random stat bonus system absent in .NET)
+    - Build: 0 warnings, 0 errors
+
 112. [✓] Manastone removal (CM_MANASTONE actionType=3) (session 2026-05-01)
     - [✓] `IManastoneDao` — added `DeleteByItemAndSlotAsync(long itemUniqueId, int slot, ct)`
     - [✓] `ManastoneDaoImpl` — implemented: `DELETE FROM item_stones WHERE item_unique_id = @ItemUniqueId AND slot = @Slot`
