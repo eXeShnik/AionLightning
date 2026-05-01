@@ -30,14 +30,25 @@ public sealed class CollectItem
 
 public sealed class QuestRewards
 {
-    [XmlAttribute("exp")]   public long Exp   { get; set; }
-    [XmlAttribute("title")] public int  Title { get; set; } = -1;
+    [XmlAttribute("exp")]                public long Exp              { get; set; }
+    [XmlAttribute("title")]              public int  Title            { get; set; } = -1;
+    [XmlAttribute("gold")]               public long Gold             { get; set; }
+    [XmlAttribute("reward_abyss_point")] public int  RewardAbyssPoint { get; set; }
 
     [XmlElement("selectable_reward_item")]
     public List<SelectableRewardItem> SelectableItems { get; set; } = new();
+
+    [XmlElement("reward_item")]
+    public List<RewardItem> RewardItems { get; set; } = new();
 }
 
 public sealed class SelectableRewardItem
+{
+    [XmlAttribute("item_id")] public int  ItemId { get; set; }
+    [XmlAttribute("count")]   public long Count  { get; set; } = 1;
+}
+
+public sealed class RewardItem
 {
     [XmlAttribute("item_id")] public int  ItemId { get; set; }
     [XmlAttribute("count")]   public long Count  { get; set; } = 1;

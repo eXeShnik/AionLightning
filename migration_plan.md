@@ -855,6 +855,14 @@
     - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to CM_ATTACK and CM_CASTSPELL constructors
     - Build: 0 warnings, 0 errors
 
+70. [✓] Quest fixed reward items + kinah + AP (session 2026-05-01)
+    - Root cause: `QuestRewards` only had `Exp`, `Title`, `SelectableItems`; `<reward_item>` elements, `gold` attribute, and `reward_abyss_point` attribute were silently dropped on quest completion
+    - [✓] `QuestTemplate.QuestRewards` — added `[XmlElement("reward_item")] List<RewardItem> RewardItems`, `[XmlAttribute("gold")] long Gold`, `[XmlAttribute("reward_abyss_point")] int RewardAbyssPoint`; new `RewardItem` class (ItemId + Count) mirrors `SelectableRewardItem`
+    - [✓] `CM_DIALOG_SELECT` — added `IPlayerDao _playerDao` field + constructor parameter (needed for abyss persist); added `KinahItemId = 182400001` constant
+    - [✓] `CM_DIALOG_SELECT.HandleQuestRewardAsync` — after selectable-item grant: (1) iterates `RewardItems`, stacks on existing inventory item or creates new, single `SaveAllAsync` + `SM_INVENTORY_ADD_ITEM(granted)` for all fixed items; (2) grants `Gold` kinah into kinah stack, `SaveAllAsync` + `SM_INVENTORY_ADD_ITEM([kinah])`; (3) calls `AbyssRankService.AddAp`, sends `SM_ABYSS_RANK`, persists via `UpdateAbyssAsync`
+    - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to `CM_DIALOG_SELECT` constructor at opcode 0x114
+    - Build: 0 warnings, 0 errors
+
 68. [✓] Warehouse split support in CM_SPLIT_ITEM (session 2026-05-01)
     - [✓] `CM_SPLIT_ITEM` — removed early-return guard that silently dropped all warehouse split/merge operations (`_sourceStorageType != 0 || _destinationStorageType != 0`); storage type 1 = personal warehouse, 0 = inventory
     - [✓] `CM_SPLIT_ITEM` — source and dest storage now resolved dynamically: `_sourceStorageType == 1 ? player.Warehouse : player.Inventory`; both `player.Inventory` and `player.Warehouse` are `PlayerInventory` so no cast needed

@@ -1,6 +1,7 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
@@ -21,13 +22,16 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int QUEST_ACCEPT_1      = 1002;
     private const int SELECT_QUEST_REWARD = 1009;
 
-    private readonly GsClientConnection       _conn;
-    private readonly GameWorld                _world;
-    private readonly IDataManager             _dataManager;
-    private readonly IQuestDao                _questDao;
-    private readonly IItemDao                 _itemDao;
-    private readonly ExperienceService        _expService;
-    private readonly PlayerConnectionRegistry _connRegistry;
+    private const int KinahItemId = 182400001;
+
+    private readonly GsClientConnection        _conn;
+    private readonly GameWorld                 _world;
+    private readonly IDataManager              _dataManager;
+    private readonly IQuestDao                 _questDao;
+    private readonly IItemDao                  _itemDao;
+    private readonly IPlayerDao                _playerDao;
+    private readonly ExperienceService         _expService;
+    private readonly PlayerConnectionRegistry  _connRegistry;
     private readonly ILogger<CM_DIALOG_SELECT> _log;
 
     private int _targetObjectId;
@@ -36,7 +40,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private int _questId;
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
-        IDataManager dataManager, IQuestDao questDao, IItemDao itemDao,
+        IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
         ExperienceService expService, PlayerConnectionRegistry connRegistry,
         ILogger<CM_DIALOG_SELECT> log)
     {
@@ -45,6 +49,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _dataManager  = dataManager;
         _questDao     = questDao;
         _itemDao      = itemDao;
+        _playerDao    = playerDao;
         _expService   = expService;
         _connRegistry = connRegistry;
         _log          = log;
@@ -190,7 +195,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         {
             var reward  = selectableItems[_rewardIndex];
             var existed = player.Inventory.FindByItemId(reward.ItemId);
-            Model.Item.Item rewardItem;
+            Item rewardItem;
             if (existed is not null)
             {
                 existed.Count += reward.Count;
@@ -199,11 +204,64 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             else
             {
                 long uid = await _itemDao.NextUniqueIdAsync(ct);
-                rewardItem = new Model.Item.Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
+                rewardItem = new Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
                 player.Inventory.Add(rewardItem);
             }
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([rewardItem]), ct);
+        }
+
+        // Award fixed reward items (always given, no selection)
+        var fixedItems = template.Rewards?.RewardItems;
+        if (fixedItems is { Count: > 0 })
+        {
+            var granted = new List<Item>();
+            foreach (var reward in fixedItems)
+            {
+                var existed = player.Inventory.FindByItemId(reward.ItemId);
+                if (existed is not null)
+                {
+                    existed.Count += reward.Count;
+                    granted.Add(existed);
+                }
+                else
+                {
+                    long uid = await _itemDao.NextUniqueIdAsync(ct);
+                    var item = new Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
+                    player.Inventory.Add(item);
+                    granted.Add(item);
+                }
+            }
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(granted), ct);
+        }
+
+        // Award kinah (gold attribute)
+        long gold = template.Rewards?.Gold ?? 0;
+        if (gold > 0)
+        {
+            var kinah = player.Inventory.FindByItemId(KinahItemId);
+            if (kinah is not null)
+            {
+                kinah.Count += gold;
+            }
+            else
+            {
+                long uid = await _itemDao.NextUniqueIdAsync(ct);
+                kinah = new Item { UniqueId = uid, ItemId = KinahItemId, Count = gold, Slot = -1 };
+                player.Inventory.Add(kinah);
+            }
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
+        }
+
+        // Award abyss points
+        int apReward = template.Rewards?.RewardAbyssPoint ?? 0;
+        if (apReward > 0)
+        {
+            AbyssRankService.AddAp(player, apReward);
+            await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
         }
 
         // Mark complete
