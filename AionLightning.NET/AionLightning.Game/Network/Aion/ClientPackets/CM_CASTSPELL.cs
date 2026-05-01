@@ -21,6 +21,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly LootService _lootService;
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
+    private readonly NpcAiService _npcAi;
     private readonly IPlayerDao _playerDao;
     private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
@@ -35,7 +36,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
     public CM_CASTSPELL(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
-        QuestService questService, DuelService duelService, IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
+        QuestService questService, DuelService duelService, NpcAiService npcAi,
+        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
     {
         _conn         = conn;
         _world        = world;
@@ -46,6 +48,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _lootService  = lootService;
         _questService = questService;
         _duelService  = duelService;
+        _npcAi        = npcAi;
         _playerDao    = playerDao;
         _legionDao    = legionDao;
         _rates        = rates;
@@ -154,6 +157,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var questSvc   = _questService;
             var duelSvc    = _duelService;
             var conn       = _conn;
+            var npcAi      = _npcAi;
             var playerDao  = _playerDao;
             var legionDao  = _legionDao;
             var rates      = _rates;
@@ -192,6 +196,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var combatNow = DateTime.UtcNow;
                 player.LastCombatTime = combatNow;
                 target.LastCombatTime = combatNow;
+
+                // NPC retaliation: force NPC to engage the caster when hit by a spell
+                if (target is Npc spellHitNpc && target.CurrentHp > 0)
+                    npcAi.ForceEngage(spellHitNpc, player);
 
                 if (target is Player damagedPlayer)
                 {

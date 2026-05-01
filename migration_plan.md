@@ -1482,6 +1482,12 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+132. [✓] NPC retaliation extended to CM_CASTSPELL spell damage (session 2026-05-01)
+    - [✓] `CM_CASTSPELL` — added `NpcAiService _npcAi` field + constructor parameter; captured `npcAi` before Task.Run closure; added `npcAi.ForceEngage(spellHitNpc, player)` after spell damage is applied (only when NPC is still alive); mirrors same pattern as CM_ATTACK
+    - [✓] `GsPacketHandlerFactory` — passed `_npcAi` to CM_CASTSPELL
+    - Now both melee and spell hits trigger NPC retaliation for passive NPCs
+    - Build: 0 warnings, 0 errors
+
 131. [✓] NPC forced engagement on player hit — passive NPCs retaliate when attacked (session 2026-05-01)
     - [✓] `NpcAiService._npcTargets` — changed from `Dictionary<int,int>` to `ConcurrentDictionary<int,int>` (thread-safe; ForceEngage called from packet handler thread); all `Remove` → `TryRemove`
     - [✓] `NpcAiService.ForceEngage(Npc npc, Player player)` — public; calls `_npcTargets.TryAdd` (idempotent — won't override an existing target); sets `npc.Target` and `npc.LastCombatTime`; NPC picks up the target on its next tick
