@@ -253,8 +253,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
                         bool spellPvpRankUp = AbyssRankService.AddAp(player, apGain);
                         AbyssRankService.LoseAp(deadPlayer, apLoss);
+                        AbyssRankService.TrackPvPKill(player, apGain);
 
-                        try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                        try { await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), CancellationToken.None); } catch { }
                         if (spellPvpRankUp)
                         {
                             var rankPkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);
@@ -263,10 +264,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     try { await c.SendAsync(rankPkt); } catch { }
                         }
                         if (targetConn is not null)
-                            try { await targetConn.SendAsync(new SM_ABYSS_RANK(deadPlayer.AbyssPoints, deadPlayer.AbyssRank), CancellationToken.None); } catch { }
+                            try { await targetConn.SendAsync(SM_ABYSS_RANK.ForPlayer(deadPlayer), CancellationToken.None); } catch { }
 
                         await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
                         await playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, CancellationToken.None);
+                        await playerDao.UpdateAbyssKillStatsAsync(player.ObjectId,
+                            player.AbyssAllKill, player.AbyssMaxRank,
+                            player.AbyssDailyKill, player.AbyssDailyAp,
+                            player.AbyssWeeklyKill, player.AbyssWeeklyAp,
+                            player.AbyssLastKill, player.AbyssLastAp, CancellationToken.None);
                         await AwardLegionContributionAsync(player, apGain, registry, legionDao, CancellationToken.None);
                     }
                 }
@@ -296,7 +302,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     {
                         int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
                         bool spellNpcRankUp = AbyssRankService.AddAp(player, ap);
-                        try { await conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), CancellationToken.None); } catch { }
+                        if (player.AbyssRank > player.AbyssMaxRank) player.AbyssMaxRank = player.AbyssRank;
+                        try { await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), CancellationToken.None); } catch { }
                         if (spellNpcRankUp)
                         {
                             var rankPkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);

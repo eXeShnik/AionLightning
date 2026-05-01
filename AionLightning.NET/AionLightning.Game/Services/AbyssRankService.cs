@@ -117,4 +117,30 @@ public static class AbyssRankService
         }
         return rank;
     }
+
+    /// <summary>
+    /// Returns the AP threshold for the next rank above <paramref name="rank"/>.
+    /// Returns 1 if already at max rank (to avoid division by zero in progress calculation).
+    /// </summary>
+    public static long GetNextRankThreshold(int rank)
+    {
+        foreach (var (threshold, id) in Thresholds)
+            if (id == rank + 1) return Math.Max(1, threshold);
+        return Math.Max(1, Thresholds[^1].Ap);
+    }
+
+    /// <summary>
+    /// Records a PvP kill against the player's kill counters and daily/weekly AP.
+    /// Call this after AddAp for a PvP kill.
+    /// </summary>
+    public static void TrackPvPKill(Model.Player killer, int apGain)
+    {
+        killer.AbyssAllKill++;
+        killer.AbyssDailyKill++;
+        killer.AbyssWeeklyKill++;
+        killer.AbyssDailyAp  += apGain;
+        killer.AbyssWeeklyAp += apGain;
+        if (killer.AbyssRank > killer.AbyssMaxRank)
+            killer.AbyssMaxRank = killer.AbyssRank;
+    }
 }

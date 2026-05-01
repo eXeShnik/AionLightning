@@ -534,7 +534,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         if (apReward > 0)
         {
             bool questRankUp = AbyssRankService.AddAp(player, apReward);
-            await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+            await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
             await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
             if (questRankUp)
             {

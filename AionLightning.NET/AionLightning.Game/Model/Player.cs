@@ -72,6 +72,14 @@ public sealed class Player : Creature
     // Abyss rank system
     public long AbyssPoints { get; set; }
     public int  AbyssRank   { get; set; } = 1;
+    public int  AbyssMaxRank    { get; set; } = 1;
+    public int  AbyssAllKill    { get; set; }
+    public int  AbyssDailyKill  { get; set; }
+    public long AbyssDailyAp    { get; set; }
+    public int  AbyssWeeklyKill { get; set; }
+    public long AbyssWeeklyAp   { get; set; }
+    public int  AbyssLastKill   { get; set; }
+    public long AbyssLastAp     { get; set; }
 
     // Base physical attack from class/level stat template (updated on login and level-up)
     public int BasePhysicalAttack { get; set; }

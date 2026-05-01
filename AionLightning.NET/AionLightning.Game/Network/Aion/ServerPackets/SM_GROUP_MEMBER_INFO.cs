@@ -44,8 +44,8 @@ public sealed class SM_GROUP_MEMBER_INFO : AionServerPacket
         w.WriteD(p.CurrentHp);
         w.WriteD(p.MaxMp);
         w.WriteD(p.CurrentMp);
-        w.WriteD(0); // maxFp (flight time — not implemented)
-        w.WriteD(0); // currentFp
+        w.WriteD(p.MaxFp);
+        w.WriteD(p.CurrentFp);
 
         w.WriteD(0); // unk (added in 3.5)
         w.WriteD(p.Position.WorldId);

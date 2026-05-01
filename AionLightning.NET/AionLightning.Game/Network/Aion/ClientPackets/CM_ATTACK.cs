@@ -150,15 +150,21 @@ public sealed class CM_ATTACK : AionClientPacket
                 int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
                 bool killerRankUp = AbyssRankService.AddAp(player, apGain);
                 AbyssRankService.LoseAp(deadPlayer, apLoss);
+                AbyssRankService.TrackPvPKill(player, apGain);
 
-                await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+                await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
                 if (killerRankUp)
                     await BroadcastAsync(new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank), ct);
                 if (targetConn is not null)
-                    try { await targetConn.SendAsync(new SM_ABYSS_RANK(deadPlayer.AbyssPoints, deadPlayer.AbyssRank), ct); } catch { }
+                    try { await targetConn.SendAsync(SM_ABYSS_RANK.ForPlayer(deadPlayer), ct); } catch { }
 
                 await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
                 await _playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, ct);
+                await _playerDao.UpdateAbyssKillStatsAsync(player.ObjectId,
+                    player.AbyssAllKill, player.AbyssMaxRank,
+                    player.AbyssDailyKill, player.AbyssDailyAp,
+                    player.AbyssWeeklyKill, player.AbyssWeeklyAp,
+                    player.AbyssLastKill, player.AbyssLastAp, ct);
                 await AwardLegionContributionAsync(player, apGain, ct);
             }
         }
@@ -186,7 +192,9 @@ public sealed class CM_ATTACK : AionClientPacket
             {
                 int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
                 bool npcRankUp = AbyssRankService.AddAp(player, ap);
-                await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+                if (player.AbyssRank > player.AbyssMaxRank)
+                    player.AbyssMaxRank = player.AbyssRank;
+                await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
                 if (npcRankUp)
                     await BroadcastAsync(new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank), ct);
                 await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
