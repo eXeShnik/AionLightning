@@ -224,6 +224,7 @@ public sealed class GsClientConnection : AConnection
             await _playerDao.UpdatePositionAsync(player.ObjectId, player.Position, CancellationToken.None);
             await _playerDao.UpdateExpLevelAsync(player.ObjectId, player.Exp, player.Level, CancellationToken.None);
             await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
+            await _playerDao.UpdateHpMpAsync(player.ObjectId, player.CurrentHp, player.CurrentMp, CancellationToken.None);
             await _playerDao.UpdateOnlineAsync(player.ObjectId, online: false, CancellationToken.None);
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, CancellationToken.None);
             await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, CancellationToken.None);

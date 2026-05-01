@@ -161,8 +161,9 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         float ssMult = player.SoulSicknessMultiplier;
         player.MaxHp = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp) * ssMult);
         player.MaxMp = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp) * ssMult);
-        player.CurrentHp = player.MaxHp;
-        player.CurrentMp = player.MaxMp;
+        // Restore persisted HP/MP; fall back to full if none saved (new character or never persisted)
+        player.CurrentHp = player.CurrentHp > 0 ? Math.Min(player.CurrentHp, player.MaxHp) : player.MaxHp;
+        player.CurrentMp = player.CurrentMp > 0 ? Math.Min(player.CurrentMp, player.MaxMp) : player.MaxMp;
 
         // Load quests
         var questEntries = await _questDao.LoadByPlayerIdAsync(_objectId, ct);
