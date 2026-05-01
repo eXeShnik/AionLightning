@@ -1482,6 +1482,11 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+127. [✓] NPC skill data path fix — npc_skills.xml was silently not loading (session 2026-05-01)
+    - Root cause: `NpcSkillData.Load` used `Path.Combine(dataRoot, "npc_skills.xml")` but the file lives at `data/static_data/npc_skills/npc_skills.xml` (subdirectory) — the `File.Exists` check returned false, warning was logged, and all NPC skills were silently skipped; this means all prior NPC skill code (M63, earlier) was shipping dead logic because the data was never loaded
+    - [✓] `NpcSkillData` — corrected path to `Path.Combine(dataRoot, "npc_skills", "npc_skills.xml")`; NPC skills now load correctly; verified by build; runtime logging will show "loaded skill sets for N NPCs" on server start
+    - Build: 0 warnings, 0 errors
+
 126. [✓] NPC skill HP% threshold — parse minhp/maxhp attributes + filter eligible skills (session 2026-05-01)
     - [✓] `NpcSkillData.NpcSkillEntry` — added `MinHp int = 0` and `MaxHp int = 100` fields; `IsReadyForNpcHp(int hpPct)` returns true when `minhp <= hpPct <= maxhp`; default 0–100 = no restriction (fires at any HP)
     - [✓] `NpcSkillData.LoadFile` — now parses `minhp` and `maxhp` from `<npcskill>` element; both optional (default 0/100 respectively)

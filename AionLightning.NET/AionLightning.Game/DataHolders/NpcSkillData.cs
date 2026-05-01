@@ -16,7 +16,7 @@ public sealed class NpcSkillData
 
     public void Load(string dataRoot, ILogger log)
     {
-        var file = Path.Combine(dataRoot, "npc_skills.xml");
+        var file = Path.Combine(dataRoot, "npc_skills", "npc_skills.xml");
         if (!File.Exists(file))
         {
             log.LogWarning("NpcSkillData: npc_skills.xml not found at {File}", file);
