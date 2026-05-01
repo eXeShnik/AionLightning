@@ -210,6 +210,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                         try { await c.SendAsync(statusPkt); } catch { }
 
+                // DP gain on successful spell hit (150 DP per skill, capped at 6000)
+                if (player.Dp < 6000)
+                {
+                    player.Dp = Math.Min(6000, player.Dp + 150);
+                    try { await conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp)); } catch { }
+                }
+
                 if (target.CurrentHp > 0) return;
 
                 if (target is Player deadPlayer)

@@ -1143,6 +1143,12 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+88. [✓] DP (Divine Power) generation from combat (session 2026-05-01)
+    - [✓] `CM_ATTACK` — after successful hit, adds 100 DP (capped at 6000), sends `SM_DP_INFO` to caster; previously DP never grew from combat
+    - [✓] `CM_CASTSPELL` — inside fire-and-forget damage task, after hit status broadcast, adds 150 DP (capped at 6000), sends `SM_DP_INFO`; covers spell hits in addition to basic attacks
+    - DP is already loaded/persisted (CM_ENTER_WORLD/DisposeAsync/AutoSaveService); generation was the missing piece
+    - Build: 0 warnings, 0 errors
+
 87. [✓] Crafting/gathering skill tier upgrade from NPC + stigma window (session 2026-05-01)
     - [✓] `SM_SYSTEM_MESSAGE` — added `CraftSkillMaxLevel()` (1390233) and `CraftSkillNeedQuest()` (1300834)
     - [✓] `CM_DIALOG_SELECT` — added `OPEN_STIGMA_WINDOW=4`, `GATHER_SKILL_LEVELUP=45`, `COMBINE_SKILL_LEVELUP=46` constants

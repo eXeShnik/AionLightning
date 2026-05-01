@@ -92,6 +92,13 @@ public sealed class CM_ATTACK : AionClientPacket
         await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, damage), ct);
         await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage), ct);
 
+        // DP gain on successful physical hit (100 DP per attack, capped at 6000)
+        if (player.Dp < 6000)
+        {
+            player.Dp = Math.Min(6000, player.Dp + 100);
+            try { await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct); } catch { }
+        }
+
         // Update group HP display for player targets (PvP)
         if (target is Player damagedPlayer)
         {
