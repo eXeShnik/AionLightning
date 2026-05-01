@@ -54,6 +54,13 @@ public sealed class CM_CRAFT : AionClientPacket
         // Player must know the recipe
         if (!player.KnownRecipes.Contains(_recipeId)) return;
 
+        // Craft skill gate — player must have the required crafting skill at sufficient level
+        if (recipe.SkillId > 0)
+        {
+            if (!player.Skills.IsPresent(recipe.SkillId)) return;
+            if (player.Skills.GetLevel(recipe.SkillId) < recipe.SkillPoint) return;
+        }
+
         // Validate player has all components
         foreach (var component in recipe.Components)
         {
