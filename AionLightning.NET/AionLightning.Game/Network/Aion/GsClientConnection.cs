@@ -208,10 +208,12 @@ public sealed class GsClientConnection : AConnection
             {
                 var nowOnlineIds = new HashSet<int>(_connRegistry.GetAll()
                     .Select(c => c.ActivePlayer?.ObjectId ?? 0).Where(id => id != 0));
+                var logoutNotify = new SM_FRIEND_NOTIFY(SM_FRIEND_NOTIFY.Logout, player.Name);
                 foreach (var f in myFriends)
                 {
                     var fc = _connRegistry.Get(f.PlayerId);
                     if (fc?.ActivePlayer is null) continue;
+                    try { await fc.SendAsync(logoutNotify, CancellationToken.None); } catch { }
                     var friendFriends = await _socialDao.GetFriendsAsync(f.PlayerId, CancellationToken.None);
                     try { await fc.SendAsync(new SM_FRIEND_LIST(friendFriends, nowOnlineIds), CancellationToken.None); } catch { }
                 }

@@ -40,8 +40,13 @@ public sealed class SocialDaoImpl : ISocialDao
     public async Task RemoveFriendAsync(int playerId, int friendId, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
+        // Remove bidirectionally: Java SocialService.deleteFriend removes both rows
         await conn.ExecuteAsync(
-            "DELETE FROM friend_list WHERE player_id = @playerId AND friend_id = @friendId",
+            """
+            DELETE FROM friend_list
+            WHERE (player_id = @playerId AND friend_id = @friendId)
+               OR (player_id = @friendId AND friend_id = @playerId)
+            """,
             new { playerId, friendId });
     }
 

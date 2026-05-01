@@ -23,7 +23,8 @@ public sealed class CM_FRIEND_STATUS : AionClientPacket
         _connRegistry = connRegistry;
     }
 
-    public override void Read(ref PacketReader r) => r.ReadC(); // status byte (ignored)
+    private byte _status;
+    public override void Read(ref PacketReader r) => _status = (byte)r.ReadC();
 
     public override async ValueTask RunAsync(CancellationToken ct)
     {
@@ -37,5 +38,6 @@ public sealed class CM_FRIEND_STATUS : AionClientPacket
             .ToHashSet();
 
         await _conn.SendAsync(new SM_FRIEND_LIST(friends, onlineIds), ct);
+        await _conn.SendAsync(new SM_FRIEND_STATUS(_status), ct);
     }
 }

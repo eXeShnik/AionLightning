@@ -222,7 +222,7 @@ public sealed class GsPacketHandlerFactory
                 0x12F => new CM_CRAFT(conn, _itemDao, _dataManager, _connRegistry, _expService, _skillDao, _questService),
                 0x129 => new CM_TITLE_SET(conn, _playerDao, _connRegistry),
                 0x130 => new CM_DUEL_REQUEST(conn, _connRegistry, _duelService, _world),
-                0x132 => new CM_FRIEND_DEL(conn, _socialDao),
+                0x132 => new CM_FRIEND_DEL(conn, _socialDao, _connRegistry),
                 0x136 => new CM_STOP_TRAINING(),
                 0x138 => new CM_ITEM_REMODEL(conn, _itemDao, _dataManager, _connRegistry),
                 0x139 => new CM_GODSTONE_SOCKET(conn, _itemDao, _dataManager, _connRegistry),

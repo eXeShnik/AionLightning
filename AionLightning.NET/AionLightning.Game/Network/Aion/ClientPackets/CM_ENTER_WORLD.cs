@@ -313,10 +313,12 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         // Notify each online friend that this player is now online (player is already registered above)
         if (friends.Count > 0)
         {
+            var loginNotify = new SM_FRIEND_NOTIFY(SM_FRIEND_NOTIFY.Login, player.Name);
             foreach (var f in friends)
             {
                 var fc = _connRegistry.Get(f.PlayerId);
                 if (fc?.ActivePlayer is null) continue;
+                try { await fc.SendAsync(loginNotify, ct); } catch { }
                 var friendFriends = await _socialDao.GetFriendsAsync(f.PlayerId, ct);
                 await fc.SendAsync(new SM_FRIEND_LIST(friendFriends, onlineIds), ct);
             }
