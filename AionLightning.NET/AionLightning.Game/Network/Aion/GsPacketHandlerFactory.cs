@@ -253,7 +253,7 @@ public sealed class GsPacketHandlerFactory
                 0x162 => new CM_LEGION_UPLOAD_INFO(),
                 0x163 => new CM_LEGION_UPLOAD_EMBLEM(),
                 0x166 => new CM_SHOW_MAP(),
-                0x167 => new CM_APPEARANCE(conn, _playerDao, _connRegistry, _itemDao),
+                0x167 => new CM_APPEARANCE(conn, _playerDao, _connRegistry, _itemDao, _legionDao),
                 0x168 => new CM_SUMMON_EMOTION(),
                 0x169 => new CM_SUMMON_ATTACK(),
                 0x16A => new CM_AUTO_GROUP(),

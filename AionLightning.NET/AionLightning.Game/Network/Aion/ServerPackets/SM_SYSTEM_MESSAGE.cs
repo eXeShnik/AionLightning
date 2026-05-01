@@ -90,4 +90,14 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_SUCCESS_RECOVER_EXPERIENCE — "You have been cured of Soul Sickness." (msg code 1300674)
     public static SM_SYSTEM_MESSAGE SoulSicknessCleared() => new(1300674);
+
+    // Legion rename messages (STR_LEGION_RENAME_*)
+    // 1400152: invalid or forbidden name
+    public static SM_SYSTEM_MESSAGE LegionNameInvalid() => new(1400152);
+    // 1400154: name is the same as current
+    public static SM_SYSTEM_MESSAGE LegionNameUnchanged() => new(1400154);
+    // 1400156: name already in use
+    public static SM_SYSTEM_MESSAGE LegionNameTaken() => new(1400156);
+    // 1400158: rename successful — "Legion name changed to %0."
+    public static SM_SYSTEM_MESSAGE LegionRenamed(string newName) => new(1400158, newName);
 }

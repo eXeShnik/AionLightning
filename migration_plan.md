@@ -1143,6 +1143,15 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+97. [✓] Legion rename (CM_APPEARANCE type 1) (session 2026-05-01)
+    - [✓] `ILegionDao` — added `UpdateNameAsync(int legionId, string name, ct)` and `IsNameUsedAsync(string name, ct)`
+    - [✓] `LegionDaoImpl` — implemented both: `UPDATE legions SET name = @name WHERE id = @legionId` and `SELECT COUNT(*) FROM legions WHERE name = @name`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `LegionNameInvalid()` (1400152), `LegionNameUnchanged()` (1400154), `LegionNameTaken()` (1400156), `LegionRenamed(string)` (1400158)
+    - [✓] `CM_APPEARANCE` — added `ILegionDao` dependency; type 1 (HandleLegionRenameAsync): validates player is in legion; validates rename item (169680000 or 169680001); rejects unchanged/taken names with appropriate messages; consumes rename item; updates DB + in-memory Legion.Name; broadcasts `LegionRenamed` message to all online members via their connections
+    - [✓] `GsPacketHandlerFactory` — updated 0x167 (CM_APPEARANCE) to pass `_legionDao`
+    - Rename coupon itemIds: 169680000, 169680001 (same as player rename, per Java RenameService)
+    - Build: 0 warnings, 0 errors
+
 96. [✓] Composite stone combination (session 2026-05-01)
     - [✓] `CM_COMPOSITE_STONES` (0x192) — reads 3 UniqueIds (tool, first stone, second stone); validates tool is Combination Tool (165010000); validates both input stones are enchantment stones (itemId 166000001–166000095, level = itemId − 166000000, level ≤ 95, count ≥ 1); inventory space check; consumes 1 of each input (deletes or updates stack); creates output stone at `166000000 + CalcOutputLevel(firstLvl, secondLvl)` (mirrors Java CompositionAction: avg then ±jitter; clamped to 1-95); stacks if output itemId already exists; persists inventory; sends delta packets to client
     - [✓] `GsPacketHandlerFactory` — updated 0x192 to pass `conn, _itemDao`

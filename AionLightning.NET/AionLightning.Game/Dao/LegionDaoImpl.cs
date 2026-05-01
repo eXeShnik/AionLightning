@@ -101,6 +101,22 @@ public sealed class LegionDaoImpl : ILegionDao
             new { announcement, legionId });
     }
 
+    public async Task UpdateNameAsync(int legionId, string name, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legions SET name = @name WHERE id = @legionId",
+            new { name, legionId });
+    }
+
+    public async Task<bool> IsNameUsedAsync(string name, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        int count = await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM legions WHERE name = @name", new { name });
+        return count > 0;
+    }
+
     public async Task DeleteLegionAsync(int legionId, CancellationToken ct)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);

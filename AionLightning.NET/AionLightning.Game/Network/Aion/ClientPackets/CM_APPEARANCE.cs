@@ -7,28 +7,33 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 /// <summary>
 /// Client submits an appearance or rename request. Opcode 0x167.
-/// type=0: player rename (consumes a rename item, updates name in DB, re-broadcasts).
-/// type=1: legion rename — stub (no-op; requires LegionService integration).
+/// type=0: player rename (consumes item 169680000/169680001, updates name, re-broadcasts).
+/// type=1: legion rename (consumes item 169680000/169680001, updates legion name, notifies members).
 /// type=2: cosmetic item — stub (no-op; requires CosmeticItemAction).
 /// </summary>
 public sealed class CM_APPEARANCE : AionClientPacket
 {
+    // Legion/player rename coupon itemIds (Java RenameService constants)
+    private static readonly HashSet<int> RenameItemIds = [169680000, 169680001];
+
     private readonly GsClientConnection       _conn;
     private readonly IPlayerDao               _playerDao;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IItemDao                 _itemDao;
+    private readonly ILegionDao               _legionDao;
 
     private byte   _type;
     private int    _itemObjId;
     private string _name = string.Empty;
 
     public CM_APPEARANCE(GsClientConnection conn, IPlayerDao playerDao,
-        PlayerConnectionRegistry connRegistry, IItemDao itemDao)
+        PlayerConnectionRegistry connRegistry, IItemDao itemDao, ILegionDao legionDao)
     {
         _conn         = conn;
         _playerDao    = playerDao;
         _connRegistry = connRegistry;
         _itemDao      = itemDao;
+        _legionDao    = legionDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -46,23 +51,22 @@ public sealed class CM_APPEARANCE : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null) return;
 
-        if (_type == 0)
-            await HandlePlayerRenameAsync(player, ct);
-        // type 1 (legion rename) and type 2 (cosmetic) remain stubs
+        switch (_type)
+        {
+            case 0: await HandlePlayerRenameAsync(player, ct); break;
+            case 1: await HandleLegionRenameAsync(player, ct); break;
+        }
     }
 
     private async ValueTask HandlePlayerRenameAsync(Player player, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_name) || _name.Length < 2 || _name.Length > 16) return;
 
-        // Must have the rename item in inventory
         var renameItem = player.Inventory.Get(_itemObjId);
         if (renameItem is null) return;
 
-        // Name must be unique
         if (await _playerDao.ExistsByNameAsync(_name, ct)) return;
 
-        // Consume the rename item
         renameItem.Count--;
         if (renameItem.Count <= 0)
         {
@@ -75,11 +79,9 @@ public sealed class CM_APPEARANCE : AionClientPacket
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([renameItem]), ct);
         }
 
-        // Update name
         player.Name = _name;
         await _playerDao.UpdateNameAsync(player.ObjectId, _name, ct);
 
-        // Re-broadcast player info to zone peers
         int worldId = player.Position.WorldId;
         var equipment = player.Inventory.All.Where(i => i.IsEquipped).ToList();
         var playerInfo = new SM_PLAYER_INFO(player, player.Appearance, enemy: false, equipment);
@@ -87,5 +89,56 @@ public sealed class CM_APPEARANCE : AionClientPacket
         foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
                 try { await other.SendAsync(playerInfo, ct); } catch { }
+    }
+
+    private async ValueTask HandleLegionRenameAsync(Player player, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_name) || _name.Length < 2 || _name.Length > 20) return;
+
+        var legion = player.Legion;
+        if (legion is null) return;
+
+        // Validate rename item
+        var renameItem = player.Inventory.Get(_itemObjId);
+        if (renameItem is null || !RenameItemIds.Contains(renameItem.ItemId)) return;
+
+        // Name validations matching Java RenameService.renameLegion
+        if (string.Equals(legion.Name, _name, StringComparison.OrdinalIgnoreCase))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.LegionNameUnchanged(), ct);
+            return;
+        }
+
+        if (await _legionDao.IsNameUsedAsync(_name, ct))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.LegionNameTaken(), ct);
+            return;
+        }
+
+        // Consume rename item
+        renameItem.Count--;
+        if (renameItem.Count <= 0)
+        {
+            player.Inventory.Remove(renameItem.UniqueId);
+            await _itemDao.DeleteAsync(renameItem.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM((int)renameItem.UniqueId), ct);
+        }
+        else
+        {
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([renameItem]), ct);
+        }
+
+        // Update legion name in DB and in-memory
+        await _legionDao.UpdateNameAsync(legion.LegionId, _name, ct);
+        legion.Name = _name;
+
+        // Notify all online legion members
+        var successMsg = SM_SYSTEM_MESSAGE.LegionRenamed(_name);
+        foreach (var member in legion.Members.Values)
+        {
+            var memberConn = _connRegistry.Get(member.ObjectId);
+            if (memberConn is not null)
+                try { await memberConn.SendAsync(successMsg, ct); } catch { }
+        }
     }
 }
