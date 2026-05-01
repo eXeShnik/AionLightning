@@ -106,6 +106,16 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_GIVE_ITEM_PROC_NOT_ENOUGH_MONEY — "Not enough Kinah to apply Godstone." (msg code 1300505)
     public static SM_SYSTEM_MESSAGE GodstoneNoKinah() => new(1300505);
 
+    // Item dye messages (STR_ITEM_COLOR_*)
+    // 1300510: STR_ITEM_COLOR_REMOVE_SUCCEED — "You have removed the dye from %0."
+    public static SM_SYSTEM_MESSAGE DyeRemoved() => new(1300510);
+    // 1300511: STR_ITEM_COLOR_CHANGE_SUCCEED — "You have dyed %0 %1."
+    public static SM_SYSTEM_MESSAGE DyeApplied() => new(1300511);
+    // 1300512: STR_ITEM_COLOR_CHANGE_ERROR_CANNOTDYE — "%0 cannot be dyed."
+    public static SM_SYSTEM_MESSAGE DyeCannotDye() => new(1300512);
+    // 1300513: STR_ITEM_COLOR_REMOVE_ERROR_CANNOTREMOVE — "The item has not been dyed."
+    public static SM_SYSTEM_MESSAGE DyeCannotRemove() => new(1300513);
+
     // Weapon fusion messages (STR_COMPOUND_* / STR_DECOMPOUND_*)
     // 1400288: STR_COMPOUND_ERROR_MAIN_REQUIRE_HIGHER_LEVEL
     public static SM_SYSTEM_MESSAGE CompoundMainRequireHigherLevel() => new(1400288);

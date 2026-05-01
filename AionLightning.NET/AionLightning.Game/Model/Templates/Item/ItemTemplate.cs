@@ -31,6 +31,8 @@ public sealed class ItemTemplate
 
     // mirrors Java isCanFuse — presence of <fusionaction> in <actions>
     public bool IsCanFuse => Actions?.FusionAction != null;
+    // DYEABLE = 1 << 15 = 32768 (Java ItemMask)
+    public bool IsItemDyePermitted => (Mask & 32768) != 0;
 
     // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
@@ -74,6 +76,13 @@ public sealed class ItemActions
     [XmlElement("skilllearn")]  public SkillLearnAction?  SkillLearn  { get; set; }
     [XmlElement("craftlearn")]  public CraftLearnAction?  CraftLearn  { get; set; }
     [XmlElement("fusionaction")] public FusionAction?     FusionAction { get; set; }
+    [XmlElement("dye")]          public DyeAction?        Dye          { get; set; }
+}
+
+public sealed class DyeAction
+{
+    [XmlAttribute("color")]   public string Color   { get; set; } = string.Empty; // hex RGB or "no"
+    [XmlAttribute("minutes")] public int    Minutes { get; set; }                 // 0 = permanent
 }
 
 public sealed class FusionAction { } // presence signals weapon can be fused (Java: isCanFuse)

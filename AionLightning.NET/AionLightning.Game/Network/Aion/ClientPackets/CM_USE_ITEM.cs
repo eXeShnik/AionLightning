@@ -73,6 +73,13 @@ public sealed class CM_USE_ITEM : AionClientPacket
         var template = _dataManager.Items.GetTemplate(item.ItemId);
         if (template is null) return;
 
+        // Dye item used on a target item
+        if (_type == 2 && template.Actions?.Dye is not null)
+        {
+            await HandleDyeAsync(player, item, template.Actions.Dye, ct);
+            return;
+        }
+
         // Skill book — teaches a skill permanently
         if (template.SkillLearnId is int learnSkillId)
         {
@@ -196,5 +203,58 @@ public sealed class CM_USE_ITEM : AionClientPacket
         player.Inventory.Remove(item.UniqueId);
         await _itemDao.DeleteAsync(item.UniqueId, ct);
         await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+    }
+
+    private async ValueTask HandleDyeAsync(Player player, Model.Item.Item dyeItem,
+        Model.Templates.Item.DyeAction dye, CancellationToken ct)
+    {
+        var target = player.Inventory.Get(_targetItemId)
+                  ?? player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.UniqueId == _targetItemId);
+        if (target is null) return;
+
+        var targetTemplate = _dataManager.Items.GetTemplate(target.ItemId);
+        if (targetTemplate is null) return;
+
+        bool isRemove = string.Equals(dye.Color, "no", StringComparison.OrdinalIgnoreCase);
+
+        if (isRemove && target.DyeColor == 0)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.DyeCannotRemove(), ct);
+            return;
+        }
+
+        if (!isRemove && !targetTemplate.IsItemDyePermitted)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.DyeCannotDye(), ct);
+            return;
+        }
+
+        target.DyeColor = isRemove ? 0 : dyeItem.ItemId;
+
+        dyeItem.Count--;
+        if (dyeItem.Count <= 0)
+        {
+            player.Inventory.Remove(dyeItem.UniqueId);
+            await _itemDao.DeleteAsync(dyeItem.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(dyeItem.UniqueId), ct);
+        }
+        else
+        {
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([dyeItem]), ct);
+        }
+
+        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([target]), ct);
+        await _conn.SendAsync(isRemove ? SM_SYSTEM_MESSAGE.DyeRemoved() : SM_SYSTEM_MESSAGE.DyeApplied(), ct);
+
+        if (target.IsEquipped)
+        {
+            int worldId    = player.Position.WorldId;
+            var appearance = new SM_UPDATE_PLAYER_APPEARANCE(player.ObjectId, player.Inventory.All);
+            try { await _conn.SendAsync(appearance, ct); } catch { }
+            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == worldId)
+                    try { await other.SendAsync(appearance, ct); } catch { }
+        }
     }
 }

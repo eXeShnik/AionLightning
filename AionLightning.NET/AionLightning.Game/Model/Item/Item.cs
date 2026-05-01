@@ -12,5 +12,6 @@ public sealed class Item
     public int  OptionalSocket  { get; set; } = -1;     // tuning result (−1 = untuned; 0+ = extra socket count from tuning)
     public int  SkinItemId      { get; set; } = 0;      // remodel override (0 = use ItemId for appearance)
     public int  FusionedItemId  { get; set; } = 0;      // fused secondary weapon's ItemId (0 = not fused)
+    public int  DyeColor        { get; set; } = 0;      // dye item's ItemId applied to this item (0 = no dye)
     public bool IsEquipped      { get; set; } = false;  // explicit flag — Slot alone is ambiguous (bitmask vs. bag position)
 }

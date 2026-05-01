@@ -1295,3 +1295,13 @@
     - [✓] `GsPacketHandlerFactory` — wired 0x16C → `CM_FUSION_WEAPONS(conn, _itemDao, _dataManager)`; 0x16D → `CM_BREAK_WEAPONS(conn, _itemDao)`
     - Note: fusion-stone transfer (copyFusionStones) and improvement compatibility check not ported (requires fusion socket system)
     - Build: 0 warnings, 0 errors
+
+103. [✓] Item dyeing (CM_USE_ITEM type 2 + DyeAction in ItemTemplate) (session 2026-05-01)
+    - [✓] `V29__item_dye.sql` — `ALTER TABLE player_items ADD COLUMN dye_color INT NOT NULL DEFAULT 0`
+    - [✓] `Item` — added `DyeColor int = 0` (stores dye item's ItemId; 0 = undyed)
+    - [✓] `ItemTemplate` — added `DyeAction` class (`color string` + `minutes int`); `[XmlElement("dye")]` in `ItemActions`; `IsItemDyePermitted => (Mask & 32768) != 0` (DYEABLE flag)
+    - [✓] `ItemDaoImpl` — updated SELECT to include `dye_color` (index 10); `is_equipped` shifted to index 11; INSERT includes `dye_color`
+    - [✓] `SM_UPDATE_PLAYER_APPEARANCE` — updated `w.WriteD(0)` item color field to use `item.DyeColor`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `DyeRemoved()` (1300510), `DyeApplied()` (1300511), `DyeCannotDye()` (1300512), `DyeCannotRemove()` (1300513)
+    - [✓] `CM_USE_ITEM` — when `_type == 2` and template has `DyeAction`: validates target exists and is dyeable, applies/removes dye (`DyeColor = dyeItem.ItemId` or 0 for "no" color), consumes dye item, persists, broadcasts `SM_UPDATE_PLAYER_APPEARANCE` if target is equipped
+    - Build: 0 warnings, 0 errors
