@@ -1463,6 +1463,10 @@
     - [✓] `NpcAiService` — added `_lastIdleShoutTime: Dictionary<int, DateTime>` (30-second per-NPC cooldown); in `WanderRandomAsync` after broadcasting SM_MOVE start, checks IDLE shout cooldown and calls `GetRandomShout(npcId, IDLE, worldId)`; if entry found, broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone players and stamps cooldown; NPC ambient shouts now fire periodically during wander; cleaned up `_lastIdleShoutTime` in dead-NPC block
     - Build: 0 warnings, 0 errors
 
+121. [✓] NPC shout — ATTACK_BEGIN event on first hit per combat (session 2026-05-01)
+    - [✓] `NpcAiService` — added `_attackBegunNpcs: HashSet<int>`; on each NPC's first melee attack in a new combat engagement, calls `GetRandomShout(npcId, ATTACK_BEGIN, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone players; ATTACK_BEGIN fires exactly once per combat (HashSet.Add returns false on subsequent ticks); cleared in dead-NPC block, on leash-break target-loss, on player-kill, and in no-players-online early-exit; mirrors Java ShoutEventHandler.onAttack(BEGIN)
+    - Build: 0 warnings, 0 errors
+
 120. [✓] Portal NPC system — load portal_loc.xml + portal_template2.xml; instant teleport on click (session 2026-05-01)
     - [✓] `PortalData.cs` (NEW) — streaming XmlReader loads `portals/portal_loc.xml` into `Dictionary<int, PortalLocation>` (loc_id → {WorldId, X, Y, Z, Heading}); loads `portals/portal_template2.xml` into `Dictionary<int, List<PortalPath>>` (npcId → paths with optional race filter); `GetPortalLocation(npcId, playerRace)` selects race-specific path first, falls back to unrestricted (empty race); `IsPortal(npcId)` lookup
     - [✓] `IDataManager` / `DataManager` — added `PortalData Portals { get; }` property; loads after NpcShouts in startup sequence

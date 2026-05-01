@@ -48,7 +48,9 @@ public sealed class NpcAiService : BackgroundService
     // Walker patrol: NPC objectId → current route step index
     private readonly Dictionary<int, int>         _walkerStepIndex  = new();
     // Idle shout: NPC objectId → last shout time
-    private readonly Dictionary<int, DateTime>    _lastIdleShoutTime = new();
+    private readonly Dictionary<int, DateTime>    _lastIdleShoutTime  = new();
+    // ATTACK_BEGIN shout: objectIds that have already fired the shout in current combat
+    private readonly HashSet<int>                 _attackBegunNpcs    = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ILogger<NpcAiService> log, IOptions<RateOptions> rates)
@@ -80,6 +82,7 @@ public sealed class NpcAiService : BackgroundService
             _lastSkillTime.Clear();
             _chaseState.Clear();
             _returnState.Clear();
+            _attackBegunNpcs.Clear();
             return;
         }
 
@@ -96,6 +99,7 @@ public sealed class NpcAiService : BackgroundService
                 _returnState.Remove(npc.ObjectId);
                 _walkerStepIndex.Remove(npc.ObjectId);
                 _lastIdleShoutTime.Remove(npc.ObjectId);
+                _attackBegunNpcs.Remove(npc.ObjectId);
                 npc.Target = null;
                 continue;
             }
@@ -137,6 +141,7 @@ public sealed class NpcAiService : BackgroundService
                         // Lost target — stop any chase and return home
                         await StopChaseAsync(npc, ct);
                         _npcTargets.Remove(npc.ObjectId);
+                        _attackBegunNpcs.Remove(npc.ObjectId);
                         npc.Target = null;
                     }
                 }
@@ -217,6 +222,21 @@ public sealed class NpcAiService : BackgroundService
             if ((now - _lastAttackTime.GetValueOrDefault(npc.ObjectId)).TotalMilliseconds < atkDelayMs) continue;
             _lastAttackTime[npc.ObjectId] = now;
 
+            // ATTACK_BEGIN shout — fires once on the NPC's first attack in each combat engagement
+            if (_attackBegunNpcs.Add(npc.ObjectId))
+            {
+                var atkBeginShout = _dataManager.NpcShouts.GetRandomShout(
+                    npc.Template.NpcId, NpcShoutData.ShoutEventType.ATTACK_BEGIN, npc.Position.WorldId);
+                if (atkBeginShout.HasValue)
+                {
+                    var shoutPkt  = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, atkBeginShout.Value.StringId);
+                    int shoutWorld = npc.Position.WorldId;
+                    foreach (var conn in _connRegistry.GetAll())
+                        if (conn.ActivePlayer?.Position.WorldId == shoutWorld)
+                            try { await conn.SendAsync(shoutPkt, ct); } catch { }
+                }
+            }
+
             // Deal damage — both NPC and target enter combat (suppresses regen for both)
             int baseAtk = npc.Template.Stats?.MainHandAttack ?? 0;
             int rawDmg  = baseAtk > 0
@@ -255,6 +275,7 @@ public sealed class NpcAiService : BackgroundService
             _npcTargets.Remove(npc.ObjectId);
             _chaseState.Remove(npc.ObjectId);
             _lastSkillTime.Remove(npc.ObjectId);
+            _attackBegunNpcs.Remove(npc.ObjectId);
             npc.Target = null;
 
             target.State |= CreatureState.Dead;
