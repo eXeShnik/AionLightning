@@ -82,6 +82,9 @@ public sealed class Player : Creature
     // Sum of PHYSICAL_DEFENSE from all equipped items; applied in mitigation formula
     public int PhysicalDefense { get; set; }
 
+    // Sum of MAGICAL_DEFEND from all equipped items; applied in magic mitigation formula
+    public int MagicDefense { get; set; }
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

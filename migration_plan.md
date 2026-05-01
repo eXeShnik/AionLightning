@@ -956,6 +956,37 @@
     - Uses `_dataManager.Items.GetTemplate(recipe.ProductId)` to look up `MaxStackCount` for stack detection
     - Build: 0 warnings, 0 errors
 
+57. [✓] Equipment-based damage and attack speed (session 2026-05-01)
+    - [✓] `ItemTemplate` — added `WeaponStats` class (min_damage/max_damage/attack_speed XmlAttributes); added `ItemModifiers`/`ItemModifier` for generic `<modifiers><add name="..." value="N"/>` parsing; `PhysicalDefense` computed property wraps `GetStat("PHYSICAL_DEFENSE")`
+    - [✓] `Creature` — `CurrentAttackSpeed` changed from expression-body constant to `{ get; set; } = 1500`; `BaseAttackSpeed` removed (was always 1500); `SM_EMOTION` updated to use `CurrentAttackSpeed`
+    - [✓] `Player` — added `BasePhysicalAttack`, `MainHandMinDmg`, `MainHandMaxDmg`, `PhysicalDefense` properties
+    - [✓] `CM_EQUIP_ITEM` — refreshes weapon stats (`MainHandMinDmg/MaxDmg/CurrentAttackSpeed`) from equipped main-hand template; refreshes `PhysicalDefense` sum from all equipped items; clears weapon stats when no weapon equipped
+    - [✓] `CM_ATTACK` — damage formula: base = `BasePhysicalAttack || level*6`; weapon range added when `MainHandMinDmg > 0`; PvP pdef mitigation: `rawDmg * 1000 / (1000 + pdef)`
+    - [✓] `CM_ENTER_WORLD` — `BasePhysicalAttack` from template; weapon stats from equipped main-hand; `PhysicalDefense` from all equipped items
+    - [✓] `SM_STATS_INFO` — P-attack uses `(MainHandMinDmg+MainHandMaxDmg)/2 + template.MainHandAttack`; attack speed from `CurrentAttackSpeed`; P-def from real `PhysicalDefense`
+    - Build: 0 warnings, 0 errors
+
+58. [✓] Armor-based physical defense mitigation (session 2026-05-01)
+    - [✓] NPC AI attack path — `NpcAiService` applies `PhysicalDefense` mitigation when NPC deals physical damage to a player (`rawDmg * 1000 / (1000 + pDef)`); defense = 0 when NPC attacks another NPC
+    - [✓] `ExperienceService.HandleLevelUpAsync` — sets `player.BasePhysicalAttack = tpl.MainHandAttack` on level-up so the attack stat updates without requiring a relog
+    - Build: 0 warnings, 0 errors
+
+59. [✓] Group XP distance gate + stat-template base attack (session 2026-05-01)
+    - [✓] `ExperienceService` — added `MaxGroupXpRange = 1500f` constant; `AddGroupExpAsync` now filters eligible members to those alive, in same WorldId, and within 1500 units of the killer (or is the killer); members outside range do not receive XP; solo path unchanged
+    - [✓] `ExperienceService.HandleLevelUpAsync` — sets `player.BasePhysicalAttack = tpl.MainHandAttack` on level-up
+    - Build: 0 warnings, 0 errors
+
+60. [✓] NPC defense mitigation + player magic defense from items (session 2026-05-01)
+    - [✓] `NpcStatsTemplate` — added `[XmlAttribute("mresist")] public int MResist { get; set; }` parsing the `mresist` attribute from NPC stats XML
+    - [✓] `ItemTemplate` — added `MagicDefense` computed property: `Modifiers?.GetStat("MAGICAL_DEFEND") ?? 0`
+    - [✓] `Player` — added `MagicDefense { get; set; }` (sum of MAGICAL_DEFEND from equipped items)
+    - [✓] `CM_ENTER_WORLD` — initializes `player.MagicDefense` from equipped items on login (sum of `ItemTemplate.MagicDefense`)
+    - [✓] `CM_EQUIP_ITEM` — refreshes `player.MagicDefense` alongside `player.PhysicalDefense` on equip/unequip
+    - [✓] `CM_ATTACK` — pdef now resolves to: Player target → `PhysicalDefense`; Npc target → `template.Stats?.PDef ?? 0`; NPC physical defense from XML is now applied when players melee NPCs
+    - [✓] `CM_CASTSPELL` Task.Run — spell damage now applies defense by skill type and target type: MAGICAL vs Player → `player.MagicDefense`; MAGICAL vs Npc → `stats.MResist`; PHYSICAL vs Player → `player.PhysicalDefense`; PHYSICAL vs Npc → `stats.PDef`
+    - [✓] `SM_STATS_INFO` — M-def now uses `Math.Max(100, p.MagicDefense)` (current and base blocks) instead of hardcoded 100
+    - Build: 0 warnings, 0 errors
+
 75. [✓] BuyFromShop kinah overcharge fix (session 2026-05-01)
     - Root cause: `totalCost` was computed for ALL trade entries before inventory-capacity filtering, so players were charged kinah for items they could not receive when the inventory was nearly full
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible

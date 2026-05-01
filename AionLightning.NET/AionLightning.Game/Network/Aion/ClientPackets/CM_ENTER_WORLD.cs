@@ -137,10 +137,13 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
             }
         }
 
-        // Initialize physical defense from all currently equipped items
+        // Initialize physical and magic defense from all currently equipped items
         player.PhysicalDefense = storedItems
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalDefense ?? 0);
+        player.MagicDefense = storedItems
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicDefense ?? 0);
 
         // Load quests
         var questEntries = await _questDao.LoadByPlayerIdAsync(_objectId, ct);

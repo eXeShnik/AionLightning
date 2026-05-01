@@ -168,7 +168,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (target is null || target.IsAlreadyDead) return;
                 if (target.Position.WorldId != castWorldId) return;
 
-                int damage = player.Level * 8 + Random.Shared.Next(20, 60);
+                int rawSpellDmg = player.Level * 8 + Random.Shared.Next(20, 60);
+                bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
+                int spellDef = target is Player pvpSpellTarget
+                             ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
+                             : target is Npc npcSpellTarget
+                             ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MResist ?? 0)
+                                               : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
+                             : 0;
+                int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
                 target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 
                 // Both caster and target enter combat

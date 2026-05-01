@@ -73,8 +73,10 @@ public sealed class CM_ATTACK : AionClientPacket
             ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtk
             : baseAtk + Random.Shared.Next(10, 40);
 
-        // Apply physical defense mitigation from the target's armor (player targets only)
-        int pdef   = target is Player pvpTarget ? pvpTarget.PhysicalDefense : 0;
+        // Apply physical defense mitigation from the target's armor
+        int pdef = target is Player pvpTarget ? pvpTarget.PhysicalDefense
+                 : target is Npc npcTarget    ? (npcTarget.Template.Stats?.PDef ?? 0)
+                 : 0;
         int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
         target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 

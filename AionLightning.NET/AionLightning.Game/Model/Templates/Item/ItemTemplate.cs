@@ -25,6 +25,7 @@ public sealed class ItemTemplate
     public bool IsWeapon           => EquipmentType == "WEAPON";
     public bool IsArmor            => EquipmentType == "ARMOR";
     public int PhysicalDefense     => Modifiers?.GetStat("PHYSICAL_DEFENSE") ?? 0;
+    public int MagicDefense        => Modifiers?.GetStat("MAGICAL_DEFEND")   ?? 0;
 }
 
 public sealed class ItemModifiers

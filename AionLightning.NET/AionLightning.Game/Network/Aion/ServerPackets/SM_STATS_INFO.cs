@@ -68,7 +68,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
         int pdef = Math.Max(100, p.PhysicalDefense);
         w.WriteD(pdef);                // P-def
         w.WriteH(100); w.WriteH(0);    // main/off-hand M-attack
-        w.WriteD(100);                 // M-def
+        int mdef = Math.Max(100, p.MagicDefense);
+        w.WriteD(mdef);                // M-def
         w.WriteH(0); w.WriteH(0);      // M-resist, unk 3.0
         w.WriteF(5.0f);                // attack range
         w.WriteH((short)p.CurrentAttackSpeed); // attack speed
@@ -111,7 +112,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(6000); w.WriteD(60);  // base DP, fly time
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
         w.WriteD(100); w.WriteD(pdef); // base M-attack, base P-def
-        w.WriteD(100);                 // base M-def
+        w.WriteD(mdef);                // base M-def
         w.WriteH(0); w.WriteF(5.0f);   // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
         w.WriteH((short)(t?.Evasion ?? 100)); // base evasion
