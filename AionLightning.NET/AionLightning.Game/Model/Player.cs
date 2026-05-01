@@ -11,7 +11,7 @@ public sealed class Player : Creature
     public int AccountId { get; init; }
     public Race Race { get; init; }
     public Gender Gender { get; init; }
-    public PlayerClass PlayerClass { get; init; }
+    public PlayerClass PlayerClass { get; set; }
     public byte Level { get; set; }
     public long Exp { get; set; }
     public int TitleId      { get; set; } = -1;

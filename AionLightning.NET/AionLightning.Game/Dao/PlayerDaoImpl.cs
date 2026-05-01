@@ -290,6 +290,13 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { currentFp, playerId });
     }
 
+    public async Task UpdateClassAsync(int playerId, PlayerClass newClass, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync("UPDATE players SET player_class=@cls WHERE id=@playerId",
+            new { cls = newClass.ToString(), playerId });
+    }
+
     private sealed record PlayerRow(
         int id, string name, int account_id, long exp,
         float x, float y, float z, int heading, int world_id,

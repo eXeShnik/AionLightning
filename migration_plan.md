@@ -1132,3 +1132,13 @@
     - [✓] `IMailDao` injected into CM_DIALOG_SELECT (field + constructor param)
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT constructor to pass _mailDao
     - Build: 0 warnings, 0 errors
+
+85. [✓] Class ascension at level 9 (session 2026-05-01)
+    - [✓] `Player` — `PlayerClass` changed from `{ get; init; }` to `{ get; set; }` to allow ascension mutation
+    - [✓] `IPlayerDao` + `PlayerDaoImpl` — added `UpdateClassAsync` (UPDATE players SET player_class=...)
+    - [✓] `ExperienceService` — after level-up to 9 with a starting class, sends `SM_DIALOG_WINDOW(0, dialogId, questId)` to show class selection UI (mirrors Java ClassChangeService.showClassChangeDialog)
+    - [✓] `CM_DIALOG_SELECT` — added `ClassChoiceMap` (Race × dialogId → PlayerClass); when `targetObjectId == 0` and dialogId matches, calls `HandleClassChangeAsync`
+    - [✓] `HandleClassChangeAsync` — validates starting class + level 9, maps valid ascension pairs (WARRIOR→GLADIATOR/TEMPLAR etc.), sets `player.PlayerClass`, saves to DB, grants all missing skills for new class (levels 1..current), saves skills, refreshes MaxHp/MaxMp/stats, sends SM_DIALOG_WINDOW(0,0,0) to close UI + SM_STATS_INFO + SM_SKILL_LIST
+    - [✓] `CM_DIALOG_SELECT` — added `ISkillDao` dependency (for per-skill upsert after ascension)
+    - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
+    - Build: 0 warnings, 0 errors

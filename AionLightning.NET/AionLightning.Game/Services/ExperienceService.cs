@@ -136,6 +136,10 @@ public sealed class ExperienceService
         await conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
         await conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
 
+        // At level 9 with a starting class, show class selection dialog so player can ascend
+        if (player.Level == 9 && player.PlayerClass.IsStartingClass())
+            await SendClassSelectionDialogAsync(player, conn, ct);
+
         var levelUpdate = new SM_LEVEL_UPDATE(player.ObjectId, 0, player.Level);
         foreach (var other in _world.GetAll())
         {
@@ -148,5 +152,25 @@ public sealed class ExperienceService
                 catch { /* ignore disconnected peers */ }
             }
         }
+    }
+
+    // Dialog IDs from Java ClassChangeService.showClassChangeDialog (ENABLE_SIMPLE_2NDCLASS path)
+    private static ValueTask SendClassSelectionDialogAsync(Player player, GsClientConnection conn, CancellationToken ct)
+    {
+        // targetObjectId=0 = dialog with no NPC target; questId identifies the ascension quest
+        (int dialogId, int questId) = (player.Race, player.PlayerClass) switch
+        {
+            (Race.ELYOS,     PlayerClass.WARRIOR) => (2375, 1006),
+            (Race.ELYOS,     PlayerClass.SCOUT)   => (2716, 1006),
+            (Race.ELYOS,     PlayerClass.MAGE)    => (3057, 1006),
+            (Race.ELYOS,     PlayerClass.PRIEST)  => (3398, 1006),
+            (Race.ASMODIANS, PlayerClass.WARRIOR) => (3057, 2008),
+            (Race.ASMODIANS, PlayerClass.SCOUT)   => (3398, 2008),
+            (Race.ASMODIANS, PlayerClass.MAGE)    => (3739, 2008),
+            (Race.ASMODIANS, PlayerClass.PRIEST)  => (4080, 2008),
+            _ => (0, 0),
+        };
+        if (dialogId == 0) return ValueTask.CompletedTask;
+        return conn.SendAsync(new SM_DIALOG_WINDOW(0, dialogId, questId), ct);
     }
 }

@@ -2,6 +2,7 @@ using AionLightning.Commons.Network;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -42,6 +43,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly IItemDao                  _itemDao;
     private readonly IPlayerDao                _playerDao;
     private readonly IMailDao                  _mailDao;
+    private readonly ISkillDao                 _skillDao;
     private readonly ExperienceService         _expService;
     private readonly PlayerConnectionRegistry  _connRegistry;
     private readonly RateOptions               _rates;
@@ -54,7 +56,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
-        IMailDao mailDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
+        IMailDao mailDao, ISkillDao skillDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
         RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
     {
         _conn         = conn;
@@ -64,6 +66,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _itemDao      = itemDao;
         _playerDao    = playerDao;
         _mailDao      = mailDao;
+        _skillDao     = skillDao;
         _expService   = expService;
         _connRegistry = connRegistry;
         _rates        = rates;
@@ -79,10 +82,41 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _questId        = r.ReadD();
     }
 
+    // Dialog IDs mapping class selection choices → new PlayerClass (matches Java ClassChangeService)
+    private static readonly Dictionary<(Race, int), PlayerClass> ClassChoiceMap = new()
+    {
+        // Elyos choices
+        { (Race.ELYOS, 2376), PlayerClass.GLADIATOR    },
+        { (Race.ELYOS, 2461), PlayerClass.TEMPLAR       },
+        { (Race.ELYOS, 2717), PlayerClass.ASSASSIN      },
+        { (Race.ELYOS, 2802), PlayerClass.RANGER        },
+        { (Race.ELYOS, 3058), PlayerClass.SORCERER      },
+        { (Race.ELYOS, 3143), PlayerClass.SPIRIT_MASTER },
+        { (Race.ELYOS, 3399), PlayerClass.CLERIC        },
+        { (Race.ELYOS, 3484), PlayerClass.CHANTER       },
+        // Asmodian choices
+        { (Race.ASMODIANS, 3058), PlayerClass.GLADIATOR    },
+        { (Race.ASMODIANS, 3143), PlayerClass.TEMPLAR       },
+        { (Race.ASMODIANS, 3399), PlayerClass.ASSASSIN      },
+        { (Race.ASMODIANS, 3484), PlayerClass.RANGER        },
+        { (Race.ASMODIANS, 3740), PlayerClass.SORCERER      },
+        { (Race.ASMODIANS, 3825), PlayerClass.SPIRIT_MASTER },
+        { (Race.ASMODIANS, 4081), PlayerClass.CLERIC        },
+        { (Race.ASMODIANS, 4166), PlayerClass.CHANTER       },
+    };
+
     public override async ValueTask RunAsync(CancellationToken ct)
     {
         var player = _conn.ActivePlayer;
         if (player is null) return;
+
+        // targetObjectId == 0 means the dialog is from the class-change UI, not an NPC
+        if (_targetObjectId == 0)
+        {
+            if (ClassChoiceMap.TryGetValue((player.Race, _dialogId), out var newClass))
+                await HandleClassChangeAsync(player, newClass, ct);
+            return;
+        }
 
         switch (_dialogId)
         {
@@ -171,6 +205,57 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                     _targetObjectId, _dialogId, _questId);
                 break;
         }
+    }
+
+    private async ValueTask HandleClassChangeAsync(Model.Player player, PlayerClass newClass, CancellationToken ct)
+    {
+        // Guard: only starting classes at level 9 may ascend
+        if (!player.PlayerClass.IsStartingClass()) return;
+        if (player.Level < 9) return;
+
+        // Validate the new class is a valid ascension for the starting class
+        bool valid = (player.PlayerClass, newClass) switch
+        {
+            (PlayerClass.WARRIOR, PlayerClass.GLADIATOR or PlayerClass.TEMPLAR)           => true,
+            (PlayerClass.SCOUT,   PlayerClass.ASSASSIN  or PlayerClass.RANGER)            => true,
+            (PlayerClass.MAGE,    PlayerClass.SORCERER  or PlayerClass.SPIRIT_MASTER)     => true,
+            (PlayerClass.PRIEST,  PlayerClass.CLERIC    or PlayerClass.CHANTER)           => true,
+            _ => false,
+        };
+        if (!valid) return;
+
+        var oldClass = player.PlayerClass;
+        player.PlayerClass = newClass;
+        await _playerDao.UpdateClassAsync(player.ObjectId, newClass, ct);
+
+        // Grant all skills for the new class from level 1 to current level (addMissingSkills)
+        for (int lvl = 1; lvl <= player.Level; lvl++)
+        {
+            foreach (var slt in _dataManager.SkillTree.GetTemplatesFor(newClass, lvl, player.Race))
+            {
+                if (slt.AutoLearn)
+                    player.Skills.AddSkill(slt.SkillId, slt.SkillLevel, slt.Stigma);
+            }
+        }
+        foreach (var sk in player.Skills.AllSkills)
+            await _skillDao.UpsertAsync(player.ObjectId, sk.SkillId, sk.SkillLevel, ct);
+
+        // Refresh stats for the new class
+        var tpl = _dataManager.PlayerStats.GetTemplate(newClass, player.Level);
+        if (tpl is not null)
+        {
+            player.MaxHp     = (int)(tpl.MaxHp * player.SoulSicknessMultiplier) + player.BonusMaxHp;
+            player.MaxMp     = (int)(tpl.MaxMp * player.SoulSicknessMultiplier) + player.BonusMaxMp;
+            player.CurrentHp = player.MaxHp;
+            player.CurrentMp = player.MaxMp;
+            player.BasePhysicalAttack = tpl.MainHandAttack;
+        }
+
+        await _conn.SendAsync(new SM_DIALOG_WINDOW(0, 0, 0), ct); // close the class selection UI
+        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
+
+        _log.LogInformation("Player {Name} ascended from {Old} to {New}", player.Name, oldClass, newClass);
     }
 
     private async ValueTask HandleQuestSelectAsync(Model.Player player, CancellationToken ct)
