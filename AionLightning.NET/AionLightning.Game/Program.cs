@@ -88,6 +88,7 @@ builder.Services.AddHostedService<AutoSaveService>();
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();
 builder.Services.AddSingleton<ReconnectRegistry>();
+builder.Services.AddSingleton<PlayerResponseRegistry>();
 
 // Maps online player objectId → connection for broadcast
 builder.Services.AddSingleton<PlayerConnectionRegistry>();

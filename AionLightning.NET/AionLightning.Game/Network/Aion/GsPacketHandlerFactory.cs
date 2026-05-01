@@ -52,6 +52,7 @@ public sealed class GsPacketHandlerFactory
     private readonly FindGroupService    _findGroupService;
     private readonly ReconnectRegistry   _reconnectRegistry;
     private readonly LsConnectionHolder  _lsHolder;
+    private readonly PlayerResponseRegistry _responseRegistry;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -89,7 +90,8 @@ public sealed class GsPacketHandlerFactory
         BrokerService brokerService,
         FindGroupService findGroupService,
         ReconnectRegistry reconnectRegistry,
-        LsConnectionHolder lsHolder)
+        LsConnectionHolder lsHolder,
+        PlayerResponseRegistry responseRegistry)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -127,6 +129,7 @@ public sealed class GsPacketHandlerFactory
         _findGroupService  = findGroupService;
         _reconnectRegistry = reconnectRegistry;
         _lsHolder          = lsHolder;
+        _responseRegistry  = responseRegistry;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -187,7 +190,7 @@ public sealed class GsPacketHandlerFactory
                 0xE1  => new CM_REMOVE_ALTERED_STATE(),
                 0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _expService, _spawnService, _lootService, _questService, _duelService, _playerDao, _legionDao, _rates),
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _playerDao, _legionDao, _rates),
-                0xF0  => new CM_QUESTION_RESPONSE(),
+                0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
@@ -222,7 +225,7 @@ public sealed class GsPacketHandlerFactory
                 0x11E => new CM_GM_BOOKMARK(conn, _connRegistry),
                 0x11F => new CM_CHAT_GROUP_INFO(conn, _connRegistry),
                 0x122 => new CM_PLAYER_STATUS_INFO(conn, _connRegistry, _groupService),
-                0x123 => new CM_INVITE_TO_GROUP(conn, _connRegistry, _groupService),
+                0x123 => new CM_INVITE_TO_GROUP(conn, _connRegistry, _groupService, _responseRegistry),
                 0x124 => new CM_READ_MAIL(conn, _mailDao),
                 0x126 => new CM_SEND_MAIL(conn, _playerDao, _mailDao, _itemDao, _connRegistry),
                 0x127 => new CM_CHECK_MAIL_SIZE(),
@@ -231,7 +234,7 @@ public sealed class GsPacketHandlerFactory
                 0x12C => new CM_CLIENT_COMMAND_LOC(conn),
                 0x12F => new CM_CRAFT(conn, _itemDao, _dataManager, _connRegistry, _expService, _skillDao, _questService),
                 0x129 => new CM_TITLE_SET(conn, _playerDao, _connRegistry),
-                0x130 => new CM_DUEL_REQUEST(conn, _connRegistry, _duelService, _world),
+                0x130 => new CM_DUEL_REQUEST(conn, _connRegistry, _duelService, _world, _responseRegistry),
                 0x132 => new CM_FRIEND_DEL(conn, _socialDao, _connRegistry),
                 0x136 => new CM_STOP_TRAINING(),
                 0x138 => new CM_ITEM_REMODEL(conn, _itemDao, _dataManager, _connRegistry),
