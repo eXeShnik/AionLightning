@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
@@ -21,6 +22,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly QuestService _questService;
     private readonly DuelService _duelService;
     private readonly IPlayerDao _playerDao;
+    private readonly RateOptions _rates;
 
     private int _spellId;
     private int _level;
@@ -32,7 +34,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     public CM_CASTSPELL(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
-        QuestService questService, DuelService duelService, IPlayerDao playerDao)
+        QuestService questService, DuelService duelService, IPlayerDao playerDao, RateOptions rates)
     {
         _conn         = conn;
         _world        = world;
@@ -44,6 +46,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _questService = questService;
         _duelService  = duelService;
         _playerDao    = playerDao;
+        _rates        = rates;
     }
 
     public override void Read(ref PacketReader r)
@@ -150,6 +153,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var duelSvc    = _duelService;
             var conn       = _conn;
             var playerDao  = _playerDao;
+            var rates      = _rates;
 
             _ = Task.Run(async () =>
             {
@@ -234,6 +238,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (AbyssRankService.IsPvPMap(castWorldId) && player.Race != deadPlayer.Race)
                     {
                         int apGain = AbyssRankService.CalculatePvPApGained(player, deadPlayer);
+                        if (rates.ApPlayerGainRate != 1.0f)
+                            apGain = Math.Max(1, (int)(apGain * rates.ApPlayerGainRate));
                         int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
                         AbyssRankService.AddAp(player, apGain);
                         AbyssRankService.LoseAp(deadPlayer, apLoss);
