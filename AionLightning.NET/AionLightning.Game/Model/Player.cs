@@ -98,6 +98,13 @@ public sealed class Player : Creature
     /// <summary>Multiplier applied to base MaxHp/MaxMp per soul sickness stack (5% reduction each, min 0.5).</summary>
     public float SoulSicknessMultiplier => Math.Max(0.5f, 1f - SoulSicknessCount * 0.05f);
 
+    // Inventory cube expansion — NPC-purchased expands; each adds 9 slots (Java CUBE_SPACE=9)
+    public int NpcExpands   { get; set; }
+    public int QuestExpands { get; set; }
+
+    /// <summary>Total cube capacity: 27 base + 9 slots per expand level.</summary>
+    public int CubeCapacity => 27 + (NpcExpands + QuestExpands) * 9;
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

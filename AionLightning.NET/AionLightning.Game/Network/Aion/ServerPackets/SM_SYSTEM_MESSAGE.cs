@@ -75,4 +75,10 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
 
     // STR_ENCHANT_ITEM_FAILED — "You have failed to enchant %0." (msg code 1300456)
     public static SM_SYSTEM_MESSAGE EnchantFailed(string itemName) => new(1300456, itemName);
+
+    // STR_EXTEND_INVENTORY_CANT_EXTEND_MORE — "You cannot expand the cube any further." (msg code 1300430)
+    public static SM_SYSTEM_MESSAGE CannotExpandCubeMore() => new(1300430);
+
+    // STR_EXTEND_INVENTORY — "%0 slots have been added to the cube." (msg code 1300431)
+    public static SM_SYSTEM_MESSAGE CubeExpanded(int slots) => new(1300431, slots.ToString());
 }

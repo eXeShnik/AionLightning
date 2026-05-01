@@ -1,0 +1,2 @@
+ALTER TABLE `players`
+    ADD COLUMN `npc_expands` TINYINT UNSIGNED NOT NULL DEFAULT 0;

@@ -12,18 +12,23 @@ public sealed class SM_INVENTORY_INFO : AionServerPacket
 {
     private readonly bool _isFirst;
     private readonly IReadOnlyList<Item> _items;
+    private readonly byte _npcExpands;
+    private readonly byte _questExpands;
 
-    public SM_INVENTORY_INFO(bool isFirst, IEnumerable<Item> items) : base(0x1A)
+    public SM_INVENTORY_INFO(bool isFirst, IEnumerable<Item> items,
+        byte npcExpands = 0, byte questExpands = 0) : base(0x1A)
     {
-        _isFirst = isFirst;
-        _items   = items as IReadOnlyList<Item> ?? items.ToList();
+        _isFirst      = isFirst;
+        _items        = items as IReadOnlyList<Item> ?? items.ToList();
+        _npcExpands   = npcExpands;
+        _questExpands = questExpands;
     }
 
     public override void Write(ref PacketWriter w)
     {
         w.WriteC(_isFirst ? (byte)1 : (byte)0);
-        w.WriteC(0); // npcExpandsSize
-        w.WriteC(0); // questExpandsSize
+        w.WriteC(_npcExpands);   // npcExpandsSize
+        w.WriteC(_questExpands); // questExpandsSize
         w.WriteC(0); // unk
         w.WriteH((short)_items.Count);
 

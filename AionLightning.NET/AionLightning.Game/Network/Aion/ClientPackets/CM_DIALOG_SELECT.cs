@@ -23,9 +23,14 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int QUEST_ACCEPT        = 29;
     private const int QUEST_ACCEPT_1      = 1002;
     private const int SELECT_QUEST_REWARD = 1009;
+    private const int EXTEND_INVENTORY    = 47;
 
     private const int   KinahItemId      = 182400001;
     private const float MaxInteractRange = 10.0f;
+
+    // Cube expansion prices by resulting expand level (index = npcExpands after expansion, 1-5).
+    // Matches Java cube_expander.xml: level 1 = 1k, 2 = 12k, 3 = 80k, 4 = 180k, 5 = 360k kinah.
+    private static readonly long[] CubeExpandPrices = [0, 1_000, 12_000, 80_000, 180_000, 360_000];
 
     private readonly GsClientConnection        _conn;
     private readonly GameWorld                 _world;
@@ -130,6 +135,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
             case SELECT_QUEST_REWARD:
                 await HandleQuestRewardAsync(player, ct);
+                break;
+
+            case EXTEND_INVENTORY:
+                await HandleExpandCubeAsync(player, ct);
                 break;
 
             default:
@@ -341,5 +350,46 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
         _log.LogInformation("Player {Name} completed quest {QuestId} ({QuestName}), exp={Exp}",
             player.Name, _questId, template.Name, expReward);
+    }
+
+    private async ValueTask HandleExpandCubeAsync(Model.Player player, CancellationToken ct)
+    {
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
+        int nextLevel = player.NpcExpands + 1;
+        if (nextLevel >= CubeExpandPrices.Length)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CannotExpandCubeMore(), ct);
+            return;
+        }
+
+        long price   = CubeExpandPrices[nextLevel];
+        var  kinah   = player.Inventory.FindByItemId(KinahItemId);
+        long current = kinah?.Count ?? 0;
+        if (current < price)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
+            return;
+        }
+
+        // Deduct kinah, expand cube
+        kinah!.Count         -= price;
+        player.NpcExpands++;
+        player.Inventory.Capacity = player.CubeCapacity;
+
+        await _playerDao.UpdateCubeExpandAsync(player.ObjectId, player.NpcExpands, ct);
+        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+
+        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
+        await _conn.SendAsync(SM_CUBE_UPDATE.CubeSize(
+            player.Inventory.BagSlotUsed, player.NpcExpands, player.QuestExpands), ct);
+
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+        await _conn.SendAsync(SM_SYSTEM_MESSAGE.CubeExpanded(9), ct);
+
+        _log.LogInformation("Player {Name} expanded cube to {Slots} slots (npcExpands={Level})",
+            player.Name, player.CubeCapacity, player.NpcExpands);
     }
 }

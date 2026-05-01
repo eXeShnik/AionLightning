@@ -1091,4 +1091,15 @@
     - [✓] `IPlayerDao` / `PlayerDaoImpl` — `UpdateHpMpAsync`; columns in SelectColumns/PlayerRow/ToPlayer (nullable → 0)
     - [✓] `GsClientConnection.DisposeAsync` — calls `UpdateHpMpAsync` before UpdateOnlineAsync so HP/MP survives relog
     - [✓] `CM_ENTER_WORLD` — uses persisted HP/MP (clamped to MaxHp/MaxMp); falls back to MaxHp/MaxMp for new characters (0 = not yet persisted)
+
+81. [✓] Inventory cube expansion via Cube Artisan NPC dialog (session 2026-05-01)
+    - [✓] `V22__cube_expands.sql` — adds `npc_expands TINYINT UNSIGNED NOT NULL DEFAULT 0` to players
+    - [✓] `Player` — added `NpcExpands`, `QuestExpands`, and `CubeCapacity` computed property (27 + expands × 9)
+    - [✓] `IPlayerDao` / `PlayerDaoImpl` — `UpdateCubeExpandAsync`; `npc_expands` in SelectColumns/PlayerRow/ToPlayer
+    - [✓] `SM_INVENTORY_INFO` — now accepts `npcExpands` and `questExpands` parameters; written as bytes in packet header (previously hardcoded 0)
+    - [✓] `SM_CUBE_UPDATE.CubeSize` — now accepts `npcExpands` and `questExpands` so the client sees the correct cube expansion state
+    - [✓] `CM_ENTER_WORLD` — sets `player.Inventory.Capacity = player.CubeCapacity` after loading; passes npcExpands/questExpands to SM_INVENTORY_INFO
+    - [✓] `CM_DIALOG_SELECT` — added `EXTEND_INVENTORY = 47` handler with price table (1k/12k/80k/180k/360k kinah per level); kinah guard; deducts kinah, increments NpcExpands, updates Capacity, saves to DB, sends SM_CUBE_UPDATE.CubeSize + SM_STATS_INFO + SM_SYSTEM_MESSAGE.CubeExpanded(9)
+    - [✓] `SM_SYSTEM_MESSAGE` — added `CannotExpandCubeMore()` (code 1300430) and `CubeExpanded(slots)` (code 1300431)
+    - Build: 0 warnings, 0 errors
     - Build: 0 warnings, 0 errors

@@ -36,4 +36,5 @@ public interface IPlayerDao
     Task UpdateDpAsync(int playerId, int dp, CancellationToken ct = default);
     Task UpdateSoulSicknessAsync(int playerId, int count, CancellationToken ct = default);
     Task UpdateHpMpAsync(int playerId, int currentHp, int currentMp, CancellationToken ct = default);
+    Task UpdateCubeExpandAsync(int playerId, int npcExpands, CancellationToken ct = default);
 }

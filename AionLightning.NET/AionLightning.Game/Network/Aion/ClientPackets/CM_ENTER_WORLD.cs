@@ -125,6 +125,9 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
                 player.Inventory.Add(item);
         }
 
+        // Apply cube expansion — capacity comes from persisted NpcExpands loaded from DB
+        player.Inventory.Capacity = player.CubeCapacity;
+
         // Load personal warehouse items
         var warehouseItems = await _itemDao.FindWarehouseItemsAsync(_objectId, ct);
         foreach (var item in warehouseItems)
@@ -239,8 +242,10 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
 
         // Inventory, warehouse, stats, cube (sendItemInfos equivalent)
         // Only bag items — equipped items are sent via SM_UPDATE_PLAYER_APPEARANCE / SM_PLAYER_INFO
-        await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: true, player.Inventory.All.Where(i => !i.IsEquipped)), ct);
-        await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: false, []), ct);
+        byte npcExpands   = (byte)player.NpcExpands;
+        byte questExpands = (byte)player.QuestExpands;
+        await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: true, player.Inventory.All.Where(i => !i.IsEquipped), npcExpands, questExpands), ct);
+        await _conn.SendAsync(new SM_INVENTORY_INFO(isFirst: false, [], npcExpands, questExpands), ct);
         await _conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
         await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
         await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct);
