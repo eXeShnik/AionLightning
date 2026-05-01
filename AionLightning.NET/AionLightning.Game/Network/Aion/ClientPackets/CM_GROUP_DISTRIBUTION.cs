@@ -36,8 +36,7 @@ public sealed class CM_GROUP_DISTRIBUTION : AionClientPacket
         var group = player.Group;
         if (group is null || !group.IsLeader(player.ObjectId)) return;
 
-        group.LootDistribution      = _lootDist;
-        group.LootQualityThreshold  = _lootQuality;
+        group.LootDistribution = _lootDist;
 
         var packet = new SM_GROUP_INFO(group);
         foreach (var member in group.Members)

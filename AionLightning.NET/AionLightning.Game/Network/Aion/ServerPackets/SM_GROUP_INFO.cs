@@ -41,15 +41,15 @@ public sealed class SM_GROUP_INFO : AionServerPacket
 
         w.WriteD(_group.GroupId);
         w.WriteD(_group.LeaderObjectId);
-        w.WriteD(leader?.Position.WorldId ?? 0);  // leader world id
-        w.WriteD(_group.LootDistribution);         // loot rule id (0=free-for-all)
-        w.WriteD(0);                               // lootMisc
-        w.WriteD(0);                               // commonItemAbove
-        w.WriteD(0);                               // superiorItemAbove
-        w.WriteD(0);                               // heroicItemAbove
-        w.WriteD(0);                               // fabledItemAbove
-        w.WriteD(0);                               // ethernalItemAbove
-        w.WriteD(0);                               // autoDistribution id
+        w.WriteD(leader?.Position.WorldId ?? 0);
+        w.WriteD(_group.LootDistribution);
+        w.WriteD(_group.LootMisc);
+        w.WriteD(_group.CommonItemAbove);
+        w.WriteD(_group.SuperiorItemAbove);
+        w.WriteD(_group.HeroicItemAbove);
+        w.WriteD(_group.FabledItemAbove);
+        w.WriteD(_group.EthernalItemAbove);
+        w.WriteD(_group.AutoDistribution);
         w.WriteD(2);                               // constant in Java
         w.WriteC(0);
         w.WriteD(1);                               // TeamType.REGULAR

@@ -10,8 +10,18 @@ public sealed class PlayerGroup
 
     public int GroupId { get; }
     public int LeaderObjectId { get; private set; }
-    public byte LootDistribution { get; set; } // 0=free, 1=round-robin, 2=leader
-    public byte LootQualityThreshold { get; set; } // 0=all
+
+    // Loot distribution rule (0=free-for-all, 1=round-robin, 2=leader)
+    public int LootDistribution { get; set; }
+    public int LootMisc { get; set; }
+    // Quality thresholds above which the auto-distribution rule applies (0=all items)
+    public int CommonItemAbove     { get; set; }
+    public int SuperiorItemAbove   { get; set; }
+    public int HeroicItemAbove     { get; set; }
+    public int FabledItemAbove     { get; set; }
+    public int EthernalItemAbove   { get; set; }
+    // Auto-distribution mode (0=normal, 2=roll dice, 3=bid)
+    public int AutoDistribution { get; set; }
 
     public IReadOnlyList<Player> Members => _members;
     public bool IsFull => _members.Count >= MaxMembers;
