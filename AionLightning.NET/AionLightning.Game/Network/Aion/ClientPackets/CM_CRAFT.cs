@@ -10,11 +10,15 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 /// <summary>Client initiates a crafting action. Opcode 0x12F.</summary>
 public sealed class CM_CRAFT : AionClientPacket
 {
+    // Crafting skill advances while recipe.SkillPoint is within this margin of player's current skill
+    private const int SkillAdvanceWindow = 50;
+
     private readonly GsClientConnection       _conn;
     private readonly IItemDao                 _itemDao;
     private readonly IDataManager             _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExperienceService        _expService;
+    private readonly ISkillDao                _skillDao;
 
     private int _unk;
     private int _targetTemplateId;
@@ -24,13 +28,14 @@ public sealed class CM_CRAFT : AionClientPacket
     private int _craftType;
 
     public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        PlayerConnectionRegistry connRegistry, ExperienceService expService)
+        PlayerConnectionRegistry connRegistry, ExperienceService expService, ISkillDao skillDao)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
         _expService   = expService;
+        _skillDao     = skillDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -129,6 +134,17 @@ public sealed class CM_CRAFT : AionClientPacket
 
         // Award crafting XP based on recipe skill point requirement
         await _expService.AddCraftingExpAsync(player, recipe.SkillPoint, _conn, ct);
+
+        // Advance crafting skill if still learning from this recipe (within SkillAdvanceWindow)
+        if (recipe.SkillId > 0)
+        {
+            int currentSkillLevel = player.Skills.GetLevel(recipe.SkillId);
+            if (currentSkillLevel > 0 && currentSkillLevel < recipe.SkillPoint + SkillAdvanceWindow)
+            {
+                player.Skills.AddSkill(recipe.SkillId, currentSkillLevel + 1);
+                await _skillDao.UpsertAsync(player.ObjectId, recipe.SkillId, currentSkillLevel + 1, ct);
+            }
+        }
 
         // Success craft update + stop animation (broadcast)
         await _conn.SendAsync(new SM_CRAFT_UPDATE(skillId, recipe.ProductId, 0, 100, 0, 5), ct);
