@@ -53,6 +53,7 @@ public sealed class GsPacketHandlerFactory
     private readonly ReconnectRegistry   _reconnectRegistry;
     private readonly LsConnectionHolder  _lsHolder;
     private readonly PlayerResponseRegistry _responseRegistry;
+    private readonly IManastoneDao          _manastoneDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -91,7 +92,8 @@ public sealed class GsPacketHandlerFactory
         FindGroupService findGroupService,
         ReconnectRegistry reconnectRegistry,
         LsConnectionHolder lsHolder,
-        PlayerResponseRegistry responseRegistry)
+        PlayerResponseRegistry responseRegistry,
+        IManastoneDao manastoneDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -130,6 +132,7 @@ public sealed class GsPacketHandlerFactory
         _reconnectRegistry = reconnectRegistry;
         _lsHolder          = lsHolder;
         _responseRegistry  = responseRegistry;
+        _manastoneDao      = manastoneDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -147,7 +150,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA5  => new CM_CHARACTER_EDIT(),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao, _motionDao, _skillDao),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao, _motionDao, _skillDao, _manastoneDao),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
@@ -318,7 +321,7 @@ public sealed class GsPacketHandlerFactory
                 0x2E5 => new CM_MOTION(conn, _connRegistry, _motionDao),
                 0x2E6 => new CM_EXCHANGE_OK(conn, _connRegistry, _exchangeService, _itemDao),
                 0x2E7 => new CM_EXCHANGE_CANCEL(conn, _connRegistry, _exchangeService),
-                0x2E8 => new CM_MANASTONE(conn, _itemDao),
+                0x2E8 => new CM_MANASTONE(conn, _itemDao, _manastoneDao),
                 0x2E9 => new CM_HOUSE_DECORATE(),
                 0x2EA => new CM_HOUSE_KICK(),
                 0x2EB => new CM_HOUSE_SETTINGS(),

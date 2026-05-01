@@ -28,6 +28,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly IRecipeDao               _recipeDao;
     private readonly IMotionDao               _motionDao;
     private readonly ISkillDao                _skillDao;
+    private readonly IManastoneDao            _manastoneDao;
 
     private int _objectId;
 
@@ -37,7 +38,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
         ISocialDao socialDao, ILegionDao legionDao, LegionService legionService,
         IPlayerSettingsDao settingsDao, IRecipeDao recipeDao, IMotionDao motionDao,
-        ISkillDao skillDao)
+        ISkillDao skillDao, IManastoneDao manastoneDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -56,6 +57,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _recipeDao      = recipeDao;
         _motionDao      = motionDao;
         _skillDao       = skillDao;
+        _manastoneDao   = manastoneDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -137,6 +139,21 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         var accWhItems = await _itemDao.FindAccountWarehouseAsync(_conn.AccountId, ct);
         foreach (var item in accWhItems)
             player.AccountWarehouse.Add(item);
+
+        // Hydrate manastone lists for all loaded items
+        var allItemIds = player.Inventory.All
+            .Concat(player.Warehouse.All)
+            .Concat(player.AccountWarehouse.All)
+            .Select(i => i.UniqueId)
+            .ToList();
+        var allStones = await _manastoneDao.LoadByItemIdsAsync(allItemIds, ct);
+        foreach (var stone in allStones)
+        {
+            var item = player.Inventory.All.FirstOrDefault(i => i.UniqueId == stone.ItemUniqueId)
+                    ?? player.Warehouse.All.FirstOrDefault(i => i.UniqueId == stone.ItemUniqueId)
+                    ?? player.AccountWarehouse.All.FirstOrDefault(i => i.UniqueId == stone.ItemUniqueId);
+            item?.ManaStones.Add(stone);
+        }
 
         // Initialize weapon combat stats from the equipped main-hand weapon
         var equippedMainHand = storedItems.FirstOrDefault(i => i.IsEquipped && i.Slot == 1);

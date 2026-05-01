@@ -55,6 +55,7 @@ builder.Services.AddSingleton<IRecipeDao, RecipeDaoImpl>();
 builder.Services.AddSingleton<IMotionDao, MotionDaoImpl>();
 builder.Services.AddSingleton<ISkillDao, SkillDaoImpl>();
 builder.Services.AddSingleton<IBrokerDao, BrokerDaoImpl>();
+builder.Services.AddSingleton<IManastoneDao, ManastoneDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();

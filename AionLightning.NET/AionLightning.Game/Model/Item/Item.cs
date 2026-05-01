@@ -14,4 +14,5 @@ public sealed class Item
     public int  FusionedItemId  { get; set; } = 0;      // fused secondary weapon's ItemId (0 = not fused)
     public int  DyeColor        { get; set; } = 0;      // dye item's ItemId applied to this item (0 = no dye)
     public bool IsEquipped      { get; set; } = false;  // explicit flag — Slot alone is ambiguous (bitmask vs. bag position)
+    public List<Manastone> ManaStones { get; set; } = [];
 }

@@ -1388,3 +1388,15 @@
     - [✓] `SM_LEGION_EDIT` — added type 0x02 (permissions broadcast): private constructor storing 4 shorts; `static Permissions(Legion)` factory; `Write` switch case 0x02 writes `H(deputy)+H(centurion)+H(legionary)+H(volunteer)`
     - [✓] `CM_LEGION` — added 4 private short fields (`_deputyPermission`, `_centurionPermission`, `_legionaryPermission`, `_volunteerPermission`); Read() case 0x0D now stores all 4 shorts instead of discarding them; added RunAsync `case 0x0D: await HandlePermissionsAsync`; `HandlePermissionsAsync`: validates BG rank, updates Legion in-memory, persists via `UpdatePermissionsAsync`, broadcasts `SM_LEGION_EDIT.Permissions(legion)` to all online members
     - Build: 0 warnings, 0 errors
+
+111. [✓] Manastone socketing — storage + consume (CM_MANASTONE) (session 2026-05-01)
+    - [✓] `Manastone.cs` — NEW model: `long ItemUniqueId`, `int ItemId`, `int Slot`
+    - [✓] `Item` — added `List<Manastone> ManaStones { get; set; } = []`
+    - [✓] `V33__item_stones.sql` — NEW table: `item_stones(id PK, item_unique_id BIGINT, item_id INT, slot TINYINT)` with index on item_unique_id
+    - [✓] `IManastoneDao` / `ManastoneDaoImpl` — `LoadByItemIdsAsync` (batch IN query via Dapper), `InsertAsync`, `DeleteByItemAsync`
+    - [✓] `CM_MANASTONE` — actionType=1 (enchant): unchanged; actionType=2 (socket): slot-gap detection via HashSet, manaStone insertion via `_manastoneDao.InsertAsync`, sends SM_INVENTORY_ADD_ITEM for both target and stone, SM_SYSTEM_MESSAGE.ManastoneSuccess; actionType=3 (remove): stub preserved
+    - [✓] `CM_ENTER_WORLD` — after account-WH load, batch-loads all manastones for inventory+WH+accWH items and hydrates each item's ManaStones list
+    - [✓] `GsPacketHandlerFactory` — added `IManastoneDao _manastoneDao` field + constructor param; passes to CM_MANASTONE (0x2E8) and CM_ENTER_WORLD (0xAA)
+    - [✓] `Program.cs` — `AddSingleton<IManastoneDao, ManastoneDaoImpl>()`
+    - Visual (MANA_SOCKETS blob in SM_INVENTORY_INFO): deferred — 4.6.0 exact itemMask bit unclear; storage layer is fully functional
+    - Build: 0 warnings, 0 errors
