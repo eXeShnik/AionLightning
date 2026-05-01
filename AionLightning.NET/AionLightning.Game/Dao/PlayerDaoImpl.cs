@@ -15,7 +15,7 @@ public sealed class PlayerDaoImpl : IPlayerDao
         id, name, account_id, exp, x, y, z, heading, world_id,
         gender, race, player_class, creation_date, last_online, title_id, display_settings, deny_settings,
         level, deletion_date, bind_x, bind_y, bind_z, bind_world_id, note, abyss_points, abyss_rank,
-        bonus_title_id, dp, soul_sickness, current_hp, current_mp, npc_expands
+        bonus_title_id, dp, soul_sickness, current_hp, current_mp, npc_expands, current_fp
         """;
 
     public async Task<IReadOnlyList<Player>> FindByAccountIdAsync(int accountId, CancellationToken ct = default)
@@ -246,6 +246,7 @@ public sealed class PlayerDaoImpl : IPlayerDao
             CurrentHp           = r.current_hp ?? 0,
             CurrentMp           = r.current_mp ?? 0,
             NpcExpands          = r.npc_expands,
+            CurrentFp           = r.current_fp,
         };
 
         if (r.bind_x.HasValue && r.bind_y.HasValue && r.bind_z.HasValue && r.bind_world_id.HasValue)
@@ -282,6 +283,13 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { npcExpands, playerId });
     }
 
+    public async Task UpdateFpAsync(int playerId, int currentFp, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync("UPDATE players SET current_fp=@currentFp WHERE id=@playerId",
+            new { currentFp, playerId });
+    }
+
     private sealed record PlayerRow(
         int id, string name, int account_id, long exp,
         float x, float y, float z, int heading, int world_id,
@@ -291,5 +299,5 @@ public sealed class PlayerDaoImpl : IPlayerDao
         byte level, DateTime? deletion_date,
         float? bind_x, float? bind_y, float? bind_z, int? bind_world_id,
         string? note, long abyss_points, int abyss_rank,
-        int bonus_title_id, int dp, int soul_sickness, int? current_hp, int? current_mp, int npc_expands);
+        int bonus_title_id, int dp, int soul_sickness, int? current_hp, int? current_mp, int npc_expands, int current_fp);
 }

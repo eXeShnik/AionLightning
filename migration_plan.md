@@ -1103,3 +1103,12 @@
     - [✓] `SM_SYSTEM_MESSAGE` — added `CannotExpandCubeMore()` (code 1300430) and `CubeExpanded(slots)` (code 1300431)
     - Build: 0 warnings, 0 errors
     - Build: 0 warnings, 0 errors
+
+82. [✓] Crash-safe volatile state persistence — FP, DP, soul sickness (session 2026-05-01)
+    - [✓] `V23__player_fp.sql` — adds `current_fp INT NOT NULL DEFAULT 0` to players table
+    - [✓] `IPlayerDao` — added `UpdateFpAsync(int playerId, int currentFp, CancellationToken ct)`
+    - [✓] `PlayerDaoImpl` — added `current_fp` to SelectColumns/PlayerRow/ToPlayer; implemented `UpdateFpAsync`
+    - [✓] `CM_ENTER_WORLD` — restores persisted FP (clamped to MaxFp, falls back to MaxFp for new characters)
+    - [✓] `GsClientConnection.DisposeAsync` — added FP, DP, and soul_sickness saves on disconnect (previously only HP/MP was saved; crash would reset these three to last in-game update)
+    - [✓] `AutoSaveService` — added HP/MP, FP, DP, and soul_sickness to the 5-minute periodic save (crash safety for all volatile player stats)
+    - Build: 0 warnings, 0 errors

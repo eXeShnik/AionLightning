@@ -50,6 +50,10 @@ public sealed class AutoSaveService : BackgroundService
                     await _playerDao.UpdatePositionAsync(player.ObjectId, player.Position, ct);
                     await _playerDao.UpdateExpLevelAsync(player.ObjectId, player.Exp, player.Level, ct);
                     await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+                    await _playerDao.UpdateHpMpAsync(player.ObjectId, player.CurrentHp, player.CurrentMp, ct);
+                    await _playerDao.UpdateFpAsync(player.ObjectId, player.CurrentFp, ct);
+                    await _playerDao.UpdateDpAsync(player.ObjectId, player.Dp, ct);
+                    await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, player.SoulSicknessCount, ct);
                     await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
                     await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, ct);
                     await _questDao.SaveAllAsync(player.ObjectId, player.Quests.Active, ct);
