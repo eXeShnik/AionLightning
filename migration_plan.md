@@ -1123,3 +1123,12 @@
       - `.skill <skillId> [level]` — teach a skill via AddSkill + ISkillDao.UpsertAsync + SM_SKILL_LIST
     - [✓] `GsPacketHandlerFactory` — updated CM_GM_COMMAND_SEND constructor to pass _questDao and _skillDao
     - Build: 0 warnings, 0 errors
+
+84. [✓] NPC dialog actions — quest select, mail postbox, vendor (session 2026-05-01)
+    - [✓] `CM_DIALOG_SELECT` — added QUEST_SELECT=31, OPEN_POSTBOX=38, OPEN_VENDOR=33 constants and handlers:
+      - `QUEST_SELECT` (31) → `HandleQuestSelectAsync`: checks NPC proximity, validates level/race prerequisites; sends SM_DIALOG_WINDOW(1007, questId) to show Accept/Decline for unstarted quest; sends SM_DIALOG_WINDOW(2375, questId) for in-progress quest; SM_DIALOG_WINDOW(1352, questId) for REWARD-state quest
+      - `OPEN_POSTBOX` (38) → proximity check, then SM_DIALOG_WINDOW(18) + SM_MAIL_SERVICE(LetterList) to open mail inbox
+      - `OPEN_VENDOR` (33) → SM_DIALOG_WINDOW(13) to open consignment/private-store window
+    - [✓] `IMailDao` injected into CM_DIALOG_SELECT (field + constructor param)
+    - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT constructor to pass _mailDao
+    - Build: 0 warnings, 0 errors

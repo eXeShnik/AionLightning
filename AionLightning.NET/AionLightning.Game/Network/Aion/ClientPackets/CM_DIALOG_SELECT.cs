@@ -20,6 +20,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int WAREHOUSE_OPEN      = 26;
     private const int AIRLINE_SERVICE     = 44;
     private const int RESURRECT_BIND      = 34;
+    private const int QUEST_SELECT        = 31;
+    private const int OPEN_POSTBOX        = 38;
+    private const int OPEN_VENDOR         = 33;
     private const int QUEST_ACCEPT        = 29;
     private const int QUEST_ACCEPT_1      = 1002;
     private const int SELECT_QUEST_REWARD = 1009;
@@ -38,6 +41,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly IQuestDao                 _questDao;
     private readonly IItemDao                  _itemDao;
     private readonly IPlayerDao                _playerDao;
+    private readonly IMailDao                  _mailDao;
     private readonly ExperienceService         _expService;
     private readonly PlayerConnectionRegistry  _connRegistry;
     private readonly RateOptions               _rates;
@@ -50,8 +54,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
-        ExperienceService expService, PlayerConnectionRegistry connRegistry, RateOptions rates,
-        ILogger<CM_DIALOG_SELECT> log)
+        IMailDao mailDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
+        RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
     {
         _conn         = conn;
         _world        = world;
@@ -59,6 +63,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _questDao     = questDao;
         _itemDao      = itemDao;
         _playerDao    = playerDao;
+        _mailDao      = mailDao;
         _expService   = expService;
         _connRegistry = connRegistry;
         _rates        = rates;
@@ -128,6 +133,26 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 break;
             }
 
+            case QUEST_SELECT:
+                await HandleQuestSelectAsync(player, ct);
+                break;
+
+            case OPEN_POSTBOX:
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+                // dialogId 18 = mail window in the client dialog UI
+                await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dialogId: 18), ct);
+                var mails = await _mailDao.GetReceivedMailsAsync(player.ObjectId, ct);
+                await _conn.SendAsync(new SM_MAIL_SERVICE(player.ObjectId, mails), ct);
+                break;
+            }
+
+            case OPEN_VENDOR:
+                // dialogId 13 = consignment trade window
+                await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dialogId: 13), ct);
+                break;
+
             case QUEST_ACCEPT:
             case QUEST_ACCEPT_1:
                 await HandleQuestAcceptAsync(player, ct);
@@ -146,6 +171,33 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                     _targetObjectId, _dialogId, _questId);
                 break;
         }
+    }
+
+    private async ValueTask HandleQuestSelectAsync(Model.Player player, CancellationToken ct)
+    {
+        if (_questId <= 0) return;
+
+        var npc = _world.GetNpcByObjectId(_targetObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
+        var template = _dataManager.Quests.GetTemplate(_questId);
+        if (template is null) return;
+
+        var entry = player.Quests.Get(_questId);
+        if (entry is not null)
+        {
+            // Quest already started: show in-progress dialog; REWARD state shows the turn-in page
+            int dlg = entry.Status == QuestStatus.REWARD ? 1352 : 2375;
+            await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dlg, _questId), ct);
+            return;
+        }
+
+        if (player.Level < template.MinLevel) return;
+        if (template.Race != "PC_ALL" && !string.Equals(template.Race, player.Race.ToString(), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Show quest description with Accept/Decline buttons
+        await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, 1007, _questId), ct);
     }
 
     private async ValueTask HandleQuestAcceptAsync(Model.Player player, CancellationToken ct)
