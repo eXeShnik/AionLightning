@@ -44,6 +44,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IPlayerSettingsDao _settingsDao;
     private readonly GatherService       _gatherService;
     private readonly IRecipeDao          _recipeDao;
+    private readonly IMotionDao          _motionDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -74,7 +75,8 @@ public sealed class GsPacketHandlerFactory
         ILegionDao legionDao,
         IPlayerSettingsDao settingsDao,
         GatherService gatherService,
-        IRecipeDao recipeDao)
+        IRecipeDao recipeDao,
+        IMotionDao motionDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -105,6 +107,7 @@ public sealed class GsPacketHandlerFactory
         _settingsDao     = settingsDao;
         _gatherService   = gatherService;
         _recipeDao       = recipeDao;
+        _motionDao       = motionDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -122,7 +125,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA5  => new CM_CHARACTER_EDIT(),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao, _motionDao),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
@@ -289,7 +292,7 @@ public sealed class GsPacketHandlerFactory
                 0x1BD => new CM_HOUSE_PAY_RENT(),
                 0x1BF => new CM_PLACE_BID(),
                 0x2E4 => new CM_WINDSTREAM(),
-                0x2E5 => new CM_MOTION(conn, _connRegistry),
+                0x2E5 => new CM_MOTION(conn, _connRegistry, _motionDao),
                 0x2E6 => new CM_EXCHANGE_OK(conn, _connRegistry, _exchangeService, _itemDao),
                 0x2E7 => new CM_EXCHANGE_CANCEL(conn, _connRegistry, _exchangeService),
                 0x2E8 => new CM_MANASTONE(conn, _itemDao),

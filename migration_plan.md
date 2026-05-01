@@ -1007,3 +1007,12 @@
     - Root cause: `totalCost` was computed for ALL trade entries before inventory-capacity filtering, so players were charged kinah for items they could not receive when the inventory was nearly full
     - [✓] `CM_BUY_ITEM.BuyFromShopAsync` — replaced two-pass approach with single-pass `purchasePlan` list: iterates `_tradeEntries` in order, simulates slot consumption with a local counter (`simulatedSlots`), adds only receivable items to the plan, then sums cost from the plan; second loop adds items unconditionally since the plan is already validated — no overcharge possible
     - Build: 0 warnings, 0 errors
+
+63. [✓] Motion persistence (session 2026-05-01)
+    - [✓] `V18__motions.sql` — new `player_motions` table (`player_id`, `slot`, `motion_id`; PK on both; FK → players ON DELETE CASCADE)
+    - [✓] `IMotionDao` / `MotionDaoImpl` — `LoadByPlayerIdAsync` (SELECT), `UpsertAsync` (INSERT … ON DUPLICATE KEY UPDATE), `DeleteAsync` (DELETE WHERE player_id + slot)
+    - [✓] `CM_MOTION` — added `IMotionDao` field; calls `UpsertAsync` after writing `player.ActiveMotions[slot]` so motion slot is persisted immediately
+    - [✓] `CM_ENTER_WORLD` — added `IMotionDao` field; calls `LoadByPlayerIdAsync` after UI-settings load; populates `player.ActiveMotions` from DB so persisted motions are sent via `SM_MOTION.OwnList` on login
+    - [✓] `GsPacketHandlerFactory` — added `IMotionDao` field + constructor param; wired into `CM_ENTER_WORLD` (0xAA) and `CM_MOTION` (0x2E5) constructors
+    - [✓] `Program.cs` — registered `IMotionDao → MotionDaoImpl` as singleton
+    - Build: 0 warnings, 0 errors

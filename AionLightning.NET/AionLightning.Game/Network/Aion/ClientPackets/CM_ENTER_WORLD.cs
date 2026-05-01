@@ -26,6 +26,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly LegionService            _legionService;
     private readonly IPlayerSettingsDao       _settingsDao;
     private readonly IRecipeDao               _recipeDao;
+    private readonly IMotionDao               _motionDao;
 
     private int _objectId;
 
@@ -34,7 +35,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         GameWorld world, PlayerConnectionRegistry connRegistry,
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
         ISocialDao socialDao, ILegionDao legionDao, LegionService legionService,
-        IPlayerSettingsDao settingsDao, IRecipeDao recipeDao)
+        IPlayerSettingsDao settingsDao, IRecipeDao recipeDao, IMotionDao motionDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -51,6 +52,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _legionService  = legionService;
         _settingsDao    = settingsDao;
         _recipeDao      = recipeDao;
+        _motionDao      = motionDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -168,6 +170,11 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         player.UiSettings   = uiSettings;
         player.Shortcuts    = shortcuts;
         player.HouseBuddies = houseBuddies;
+
+        // Load persisted motion slots
+        var motions = await _motionDao.LoadByPlayerIdAsync(_objectId, ct);
+        foreach (var (slot, id) in motions)
+            player.ActiveMotions[slot] = id;
 
         // Load legion membership from DB; reuse cached legion if already in service
         var legionResult = await _legionDao.GetMemberLegionAsync(player.ObjectId, ct);
