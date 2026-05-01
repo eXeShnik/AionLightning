@@ -148,10 +148,12 @@ public sealed class CM_ATTACK : AionClientPacket
                 if (_rates.ApPlayerGainRate != 1.0f)
                     apGain = Math.Max(1, (int)(apGain * _rates.ApPlayerGainRate));
                 int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
-                AbyssRankService.AddAp(player, apGain);
+                bool killerRankUp = AbyssRankService.AddAp(player, apGain);
                 AbyssRankService.LoseAp(deadPlayer, apLoss);
 
                 await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+                if (killerRankUp)
+                    await BroadcastAsync(new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank), ct);
                 if (targetConn is not null)
                     try { await targetConn.SendAsync(new SM_ABYSS_RANK(deadPlayer.AbyssPoints, deadPlayer.AbyssRank), ct); } catch { }
 
@@ -183,8 +185,10 @@ public sealed class CM_ATTACK : AionClientPacket
                 || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
             {
                 int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
-                AbyssRankService.AddAp(player, ap);
+                bool npcRankUp = AbyssRankService.AddAp(player, ap);
                 await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
+                if (npcRankUp)
+                    await BroadcastAsync(new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank), ct);
                 await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
                 await AwardLegionContributionAsync(player, ap, ct);
             }

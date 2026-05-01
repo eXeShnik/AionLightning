@@ -533,9 +533,20 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         int apReward = template.Rewards?.RewardAbyssPoint ?? 0;
         if (apReward > 0)
         {
-            AbyssRankService.AddAp(player, apReward);
+            bool questRankUp = AbyssRankService.AddAp(player, apReward);
             await _conn.SendAsync(new SM_ABYSS_RANK(player.AbyssPoints, player.AbyssRank), ct);
             await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+            if (questRankUp)
+            {
+                var rankUpdatePkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);
+                try { await _conn.SendAsync(rankUpdatePkt, ct); } catch { }
+                int rankWorldId = player.Position.WorldId;
+                foreach (var c in _connRegistry.GetAll())
+                {
+                    if (c == _conn || c.ActivePlayer?.Position.WorldId != rankWorldId) continue;
+                    try { await c.SendAsync(rankUpdatePkt, ct); } catch { }
+                }
+            }
         }
 
         // Award title (auto-equip; mirrors Java TitleList.addTitle(id, true, 0))
