@@ -93,6 +93,9 @@ public sealed class CM_LEGION : AionClientPacket
             case 0x07:
                 await HandleRankChangeAsync(player, LegionRank.Legionary, ct);
                 break;
+            case 0x08:
+                await HandleRefreshAsync(player, ct);
+                break;
             case 0x09:
                 await HandleAnnouncementAsync(player, ct);
                 break;
@@ -263,6 +266,13 @@ public sealed class CM_LEGION : AionClientPacket
             if (mc is not null)
                 try { await mc.SendAsync(editPkt, ct); } catch { }
         }
+    }
+
+    private async ValueTask HandleRefreshAsync(Model.Player player, CancellationToken ct)
+    {
+        var legion = player.Legion;
+        if (legion is null) return;
+        await _conn.SendAsync(new SM_LEGION_INFO(legion), ct);
     }
 
     private async ValueTask HandlePermissionsAsync(Model.Player player, CancellationToken ct)

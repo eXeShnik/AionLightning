@@ -324,7 +324,7 @@ public sealed class GsPacketHandlerFactory
                 0x2EB => new CM_HOUSE_SETTINGS(),
                 0x2EC => new CM_CHARGE_ITEM(),
                 0x2ED => new CM_GROUP_DATA_EXCHANGE(conn, _connRegistry),
-                0x2EE => new CM_LEGION_WH_KINAH(conn, _legionDao, _itemDao),
+                0x2EE => new CM_LEGION_WH_KINAH(conn, _legionDao, _itemDao, _connRegistry),
                 0x2EF => new CM_FIND_GROUP(conn, _findGroupService),
                 _     => Unknown(state, opcode),
             },
