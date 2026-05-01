@@ -30,18 +30,25 @@ public sealed class ExperienceService
 
     /// <summary>
     /// Awards XP to a player and their group members in the same world.
-    /// XP is split equally among eligible group members; solo kill receives the full amount.
+    /// Mirrors Java PlayerTeamDistributionService.doReward XP logic:
+    ///   - Solo: level-diff scaling by killer's level.
+    ///   - Group: level-diff scaling by highest eligible member's level;
+    ///     proportional per-member share (member.Level / sum of member levels);
+    ///     group bonus of 150% + 10% per extra member beyond 2;
+    ///     members 10+ levels below the highest receive 0 XP.
     /// </summary>
     private const float MaxGroupXpRange = 1500f;
 
-    public async ValueTask AddGroupExpAsync(Player killer, long xpPool, CancellationToken ct)
+    public async ValueTask AddGroupExpAsync(Player killer, long xpBase, int npcLevel, CancellationToken ct)
     {
         var group = killer.Group;
         if (group is null)
         {
+            int pct  = XpRewardPercent(npcLevel - killer.Level);
+            long xp  = (long)(xpBase * pct / 100L * _rates.XpRate);
             var conn = _connRegistry.Get(killer.ObjectId);
-            if (conn is not null)
-                await AddExpAsync(killer, xpPool, conn, ct);
+            if (conn is not null && xp > 0)
+                await AddExpAsync(killer, xp, conn, ct);
             return;
         }
 
@@ -54,13 +61,24 @@ public sealed class ExperienceService
 
         if (eligible.Count == 0) return;
 
-        long rawPerMember = Math.Max(1, xpPool / eligible.Count);
-        long xpPerMember  = (long)(rawPerMember * _rates.XpRate);
+        int highestLevel = eligible.Max(m => (int)m.Level);
+        int xpPct  = XpRewardPercent(npcLevel - highestLevel);
+        long xpPool = xpBase * xpPct / 100;
+        if (xpPool <= 0) return;
+
+        // Group bonus: solo=100%, 2=150%, 3=160%, 4=170%, 5=180%, 6=190%
+        int bonus = eligible.Count > 1 ? 150 + (eligible.Count - 2) * 10 : 100;
+        long partyLvlSum = eligible.Sum(m => (long)m.Level);
+        if (partyLvlSum <= 0) return;
+
         foreach (var member in eligible)
         {
+            if (highestLevel - member.Level >= 10) continue; // too low — no reward
+            long memberXp = (long)(xpPool * bonus * member.Level / (partyLvlSum * 100L) * _rates.XpRate);
+            if (memberXp <= 0) continue;
             var memberConn = _connRegistry.Get(member.ObjectId);
             if (memberConn is not null)
-                await AddExpAsync(member, xpPerMember, memberConn, ct);
+                await AddExpAsync(member, memberXp, memberConn, ct);
         }
     }
 
@@ -89,6 +107,25 @@ public sealed class ExperienceService
         long xp    = _rates.CraftingXpRate != 1.0f ? Math.Max(1, (long)(base_ * _rates.CraftingXpRate)) : base_;
         await AddExpAsync(player, xp, conn, ct);
     }
+
+    /// <summary>XP reward percentage for level diff (npcLevel - playerLevel). Matches Java XPRewardEnum.</summary>
+    public static int XpRewardPercent(int levelDiff) => levelDiff switch
+    {
+        <= -11 => 0,
+        -10    => 1,
+        -9     => 10,
+        -8     => 20,
+        -7     => 30,
+        -6     => 40,
+        -5     => 50,
+        -4     => 70,
+        -3     => 90,
+        <= 0   => 100,
+        1      => 105,
+        2      => 110,
+        3      => 115,
+        _      => 120,
+    };
 
     public async ValueTask AddExpAsync(Player player, long amount, GsClientConnection conn, CancellationToken ct)
     {

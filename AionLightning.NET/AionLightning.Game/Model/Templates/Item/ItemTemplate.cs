@@ -24,6 +24,7 @@ public sealed class ItemTemplate
     [XmlElement("modifiers")]         public ItemModifiers?    Modifiers   { get; set; }
     [XmlElement("godstone")]          public GodstoneInfo?     Godstone    { get; set; }
     [XmlElement("enchant")]           public ItemEnchantInfo?  EnchantInfo { get; set; }
+    [XmlElement("uselimits")]         public ItemUseLimits?    UseLimits   { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
@@ -155,4 +156,13 @@ public sealed class TitleAddAction
     [XmlAttribute("titleid")] public int TitleId { get; set; }
     // minutes=0 (absent) means permanent; >0 means timed (timed expiry deferred — stored as permanent)
     [XmlAttribute("minutes")] public int Minutes { get; set; }
+}
+
+/// <summary>Maps to <uselimits usedelay="..." usedelayid="..."/> — mirrors Java ItemUseLimits.</summary>
+public sealed class ItemUseLimits
+{
+    /// <summary>Cooldown duration in milliseconds (0 = no cooldown).</summary>
+    [XmlAttribute("usedelay")]   public int DelayMs  { get; set; }
+    /// <summary>Cooldown group ID — items with the same ID share a single cooldown timer.</summary>
+    [XmlAttribute("usedelayid")] public int DelayId  { get; set; }
 }

@@ -311,10 +311,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // Update quest kill progress
                     await questSvc.HandleNpcKillAsync(player, deadNpc, conn, CancellationToken.None);
 
-                    long xp = deadNpc.Template.Stats?.MaxXp > 0
+                    // Award XP — level-diff scaling and group distribution handled inside AddGroupExpAsync
+                    long xpBase = deadNpc.Template.Stats?.MaxXp > 0
                         ? deadNpc.Template.Stats.MaxXp
                         : deadNpc.Level * 50L;
-                    await expSvc.AddGroupExpAsync(player, xp, CancellationToken.None);
+                    await expSvc.AddGroupExpAsync(player, xpBase, deadNpc.Level, CancellationToken.None);
 
                     // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately
                     if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId

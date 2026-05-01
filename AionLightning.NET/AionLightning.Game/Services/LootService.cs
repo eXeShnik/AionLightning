@@ -27,14 +27,26 @@ public sealed class LootService
         _rates       = rates.Value;
     }
 
+    /// <summary>Drop reward percentage for level diff (npcLevel - killerLevel). Matches Java DropRewardEnum.</summary>
+    private static int DropRewardPercent(int levelDiff)
+    {
+        if (levelDiff <= -10) return 0;
+        if (levelDiff == -9)  return 39;
+        if (levelDiff == -8)  return 79;
+        return 100;
+    }
+
     /// <summary>Generates drops for a killed NPC and stores them keyed by the NPC's (now-removed) objectId.</summary>
     public void GenerateDrops(Npc npc, Player killer)
     {
         var drops = new List<LootEntry>();
 
-        // Kinah always drops: level * 50 + random(0, level*20)
+        int dropPct = DropRewardPercent(npc.Level - killer.Level);
+
+        // Kinah always drops: level * 50 + random(0, level*20), scaled by level-diff reward
         long kinah = npc.Level * 50L + Random.Shared.Next(0, Math.Max(1, npc.Level * 20));
-        drops.Add(new LootEntry(KinahItemId, kinah, IsTradeable: true));
+        if (dropPct != 100) kinah = kinah * dropPct / 100;
+        if (kinah > 0) drops.Add(new LootEntry(KinahItemId, kinah, IsTradeable: true));
 
         var groups = _dataManager.Drops.GetDropGroups(npc.Template.NpcId);
         if (groups is { Count: > 0 })
@@ -47,6 +59,7 @@ public sealed class LootService
                     double effectiveChance = _rates.DropRate != 1.0f
                         ? Math.Min(100.0, entry.Chance * _rates.DropRate)
                         : entry.Chance;
+                    if (dropPct != 100) effectiveChance = effectiveChance * dropPct / 100.0;
                     double roll = Random.Shared.NextDouble() * 100.0;
                     if (roll < effectiveChance)
                     {
@@ -58,10 +71,11 @@ public sealed class LootService
                 }
             }
         }
-        else
+        else if (dropPct > 0)
         {
-            // Fallback when no data-driven table: 50% chance of a healing potion
-            if (Random.Shared.NextDouble() < 0.5)
+            // Fallback when no data-driven table: 50% chance of a healing potion (scaled by level diff)
+            double fallbackChance = 0.5 * dropPct / 100.0;
+            if (Random.Shared.NextDouble() < fallbackChance)
             {
                 int potionCount = 1 + Random.Shared.Next(0, Math.Min(3, 1 + npc.Level / 5));
                 drops.Add(new LootEntry(MinorLifeElixirId, potionCount, IsTradeable: true));

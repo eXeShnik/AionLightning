@@ -116,6 +116,14 @@ public sealed class CM_USE_ITEM : AionClientPacket
         if (template.UseSkillId is not int skillId) return;
         if (!SkillEffects.TryGetValue(skillId, out var effect)) return;
 
+        // Enforce item use cooldown (delayId groups — e.g. all HP potions share delayId 11)
+        var limits = template.UseLimits;
+        if (limits is not null && limits.DelayId > 0 && player.IsItemOnCooldown(limits.DelayId))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime(), ct);
+            return;
+        }
+
         // Broadcast item use animation to self and zone peers
         var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
         try { await _conn.SendAsync(anim, ct); } catch { }
@@ -144,6 +152,10 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+
+        // Start cooldown for this delay group
+        if (limits is not null && limits.DelayId > 0 && limits.DelayMs > 0)
+            player.SetItemCooldown(limits.DelayId, limits.DelayMs);
 
         // Consume one charge
         item.Count--;

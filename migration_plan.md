@@ -1482,6 +1482,30 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+135. [✓] Item use cooldown — parse <uselimits> + enforce delayId-based cooldown in CM_USE_ITEM (session 2026-05-01)
+    - [✓] `ItemTemplate` — added `[XmlElement("uselimits")] public ItemUseLimits? UseLimits { get; set; }`
+    - [✓] `ItemUseLimits` (NEW) — maps to `<uselimits usedelay="..." usedelayid="..."/>`; `DelayMs` is the cooldown in ms; `DelayId` is the shared-cooldown group ID (e.g. all HP potions = 11, delay 60000ms)
+    - [✓] `Player` — added `ItemCooldowns: Dictionary<int, DateTime>`, `IsItemOnCooldown(delayId)`, `SetItemCooldown(delayId, delayMs)` helpers; mirrors Java `addItemCoolDown` / `isItemUseDisabled`
+    - [✓] `CM_USE_ITEM` — checks `player.IsItemOnCooldown(limits.DelayId)` before applying skill effect; sends `SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime()` if blocked; sets `player.SetItemCooldown(...)` after successful use; `limits` captured at the top of the consumable path to avoid duplicate null checks
+    - [✓] `SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime()` — added factory (msg code 1300400 = STR_ITEM_CANT_USE_UNTIL_DELAY_TIME)
+    - Prevents potion spam: HP potions (delayId=11, 60s) and MP potions share separate cooldowns; using any HP potion blocks all HP potions for 60s
+    - Build: 0 warnings, 0 errors
+
+134. [✓] Group XP distribution — proportional shares + group bonus + max-level scaling (session 2026-05-01)
+    - [✓] `ExperienceService.AddGroupExpAsync(killer, xpBase, npcLevel, ct)` — new signature; consolidates all XP scaling inside the method; solo path uses killerLevel, group path uses highest eligible member level (mirrors Java calculateGroupExperienceReward using filteredStats.highestLevel)
+    - [✓] Group bonus: `100%` solo, `150% + (size-2)*10%` for groups (2→150%, 3→160%, 4→170%, 5→180%, 6→190%); matches Java PlayerTeamDistributionService.doReward bonus formula
+    - [✓] Per-member share proportional to `member.Level / sum(eligible.Level)` weighted by bonus; members 10+ levels below highest get 0 XP
+    - [✓] `CM_ATTACK` / `CM_CASTSPELL` — removed inline level-scaling (M70 code); now pass raw `xpBase` + `deadNpc.Level` to `AddGroupExpAsync`; group path picks up the group bonus automatically
+    - Build: 0 warnings, 0 errors
+
+133. [✓] Level-based XP and drop reward scaling — XPRewardEnum + DropRewardEnum (session 2026-05-01)
+    - [✓] `ExperienceService.XpRewardPercent(int levelDiff)` (public static) — switch expression matching Java XPRewardEnum exactly: ≤-11→0%, -10→1%, -9→10%, -8→20%, -7→30%, -6→40%, -5→50%, -4→70%, -3→90%, -2/0→100%, +1→105%, +2→110%, +3→115%, ≥+4→120%; levelDiff = npcLevel - playerLevel
+    - [✓] `LootService.DropRewardPercent(int levelDiff)` (private static) — matches Java DropRewardEnum: ≤-10→0%, -9→39%, -8→79%, ≥-7→100%
+    - [✓] `LootService.GenerateDrops` — computes `dropPct = DropRewardPercent(npc.Level - killer.Level)`; scales kinah amount by dropPct; scales each item's effectiveChance by dropPct; scales fallback potion chance by dropPct; kinah entry skipped entirely when dropPct==0
+    - [✓] `CM_ATTACK` — before `AddGroupExpAsync`: computes `xpPct = ExperienceService.XpRewardPercent(deadNpc.Level - player.Level)` and multiplies `xpReward *= xpPct / 100` (skips multiply when 100% to avoid integer drift)
+    - [✓] `CM_CASTSPELL` — same XP scaling applied in the spell-kill Task.Run path
+    - Build: 0 warnings, 0 errors
+
 132. [✓] NPC retaliation extended to CM_CASTSPELL spell damage (session 2026-05-01)
     - [✓] `CM_CASTSPELL` — added `NpcAiService _npcAi` field + constructor parameter; captured `npcAi` before Task.Run closure; added `npcAi.ForceEngage(spellHitNpc, player)` after spell damage is applied (only when NPC is still alive); mirrors same pattern as CM_ATTACK
     - [✓] `GsPacketHandlerFactory` — passed `_npcAi` to CM_CASTSPELL

@@ -157,6 +157,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // 1300483: STR_CHANGE_ITEM_SKIN_SUCCEED — "Item remodeling successful."
     public static SM_SYSTEM_MESSAGE RemodelSuccess() => new(1300483);
 
+    // STR_ITEM_CANT_USE_UNTIL_DELAY_TIME — "You cannot use this item yet." (msg code 1300400)
+    public static SM_SYSTEM_MESSAGE ItemCantUseUntilDelayTime() => new(1300400);
+
     // Legion rename messages (STR_LEGION_RENAME_*)
     // 1400152: invalid or forbidden name
     public static SM_SYSTEM_MESSAGE LegionNameInvalid() => new(1400152);

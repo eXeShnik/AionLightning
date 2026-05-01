@@ -204,11 +204,11 @@ public sealed class CM_ATTACK : AionClientPacket
             // Update quest kill progress for active quests
             await _questService.HandleNpcKillAsync(player, deadNpc, _conn, ct);
 
-            // Award XP — use template value when available, fallback to level-based estimate
-            long xpReward = deadNpc.Template.Stats?.MaxXp > 0
+            // Award XP — level-diff scaling and group distribution handled inside AddGroupExpAsync
+            long xpBase = deadNpc.Template.Stats?.MaxXp > 0
                 ? deadNpc.Template.Stats.MaxXp
                 : deadNpc.Level * 50L;
-            await _expService.AddGroupExpAsync(player, xpReward, ct);
+            await _expService.AddGroupExpAsync(player, xpBase, deadNpc.Level, ct);
 
             // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately
             if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId

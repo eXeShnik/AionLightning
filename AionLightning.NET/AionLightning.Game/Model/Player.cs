@@ -125,4 +125,13 @@ public sealed class Player : Creature
     // Private store — null when store is closed
     public List<PrivateStoreItem>? StoreItems { get; set; }
     public string StoreName { get; set; } = string.Empty;
+
+    // Item use cooldowns: delayId → expiry UTC time (mirrors Java addItemCoolDown / isItemUseDisabled)
+    public Dictionary<int, DateTime> ItemCooldowns { get; } = new();
+
+    public bool IsItemOnCooldown(int delayId) =>
+        ItemCooldowns.TryGetValue(delayId, out var expiry) && DateTime.UtcNow < expiry;
+
+    public void SetItemCooldown(int delayId, int delayMs) =>
+        ItemCooldowns[delayId] = DateTime.UtcNow.AddMilliseconds(delayMs);
 }
