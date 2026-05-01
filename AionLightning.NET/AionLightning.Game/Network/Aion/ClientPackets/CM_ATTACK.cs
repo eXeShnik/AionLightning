@@ -67,8 +67,10 @@ public sealed class CM_ATTACK : AionClientPacket
         if (target.Position.WorldId != player.Position.WorldId) return;
         if (player.Position.DistanceTo(target.Position) > MaxMeleeRange) return;
 
-        // Placeholder physical damage: level-scaled with small random spread
-        int damage = player.Level * 6 + Random.Shared.Next(10, 40);
+        // Physical damage: weapon min-max range when equipped, level-scaled fallback
+        int damage = player.MainHandMinDmg > 0
+            ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1))
+            : player.Level * 6 + Random.Shared.Next(10, 40);
         target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 
         // Both attacker and target enter combat — suppresses regen for both

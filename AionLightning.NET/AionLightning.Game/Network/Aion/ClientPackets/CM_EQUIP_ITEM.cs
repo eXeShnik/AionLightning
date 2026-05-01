@@ -66,12 +66,26 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             item.IsEquipped = false;
         }
 
-        // Update WeaponEquipped state: set when the main-hand slot (bitmask 1) is occupied
-        bool hasMainHand = player.Inventory.All.Any(i => i.IsEquipped && i.Slot == 1);
-        if (hasMainHand)
+        // Update WeaponEquipped state and weapon combat stats
+        var mainHandItem = player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.Slot == 1);
+        if (mainHandItem is not null)
+        {
             player.State |= CreatureState.WeaponEquipped;
+            var weaponTpl = _dataManager.Items.GetTemplate(mainHandItem.ItemId);
+            if (weaponTpl?.WeaponStats is { } ws)
+            {
+                player.MainHandMinDmg     = ws.MinDamage;
+                player.MainHandMaxDmg     = ws.MaxDamage;
+                player.CurrentAttackSpeed = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+            }
+        }
         else
+        {
             player.State &= ~CreatureState.WeaponEquipped;
+            player.MainHandMinDmg     = 0;
+            player.MainHandMaxDmg     = 0;
+            player.CurrentAttackSpeed = 1500;
+        }
 
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 

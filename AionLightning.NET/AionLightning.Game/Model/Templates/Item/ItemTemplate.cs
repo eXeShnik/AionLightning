@@ -15,13 +15,21 @@ public sealed class ItemTemplate
     [XmlAttribute("price")]           public long   Price         { get; set; }
     [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
 
-    [XmlElement("actions")]           public ItemActions? Actions { get; set; }
+    [XmlElement("actions")]           public ItemActions?  Actions     { get; set; }
+    [XmlElement("weapon_stats")]      public WeaponStats?  WeaponStats { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
     public int? CraftLearnRecipeId => Actions?.CraftLearn?.RecipeId;
     public bool IsWeapon           => EquipmentType == "WEAPON";
     public bool IsArmor            => EquipmentType == "ARMOR";
+}
+
+public sealed class WeaponStats
+{
+    [XmlAttribute("min_damage")]   public int MinDamage   { get; set; }
+    [XmlAttribute("max_damage")]   public int MaxDamage   { get; set; }
+    [XmlAttribute("attack_speed")] public int AttackSpeed { get; set; }
 }
 
 public sealed class ItemActions

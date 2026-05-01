@@ -72,6 +72,10 @@ public sealed class Player : Creature
     public long AbyssPoints { get; set; }
     public int  AbyssRank   { get; set; } = 1;
 
+    // Equipped main-hand weapon damage range; both 0 when no weapon is equipped
+    public int MainHandMinDmg { get; set; }
+    public int MainHandMaxDmg { get; set; }
+
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 }

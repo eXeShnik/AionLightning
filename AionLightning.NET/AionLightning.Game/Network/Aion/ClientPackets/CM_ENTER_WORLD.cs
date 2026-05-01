@@ -124,6 +124,19 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         foreach (var item in warehouseItems)
             player.Warehouse.Add(item);
 
+        // Initialize weapon combat stats from the equipped main-hand weapon
+        var equippedMainHand = storedItems.FirstOrDefault(i => i.IsEquipped && i.Slot == 1);
+        if (equippedMainHand is not null)
+        {
+            var wpnTpl = _dataManager.Items.GetTemplate(equippedMainHand.ItemId);
+            if (wpnTpl?.WeaponStats is { } ws)
+            {
+                player.MainHandMinDmg     = ws.MinDamage;
+                player.MainHandMaxDmg     = ws.MaxDamage;
+                player.CurrentAttackSpeed = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+            }
+        }
+
         // Load quests
         var questEntries = await _questDao.LoadByPlayerIdAsync(_objectId, ct);
         foreach (var entry in questEntries)

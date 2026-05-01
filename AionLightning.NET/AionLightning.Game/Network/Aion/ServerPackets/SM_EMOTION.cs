@@ -43,7 +43,7 @@ public sealed class SM_EMOTION : AionServerPacket
         _y                 = y;
         _z                 = z;
         _heading           = heading;
-        _baseAttackSpeed   = creature.BaseAttackSpeed;
+        _baseAttackSpeed   = creature.CurrentAttackSpeed;
         _currentAttackSpeed = creature.CurrentAttackSpeed;
     }
 
