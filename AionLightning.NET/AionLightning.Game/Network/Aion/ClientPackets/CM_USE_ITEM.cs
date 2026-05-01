@@ -37,19 +37,21 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly IDataManager             _dataManager;
     private readonly IRecipeDao               _recipeDao;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly ISkillDao                _skillDao;
 
     private int _uniqueItemId;
     private int _type;
     private int _targetItemId;
 
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry)
+        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, ISkillDao skillDao)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _recipeDao    = recipeDao;
         _connRegistry = connRegistry;
+        _skillDao     = skillDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -151,6 +153,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
         int skillLevel = _dataManager.SkillTree.GetMaxSkillLevel(skillId, player.PlayerClass, player.Race, player.Level);
         player.Skills.AddSkill(skillId, skillLevel);
+        await _skillDao.UpsertAsync(player.ObjectId, skillId, skillLevel, ct);
 
         string skillName = _dataManager.SkillTree.GetSkillName(skillId) ?? template.Name;
         await _conn.SendAsync(new SM_SKILL_LIST(

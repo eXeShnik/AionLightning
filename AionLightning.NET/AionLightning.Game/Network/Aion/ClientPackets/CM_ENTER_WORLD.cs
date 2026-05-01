@@ -27,6 +27,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly IPlayerSettingsDao       _settingsDao;
     private readonly IRecipeDao               _recipeDao;
     private readonly IMotionDao               _motionDao;
+    private readonly ISkillDao                _skillDao;
 
     private int _objectId;
 
@@ -35,7 +36,8 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         GameWorld world, PlayerConnectionRegistry connRegistry,
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
         ISocialDao socialDao, ILegionDao legionDao, LegionService legionService,
-        IPlayerSettingsDao settingsDao, IRecipeDao recipeDao, IMotionDao motionDao)
+        IPlayerSettingsDao settingsDao, IRecipeDao recipeDao, IMotionDao motionDao,
+        ISkillDao skillDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -53,6 +55,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _settingsDao    = settingsDao;
         _recipeDao      = recipeDao;
         _motionDao      = motionDao;
+        _skillDao       = skillDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -98,6 +101,11 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
                     player.Skills.AddSkill(slt.SkillId, slt.SkillLevel, slt.Stigma);
             }
         }
+
+        // Load player-learned skills (skill books, crafting skills) from DB
+        var persistedSkills = await _skillDao.LoadByPlayerIdAsync(_objectId, ct);
+        foreach (var (skillId, skillLevel) in persistedSkills)
+            player.Skills.AddSkill(skillId, skillLevel);
 
         // Load inventory from DB; give starting items for new characters
         var storedItems = await _itemDao.FindByPlayerIdAsync(_objectId, ct);

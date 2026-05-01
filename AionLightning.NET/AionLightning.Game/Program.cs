@@ -53,6 +53,7 @@ builder.Services.AddSingleton<ILegionDao, LegionDaoImpl>();
 builder.Services.AddSingleton<IPlayerSettingsDao, PlayerSettingsDaoImpl>();
 builder.Services.AddSingleton<IRecipeDao, RecipeDaoImpl>();
 builder.Services.AddSingleton<IMotionDao, MotionDaoImpl>();
+builder.Services.AddSingleton<ISkillDao, SkillDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
