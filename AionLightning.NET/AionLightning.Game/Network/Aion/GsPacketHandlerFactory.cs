@@ -20,6 +20,7 @@ public sealed class GsPacketHandlerFactory
     private readonly GameServerInfoOptions _gsInfo;
     private readonly NetworkOptions _network;
     private readonly CsConnectionOptions _csOpts;
+    private readonly RateOptions _rates;
     private readonly IPlayerDao _playerDao;
     private readonly IPlayerAppearanceDao _appearanceDao;
     private readonly IItemDao _itemDao;
@@ -52,6 +53,7 @@ public sealed class GsPacketHandlerFactory
         IOptions<GameServerInfoOptions> gsInfo,
         IOptions<NetworkOptions> network,
         IOptions<CsConnectionOptions> csOpts,
+        IOptions<RateOptions> rates,
         IPlayerDao playerDao,
         IPlayerAppearanceDao appearanceDao,
         IItemDao itemDao,
@@ -83,6 +85,7 @@ public sealed class GsPacketHandlerFactory
         _gsInfo        = gsInfo.Value;
         _network       = network.Value;
         _csOpts        = csOpts.Value;
+        _rates         = rates.Value;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
         _itemDao       = itemDao;
@@ -193,7 +196,7 @@ public sealed class GsPacketHandlerFactory
                 0x110 => new CM_HOUSE_EDIT(),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(),
-                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _expService, _connRegistry, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
+                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _expService, _connRegistry, _rates, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
                 0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),

@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using Microsoft.Extensions.Options;
 
 namespace AionLightning.Game.Services;
 
@@ -15,12 +17,14 @@ public sealed class LootService
     // Tracks where each NPC died so CM_START_LOOT can enforce proximity
     private readonly ConcurrentDictionary<int, Position>        _positions = new();
     private readonly IDataManager _dataManager;
+    private readonly RateOptions  _rates;
 
     public record LootEntry(int ItemId, long Count, bool IsTradeable);
 
-    public LootService(IDataManager dataManager)
+    public LootService(IDataManager dataManager, IOptions<RateOptions> rates)
     {
         _dataManager = dataManager;
+        _rates       = rates.Value;
     }
 
     /// <summary>Generates drops for a killed NPC and stores them keyed by the NPC's (now-removed) objectId.</summary>
@@ -40,8 +44,11 @@ public sealed class LootService
             {
                 foreach (var entry in group.Entries)
                 {
+                    double effectiveChance = _rates.DropRate != 1.0f
+                        ? Math.Min(100.0, entry.Chance * _rates.DropRate)
+                        : entry.Chance;
                     double roll = Random.Shared.NextDouble() * 100.0;
-                    if (roll < entry.Chance)
+                    if (roll < effectiveChance)
                     {
                         int count = entry.MinAmount == entry.MaxAmount
                             ? entry.MinAmount

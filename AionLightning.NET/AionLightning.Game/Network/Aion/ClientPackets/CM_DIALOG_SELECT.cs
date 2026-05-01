@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model.Item;
@@ -34,6 +35,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly IPlayerDao                _playerDao;
     private readonly ExperienceService         _expService;
     private readonly PlayerConnectionRegistry  _connRegistry;
+    private readonly RateOptions               _rates;
     private readonly ILogger<CM_DIALOG_SELECT> _log;
 
     private int _targetObjectId;
@@ -43,7 +45,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
-        ExperienceService expService, PlayerConnectionRegistry connRegistry,
+        ExperienceService expService, PlayerConnectionRegistry connRegistry, RateOptions rates,
         ILogger<CM_DIALOG_SELECT> log)
     {
         _conn         = conn;
@@ -54,6 +56,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _playerDao    = playerDao;
         _expService   = expService;
         _connRegistry = connRegistry;
+        _rates        = rates;
         _log          = log;
     }
 
@@ -283,6 +286,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
         // Award kinah (gold attribute)
         long gold = template.Rewards?.Gold ?? 0;
+        if (_rates.QuestKinahRate != 1.0f)
+            gold = (long)(gold * _rates.QuestKinahRate);
         if (gold > 0)
         {
             var kinah = player.Inventory.FindByItemId(KinahItemId);
