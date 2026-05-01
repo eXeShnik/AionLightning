@@ -19,6 +19,7 @@ public sealed class CM_CRAFT : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExperienceService        _expService;
     private readonly ISkillDao                _skillDao;
+    private readonly QuestService             _questService;
 
     private int _unk;
     private int _targetTemplateId;
@@ -28,7 +29,8 @@ public sealed class CM_CRAFT : AionClientPacket
     private int _craftType;
 
     public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        PlayerConnectionRegistry connRegistry, ExperienceService expService, ISkillDao skillDao)
+        PlayerConnectionRegistry connRegistry, ExperienceService expService, ISkillDao skillDao,
+        QuestService questService)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -36,6 +38,7 @@ public sealed class CM_CRAFT : AionClientPacket
         _connRegistry = connRegistry;
         _expService   = expService;
         _skillDao     = skillDao;
+        _questService = questService;
     }
 
     public override void Read(ref PacketReader r)
@@ -131,6 +134,9 @@ public sealed class CM_CRAFT : AionClientPacket
         if (partiallyConsumed.Count > 0)
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([product]), ct);
+
+        // Check quest collect-item progress for the crafted product
+        await _questService.HandleItemAcquiredAsync(player, recipe.ProductId, _conn, ct);
 
         // Award crafting XP based on recipe skill point requirement
         await _expService.AddCraftingExpAsync(player, recipe.SkillPoint, _conn, ct);

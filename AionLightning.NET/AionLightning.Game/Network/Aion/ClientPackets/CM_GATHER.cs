@@ -22,12 +22,13 @@ public sealed class CM_GATHER : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExperienceService        _expService;
     private readonly ISkillDao                _skillDao;
+    private readonly QuestService             _questService;
 
     private int _action;
 
     public CM_GATHER(GsClientConnection conn, GameWorld world, GatherService gatherService,
         SpawnService spawnService, IItemDao itemDao, PlayerConnectionRegistry connRegistry,
-        ExperienceService expService, ISkillDao skillDao)
+        ExperienceService expService, ISkillDao skillDao, QuestService questService)
     {
         _conn          = conn;
         _world         = world;
@@ -37,6 +38,7 @@ public sealed class CM_GATHER : AionClientPacket
         _connRegistry  = connRegistry;
         _expService    = expService;
         _skillDao      = skillDao;
+        _questService  = questService;
     }
 
     public override void Read(ref PacketReader r) => _action = r.ReadD();
@@ -122,6 +124,9 @@ public sealed class CM_GATHER : AionClientPacket
         }
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([gathered]), ct);
+
+        // Check quest collect-item progress for the gathered material
+        await _questService.HandleItemAcquiredAsync(player, material.ItemId, _conn, ct);
 
         await _conn.SendAsync(new SM_GATHER_STATUS(player.ObjectId, target.ObjectId, SM_GATHER_STATUS.Status.Success), ct);
         await _conn.SendAsync(new SM_GATHER_UPDATE(target.Template, material, 100, 0, 7), ct);

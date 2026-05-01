@@ -1143,6 +1143,13 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+91. [✓] Quest item tracking for gather and craft (session 2026-05-01)
+    - [✓] `CM_GATHER` — injected `QuestService`; calls `HandleItemAcquiredAsync(player, material.ItemId, ...)` after the gathered item is persisted and notified to client; gathering quest items now transitions quests to REWARD state immediately
+    - [✓] `CM_CRAFT` — injected `QuestService`; calls `HandleItemAcquiredAsync(player, recipe.ProductId, ...)` after the crafted product is persisted and notified to client; crafting quest items now triggers quest progress
+    - [✓] `GsPacketHandlerFactory` — updated 0xD1 (CM_GATHER) and 0x12F (CM_CRAFT) to pass `_questService`
+    - Previously only CM_LOOT_ITEM called HandleItemAcquiredAsync; this closes the gap for gather/craft collect quests
+    - Build: 0 warnings, 0 errors
+
 90. [✓] Group quest kill sharing (session 2026-05-01)
     - [✓] `QuestService` — injected `PlayerConnectionRegistry`; refactored `HandleNpcKillAsync` into public entry + private `ProcessKillForPlayerAsync`; after awarding kill credit to the killer, iterates group members whose WorldId matches the dead NPC and whose connection is live; sends `SM_QUEST_ACTION(StepUpdate)` + `SM_QUEST_LIST` to each qualifying group member; mirrors Java QuestService group kill-share behaviour
     - [✓] Each member notification wrapped in try/catch so a disconnecting member doesn't abort the loop
