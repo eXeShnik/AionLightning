@@ -1143,6 +1143,12 @@
     - [✓] `GsPacketHandlerFactory` — updated CM_DIALOG_SELECT to pass _skillDao
     - Build: 0 warnings, 0 errors
 
+90. [✓] Group quest kill sharing (session 2026-05-01)
+    - [✓] `QuestService` — injected `PlayerConnectionRegistry`; refactored `HandleNpcKillAsync` into public entry + private `ProcessKillForPlayerAsync`; after awarding kill credit to the killer, iterates group members whose WorldId matches the dead NPC and whose connection is live; sends `SM_QUEST_ACTION(StepUpdate)` + `SM_QUEST_LIST` to each qualifying group member; mirrors Java QuestService group kill-share behaviour
+    - [✓] Each member notification wrapped in try/catch so a disconnecting member doesn't abort the loop
+    - [✓] DI resolves `PlayerConnectionRegistry` automatically — no `Program.cs` changes needed
+    - Build: 0 warnings, 0 errors
+
 89. [✓] NPC skill casting in combat (session 2026-05-01)
     - [✓] `NpcSkillData` — new data holder; parses `npc_skills.xml` (`<npcskills npcid><npcskill skillid skilllevel probability>`); exposes `GetSkills(npcId)`
     - [✓] `IDataManager` / `DataManager` — added `NpcSkillData NpcSkills` property; loaded in `DataManager` constructor

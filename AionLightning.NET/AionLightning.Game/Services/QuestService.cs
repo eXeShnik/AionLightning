@@ -11,21 +11,41 @@ namespace AionLightning.Game.Services;
 /// <summary>Handles quest events: NPC kills, progress updates, and SM_QUEST_ACTION broadcasting.</summary>
 public sealed class QuestService
 {
-    private readonly IQuestDao    _questDao;
-    private readonly IDataManager _dataManager;
+    private readonly IQuestDao                _questDao;
+    private readonly IDataManager             _dataManager;
+    private readonly PlayerConnectionRegistry _connRegistry;
 
-    public QuestService(IQuestDao questDao, IDataManager dataManager)
+    public QuestService(IQuestDao questDao, IDataManager dataManager, PlayerConnectionRegistry connRegistry)
     {
-        _questDao    = questDao;
-        _dataManager = dataManager;
+        _questDao     = questDao;
+        _dataManager  = dataManager;
+        _connRegistry = connRegistry;
     }
 
     /// <summary>
-    /// Called when a player kills an NPC. Increments kill-progress vars for all active quests
-    /// that list the NPC in a quest_kill element, then notifies the client via SM_QUEST_ACTION.
-    /// If all objectives are now satisfied, transitions the quest to REWARD state.
+    /// Called when a player kills an NPC. Awards kill credit to the killer and to all group
+    /// members online in the same zone, matching Java's group-kill-share behaviour.
     /// </summary>
     public async ValueTask HandleNpcKillAsync(Player player, Npc deadNpc, GsClientConnection conn, CancellationToken ct)
+    {
+        await ProcessKillForPlayerAsync(player, deadNpc, conn, ct);
+
+        if (player.Group is null) return;
+
+        int npcWorldId = deadNpc.Position.WorldId;
+        foreach (var member in player.Group.Members)
+        {
+            if (member.ObjectId == player.ObjectId) continue;
+            if (member.Position.WorldId != npcWorldId) continue;
+
+            var memberConn = _connRegistry.Get(member.ObjectId);
+            if (memberConn?.ActivePlayer is null) continue;
+
+            await ProcessKillForPlayerAsync(member, deadNpc, memberConn, ct);
+        }
+    }
+
+    private async ValueTask ProcessKillForPlayerAsync(Player player, Npc deadNpc, GsClientConnection conn, CancellationToken ct)
     {
         foreach (var entry in player.Quests.Active)
         {
@@ -47,15 +67,18 @@ public sealed class QuestService
 
             if (!updated) continue;
 
-            // Transition to REWARD when all objectives are satisfied
             if (IsRewardReady(entry, template, player))
                 entry.Status = QuestStatus.REWARD;
 
             await _questDao.UpsertAsync(player.ObjectId, entry, ct);
-            await conn.SendAsync(new SM_QUEST_ACTION(entry.QuestId,
-                SM_QUEST_ACTION.ActionType.StepUpdate, (byte)entry.Status, entry.Step), ct);
-            if (entry.Status == QuestStatus.REWARD)
-                await conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+            try
+            {
+                await conn.SendAsync(new SM_QUEST_ACTION(entry.QuestId,
+                    SM_QUEST_ACTION.ActionType.StepUpdate, (byte)entry.Status, entry.Step), ct);
+                if (entry.Status == QuestStatus.REWARD)
+                    await conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+            }
+            catch { }
         }
     }
 
