@@ -15,17 +15,19 @@ public sealed class CM_LOOT_ITEM : AionClientPacket
     private readonly LootService              _lootService;
     private readonly IItemDao                 _itemDao;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly QuestService             _questService;
 
     private int _targetObjectId;
     private byte _index;
 
     public CM_LOOT_ITEM(GsClientConnection conn, LootService lootService, IItemDao itemDao,
-        PlayerConnectionRegistry connRegistry)
+        PlayerConnectionRegistry connRegistry, QuestService questService)
     {
         _conn         = conn;
         _lootService  = lootService;
         _itemDao      = itemDao;
         _connRegistry = connRegistry;
+        _questService = questService;
     }
 
     public override void Read(ref PacketReader r)
@@ -77,6 +79,10 @@ public sealed class CM_LOOT_ITEM : AionClientPacket
 
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([notifyItem]), ct);
+
+        // Check quest collect-item progress after looting non-kinah items
+        if (entry.ItemId != KinahItemId)
+            await _questService.HandleItemAcquiredAsync(player, entry.ItemId, _conn, ct);
 
         // When loot is empty, broadcast close to all players in the zone so every open loot window closes
         if (_lootService.GetLoot(_targetObjectId) is null)

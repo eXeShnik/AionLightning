@@ -59,6 +59,33 @@ public sealed class QuestService
         }
     }
 
+    /// <summary>
+    /// Called when a player acquires an item (loot, buy, craft, etc.).
+    /// Checks all active START-state quests with collect requirements and transitions to REWARD
+    /// if all objectives are now satisfied.
+    /// </summary>
+    public async ValueTask HandleItemAcquiredAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct)
+    {
+        foreach (var entry in player.Quests.Active)
+        {
+            if (entry.Status != QuestStatus.START) continue;
+
+            var template = _dataManager.Quests.GetTemplate(entry.QuestId);
+            if (template?.CollectItems is null or { Items.Count: 0 }) continue;
+
+            // Only process if this item is relevant to the quest
+            if (!template.CollectItems.Items.Any(r => r.ItemId == itemId)) continue;
+
+            if (!IsRewardReady(entry, template, player)) continue;
+
+            entry.Status = QuestStatus.REWARD;
+            await _questDao.UpsertAsync(player.ObjectId, entry, ct);
+            await conn.SendAsync(new SM_QUEST_ACTION(entry.QuestId,
+                SM_QUEST_ACTION.ActionType.StepUpdate, (byte)entry.Status, entry.Step), ct);
+            await conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+        }
+    }
+
     /// <summary>Returns true when all kill slots and all collect_item requirements are met.</summary>
     private static bool IsRewardReady(QuestEntry entry, QuestTemplate template, Player player)
     {

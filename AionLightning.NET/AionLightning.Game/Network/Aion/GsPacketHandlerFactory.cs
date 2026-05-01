@@ -261,7 +261,7 @@ public sealed class GsPacketHandlerFactory
                 0x17E => new CM_MOVE_ITEM(conn, _itemDao),
                 0x17F => new CM_SPLIT_ITEM(conn, _itemDao, _dataManager),
                 0x178 => new CM_START_LOOT(conn, _lootService),
-                0x179 => new CM_LOOT_ITEM(conn, _lootService, _itemDao, _connRegistry),
+                0x179 => new CM_LOOT_ITEM(conn, _lootService, _itemDao, _connRegistry, _questService),
                 0x182 => new CM_INSTANCE_INFO(),
                 0x183 => new CM_IN_GAME_SHOP_INFO(),
                 0x184 => new CM_SHOW_FRIENDLIST(conn, _socialDao, _connRegistry),

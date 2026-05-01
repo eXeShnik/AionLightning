@@ -863,6 +863,13 @@
     - [✓] `GsPacketHandlerFactory` — passes `_playerDao` to `CM_DIALOG_SELECT` constructor at opcode 0x114
     - Build: 0 warnings, 0 errors
 
+73. [✓] Quest race filter + collect-item pickup tracking (session 2026-05-01)
+    - [✓] `CM_DIALOG_SELECT.HandleQuestAcceptAsync` — added race restriction check: `template.Race != "PC_ALL"` AND `!string.Equals(template.Race, player.Race.ToString(), OrdinalIgnoreCase)` → return; prevents Elyos players accepting Asmodian-only quests and vice versa; previously `QuestTemplate.Race` was parsed but never validated
+    - [✓] `QuestService.HandleItemAcquiredAsync` — new method: for each active START-state quest with collect requirements, checks if the acquired `itemId` matches any `CollectItem.ItemId`; if so calls `IsRewardReady`; on readiness transitions quest to REWARD, persists, sends SM_QUEST_ACTION(StepUpdate, REWARD) + SM_QUEST_LIST; enables pure collect quests (no kill objectives) to show the map indicator after the player has all items
+    - [✓] `CM_LOOT_ITEM` — added `QuestService _questService` field + constructor parameter; after saving inventory and notifying client, calls `_questService.HandleItemAcquiredAsync(player, entry.ItemId, _conn, ct)` for non-kinah items; kinah is never a collect quest item so excluded
+    - [✓] `GsPacketHandlerFactory` — passes `_questService` to `CM_LOOT_ITEM` at opcode 0x179
+    - Build: 0 warnings, 0 errors
+
 72. [✓] Quest REWARD state transition on objective completion (session 2026-05-01)
     - Root cause: quest status stayed START after completing kill objectives; client never received REWARD state signal so the "Return to NPC" map indicator never appeared; Java `QuestService` calls `updateQuestStatus` to set REWARD when all objectives are met
     - [✓] `QuestService.HandleNpcKillAsync` — added `if (entry.Status != QuestStatus.START) continue` guard so REWARD/COMPLETE quests are skipped; after updating kill vars, calls new `IsRewardReady(entry, template, player)` helper; if all objectives met, sets `entry.Status = QuestStatus.REWARD` before persisting; sends `SM_QUEST_LIST` update only on REWARD transition so the map indicator appears immediately

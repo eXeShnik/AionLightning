@@ -126,6 +126,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         if (template is null) return;
         if (player.Level < template.MinLevel) return;
 
+        // Race restriction: "PC_ALL" means any race; otherwise must match player's race
+        if (template.Race != "PC_ALL" && !string.Equals(template.Race, player.Race.ToString(), StringComparison.OrdinalIgnoreCase))
+            return;
+
         var entry = new QuestEntry { QuestId = _questId, Status = QuestStatus.START };
         player.Quests.Add(entry);
         await _questDao.UpsertAsync(player.ObjectId, entry, ct);
