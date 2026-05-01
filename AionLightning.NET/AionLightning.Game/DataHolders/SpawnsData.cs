@@ -8,10 +8,11 @@ namespace AionLightning.Game.DataHolders;
 [XmlRoot("spot")]
 public sealed class SpawnSpot
 {
-    [XmlAttribute("x")] public float X       { get; set; }
-    [XmlAttribute("y")] public float Y       { get; set; }
-    [XmlAttribute("z")] public float Z       { get; set; }
-    [XmlAttribute("h")] public byte  Heading { get; set; }
+    [XmlAttribute("x")]          public float  X        { get; set; }
+    [XmlAttribute("y")]          public float  Y        { get; set; }
+    [XmlAttribute("z")]          public float  Z        { get; set; }
+    [XmlAttribute("h")]          public byte   Heading  { get; set; }
+    [XmlAttribute("walker_id")]  public string WalkerId { get; set; } = string.Empty;
 }
 
 [XmlRoot("spawn")]

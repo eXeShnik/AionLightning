@@ -19,4 +19,5 @@ public interface IDataManager
     NpcSkillData                   NpcSkills   { get; }
     DecomposableSelectItemsData    SelectItems { get; }
     PlayerTitlesData               Titles      { get; }
+    WalkerData                     Walkers     { get; }
 }

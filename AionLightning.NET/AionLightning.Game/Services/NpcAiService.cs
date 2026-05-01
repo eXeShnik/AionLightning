@@ -37,13 +37,15 @@ public sealed class NpcAiService : BackgroundService
     private readonly IDataManager _dataManager;
     private readonly ILogger<NpcAiService> _log;
     private readonly RateOptions _rates;
-    private readonly Dictionary<int, DateTime>    _lastAttackTime = new();
-    private readonly Dictionary<int, DateTime>    _lastSkillTime  = new();
-    private readonly Dictionary<int, int>         _npcTargets     = new();
-    private readonly Dictionary<int, WanderState> _wanderState    = new();
-    private readonly Dictionary<int, DateTime>    _lastWanderTime = new();
-    private readonly Dictionary<int, ChaseState>  _chaseState     = new();
-    private readonly Dictionary<int, ReturnState> _returnState    = new();
+    private readonly Dictionary<int, DateTime>    _lastAttackTime  = new();
+    private readonly Dictionary<int, DateTime>    _lastSkillTime   = new();
+    private readonly Dictionary<int, int>         _npcTargets      = new();
+    private readonly Dictionary<int, WanderState> _wanderState     = new();
+    private readonly Dictionary<int, DateTime>    _lastWanderTime  = new();
+    private readonly Dictionary<int, ChaseState>  _chaseState      = new();
+    private readonly Dictionary<int, ReturnState> _returnState     = new();
+    // Walker patrol: NPC objectId → current route step index
+    private readonly Dictionary<int, int>         _walkerStepIndex = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ILogger<NpcAiService> log, IOptions<RateOptions> rates)
@@ -89,6 +91,7 @@ public sealed class NpcAiService : BackgroundService
                 _lastWanderTime.Remove(npc.ObjectId);
                 _chaseState.Remove(npc.ObjectId);
                 _returnState.Remove(npc.ObjectId);
+                _walkerStepIndex.Remove(npc.ObjectId);
                 npc.Target = null;
                 continue;
             }
@@ -336,7 +339,68 @@ public sealed class NpcAiService : BackgroundService
                 try { await conn.SendAsync(returnPkt, ct); } catch { }
     }
 
-    private async Task WanderAsync(Npc npc, CancellationToken ct)
+    private Task WanderAsync(Npc npc, CancellationToken ct)
+    {
+        if (!string.IsNullOrEmpty(npc.WalkerId))
+        {
+            var route = _dataManager.Walkers.GetRoute(npc.WalkerId);
+            if (route is { Length: > 0 })
+                return PatrolAsync(npc, route, ct);
+        }
+        return WanderRandomAsync(npc, ct);
+    }
+
+    private async Task PatrolAsync(Npc npc, WalkerData.RouteStep[] route, CancellationToken ct)
+    {
+        var now     = DateTime.UtcNow;
+        int worldId = npc.Position.WorldId;
+
+        // Check if an in-progress wander move has arrived
+        if (_wanderState.TryGetValue(npc.ObjectId, out var ws))
+        {
+            if (now >= ws.ArrivalTime)
+            {
+                npc.Position = npc.Position with { X = ws.Tx, Y = ws.Ty, Z = ws.Tz };
+                var stop = SM_MOVE.StopNpcMove(npc.ObjectId, ws.Tx, ws.Ty, ws.Tz, (byte)npc.Position.Heading);
+                _wanderState.Remove(npc.ObjectId);
+                // Advance to next step (cycle)
+                int prev = _walkerStepIndex.GetValueOrDefault(npc.ObjectId, 0);
+                _walkerStepIndex[npc.ObjectId] = (prev + 1) % route.Length;
+                foreach (var conn in _connRegistry.GetAll())
+                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                        try { await conn.SendAsync(stop, ct); } catch { }
+            }
+            return; // still traveling
+        }
+
+        // Start moving to the current step
+        int stepIdx = _walkerStepIndex.GetValueOrDefault(npc.ObjectId, 0);
+        var step    = route[stepIdx % route.Length];
+
+        float dx = step.X - npc.Position.X;
+        float dy = step.Y - npc.Position.Y;
+        float dist = MathF.Sqrt(dx * dx + dy * dy);
+        if (dist < 0.5f)
+        {
+            // Already at this step — advance immediately without broadcasting a zero-distance move
+            _walkerStepIndex[npc.ObjectId] = (stepIdx + 1) % route.Length;
+            return;
+        }
+
+        float travelTime = dist / WanderSpeed;
+        var   arrival    = now.AddSeconds(travelTime < 0.5 ? 0.5 : travelTime);
+        byte  heading    = CalcHeading(dx, dy);
+
+        _wanderState[npc.ObjectId] = new WanderState(step.X, step.Y, step.Z, arrival);
+
+        var movePkt = SM_MOVE.StartNpcMove(npc.ObjectId,
+            npc.Position.X, npc.Position.Y, npc.Position.Z, heading, step.X, step.Y, step.Z);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(movePkt, ct); } catch { }
+    }
+
+    private async Task WanderRandomAsync(Npc npc, CancellationToken ct)
     {
         var now     = DateTime.UtcNow;
         int worldId = npc.HomePosition.WorldId;

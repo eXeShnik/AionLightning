@@ -1437,3 +1437,13 @@
     - [✓] `GsPacketHandlerFactory` — passes `_dataManager` to CM_TITLE_SET (0x129)
     - Only `<add>` (flat) modifiers implemented: MAXHP+MAXMP; `<rate>` (speed/attack speed) deferred (complex combat formula)
     - Build: 0 warnings, 0 errors
+
+116. [✓] NPC walker paths — load npc_walker.xml + route-following patrol behavior (session 2026-05-01)
+    - [✓] `WalkerData.cs` (NEW) — streaming XmlReader loads `npc_walker/npc_walker.xml` + `custom_npc_walker.xml`; stores `routeId → RouteStep[]` (case-insensitive hex string keys); `GetRoute(string)` lookup
+    - [✓] `IDataManager` / `DataManager` — added `WalkerData Walkers { get; }` property; loads after Titles
+    - [✓] `SpawnSpot` — added `[XmlAttribute("walker_id")] string WalkerId` (empty string default, optional attribute)
+    - [✓] `Npc` — added `string WalkerId { get; set; }` property (empty = random wander)
+    - [✓] `SpawnService.SpawnAll()` — passes `spot.WalkerId` to `SpawnNpc()`; `SpawnNpc()` gains `walkerId` param (default empty)
+    - [✓] `NpcAiService` — added `_walkerStepIndex: Dictionary<int, int>` (step index per NPC); renamed old `WanderAsync` to `WanderRandomAsync`; new `WanderAsync` dispatches to `PatrolAsync` for walker NPCs or `WanderRandomAsync` for others; `PatrolAsync` follows route steps in sequence (cycling), broadcasts SM_MOVE on each advance, advances step index on arrival; walker NPCs skip the 10-second wander cooldown (continuous patrol)
+    - Walker state reuses `_wanderState` dict (WanderState record) — patrol move tracked same as wander move; step index cleared on NPC death
+    - Build: 0 warnings, 0 errors

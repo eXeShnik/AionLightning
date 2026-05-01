@@ -42,7 +42,7 @@ public sealed class SpawnService
 
             foreach (var spot in entry.Spots)
             {
-                SpawnNpc(template, new Position(spot.X, spot.Y, spot.Z, spot.Heading, mapId), entry.RespawnTime);
+                SpawnNpc(template, new Position(spot.X, spot.Y, spot.Z, spot.Heading, mapId), entry.RespawnTime, spot.WalkerId);
                 npcSpawned++;
             }
         }
@@ -101,7 +101,7 @@ public sealed class SpawnService
     public Npc SpawnNpcAt(Model.Templates.Npc.NpcTemplate template, Position position)
         => SpawnNpc(template, position);
 
-    private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position, int respawnTime = 0)
+    private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position, int respawnTime = 0, string walkerId = "")
     {
         var npc = new Npc(template)
         {
@@ -110,6 +110,7 @@ public sealed class SpawnService
             Position     = position,
             HomePosition = position,
             RespawnTime  = respawnTime,
+            WalkerId     = walkerId,
         };
 
         // Scale HP by NormalMobsRateHp (elite mobs use the same scale for now)
