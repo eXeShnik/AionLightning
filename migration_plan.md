@@ -1463,6 +1463,13 @@
     - [✓] `NpcAiService` — added `_lastIdleShoutTime: Dictionary<int, DateTime>` (30-second per-NPC cooldown); in `WanderRandomAsync` after broadcasting SM_MOVE start, checks IDLE shout cooldown and calls `GetRandomShout(npcId, IDLE, worldId)`; if entry found, broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone players and stamps cooldown; NPC ambient shouts now fire periodically during wander; cleaned up `_lastIdleShoutTime` in dead-NPC block
     - Build: 0 warnings, 0 errors
 
+122. [✓] Bind stone kinah fee — load bind_points.xml + deduct price on bind (session 2026-05-01)
+    - [✓] `BindPointData.cs` (NEW) — streaming XmlReader loads `bind_points/bind_points.xml`; stores `Dictionary<int, long>` (npcId → price); `GetPrice(npcId)` returns 0 when NPC not listed
+    - [✓] `IDataManager` / `DataManager` — added `BindPointData BindPoints { get; }` property; loads after Portals
+    - [✓] `CM_SHOW_DIALOG` — added `IItemDao` dependency; BINDSTONE branch now looks up `BindPoints.GetPrice(npc.Template.NpcId)`; if price > 0: checks kinah balance (sends NoEnoughKinah and returns on insufficient funds); deducts kinah, `SaveAllAsync`, sends `SM_INVENTORY_ADD_ITEM([kinah])`; bind point always set free when price == 0 (unlisted or starter zone stones); mirrors Java BindPointService.setBindPoint with kinah deduction
+    - [✓] `GsPacketHandlerFactory` — updated 0x116 (CM_SHOW_DIALOG) to pass `_itemDao`
+    - Build: 0 warnings, 0 errors
+
 121. [✓] NPC shout — ATTACK_BEGIN event on first hit per combat (session 2026-05-01)
     - [✓] `NpcAiService` — added `_attackBegunNpcs: HashSet<int>`; on each NPC's first melee attack in a new combat engagement, calls `GetRandomShout(npcId, ATTACK_BEGIN, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone players; ATTACK_BEGIN fires exactly once per combat (HashSet.Add returns false on subsequent ticks); cleared in dead-NPC block, on leash-break target-loss, on player-kill, and in no-players-online early-exit; mirrors Java ShoutEventHandler.onAttack(BEGIN)
     - Build: 0 warnings, 0 errors

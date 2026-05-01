@@ -23,4 +23,5 @@ public interface IDataManager
     TribeData                      Tribes      { get; }
     NpcShoutData                   NpcShouts   { get; }
     PortalData                     Portals     { get; }
+    BindPointData                  BindPoints  { get; }
 }

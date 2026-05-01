@@ -25,6 +25,7 @@ public sealed class DataManager : IDataManager
     public TribeData                      Tribes      { get; } = new();
     public NpcShoutData                   NpcShouts   { get; } = new();
     public PortalData                     Portals     { get; } = new();
+    public BindPointData                  BindPoints  { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -52,6 +53,7 @@ public sealed class DataManager : IDataManager
         Tribes.Load(dataRoot, log);
         NpcShouts.Load(dataRoot, log);
         Portals.Load(dataRoot, log);
+        BindPoints.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }
