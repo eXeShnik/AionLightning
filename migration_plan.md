@@ -1283,3 +1283,15 @@
     - [✓] `CM_ITEM_REMODEL` (full rewrite, 0x138): validates player level >= 10, kinah >= 1000, slot compatibility (`keepTemplate.Slot == extractTemplate.Slot`); deducts kinah, consumes extractItem (delete if count reaches 0); sets `keepItem.SkinItemId = extractSkinId`; persists via `SaveAllAsync`; broadcasts `SM_UPDATE_PLAYER_APPEARANCE` if keepItem is equipped; Pattern Reshaper (168100000) not yet ported
     - [✓] `GsPacketHandlerFactory` — wired 0x138 → `CM_ITEM_REMODEL(conn, _itemDao, _dataManager, _connRegistry)`
     - Build: 0 warnings, 0 errors
+
+102. [✓] Weapon fusion and break (CM_FUSION_WEAPONS, CM_BREAK_WEAPONS) (session 2026-05-01)
+    - [✓] `V28__weapon_fusion.sql` — `ALTER TABLE player_items ADD COLUMN fusioned_item_id INT NOT NULL DEFAULT 0`
+    - [✓] `ItemTemplate` — added `[XmlAttribute("weapon_type")] WeaponTypeName string`; `IsTwoHandWeapon` (based on _2H suffix + BOW); `IsCanFuse` (presence of `<fusionaction>` in `<actions>`); `FusionAction` empty class in `ItemActions`
+    - [✓] `Item` — added `FusionedItemId int = 0` (stores secondary weapon's ItemId; 0 = not fused)
+    - [✓] `ItemDaoImpl` — updated SELECT to include `fusioned_item_id` (index 9); `is_equipped` shifted to index 10; INSERT includes `fusioned_item_id`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `CompoundNotAvailable()` (1400289), `CompoundDifferentType()` (1400364), `CompoundMainRequireHigherLevel()` (1400288), `CompoundNotEnoughMoney()` (1400337), `CompoundSuccess()` (1400336), `DecompoundSuccess()` (1400335), `DecompoundNotAvailable()` (1400373)
+    - [✓] `CM_FUSION_WEAPONS` (0x16C): validates both items are 2H weapons (`IsTwoHandWeapon`), neither already fused, same `WeaponTypeName`, first level >= second, kinah >= `level² × 2`; sets `first.FusionedItemId = second.ItemId`; consumes second; deduct kinah; persist; sends SM_INVENTORY_ADD_ITEM + CompoundSuccess
+    - [✓] `CM_BREAK_WEAPONS` (0x16D): validates FusionedItemId != 0; clears it; persists; sends SM_INVENTORY_ADD_ITEM + DecompoundSuccess
+    - [✓] `GsPacketHandlerFactory` — wired 0x16C → `CM_FUSION_WEAPONS(conn, _itemDao, _dataManager)`; 0x16D → `CM_BREAK_WEAPONS(conn, _itemDao)`
+    - Note: fusion-stone transfer (copyFusionStones) and improvement compatibility check not ported (requires fusion socket system)
+    - Build: 0 warnings, 0 errors

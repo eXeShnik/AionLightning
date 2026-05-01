@@ -14,7 +14,8 @@ public sealed class ItemTemplate
     [XmlAttribute("quality")]         public string Quality       { get; set; } = string.Empty;
     [XmlAttribute("price")]           public long   Price         { get; set; }
     [XmlAttribute("equipment_type")]  public string EquipmentType { get; set; } = string.Empty;
-    [XmlAttribute("mask")]             public int    Mask             { get; set; }
+    [XmlAttribute("weapon_type")]        public string WeaponTypeName    { get; set; } = string.Empty;
+    [XmlAttribute("mask")]              public int    Mask             { get; set; }
     [XmlAttribute("option_slot_bonus")] public int   OptionSlotBonus  { get; set; }
 
     [XmlElement("actions")]           public ItemActions?   Actions     { get; set; }
@@ -27,6 +28,14 @@ public sealed class ItemTemplate
     public int? CraftLearnRecipeId => Actions?.CraftLearn?.RecipeId;
     public bool IsWeapon           => EquipmentType == "WEAPON";
     public bool IsArmor            => EquipmentType == "ARMOR";
+
+    // mirrors Java isCanFuse — presence of <fusionaction> in <actions>
+    public bool IsCanFuse => Actions?.FusionAction != null;
+
+    // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
+    private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
+        "ORB_2H", "HARP_2H", "BOOK_2H", "BOW", "CANNON_2H", "KEYBLADE_2H"];
+    public bool IsTwoHandWeapon => TwoHandTypes.Contains(WeaponTypeName);
     public int PhysicalDefense     => Modifiers?.GetStat("PHYSICAL_DEFENSE") ?? 0;
     public int MagicDefense        => Modifiers?.GetStat("MAGICAL_DEFEND")   ?? 0;
     public int MaxHpBonus          => Modifiers?.GetStat("MAXHP")            ?? 0;
@@ -64,7 +73,10 @@ public sealed class ItemActions
     [XmlElement("skilluse")]    public SkillUseAction?    SkillUse    { get; set; }
     [XmlElement("skilllearn")]  public SkillLearnAction?  SkillLearn  { get; set; }
     [XmlElement("craftlearn")]  public CraftLearnAction?  CraftLearn  { get; set; }
+    [XmlElement("fusionaction")] public FusionAction?     FusionAction { get; set; }
 }
+
+public sealed class FusionAction { } // presence signals weapon can be fused (Java: isCanFuse)
 
 public sealed class SkillUseAction
 {

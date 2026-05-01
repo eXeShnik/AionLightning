@@ -19,7 +19,7 @@ public sealed class ItemDaoImpl : IItemDao
     {
         await using var conn   = await _db.OpenConnectionAsync(ct);
         await using var cmd    = conn.CreateCommand();
-        cmd.CommandText = @"SELECT unique_id, item_id, count, slot, storage_type, enchant_level, godstone_item_id, optional_socket, skin_item_id, is_equipped
+        cmd.CommandText = @"SELECT unique_id, item_id, count, slot, storage_type, enchant_level, godstone_item_id, optional_socket, skin_item_id, fusioned_item_id, is_equipped
                             FROM player_items
                             WHERE player_id = @PlayerId AND storage_type = @StorageType";
         cmd.Parameters.AddWithValue("@PlayerId",    playerId);
@@ -40,7 +40,8 @@ public sealed class ItemDaoImpl : IItemDao
                 GodStoneItemId = reader.GetInt32(6),
                 OptionalSocket = reader.GetInt32(7),
                 SkinItemId     = reader.GetInt32(8),
-                IsEquipped     = reader.GetBoolean(9),
+                FusionedItemId = reader.GetInt32(9),
+                IsEquipped     = reader.GetBoolean(10),
             });
         }
         return list;
@@ -71,8 +72,8 @@ public sealed class ItemDaoImpl : IItemDao
             await using var ins = conn.CreateCommand();
             ins.Transaction = tx;
             ins.CommandText = @"INSERT INTO player_items
-                                    (unique_id, player_id, item_id, count, slot, storage_type, enchant_level, godstone_item_id, optional_socket, skin_item_id, is_equipped)
-                                VALUES (@UniqueId, @PlayerId, @ItemId, @Count, @Slot, @StorageType, @EnchantLevel, @GodStoneItemId, @OptionalSocket, @SkinItemId, @IsEquipped)";
+                                    (unique_id, player_id, item_id, count, slot, storage_type, enchant_level, godstone_item_id, optional_socket, skin_item_id, fusioned_item_id, is_equipped)
+                                VALUES (@UniqueId, @PlayerId, @ItemId, @Count, @Slot, @StorageType, @EnchantLevel, @GodStoneItemId, @OptionalSocket, @SkinItemId, @FusionedItemId, @IsEquipped)";
             ins.Parameters.AddWithValue("@UniqueId",        item.UniqueId);
             ins.Parameters.AddWithValue("@PlayerId",        playerId);
             ins.Parameters.AddWithValue("@ItemId",          item.ItemId);
@@ -83,6 +84,7 @@ public sealed class ItemDaoImpl : IItemDao
             ins.Parameters.AddWithValue("@GodStoneItemId",  item.GodStoneItemId);
             ins.Parameters.AddWithValue("@OptionalSocket",  item.OptionalSocket);
             ins.Parameters.AddWithValue("@SkinItemId",      item.SkinItemId);
+            ins.Parameters.AddWithValue("@FusionedItemId",  item.FusionedItemId);
             ins.Parameters.AddWithValue("@IsEquipped",      item.IsEquipped ? 1 : 0);
             await ins.ExecuteNonQueryAsync(ct);
         }

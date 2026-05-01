@@ -106,6 +106,22 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_GIVE_ITEM_PROC_NOT_ENOUGH_MONEY — "Not enough Kinah to apply Godstone." (msg code 1300505)
     public static SM_SYSTEM_MESSAGE GodstoneNoKinah() => new(1300505);
 
+    // Weapon fusion messages (STR_COMPOUND_* / STR_DECOMPOUND_*)
+    // 1400288: STR_COMPOUND_ERROR_MAIN_REQUIRE_HIGHER_LEVEL
+    public static SM_SYSTEM_MESSAGE CompoundMainRequireHigherLevel() => new(1400288);
+    // 1400289: STR_COMPOUND_ERROR_NOT_AVAILABLE — "%0 cannot be combined."
+    public static SM_SYSTEM_MESSAGE CompoundNotAvailable() => new(1400289);
+    // 1400335: STR_COMPOUNDED_ITEM_DECOMPOUND_SUCCESS — "The ability combined with %0 has been removed."
+    public static SM_SYSTEM_MESSAGE DecompoundSuccess() => new(1400335);
+    // 1400336: STR_COMPOUND_SUCCESS — "%1 has been combined with %0."
+    public static SM_SYSTEM_MESSAGE CompoundSuccess() => new(1400336);
+    // 1400337: STR_COMPOUND_ERROR_NOT_ENOUGH_MONEY — "Not enough Kinah to combine."
+    public static SM_SYSTEM_MESSAGE CompoundNotEnoughMoney() => new(1400337);
+    // 1400364: STR_COMPOUND_ERROR_DIFFERENT_TYPE — "Weapon types do not match."
+    public static SM_SYSTEM_MESSAGE CompoundDifferentType() => new(1400364);
+    // 1400373: STR_DECOMPOUND_ERROR_NOT_AVAILABLE — "%0 is not a combined item."
+    public static SM_SYSTEM_MESSAGE DecompoundNotAvailable() => new(1400373);
+
     // Item remodel messages (STR_CHANGE_ITEM_SKIN_*)
     // 1300476: STR_CHANGE_ITEM_SKIN_PC_LEVEL_LIMIT — "You must be level 10 or higher."
     public static SM_SYSTEM_MESSAGE RemodelLevelLimit() => new(1300476);
