@@ -7,4 +7,5 @@ public interface IManastoneDao
     Task<IReadOnlyList<Manastone>> LoadByItemIdsAsync(IEnumerable<long> itemUniqueIds, CancellationToken ct);
     Task InsertAsync(Manastone stone, CancellationToken ct);
     Task DeleteByItemAsync(long itemUniqueId, CancellationToken ct);
+    Task DeleteByItemAndSlotAsync(long itemUniqueId, int slot, CancellationToken ct);
 }

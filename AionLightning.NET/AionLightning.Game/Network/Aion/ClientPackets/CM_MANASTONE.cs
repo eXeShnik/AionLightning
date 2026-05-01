@@ -16,6 +16,8 @@ public sealed class CM_MANASTONE : AionClientPacket
     private const byte  MaxEnchantLevel   = 15;
     private const float BaseEnchantChance = 60f; // Java EnchantsConfig.ENCHANT_STONE default
     private const int   MaxManastoneSlots = 6;   // simplified cap; real cap comes from item template
+    private const int   KinahItemId       = 182400001;
+    private const long  RemovalCost       = 20_000L; // Java PricesService.getPriceForService(500)
 
     private readonly GsClientConnection _conn;
     private readonly IItemDao           _itemDao;
@@ -25,6 +27,7 @@ public sealed class CM_MANASTONE : AionClientPacket
     private byte _targetFusedSlot;
     private int  _targetUniqueId;
     private int  _stoneUniqueId;
+    private byte _slotNum;
 
     public CM_MANASTONE(GsClientConnection conn, IItemDao itemDao, IManastoneDao manastoneDao)
     {
@@ -46,10 +49,10 @@ public sealed class CM_MANASTONE : AionClientPacket
                 r.ReadD(); // supplementUniqueId (blessing stone) — ignored
                 break;
             case 3:
-                r.ReadC(); // slotNum
+                _slotNum = (byte)r.ReadC();
                 r.ReadC(); // pad
                 r.ReadH(); // pad
-                r.ReadD(); // npcObjId
+                r.ReadD(); // npcObjId (proximity check deferred — NPC lookup requires World access)
                 break;
         }
     }
@@ -135,7 +138,42 @@ public sealed class CM_MANASTONE : AionClientPacket
                 break;
             }
 
-            // case 3: remove manastone — stub (requires NPC proximity + kinah; not yet implemented)
+            case 3: // remove manastone — deduct kinah, delete from item_stones, refresh client
+            {
+                if (_targetFusedSlot != 1) return; // fusionstone removal not implemented
+
+                var target = player.Inventory.Get(_targetUniqueId)
+                          ?? player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.UniqueId == _targetUniqueId);
+                if (target is null) return;
+
+                var stone = target.ManaStones.FirstOrDefault(m => m.Slot == _slotNum);
+                if (stone is null) return;
+
+                var kinahItem = player.Inventory.FindByItemId(KinahItemId, includeEquipped: true);
+                if (kinahItem is null || kinahItem.Count < RemovalCost)
+                {
+                    await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
+                    return;
+                }
+
+                kinahItem.Count -= RemovalCost;
+                if (kinahItem.Count == 0)
+                {
+                    player.Inventory.Remove(kinahItem.UniqueId);
+                    await _itemDao.DeleteAsync(kinahItem.UniqueId, ct);
+                    await _conn.SendAsync(new SM_DELETE_ITEM((int)kinahItem.UniqueId), ct);
+                }
+                else
+                {
+                    await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
+                }
+
+                target.ManaStones.Remove(stone);
+                await _manastoneDao.DeleteByItemAndSlotAsync(target.UniqueId, _slotNum, ct);
+                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([target]), ct);
+                break;
+            }
         }
     }
 }

@@ -1389,6 +1389,12 @@
     - [✓] `CM_LEGION` — added 4 private short fields (`_deputyPermission`, `_centurionPermission`, `_legionaryPermission`, `_volunteerPermission`); Read() case 0x0D now stores all 4 shorts instead of discarding them; added RunAsync `case 0x0D: await HandlePermissionsAsync`; `HandlePermissionsAsync`: validates BG rank, updates Legion in-memory, persists via `UpdatePermissionsAsync`, broadcasts `SM_LEGION_EDIT.Permissions(legion)` to all online members
     - Build: 0 warnings, 0 errors
 
+112. [✓] Manastone removal (CM_MANASTONE actionType=3) (session 2026-05-01)
+    - [✓] `IManastoneDao` — added `DeleteByItemAndSlotAsync(long itemUniqueId, int slot, ct)`
+    - [✓] `ManastoneDaoImpl` — implemented: `DELETE FROM item_stones WHERE item_unique_id = @ItemUniqueId AND slot = @Slot`
+    - [✓] `CM_MANASTONE` — added `KinahItemId = 182400001`, `RemovalCost = 20_000L` (Java PricesService.getPriceForService(500) default), `_slotNum` field; Read() case 3 now stores slotNum; RunAsync case 3 implemented: validates targetFusedSlot==1 (fusionstone removal stub), finds stone by slot, checks kinah, deducts kinah, removes from ManaStones list, DeleteByItemAndSlotAsync, refreshes client; NPC proximity check deferred
+    - Build: 0 warnings, 0 errors
+
 111. [✓] Manastone socketing — storage + consume (CM_MANASTONE) (session 2026-05-01)
     - [✓] `Manastone.cs` — NEW model: `long ItemUniqueId`, `int ItemId`, `int Slot`
     - [✓] `Item` — added `List<Manastone> ManaStones { get; set; } = []`

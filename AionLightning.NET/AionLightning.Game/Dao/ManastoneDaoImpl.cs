@@ -38,4 +38,12 @@ public sealed class ManastoneDaoImpl : IManastoneDao
             "DELETE FROM item_stones WHERE item_unique_id = @ItemUniqueId",
             new { ItemUniqueId = itemUniqueId });
     }
+
+    public async Task DeleteByItemAndSlotAsync(long itemUniqueId, int slot, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "DELETE FROM item_stones WHERE item_unique_id = @ItemUniqueId AND slot = @Slot",
+            new { ItemUniqueId = itemUniqueId, Slot = slot });
+    }
 }
