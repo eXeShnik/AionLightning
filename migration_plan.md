@@ -1482,6 +1482,10 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+125. [✓] NPC shout — ATTACK_END event on target-loss or player-kill (session 2026-05-01)
+    - [✓] `NpcAiService` — added `BroadcastAttackEndShoutAsync(npc, ct)` private helper; calls `GetRandomShout(npcId, ATTACK_END, worldId)` and broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone; called from two points: leash-break target-loss (NPC exceeds leash range) and player-killed-by-NPC cleanup; mirrors Java ShoutEventHandler.onAttackEnd() which fires in AttackEventHandler.onFinishAttack()
+    - Build: 0 warnings, 0 errors
+
 124. [✓] Global drop rules — WorldMapData + GlobalDropData + LootService integration (session 2026-05-01)
     - [✓] `WorldMapData.cs` (NEW) — streaming XmlReader loads `world_maps.xml`; indexes `drop_type` attribute per map id (e.g. ELYSEA, ABYSS_INSTANCE, BALAUREA); `GetDropType(worldId)` returns empty string when no `drop_type` attribute (e.g. maps with `world_type` only); used by GlobalDropData to match `gd_world` filters
     - [✓] `GlobalDropData.cs` (NEW) — streaming XmlReader loads `global_drops/global_rules.xml`; parses 66 rules (gd_worlds, gd_races, gd_ratings, gd_maps, gd_items, base_chance, min/max_count, min/max_diff, restriction_race); `GetGlobalDrops(...)` applies all filters per rule: world-type match, specific-map match, NPC-race match, NPC-rating match, level-diff range, player-race restriction; rolls `base_chance` (0–100); picks one item randomly from `gd_items` list; yields `(itemId, count)` pairs

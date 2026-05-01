@@ -143,6 +143,7 @@ public sealed class NpcAiService : BackgroundService
                         _npcTargets.Remove(npc.ObjectId);
                         _attackBegunNpcs.Remove(npc.ObjectId);
                         npc.Target = null;
+                        await BroadcastAttackEndShoutAsync(npc, ct);
                     }
                 }
 
@@ -291,6 +292,7 @@ public sealed class NpcAiService : BackgroundService
             _lastSkillTime.Remove(npc.ObjectId);
             _attackBegunNpcs.Remove(npc.ObjectId);
             npc.Target = null;
+            await BroadcastAttackEndShoutAsync(npc, ct);
 
             target.State |= CreatureState.Dead;
             var diePkt = new SM_EMOTION(target, EmotionType.DIE);
@@ -389,6 +391,18 @@ public sealed class NpcAiService : BackgroundService
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(returnPkt, ct); } catch { }
+    }
+
+    private async Task BroadcastAttackEndShoutAsync(Npc npc, CancellationToken ct)
+    {
+        var shout = _dataManager.NpcShouts.GetRandomShout(
+            npc.Template.NpcId, NpcShoutData.ShoutEventType.ATTACK_END, npc.Position.WorldId);
+        if (!shout.HasValue) return;
+        var pkt     = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, shout.Value.StringId);
+        int worldId = npc.Position.WorldId;
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(pkt, ct); } catch { }
     }
 
     private Task WanderAsync(Npc npc, CancellationToken ct)
