@@ -100,6 +100,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             && template?.SkillType is SkillType.MAGICAL or SkillType.PHYSICAL
             && template.SubType is not (SkillSubType.BUFF or SkillSubType.CHANT);
         int castDelay = template?.Duration ?? 0;
+        float castRange = template?.CastRange ?? 0f;
 
         if (isHealSkill && _targetType is 0 or 3 or 4)
         {
@@ -167,6 +168,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 ?? (Creature?)world.GetNpcByObjectId(_targetObjectId);
                 if (target is null || target.IsAlreadyDead) return;
                 if (target.Position.WorldId != castWorldId) return;
+                if (castRange > 0f && player.Position.DistanceTo(target.Position) > castRange) return;
 
                 int rawSpellDmg = player.Level * 8 + Random.Shared.Next(20, 60);
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
@@ -259,7 +261,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // Update quest kill progress
                     await questSvc.HandleNpcKillAsync(player, deadNpc, conn, CancellationToken.None);
 
-                    long xp = deadNpc.Level * 50L;
+                    long xp = deadNpc.Template.Stats?.MaxXp > 0
+                        ? deadNpc.Template.Stats.MaxXp
+                        : deadNpc.Level * 50L;
                     await expSvc.AddGroupExpAsync(player, xp, CancellationToken.None);
 
                     // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately

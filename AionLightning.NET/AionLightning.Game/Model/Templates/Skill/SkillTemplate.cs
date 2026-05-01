@@ -15,4 +15,13 @@ public sealed class SkillTemplate
     [XmlAttribute("activation")]   public string       Activation { get; set; } = "";
     [XmlAttribute("cooldown")]   public int       Cooldown   { get; set; }
     [XmlAttribute("duration")]   public int       Duration   { get; set; }
+
+    [XmlElement("properties")]   public SkillProperties? Properties { get; set; }
+
+    public float CastRange => Properties?.CastRange ?? 0f;
+}
+
+public sealed class SkillProperties
+{
+    [XmlAttribute("first_target_range")] public float CastRange { get; set; }
 }

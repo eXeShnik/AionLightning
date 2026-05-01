@@ -956,6 +956,13 @@
     - Uses `_dataManager.Items.GetTemplate(recipe.ProductId)` to look up `MaxStackCount` for stack detection
     - Build: 0 warnings, 0 errors
 
+61. [✓] NPC XP from template + skill cast range enforcement (session 2026-05-01)
+    - [✓] `NpcStatsTemplate` — added `[XmlAttribute("maxXp")] public long MaxXp { get; set; }` to parse the `maxXp` attribute from NPC stats elements in npc_templates.xml
+    - [✓] `SkillTemplate` — added `SkillProperties` nested class (parses `first_target_range` attribute from `<properties>` child element); added `[XmlElement("properties")] SkillProperties? Properties` and `CastRange` computed property
+    - [✓] `CM_ATTACK` NPC kill path — XP now uses `deadNpc.Template.Stats?.MaxXp` when > 0; falls back to `level * 50` when template data is absent
+    - [✓] `CM_CASTSPELL` Task.Run — same XP fix applied to NPC kill path; `castRange` captured before Task.Run from template; range guard added after target resolution (`if (castRange > 0 && distance > castRange) return`)
+    - Build: 0 warnings, 0 errors
+
 57. [✓] Equipment-based damage and attack speed (session 2026-05-01)
     - [✓] `ItemTemplate` — added `WeaponStats` class (min_damage/max_damage/attack_speed XmlAttributes); added `ItemModifiers`/`ItemModifier` for generic `<modifiers><add name="..." value="N"/>` parsing; `PhysicalDefense` computed property wraps `GetStat("PHYSICAL_DEFENSE")`
     - [✓] `Creature` — `CurrentAttackSpeed` changed from expression-body constant to `{ get; set; } = 1500`; `BaseAttackSpeed` removed (was always 1500); `SM_EMOTION` updated to use `CurrentAttackSpeed`
