@@ -5,6 +5,7 @@ using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion.ClientPackets;
 using AionLightning.Game.Network.Cs;
+using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Services;
 using AionLightning.Game.Model.Mail;
 using GameWorld = AionLightning.Game.World.World;
@@ -49,6 +50,8 @@ public sealed class GsPacketHandlerFactory
     private readonly ISkillDao           _skillDao;
     private readonly BrokerService       _brokerService;
     private readonly FindGroupService    _findGroupService;
+    private readonly ReconnectRegistry   _reconnectRegistry;
+    private readonly LsConnectionHolder  _lsHolder;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -84,7 +87,9 @@ public sealed class GsPacketHandlerFactory
         IMotionDao motionDao,
         ISkillDao skillDao,
         BrokerService brokerService,
-        FindGroupService findGroupService)
+        FindGroupService findGroupService,
+        ReconnectRegistry reconnectRegistry,
+        LsConnectionHolder lsHolder)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -118,8 +123,10 @@ public sealed class GsPacketHandlerFactory
         _recipeDao       = recipeDao;
         _motionDao       = motionDao;
         _skillDao        = skillDao;
-        _brokerService    = brokerService;
-        _findGroupService = findGroupService;
+        _brokerService     = brokerService;
+        _findGroupService  = findGroupService;
+        _reconnectRegistry = reconnectRegistry;
+        _lsHolder          = lsHolder;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -147,7 +154,7 @@ public sealed class GsPacketHandlerFactory
                 0x17A => new CM_DELETE_CHARACTER(conn, _playerDao),
                 0x17B => new CM_RESTORE_CHARACTER(conn, _playerDao),
                 0x190 => new CM_CHARACTER_PASSKEY(),
-                0x195 => new CM_RECONNECT_AUTH(),
+                0x195 => new CM_RECONNECT_AUTH(conn, _lsHolder, _reconnectRegistry),
                 0x198 => new CM_MAY_LOGIN_INTO_GAME(conn),
                 0x19F => new CM_MAC_ADDRESS(),
                 _     => Unknown(state, opcode),
@@ -290,7 +297,7 @@ public sealed class GsPacketHandlerFactory
                 0x197 => new CM_SHOW_BRAND(conn, _connRegistry),
                 0x19A => new CM_GROUP_LOOT(conn, _connRegistry),
                 0x19B => new CM_DISTRIBUTION_SETTINGS(conn, _connRegistry, _groupService),
-                0x19D => new CM_REPORT_PLAYER(),
+                0x19D => new CM_REPORT_PLAYER(conn, _loggerFactory.CreateLogger<CM_REPORT_PLAYER>()),
                 0x19E => new CM_ABYSS_RANKING_PLAYERS(conn, _playerDao),
                 0x19F => new CM_MAC_ADDRESS(),
                 0x1A0 => new CM_HOUSE_OPEN_DOOR(),

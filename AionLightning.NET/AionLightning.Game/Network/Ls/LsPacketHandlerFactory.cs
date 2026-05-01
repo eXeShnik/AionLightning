@@ -7,11 +7,14 @@ public sealed class LsPacketHandlerFactory
 {
     private readonly ILogger<LsPacketHandlerFactory> _log;
     private readonly GameAccountRegistry _registry;
+    private readonly ReconnectRegistry   _reconnectRegistry;
 
-    public LsPacketHandlerFactory(ILogger<LsPacketHandlerFactory> log, GameAccountRegistry registry)
+    public LsPacketHandlerFactory(ILogger<LsPacketHandlerFactory> log,
+        GameAccountRegistry registry, ReconnectRegistry reconnectRegistry)
     {
-        _log = log;
-        _registry = registry;
+        _log               = log;
+        _registry          = registry;
+        _reconnectRegistry = reconnectRegistry;
     }
 
     public LsClientPacket? Resolve(byte opcode, LsConnection.LsState state, LsConnection conn)
@@ -28,6 +31,7 @@ public sealed class LsPacketHandlerFactory
                 return opcode switch
                 {
                     0x01 => new CM_ACCOUNT_AUTH_RESPONSE(conn, _registry),
+                    0x03 => new CM_ACCOUNT_RECONNECT_KEY(_reconnectRegistry),
                     0x09 => new CM_MACBAN_LIST(),
                     0x0B => new CM_LS_PING(conn),
                     _ => Unknown(state, opcode),
