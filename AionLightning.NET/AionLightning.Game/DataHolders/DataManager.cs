@@ -24,6 +24,7 @@ public sealed class DataManager : IDataManager
     public WalkerData                     Walkers     { get; } = new();
     public TribeData                      Tribes      { get; } = new();
     public NpcShoutData                   NpcShouts   { get; } = new();
+    public PortalData                     Portals     { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -50,6 +51,7 @@ public sealed class DataManager : IDataManager
         Walkers.Load(dataRoot, log);
         Tribes.Load(dataRoot, log);
         NpcShouts.Load(dataRoot, log);
+        Portals.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

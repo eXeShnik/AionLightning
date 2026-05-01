@@ -1463,6 +1463,14 @@
     - [✓] `NpcAiService` — added `_lastIdleShoutTime: Dictionary<int, DateTime>` (30-second per-NPC cooldown); in `WanderRandomAsync` after broadcasting SM_MOVE start, checks IDLE shout cooldown and calls `GetRandomShout(npcId, IDLE, worldId)`; if entry found, broadcasts `SM_SYSTEM_MESSAGE.NpcShout` to zone players and stamps cooldown; NPC ambient shouts now fire periodically during wander; cleaned up `_lastIdleShoutTime` in dead-NPC block
     - Build: 0 warnings, 0 errors
 
+120. [✓] Portal NPC system — load portal_loc.xml + portal_template2.xml; instant teleport on click (session 2026-05-01)
+    - [✓] `PortalData.cs` (NEW) — streaming XmlReader loads `portals/portal_loc.xml` into `Dictionary<int, PortalLocation>` (loc_id → {WorldId, X, Y, Z, Heading}); loads `portals/portal_template2.xml` into `Dictionary<int, List<PortalPath>>` (npcId → paths with optional race filter); `GetPortalLocation(npcId, playerRace)` selects race-specific path first, falls back to unrestricted (empty race); `IsPortal(npcId)` lookup
+    - [✓] `IDataManager` / `DataManager` — added `PortalData Portals { get; }` property; loads after NpcShouts in startup sequence
+    - [✓] `CM_SHOW_DIALOG` — added `PlayerConnectionRegistry` dependency; added portal detection before BINDSTONE branch: if `Portals.GetPortalLocation(npc.Template.NpcId, player.Race)` returns a location, broadcasts `SM_DELETE(time=11)` to old-zone peers, updates `player.Position`, sends `SM_TELEPORT_LOC(pos, portAnimation=0)`, fire-and-forgets `SchedulePostTeleportAsync`; mirrors `CM_TELEPORT_SELECT` flow exactly (same 2200ms delay, same cross-map vs same-map branches)
+    - [✓] `GsPacketHandlerFactory` — updated 0x116 (CM_SHOW_DIALOG) to pass `_connRegistry`
+    - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
+    - Build: 0 warnings, 0 errors
+
 118. [✓] NPC shouts — load npc_shouts.xml + SEE event broadcast (session 2026-05-02)
     - [✓] `NpcShoutData.cs` (NEW) — streaming XmlReader loads `npc_shouts/npc_shouts.xml`; indexes by `(npcId → ShoutEventType → List<ShoutEntry>)`; `GetRandomShout(npcId, evt, worldId)` filters by `restrict_world` (0=any world, nonzero=specific map) and returns a random eligible entry; `ShoutEventType` enum covers SEE/IDLE/ATTACK/ATTACK_BEGIN/ATTACK_END/DIED/CAST_K/ATTACK_K/PLAYER_MAGIC/PLAYER_SNARE/PLAYER_DEBUFF/PLAYER_SLAVE/PLAYER_BLOW/SWITCH_TARGET/GOD_HELP/WAKEUP/OTHER
     - [✓] `IDataManager` / `DataManager` — added `NpcShoutData NpcShouts { get; }` property; loads after Tribes

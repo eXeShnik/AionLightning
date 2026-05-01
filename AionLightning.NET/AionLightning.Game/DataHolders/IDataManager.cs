@@ -22,4 +22,5 @@ public interface IDataManager
     WalkerData                     Walkers     { get; }
     TribeData                      Tribes      { get; }
     NpcShoutData                   NpcShouts   { get; }
+    PortalData                     Portals     { get; }
 }
