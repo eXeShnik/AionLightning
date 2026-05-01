@@ -54,6 +54,7 @@ public sealed class GsPacketHandlerFactory
     private readonly LsConnectionHolder  _lsHolder;
     private readonly PlayerResponseRegistry _responseRegistry;
     private readonly IManastoneDao          _manastoneDao;
+    private readonly IPlayerTitleDao        _playerTitleDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -93,7 +94,8 @@ public sealed class GsPacketHandlerFactory
         ReconnectRegistry reconnectRegistry,
         LsConnectionHolder lsHolder,
         PlayerResponseRegistry responseRegistry,
-        IManastoneDao manastoneDao)
+        IManastoneDao manastoneDao,
+        IPlayerTitleDao playerTitleDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -133,6 +135,7 @@ public sealed class GsPacketHandlerFactory
         _lsHolder          = lsHolder;
         _responseRegistry  = responseRegistry;
         _manastoneDao      = manastoneDao;
+        _playerTitleDao    = playerTitleDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -150,7 +153,7 @@ public sealed class GsPacketHandlerFactory
             {
                 0xA5  => new CM_CHARACTER_EDIT(),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao, _motionDao, _skillDao, _manastoneDao),
+                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao, _motionDao, _skillDao, _manastoneDao, _playerTitleDao),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
@@ -178,7 +181,7 @@ public sealed class GsPacketHandlerFactory
                 0xC1  => new CM_QUIT(conn),
                 0xC4  => new CM_EQUIP_ITEM(conn, _itemDao, _dataManager, _connRegistry),
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
-                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillDao),
+                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillDao, _playerTitleDao),
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillDao, _spawnService),
                 0xC9  => new CM_EMOTION(conn, _connRegistry),
                 0xCA  => new CM_PLAYER_LISTENER(),

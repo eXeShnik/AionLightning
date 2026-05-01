@@ -1412,3 +1412,16 @@
     - [✓] `Program.cs` — `AddSingleton<IManastoneDao, ManastoneDaoImpl>()`
     - Visual (MANA_SOCKETS blob in SM_INVENTORY_INFO): deferred — 4.6.0 exact itemMask bit unclear; storage layer is fully functional
     - Build: 0 warnings, 0 errors
+
+114. [✓] Title ownership system — earn + persist + send on login (CM_USE_ITEM / CM_ENTER_WORLD) (session 2026-05-01)
+    - [✓] `V34__player_titles.sql` — NEW table: `player_titles(player_id INT, title_id INT, PRIMARY KEY(player_id, title_id))`
+    - [✓] `ItemTemplate` — added `TitleAddAction` sealed class with `TitleId` + `Minutes` attributes; added `[XmlElement("titleadd")]` to `ItemActions`; added `TitleAddId` convenience property (null if no action or titleId=0)
+    - [✓] `Player` — added `HashSet<int> OwnedTitles` (in-memory ownership set, loaded on login)
+    - [✓] `IPlayerTitleDao` / `PlayerTitleDaoImpl` (NEW files) — `LoadByPlayerIdAsync` (SELECT title_id FROM player_titles), `AddTitleAsync` (INSERT IGNORE); backed by Dapper + MySqlConnector
+    - [✓] `SM_TITLE_INFO` — added `TitleList(IEnumerable<int>)` factory (action=0, writes count + shorts); added `AddTitle(int)` factory (action=4, write single short); `EmptyList()` removed (replaced by TitleList)
+    - [✓] `CM_ENTER_WORLD` — added `IPlayerTitleDao _titleDao`; after skill load, loads owned title IDs and populates `player.OwnedTitles`; replaced `SM_TITLE_INFO.EmptyList()` with `SM_TITLE_INFO.TitleList(player.OwnedTitles)`
+    - [✓] `CM_USE_ITEM` — added `IPlayerTitleDao _titleDao`; added `HandleTitleAddAsync`: checks not already owned, adds to OwnedTitles, persists via AddTitleAsync, sends SM_TITLE_INFO.AddTitle, plays item animation, deletes item
+    - [✓] `GsPacketHandlerFactory` — added `IPlayerTitleDao _playerTitleDao` field + constructor param; passes to CM_ENTER_WORLD (0xAA) and CM_USE_ITEM (0xC7)
+    - [✓] `Program.cs` — `AddSingleton<IPlayerTitleDao, PlayerTitleDaoImpl>()`
+    - Timed titles (minutes > 0) stored as permanent — expiry system deferred
+    - Build: 0 warnings, 0 errors

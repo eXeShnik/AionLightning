@@ -38,13 +38,15 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly IRecipeDao               _recipeDao;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ISkillDao                _skillDao;
+    private readonly IPlayerTitleDao          _titleDao;
 
     private int _uniqueItemId;
     private int _type;
     private int _targetItemId;
 
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, ISkillDao skillDao)
+        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, ISkillDao skillDao,
+        IPlayerTitleDao titleDao)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -52,6 +54,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
         _recipeDao    = recipeDao;
         _connRegistry = connRegistry;
         _skillDao     = skillDao;
+        _titleDao     = titleDao;
     }
 
     public override void Read(ref PacketReader r)
@@ -100,6 +103,13 @@ public sealed class CM_USE_ITEM : AionClientPacket
         if (template.CraftLearnRecipeId is int recipeId)
         {
             await HandleRecipeBookAsync(player, item, recipeId, ct);
+            return;
+        }
+
+        // Title item — grants ownership of a title
+        if (template.TitleAddId is int titleId)
+        {
+            await HandleTitleAddAsync(player, item, titleId, ct);
             return;
         }
 
@@ -209,6 +219,26 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 try { await peer.SendAsync(anim, ct); } catch { }
 
         // Recipe books are non-stackable — always delete on use
+        player.Inventory.Remove(item.UniqueId);
+        await _itemDao.DeleteAsync(item.UniqueId, ct);
+        await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+    }
+
+    private async ValueTask HandleTitleAddAsync(Player player, Item item, int titleId, CancellationToken ct)
+    {
+        if (player.OwnedTitles.Contains(titleId)) return;
+
+        player.OwnedTitles.Add(titleId);
+        await _titleDao.AddTitleAsync(player.ObjectId, titleId, ct);
+        await _conn.SendAsync(SM_TITLE_INFO.AddTitle(titleId), ct);
+
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int worldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == worldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
+
         player.Inventory.Remove(item.UniqueId);
         await _itemDao.DeleteAsync(item.UniqueId, ct);
         await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);

@@ -26,7 +26,8 @@ public sealed class Player : Creature
     public PlayerInventory  Warehouse       { get; } = new();
     public PlayerInventory  AccountWarehouse { get; } = new();
     public PlayerQuestList  Quests       { get; } = new();
-    public HashSet<int>     KnownRecipes { get; } = new();
+    public HashSet<int>     KnownRecipes  { get; } = new();
+    public HashSet<int>     OwnedTitles   { get; } = new();
     public DateTime CreationDate { get; init; }
     public DateTime? LastOnline { get; set; }
     public DateTime? DeletionDate { get; set; }

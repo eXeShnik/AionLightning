@@ -29,6 +29,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
     private readonly IMotionDao               _motionDao;
     private readonly ISkillDao                _skillDao;
     private readonly IManastoneDao            _manastoneDao;
+    private readonly IPlayerTitleDao          _titleDao;
 
     private int _objectId;
 
@@ -38,7 +39,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         IDataManager dataManager, IMailDao mailDao, IMacroDao macroDao,
         ISocialDao socialDao, ILegionDao legionDao, LegionService legionService,
         IPlayerSettingsDao settingsDao, IRecipeDao recipeDao, IMotionDao motionDao,
-        ISkillDao skillDao, IManastoneDao manastoneDao)
+        ISkillDao skillDao, IManastoneDao manastoneDao, IPlayerTitleDao titleDao)
     {
         _conn           = conn;
         _playerDao      = playerDao;
@@ -58,6 +59,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         _motionDao      = motionDao;
         _skillDao       = skillDao;
         _manastoneDao   = manastoneDao;
+        _titleDao       = titleDao;
     }
 
     public override void Read(ref PacketReader r) => _objectId = r.ReadD();
@@ -108,6 +110,11 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         var persistedSkills = await _skillDao.LoadByPlayerIdAsync(_objectId, ct);
         foreach (var (skillId, skillLevel) in persistedSkills)
             player.Skills.AddSkill(skillId, skillLevel);
+
+        // Load owned titles from DB
+        var dbTitles = await _titleDao.LoadByPlayerIdAsync(_objectId, ct);
+        foreach (var tid in dbTitles)
+            player.OwnedTitles.Add(tid);
 
         // Load inventory from DB; give starting items for new characters
         var storedItems = await _itemDao.FindByPlayerIdAsync(_objectId, ct);
@@ -297,7 +304,7 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
         await _conn.SendAsync(new SM_BIND_POINT_INFO(bindPos), ct);
 
         // Post-spawn info
-        await _conn.SendAsync(SM_TITLE_INFO.EmptyList(), ct);
+        await _conn.SendAsync(SM_TITLE_INFO.TitleList(player.OwnedTitles), ct);
         await _conn.SendAsync(new SM_EMOTION_LIST(0), ct);
         await _conn.SendAsync(new SM_PRICES(), ct);
         await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);

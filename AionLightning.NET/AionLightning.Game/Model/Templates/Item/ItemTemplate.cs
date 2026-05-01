@@ -43,6 +43,8 @@ public sealed class ItemTemplate
     public bool IsSelectableBox => Actions?.Decompose?.IsSelect ?? false;
     // tuning scroll — presence of <tuning> in <actions> (mirrors Java TuningAction presence check)
     public bool IsTuningScroll  => Actions?.Tuning != null;
+    // title item — presence of <titleadd> in <actions>
+    public int? TitleAddId      => Actions?.TitleAdd?.TitleId is > 0 and int id ? id : null;
 
     // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
@@ -89,6 +91,7 @@ public sealed class ItemActions
     [XmlElement("dye")]          public DyeAction?        Dye          { get; set; }
     [XmlElement("decompose")]    public DecomposeAction?  Decompose    { get; set; }
     [XmlElement("tuning")]       public TuningAction?     Tuning       { get; set; }
+    [XmlElement("titleadd")]    public TitleAddAction?   TitleAdd     { get; set; }
 }
 
 public sealed class DyeAction
@@ -145,4 +148,11 @@ public sealed class TuningAction
 {
     // target="WEAPON" | "ARMOR" | "EQUIPMENT" — which item types this scroll can re-tune
     [XmlAttribute("target")] public string Target { get; set; } = string.Empty;
+}
+
+public sealed class TitleAddAction
+{
+    [XmlAttribute("titleid")] public int TitleId { get; set; }
+    // minutes=0 (absent) means permanent; >0 means timed (timed expiry deferred — stored as permanent)
+    [XmlAttribute("minutes")] public int Minutes { get; set; }
 }
