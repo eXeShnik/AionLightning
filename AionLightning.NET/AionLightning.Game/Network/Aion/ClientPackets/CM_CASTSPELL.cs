@@ -288,6 +288,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                      : target is Npc npcResist   ? NpcMagicResist(npcResist)
                                      : 0;
                         int resistRate = Math.Max(1, targetMR - totalMagicAcc);
+                        int tLvlAoE = target is Player pvpLvl ? pvpLvl.Level : target is Npc npcLvl ? npcLvl.Level : 0;
+                        int lvlDiffAoE = tLvlAoE - player.Level - 2;
+                        if (lvlDiffAoE > 0) resistRate += lvlDiffAoE * 100;
                         if (Random.Shared.Next(1000) < resistRate)
                         {
                             var resistPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
@@ -441,7 +444,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
 
                 // Magic resist check (Java calculateMagicalResistRate):
-                // resistRate = max(1, target.MagicResist - player.MagicAccuracy); out of 1000
+                // resistRate = max(1, target.MagicResist - player.MagicAccuracy) + level-diff bonus; out of 1000
                 if (spellIsMagical)
                 {
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
@@ -449,6 +452,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                          : target is Npc npcResistTarget    ? NpcMagicResist(npcResistTarget)
                                          : 0;
                     int resistRate = Math.Max(1, targetMagicResist - totalMagicAcc);
+                    int tLvlST = target is Player pvpSTLvl ? pvpSTLvl.Level : target is Npc npcSTLvl ? npcSTLvl.Level : 0;
+                    int lvlDiffST = tLvlST - player.Level - 2;
+                    if (lvlDiffST > 0) resistRate += lvlDiffST * 100;
                     if (Random.Shared.Next(1000) < resistRate)
                     {
                         // Spell resisted — send 0-damage status and return
@@ -575,6 +581,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             int totalMagicAccS = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
                             int splashMR = NpcMagicResist(splash);
                             int splashResistRate = Math.Max(1, splashMR - totalMagicAccS);
+                            int splashLvlDiff = splash.Level - player.Level - 2;
+                            if (splashLvlDiff > 0) splashResistRate += splashLvlDiff * 100;
                             if (Random.Shared.Next(1000) < splashResistRate)
                             {
                                 var resistPktS = new SM_ATTACK_STATUS(splash, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);

@@ -2045,6 +2045,14 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+178. [✓] Magic resist level-difference penalty in all spell damage paths (session 2026-05-02)
+    - [✓] `CM_CASTSPELL.cs` ground AoE resist loop — after base `resistRate = max(1, MR - MA)`, add `(targetLevel - casterLevel - 2) * 100` when gap > 2; mirrors Java `StatFunctions.calculateMagicalResistRate` lines 885-886
+    - [✓] `CM_CASTSPELL.cs` single-target resist — same level-difference bonus added
+    - [✓] `CM_CASTSPELL.cs` AoE splash resist — same bonus added; splash targets are NPCs so uses `splash.Level`
+    - Java formula: `if (targetLevel - attackerLevel > 2) resistRate += (diff - 2) * 100` — at +10 levels the resist rate goes up by 800/1000 (80%), effectively near-immune for much lower casters
+    - Previously: level-gap spells hit at full rate regardless of caster vs target level difference
+    - Build: 0 warnings, 0 errors
+
 177. [✓] NPC physical accuracy/evasion and magic resist use Java level formulas (session 2026-05-02)
     - [✓] `CM_ATTACK.cs` — NPC evasion now uses `NpcPhysicalAccuracy(npc)` (= `round(level*(33.6-0.16*level)+5)`) + XML template `Evasion` modifier; replaces incorrect `Template.Stats?.Evasion ?? level*5`
     - [✓] `NpcAiService.cs` — NPC accuracy now uses same level formula + `MainHandAccuracy` template modifier; replaces `Template.Stats?.Accuracy ?? level*5`
