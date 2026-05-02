@@ -2045,6 +2045,12 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+186. [✓] Silence blocks magical skills; CC state blocks all player skill casting (session 2026-05-02)
+    - [✓] `CM_CASTSPELL.cs` — added at start of `RunAsync`: `if (CantAttack != 0) return` blocks all offensive casting while stunned/sleeping/paralyzed; `if (SkillType.MAGICAL && Silence != 0) return` blocks only magical skills when silenced (physical skills remain usable)
+    - Java source: `PlayerRestrictions.canUseSkill` line 78: CANT_ATTACK_STATE blocks casting; line 134: SILENCE blocks MAGICAL type skills; physical skills unaffected by silence
+    - Previously: silenced players could still cast magical spells; stunned players could still cast skills (auto-attack was gated in M185 but skill casting was not)
+    - Build: 0 warnings, 0 errors
+
 185. [✓] CC state flags block player attacks and NPC melee/skills (session 2026-05-02)
     - [✓] `Model/AbnormalCcFlags.cs` — new `[Flags] enum AbnormalCcFlags : long` with Java bit values: Paralyze=4, Sleep=8, Root=16, Silence=256, Fear=512, Stun=4096, Stumble=16384, Stagger=32768, Spin=524288; computed `CantAttack` and `CantMove` composites
     - [✓] `Model/AbnormalState.cs` — added `AbnormalCcFlags CcFlags { get; init; }` (default = None)

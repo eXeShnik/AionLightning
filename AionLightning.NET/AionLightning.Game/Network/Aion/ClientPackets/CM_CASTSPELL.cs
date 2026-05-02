@@ -84,9 +84,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null || player.IsAlreadyDead) return;
 
+        // Java PlayerRestrictions.canUseSkill: CANT_ATTACK_STATE blocks all offensive skills;
+        // SILENCE blocks MAGICAL skills (physical skills still usable while silenced)
+        if ((player.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;
+
         if (!player.Skills.IsPresent(_spellId)) return;
 
         var template = _dataManager.Skills.GetTemplate(_spellId);
+
+        if (template?.SkillType == SkillType.MAGICAL
+            && (player.ActiveCcFlags & AbnormalCcFlags.Silence) != 0) return;
 
         // Server-side cooldown enforcement keyed by CooldownId group (mirrors Java isSkillDisabled)
         if (template is not null && template.Cooldown > 0)
