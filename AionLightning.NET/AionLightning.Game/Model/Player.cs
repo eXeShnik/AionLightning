@@ -88,6 +88,9 @@ public sealed class Player : Creature
     // Base attack speed from the equipped weapon template (unmodified by accessories); 1500 when no weapon
     public int BaseAttackSpeed { get; set; } = 1500;
 
+    // BOOST_CASTING_TIME percentage bonus from equipped weapon (bonus="true" in XML); 0 when no weapon
+    public int WeaponCastTimeBonus { get; set; }
+
     // Sum of ATTACK_SPEED percentage bonuses from all equipped accessories (bonus="true" in XML)
     public int BonusAttackSpeedPct { get; set; }
 

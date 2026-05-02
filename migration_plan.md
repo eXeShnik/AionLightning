@@ -1847,6 +1847,14 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+173. [✓] BOOST_CASTING_TIME weapon modifier — cast speed display in SM_STATS_INFO (session 2026-05-02)
+    - [✓] `ItemTemplate.CastTimeBonusPct` — `GetBonusStat("BOOST_CASTING_TIME")`; values 7–9 typical on staves/books/orbs (bonus="true")
+    - [✓] `Player.WeaponCastTimeBonus` — stores the weapon's cast time bonus (0 when no weapon equipped)
+    - [✓] `PlayerEnterWorldService` and `CM_EQUIP_ITEM` — set `WeaponCastTimeBonus = tpl.CastTimeBonusPct` on weapon equip; reset to 0 on weapon unequip
+    - [✓] `SM_STATS_INFO` — writes `Math.Max(0f, (1000 - WeaponCastTimeBonus) / 1000f)` instead of hardcoded 1.0f; mirrors Java `getReverseStat(BOOST_CASTING_TIME, 1000).getCurrent() / 1000f` via ReverseStat.addToBonus which subtracts the bonus
+    - `DuplicateStatFunction` semantics: only main hand weapon contributes; no summing with accessories (not routed through EquipStatsCalculator)
+    - Build: 0 warnings, 0 errors
+
 172. [✓] CONCENTRATION, BOOST_MAGICAL_SKILL, MAGIC_SKILL_BOOST_RESIST, HEAL_BOOST from equipment (session 2026-05-02)
     - [✓] `ItemTemplate` — added `ConcentrationBonus`, `MagicBoostBonus`, `MagicSuppressionBonus`, `HealBoostBonus` computed properties (all flat `GetStat` variants)
     - [✓] `Player` — added `BonusConcentration`, `BonusMagicBoost`, `BonusMagicSuppression`, `BonusHealBoost`

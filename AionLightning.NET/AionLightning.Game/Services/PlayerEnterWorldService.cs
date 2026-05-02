@@ -175,8 +175,9 @@ public sealed class PlayerEnterWorldService
             if (wpnTpl?.WeaponStats is { } ws)
             {
                 int baseSpd = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
-                player.BaseAttackSpeed    = baseSpd;
-                player.CurrentAttackSpeed = baseSpd;
+                player.BaseAttackSpeed      = baseSpd;
+                player.CurrentAttackSpeed   = baseSpd;
+                player.WeaponCastTimeBonus  = wpnTpl.CastTimeBonusPct;
                 if (wpnTpl.IsMagicalWeapon)
                 {
                     player.MainHandMagicalAtk = (ws.MinDamage + ws.MaxDamage) / 2;

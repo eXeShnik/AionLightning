@@ -68,6 +68,8 @@ public sealed class ItemTemplate
     public int MagicalCriticalResistBonus  => Modifiers?.GetStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
     // ATTACK_SPEED modifier in XML is percentage-based (bonus="true"); value 100 = ~10% faster.
     public int AttackSpeedBonusPct         => Modifiers?.GetBonusStat("ATTACK_SPEED")          ?? 0;
+    // BOOST_CASTING_TIME on weapons only (DuplicateStatFunction — max from main/off hand); bonus="true" value 7-9 typical.
+    public int CastTimeBonusPct            => Modifiers?.GetBonusStat("BOOST_CASTING_TIME")     ?? 0;
     public int ConcentrationBonus          => Modifiers?.GetStat("CONCENTRATION")               ?? 0;
     public int MagicBoostBonus             => Modifiers?.GetStat("BOOST_MAGICAL_SKILL")         ?? 0;
     public int MagicSuppressionBonus       => Modifiers?.GetStat("MAGIC_SKILL_BOOST_RESIST")    ?? 0;

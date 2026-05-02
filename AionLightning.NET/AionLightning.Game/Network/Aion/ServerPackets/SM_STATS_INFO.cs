@@ -81,7 +81,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)((t?.MagicAccuracy ?? 0) + p.BonusMagicalAccuracy));
         w.WriteH((short)(p.BaseMagicCritRating + p.BonusMagicalCritical)); // M-accuracy, M-crit
         w.WriteH(0);                   // unk
-        w.WriteF(1.0f);                // cast speed
+        w.WriteF(Math.Max(0f, (1000 - p.WeaponCastTimeBonus) / 1000f)); // cast speed (ReverseStat: lower = faster)
         w.WriteH(0);                   // unk 3.5
         w.WriteH((short)p.BonusConcentration);           // concentration
         w.WriteH((short)p.BonusMagicBoost); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress

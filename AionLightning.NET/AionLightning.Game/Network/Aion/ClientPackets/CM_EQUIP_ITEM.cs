@@ -85,8 +85,9 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             if (weaponTpl?.WeaponStats is { } ws)
             {
                 int baseSpd = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
-                player.BaseAttackSpeed    = baseSpd;
-                player.CurrentAttackSpeed = baseSpd;
+                player.BaseAttackSpeed      = baseSpd;
+                player.CurrentAttackSpeed   = baseSpd;
+                player.WeaponCastTimeBonus  = weaponTpl.CastTimeBonusPct;
                 if (weaponTpl.IsMagicalWeapon)
                 {
                     player.MainHandMagicalAtk = (ws.MinDamage + ws.MaxDamage) / 2;
@@ -107,8 +108,9 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.MainHandMinDmg     = 0;
             player.MainHandMaxDmg     = 0;
             player.MainHandMagicalAtk = 0;
-            player.BaseAttackSpeed    = 1500;
-            player.CurrentAttackSpeed = 1500;
+            player.BaseAttackSpeed     = 1500;
+            player.CurrentAttackSpeed  = 1500;
+            player.WeaponCastTimeBonus = 0;
         }
 
         var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
