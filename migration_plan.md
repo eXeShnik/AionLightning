@@ -2219,6 +2219,12 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+198. [✓] NPC debuff/buff duration from effect elements — effectiveDuration fallback (session 2026-05-02)
+    - [✓] `NpcAiService.TryCastNpcSkillAsync` — compute `effectiveDuration = Duration > 0 ? Duration : Effects?.EffectDuration ?? 0` before the SubType switch; pass to both BUFF/CHANT and DEBUFF cases; mirrors M194 player-side fix
+    - Java source: NPC skill cast path reads effect duration the same way as player — `EffectController.scheduleEffect` calls `getEffectsDuration()` from the XML effect element, not the template-level `duration` attribute
+    - Previously: NPC slow/snare/statdown debuff skills with `duration="0"` in the template XML (real duration in `<slow duration2=...>` etc.) were silently skipped by `CastNpcDebuffAsync` (guard: `if (durationMs <= 0) return`); same for NPC buffs; about ~200 NPC CC/debuff skills never applied on NPC casts
+    - Build: 0 warnings, 0 errors
+
 176. [✓] Fix crit rate 10× scaling bug and NPC crit accuracy (session 2026-05-02)
     - [✓] `CM_ATTACK.cs` — player physical crit: `Random.Shared.Next(1000)` → `Random.Shared.Next(100)`; Java `StatFunctions.calculatePhysicalCriticalRate` uses `nextInt(100)` not `nextInt(1000)`
     - [✓] `CM_CASTSPELL.cs` — magical crit in all 3 damage paths (single-target, ground AoE, AoE splash): same `Next(1000)` → `Next(100)` fix; mCritRate values are percent-scale (0-100), not per-mille

@@ -475,16 +475,21 @@ public sealed class NpcAiService : BackgroundService
                 try { await conn.SendAsync(castPkt, ct); } catch { }
 
         var skillTemplate = _dataManager.Skills.GetTemplate(entry.SkillId);
+        // Mirror M194: slow/snare/statdown skills have duration="0" on the template;
+        // actual duration comes from the effect element's duration2 attribute.
+        int effectiveDuration = skillTemplate is not null
+            ? (skillTemplate.Duration > 0 ? skillTemplate.Duration : skillTemplate.Effects?.EffectDuration ?? 0)
+            : 0;
         switch (skillTemplate?.SubType)
         {
             case SkillSubType.HEAL:
                 await CastNpcHealAsync(npc, entry.SkillId, now, worldId, ct);
                 break;
             case SkillSubType.BUFF or SkillSubType.CHANT:
-                await CastNpcBuffAsync(npc, entry.SkillId, entry.SkillLevel, skillTemplate.Duration, now, worldId, ct);
+                await CastNpcBuffAsync(npc, entry.SkillId, entry.SkillLevel, effectiveDuration, now, worldId, ct);
                 break;
             case SkillSubType.DEBUFF:
-                await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, skillTemplate.Duration,
+                await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, effectiveDuration,
                     skillTemplate.CcFlags, now, worldId, ct);
                 break;
             default:
