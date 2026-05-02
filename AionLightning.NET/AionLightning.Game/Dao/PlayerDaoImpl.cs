@@ -343,6 +343,13 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { cls = newClass.ToString(), playerId });
     }
 
+    public async Task UpdateGenderAsync(int playerId, Gender gender, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync("UPDATE players SET gender=@g WHERE id=@playerId",
+            new { g = gender.ToString(), playerId });
+    }
+
     private sealed record PlayerRow(
         int id, string name, int account_id, long exp,
         float x, float y, float z, int heading, int world_id,

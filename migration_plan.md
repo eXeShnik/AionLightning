@@ -1600,3 +1600,17 @@
     - [✓] `SM_SYSTEM_MESSAGE` — refactored constructor to two overloads: `(int code, params string[] parms)` for system messages (npcObjId=0) and `(int code, int npcObjId, string[] parms)` for NPC shouts; all existing factory methods unaffected; added `NpcShout(int npcObjId, int stringId)` factory using the npcObjId overload; `Write` emits real `_npcObjId` field instead of hardcoded 0
     - [✓] `NpcAiService` — SEE shout event: when NPC newly acquires a player target (target scan finds non-null with no prior lock), calls `GetRandomShout(npc.Template.NpcId, SEE, npc.Position.WorldId)`; on match, broadcasts `SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, entry.StringId)` to all players in the NPC's WorldId with try/catch per broadcast convention; mirrors Java NpcShoutsService.broadcastNpcShout
     - Build: 0 warnings, 0 errors
+
+139. [✓] Barbershop / plastic surgery — CM_CHARACTER_EDIT + PlayerEnterWorldService extraction (session 2026-05-02)
+    - [✓] `PlayerEnterWorldService` (NEW service) — extracted the full 400-line world-entry sequence from `CM_ENTER_WORLD.RunAsync` into a singleton service; constructor accepts all 18 DAOs/services previously in CM_ENTER_WORLD; single public method `EnterWorldAsync(conn, objectId, ct)`
+    - [✓] `CM_ENTER_WORLD` — refactored to thin wrapper: only reads _objectId (D) and delegates to `_enterWorldService.EnterWorldAsync`
+    - [✓] `CM_CHARACTER_EDIT` (NEW, opcode 0xA5) — full implementation: reads objectId+52skip+genderRaw+race(discarded)+class(discarded)+all ~55 appearance fields (identical layout to CM_CREATE_CHARACTER); `RunAsync` loads player → validates ownership → determines genderChange → loads inventory → searches for matching ticket; if ticket found: consumes it (SaveAllAsync with stack decremented/removed) + `UpdateAsync(appearance)` + `UpdateGenderAsync` if gender changed; always calls `EnterWorldAsync`; if no ticket after entry, sends `CharEditNoPlasticSurgeryTicket` or `CharEditNoGenderTicket` system message
+    - [✓] `IPlayerAppearanceDao` — added `UpdateAsync(int playerId, PlayerAppearance appearance, ct)` method
+    - [✓] `PlayerAppearanceDaoImpl` — implemented `UpdateAsync` with full UPDATE SQL covering all 55 appearance columns
+    - [✓] `IPlayerDao` — added `UpdateGenderAsync(int playerId, Gender gender, ct)` method
+    - [✓] `PlayerDaoImpl` — implemented `UpdateGenderAsync`: `UPDATE players SET gender=@g WHERE id=@playerId`
+    - [✓] `SM_SYSTEM_MESSAGE` — added `CharEditNoPlasticSurgeryTicket()` (901752) and `CharEditNoGenderTicket()` (901754) factories
+    - [✓] `GsPacketHandlerFactory` — added `PlayerEnterWorldService` field; 0xA5 now constructs `CM_CHARACTER_EDIT(conn, _playerDao, _itemDao, _appearanceDao, _enterWorldService)`; 0xAA (CM_ENTER_WORLD) now only needs `conn + _enterWorldService`
+    - [✓] `Program.cs` — `AddSingleton<PlayerEnterWorldService>()`
+    - Plastic surgery tickets: 169650000–169650007; gender change tickets: 169660000–169660002; Java behavior preserved: world entry is unconditional, error sent after entry when no ticket
+    - Build: 0 warnings, 0 errors

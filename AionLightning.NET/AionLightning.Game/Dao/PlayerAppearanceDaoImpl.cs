@@ -37,6 +37,42 @@ public sealed class PlayerAppearanceDaoImpl : IPlayerAppearanceDao
             """, new { playerId });
     }
 
+    public async Task UpdateAsync(int playerId, PlayerAppearance a, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            """
+            UPDATE player_appearance
+            SET face=@Face, hair=@Hair, deco=@Deco, tattoo=@Tattoo,
+                face_contour=@FaceContour, expression=@Expression, jaw_line=@JawLine,
+                skin_rgb=@SkinRgb, hair_rgb=@HairRgb, lip_rgb=@LipRgb, eye_rgb=@EyeRgb,
+                face_shape=@FaceShape, forehead=@Forehead,
+                eye_height=@EyeHeight, eye_space=@EyeSpace, eye_width=@EyeWidth,
+                eye_size=@EyeSize, eye_shape=@EyeShape, eye_angle=@EyeAngle,
+                brow_height=@BrowHeight, brow_angle=@BrowAngle, brow_shape=@BrowShape,
+                nose=@Nose, nose_bridge=@NoseBridge, nose_width=@NoseWidth, nose_tip=@NoseTip,
+                cheek=@Cheek, lip_height=@LipHeight, mouth_size=@MouthSize,
+                lip_size=@LipSize, smile=@Smile, lip_shape=@LipShape,
+                jaw_height=@JawHeight, chin_jut=@ChinJut, ear_shape=@EarShape,
+                head_size=@HeadSize, neck=@Neck, neck_length=@NeckLength,
+                shoulders=@Shoulders, shoulder_size=@ShoulderSize,
+                torso=@Torso, chest=@Chest, waist=@Waist, hips=@Hips,
+                arm_thickness=@ArmThickness, arm_length=@ArmLength, hand_size=@HandSize,
+                leg_thickness=@LegThickness, leg_length=@LegLength, foot_size=@FootSize,
+                facial_rate=@FacialRate, voice=@Voice, height=@Height
+            WHERE player_id=@playerId
+            """,
+            new { playerId, a.Face, a.Hair, a.Deco, a.Tattoo, a.FaceContour, a.Expression, a.JawLine,
+                  a.SkinRgb, a.HairRgb, a.LipRgb, a.EyeRgb, a.FaceShape, a.Forehead,
+                  a.EyeHeight, a.EyeSpace, a.EyeWidth, a.EyeSize, a.EyeShape, a.EyeAngle,
+                  a.BrowHeight, a.BrowAngle, a.BrowShape, a.Nose, a.NoseBridge, a.NoseWidth, a.NoseTip,
+                  a.Cheek, a.LipHeight, a.MouthSize, a.LipSize, a.Smile, a.LipShape,
+                  a.JawHeight, a.ChinJut, a.EarShape, a.HeadSize, a.Neck, a.NeckLength,
+                  a.Shoulders, a.ShoulderSize, a.Torso, a.Chest, a.Waist, a.Hips,
+                  a.ArmThickness, a.ArmLength, a.HandSize, a.LegThickness, a.LegLength, a.FootSize,
+                  a.FacialRate, a.Voice, a.Height });
+    }
+
     public async Task InsertAsync(int playerId, PlayerAppearance a, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);

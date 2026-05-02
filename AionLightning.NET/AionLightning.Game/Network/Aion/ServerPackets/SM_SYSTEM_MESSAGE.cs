@@ -163,6 +163,12 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_UI_STIGMA_NOT_ENOUGH_MATERIAL — "Not enough stigma shards." (msg code 1300450)
     public static SM_SYSTEM_MESSAGE StigmaNotEnoughShards() => new(1300450);
 
+    // STR_EDIT_CHAR_ALL_CANT_NO_ITEM — "Need a Plastic Surgery Ticket." (msg code 901752)
+    public static SM_SYSTEM_MESSAGE CharEditNoPlasticSurgeryTicket() => new(901752);
+
+    // STR_EDIT_CHAR_GENDER_CANT_NO_ITEM — "Need a Gender Change Ticket." (msg code 901754)
+    public static SM_SYSTEM_MESSAGE CharEditNoGenderTicket() => new(901754);
+
     // Legion rename messages (STR_LEGION_RENAME_*)
     // 1400152: invalid or forbidden name
     public static SM_SYSTEM_MESSAGE LegionNameInvalid() => new(1400152);

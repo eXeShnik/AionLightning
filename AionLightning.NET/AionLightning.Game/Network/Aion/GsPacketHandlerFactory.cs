@@ -56,6 +56,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IManastoneDao          _manastoneDao;
     private readonly IPlayerTitleDao        _playerTitleDao;
     private readonly NpcAiService           _npcAi;
+    private readonly PlayerEnterWorldService _enterWorldService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -97,7 +98,8 @@ public sealed class GsPacketHandlerFactory
         PlayerResponseRegistry responseRegistry,
         IManastoneDao manastoneDao,
         IPlayerTitleDao playerTitleDao,
-        NpcAiService npcAi)
+        NpcAiService npcAi,
+        PlayerEnterWorldService enterWorldService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -139,6 +141,7 @@ public sealed class GsPacketHandlerFactory
         _manastoneDao      = manastoneDao;
         _playerTitleDao    = playerTitleDao;
         _npcAi             = npcAi;
+        _enterWorldService = enterWorldService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -154,9 +157,9 @@ public sealed class GsPacketHandlerFactory
             },
             GsClientConnection.AionState.AUTHED => opcode switch
             {
-                0xA5  => new CM_CHARACTER_EDIT(),
+                0xA5  => new CM_CHARACTER_EDIT(conn, _playerDao, _itemDao, _appearanceDao, _enterWorldService),
                 0xA6  => new CM_MAY_QUIT(),
-                0xAA  => new CM_ENTER_WORLD(conn, _playerDao, _appearanceDao, _itemDao, _questDao, _world, _connRegistry, _dataManager, _mailDao, _macroDao, _socialDao, _legionDao, _legionService, _settingsDao, _recipeDao, _motionDao, _skillDao, _manastoneDao, _playerTitleDao),
+                0xAA  => new CM_ENTER_WORLD(conn, _enterWorldService),
                 0xC1  => new CM_QUIT(conn),
                 0xCE  => new CM_PING(conn),
                 0xD0  => new CM_TIME_CHECK(conn),
