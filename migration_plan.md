@@ -1801,3 +1801,11 @@
     - NPC death in AoE: full death sequence per killed NPC — die emotion, DIED shout, world.Remove, GenerateDrops, HandleNpcKillAsync, AddGroupExpAsync, Abyss AP, SM_DELETE after 3s, ScheduleRespawn, ClearLoot after 60s
     - Previously: targetType 1/2 spells broadcast the cast animation but applied zero damage — mages could cast cyclone/sleep spells visually but they had no effect; AoE-killed NPCs never dropped loot or awarded XP
     - Build: 0 warnings, 0 errors
+
+164. [✓] Caster/target-centered AoE spell damage — first_target=ME/TARGET with target_type=AREA (session 2026-05-02)
+    - [✓] `SkillTemplate` — added `IsCasterAoe` (first_target=ME, target_type=AREA) and `IsTargetAoe` (first_target=TARGET, target_type=AREA) flag properties
+    - [✓] `CM_CASTSPELL` single-target path — after primary target is hit, if skill `IsCasterAoe || IsTargetAoe` and `EffectiveRange > 0`: finds all additional NPC enemies within effective_range cylinder centered on caster (IsCasterAoe) or primary target (IsTargetAoe), caps at TargetMaxCount, applies damage + SM_ATTACK_STATUS per splash target, handles NPC death (die emotion, drops, XP, SM_DELETE after 3s, ScheduleRespawn, loot cleanup after 60s), ForceEngage on survivors
+    - Key: center point differs — ME-AoE uses player.Position (bladestorm, cyclone, storm strike); TARGET-AoE uses target.Position (chain lightning that arcs to nearby enemies)
+    - Stats: 4195 first_target=ME target_type=AREA skills; 6249 first_target=TARGET (overlaps with ONLYONE but AREA subset)
+    - Previously: ALL single-target skill casts hit exactly one creature regardless of AoE type — a gladiator's Storm Strike or templar's Ripple Wave would only damage the single selected target
+    - Build: 0 warnings, 0 errors

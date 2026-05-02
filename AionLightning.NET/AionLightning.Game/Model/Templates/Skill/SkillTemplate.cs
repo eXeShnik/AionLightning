@@ -30,6 +30,16 @@ public sealed class SkillTemplate
         string.Equals(Properties?.FirstTarget, "POINT", StringComparison.OrdinalIgnoreCase)
         && string.Equals(Properties?.TargetType, "AREA",  StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>True when the skill is an AoE centered on the caster (first_target=ME, target_type=AREA).</summary>
+    public bool IsCasterAoe =>
+        string.Equals(Properties?.FirstTarget, "ME", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(Properties?.TargetType, "AREA", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True when the skill is an AoE centered on the selected target (first_target=TARGET, target_type=AREA).</summary>
+    public bool IsTargetAoe =>
+        string.Equals(Properties?.FirstTarget, "TARGET", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(Properties?.TargetType, "AREA", StringComparison.OrdinalIgnoreCase);
+
     // When cooldownId == 0 in XML, each skill acts as its own cooldown group (mirrors Java getCooldownId())
     public int EffectiveCooldownId => CooldownId > 0 ? CooldownId : SkillId;
 }

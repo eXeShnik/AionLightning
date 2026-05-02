@@ -450,6 +450,90 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     try { await conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp)); } catch { }
                 }
 
+                // Caster/target-centered AoE splash: damage all additional enemies within effective_range
+                if ((template?.IsCasterAoe == true || template?.IsTargetAoe == true) && template.EffectiveRange > 0)
+                {
+                    float aoeR   = template.EffectiveRange;
+                    float aoeAlt = Math.Max(1f, template.EffectiveAltitude);
+                    int   maxHits = template.TargetMaxCount;
+                    Position center = template.IsCasterAoe ? player.Position : target.Position;
+                    bool hitsEnemies = !string.Equals(template.TargetRelation, "FRIEND",
+                                           StringComparison.OrdinalIgnoreCase);
+                    int splashCount = 1; // primary target already counted
+
+                    var splashNpcs = world.GetAllNpcs()
+                        .Where(n => !n.IsAlreadyDead
+                                 && n.ObjectId != target.ObjectId
+                                 && n.Position.WorldId == castWorldId
+                                 && hitsEnemies)
+                        .Where(n => {
+                            float dx = n.Position.X - center.X, dy = n.Position.Y - center.Y, dz = n.Position.Z - center.Z;
+                            return dx * dx + dy * dy <= aoeR * aoeR && Math.Abs(dz) <= aoeAlt;
+                        });
+
+                    foreach (var splash in splashNpcs)
+                    {
+                        if (splashCount >= maxHits) break;
+                        splashCount++;
+
+                        int splashRaw = spellIsMagical
+                            ? (100 + player.MainHandMagicalAtk + player.BonusMagicAtk) + player.Level * 6 + Random.Shared.Next(10, 40)
+                            : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk) + player.Level * 4 + Random.Shared.Next(10, 40);
+                        int splashDef = spellIsMagical ? (splash.Template.Stats?.MResist ?? 0)
+                                                       : (splash.Template.Stats?.PDef    ?? 0);
+                        int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
+                        splash.CurrentHp      = Math.Max(0, splash.CurrentHp - splashDmg);
+                        splash.LastCombatTime = DateTime.UtcNow;
+
+                        if (splash.CurrentHp > 0)
+                            npcAi.ForceEngage(splash, player);
+
+                        var splashPkt = new SM_ATTACK_STATUS(splash, SM_ATTACK_STATUS.AttackType.Damage, spellId, splashDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(splashPkt); } catch { }
+
+                        if (splash.CurrentHp <= 0)
+                        {
+                            splash.State |= CreatureState.Dead;
+                            int splashWorld = splash.Position.WorldId;
+                            var splashDie = new SM_EMOTION(splash, EmotionType.DIE);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == splashWorld)
+                                    try { await c.SendAsync(splashDie); } catch { }
+
+                            var shout = _dataManager.NpcShouts.GetRandomShout(
+                                splash.Template.NpcId, NpcShoutData.ShoutEventType.DIED, splashWorld);
+                            if (shout.HasValue)
+                            {
+                                var shoutPkt2 = SM_SYSTEM_MESSAGE.NpcShout(splash.ObjectId, shout.Value.StringId);
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == splashWorld)
+                                        try { await c.SendAsync(shoutPkt2); } catch { }
+                            }
+
+                            world.Remove(splash);
+                            _lootService.GenerateDrops(splash, player);
+                            await _questService.HandleNpcKillAsync(player, splash, conn, CancellationToken.None);
+                            long splashXp = splash.Template.Stats?.MaxXp > 0 ? splash.Template.Stats.MaxXp : splash.Level * 50L;
+                            await _expService.AddGroupExpAsync(player, splashXp, splash.Level, CancellationToken.None);
+
+                            var deadSplash = splash;
+                            _ = Task.Run(async () =>
+                            {
+                                await Task.Delay(3000);
+                                var del = new SM_DELETE(deadSplash.ObjectId);
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == deadSplash.Position.WorldId)
+                                        try { await c.SendAsync(del); } catch { }
+                                _spawnService.ScheduleRespawn(deadSplash);
+                                await Task.Delay(57_000);
+                                _lootService.ClearLoot(deadSplash.ObjectId);
+                            });
+                        }
+                    }
+                }
+
                 // Apply DEBUFF visual effect when skill has DEBUFF subtype and a duration
                 if (target.CurrentHp > 0
                     && template?.SubType == SkillSubType.DEBUFF && template.Duration > 0)
