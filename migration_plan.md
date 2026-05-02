@@ -2045,6 +2045,14 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+177. [✓] NPC physical accuracy/evasion and magic resist use Java level formulas (session 2026-05-02)
+    - [✓] `CM_ATTACK.cs` — NPC evasion now uses `NpcPhysicalAccuracy(npc)` (= `round(level*(33.6-0.16*level)+5)`) + XML template `Evasion` modifier; replaces incorrect `Template.Stats?.Evasion ?? level*5`
+    - [✓] `NpcAiService.cs` — NPC accuracy now uses same level formula + `MainHandAccuracy` template modifier; replaces `Template.Stats?.Accuracy ?? level*5`
+    - [✓] `CM_CASTSPELL.cs` — added `NpcMagicResist(npc)` helper: uses XML `MResist` if > 0, otherwise `round(level*17.5+75)` (Java `NpcGameStats.getMResist()` fallback); all 5 NPC MResist reads (single-target resist, ground AoE, ground AoE PDef branch, splash resist, splash def) updated
+    - Java source: `NpcGameStats.calcStats()` computes `pAccuracy = round(level*(33.6-0.16*level)+5)` used as base for EVASION and PHYSICAL_ACCURACY; `getMResist()` base = `round(level*17.5+75)`; XML template fields are stat modifiers on top, not the base
+    - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
+    - Build: 0 warnings, 0 errors
+
 176. [✓] Fix crit rate 10× scaling bug and NPC crit accuracy (session 2026-05-02)
     - [✓] `CM_ATTACK.cs` — player physical crit: `Random.Shared.Next(1000)` → `Random.Shared.Next(100)`; Java `StatFunctions.calculatePhysicalCriticalRate` uses `nextInt(100)` not `nextInt(1000)`
     - [✓] `CM_CASTSPELL.cs` — magical crit in all 3 damage paths (single-target, ground AoE, AoE splash): same `Next(1000)` → `Next(100)` fix; mCritRate values are percent-scale (0-100), not per-mille

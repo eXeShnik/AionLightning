@@ -285,7 +285,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     {
                         int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
                         int targetMR = target is Player pvpResist ? pvpResist.BonusMagicResist
-                                     : target is Npc npcResist   ? (npcResist.Template.Stats?.MResist ?? 0)
+                                     : target is Npc npcResist   ? NpcMagicResist(npcResist)
                                      : 0;
                         int resistRate = Math.Max(1, targetMR - totalMagicAcc);
                         if (Random.Shared.Next(1000) < resistRate)
@@ -318,7 +318,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int spellDef = target is Player pvpSpellTarget
                                  ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                                  : target is Npc npcSpellTarget
-                                 ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MResist ?? 0)
+                                 ? (spellIsMagical ? NpcMagicResist(npcSpellTarget)
                                                    : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
                                  : 0;
                     int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
@@ -446,7 +446,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 {
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
                     int targetMagicResist = target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
-                                         : target is Npc npcResistTarget    ? (npcResistTarget.Template.Stats?.MResist ?? 0)
+                                         : target is Npc npcResistTarget    ? NpcMagicResist(npcResistTarget)
                                          : 0;
                     int resistRate = Math.Max(1, targetMagicResist - totalMagicAcc);
                     if (Random.Shared.Next(1000) < resistRate)
@@ -495,7 +495,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int spellDef = target is Player pvpSpellTarget
                              ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                              : target is Npc npcSpellTarget
-                             ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MResist ?? 0)
+                             ? (spellIsMagical ? NpcMagicResist(npcSpellTarget)
                                                : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
                              : 0;
                 int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
@@ -573,7 +573,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (spellIsMagical)
                         {
                             int totalMagicAccS = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
-                            int splashMR = splash.Template.Stats?.MResist ?? 0;
+                            int splashMR = NpcMagicResist(splash);
                             int splashResistRate = Math.Max(1, splashMR - totalMagicAccS);
                             if (Random.Shared.Next(1000) < splashResistRate)
                             {
@@ -596,7 +596,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 splashRaw = (int)(splashRaw * 1.5f);
                         }
 
-                        int splashDef = spellIsMagical ? (splash.Template.Stats?.MResist ?? 0)
+                        int splashDef = spellIsMagical ? NpcMagicResist(splash)
                                                        : (splash.Template.Stats?.PDef    ?? 0);
                         int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
                         splash.CurrentHp      = Math.Max(0, splash.CurrentHp - splashDmg);
@@ -850,6 +850,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
         foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer!.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
                 try { await other.SendAsync(packet, ct); } catch { }
+    }
+
+    // Java NpcGameStats.getMResist(): base = round(level*17.5+75) when mRes==0; template MResist adds on top
+    private static int NpcMagicResist(Model.Npc npc)
+    {
+        int @base = (int)Math.Round(npc.Level * 17.5f + 75);
+        int tpl   = npc.Template.Stats?.MResist ?? 0;
+        return tpl > 0 ? tpl : @base;
     }
 
     private static async Task AwardLegionContributionAsync(Model.Player player, long apAmount,
