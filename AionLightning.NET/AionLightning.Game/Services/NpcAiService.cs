@@ -648,7 +648,7 @@ public sealed class NpcAiService : BackgroundService
 
         var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
             EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs),
-            CcFlags = ccFlags };
+            CcFlags = ccFlags, IsDebuff = true };
         target.AddEffect(effect);
 
         var abnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());

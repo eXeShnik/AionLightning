@@ -339,6 +339,22 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
             if (buffTarget is not null && !buffTarget.IsAlreadyDead)
             {
+                // Dispel debuff: remove all active debuff states from the target and re-broadcast
+                // Java DispelDebuffEffect.applyEffect — removes effects by DispelCategory; simplified to IsDebuff flag
+                if (template.Effects?.HasDispelDebuff == true)
+                {
+                    buffTarget.ClearDebuffs();
+                    bool isPlayerTarget = buffTarget is Player;
+                    int dispelWorldId = player.Position.WorldId;
+                    var cleansed = new SM_ABNORMAL_EFFECT(buffTarget.ObjectId, isPlayerTarget,
+                                       buffTarget.GetActiveEffects());
+                    foreach (var c in _connRegistry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == dispelWorldId)
+                            try { await c.SendAsync(cleansed, ct); } catch { }
+                    await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
+                    return; // dispel completes here, no buff state added
+                }
+
                 int durationMs = template.Duration;
                 var effect = new AbnormalState
                 {
@@ -881,6 +897,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         EffectorId = player.ObjectId,
                         Expiry     = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
                         CcFlags    = template!.CcFlags,
+                        IsDebuff   = true,
                     };
                     target.AddEffect(debuffEffect);
                     var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,
@@ -932,6 +949,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             EffectorId = player.ObjectId,
                             Expiry     = dotExpiry,
                             DotInfo    = dot,
+                            IsDebuff   = true,
                         };
                         target.AddEffect(dotEffect);
 

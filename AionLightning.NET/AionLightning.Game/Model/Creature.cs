@@ -68,6 +68,15 @@ public abstract class Creature : VisibleObject
         }
     }
 
+    public void ClearDebuffs()
+    {
+        lock (_effectsLock)
+        {
+            _activeEffects.RemoveAll(e => e.IsDebuff);
+            ActiveCcFlags = RebuildCcFlags();
+        }
+    }
+
     public List<AbnormalState> GetActiveEffects()
     {
         lock (_effectsLock)

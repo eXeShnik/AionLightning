@@ -98,6 +98,9 @@ public sealed class SkillEffects
         Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
         ?? AbnormalCcFlags.None;
 
+    public bool HasDispelDebuff => Elements?.Any(e => e.LocalName == "dispeldebuff") == true;
+    public bool HasDispelBuff   => Elements?.Any(e => e.LocalName == "dispelbuff")   == true;
+
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];

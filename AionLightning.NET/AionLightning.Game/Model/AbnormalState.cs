@@ -10,6 +10,7 @@ public sealed class AbnormalState
     public int             EffectorId { get; init; }
     public DateTime        Expiry     { get; init; }
     public AbnormalCcFlags CcFlags    { get; init; } = AbnormalCcFlags.None;
+    public bool            IsDebuff   { get; init; }   // true when applied as an enemy debuff
     public SkillDotInfo?   DotInfo    { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;

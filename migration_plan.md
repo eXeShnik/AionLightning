@@ -2072,6 +2072,16 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+196. [✓] Dispel debuff skills — remove active debuffs from target (session 2026-05-02)
+    - [✓] `Model/AbnormalState.cs` — added `bool IsDebuff { get; init; }` (defaults false); marks player/NPC-applied debuffs so dispel can distinguish them from buffs
+    - [✓] `Model/Creature.cs` — added `ClearDebuffs()`: removes all effects where `IsDebuff == true` and rebuilds CcFlags
+    - [✓] `Model/Templates/Skill/SkillEffects.cs` — added `HasDispelDebuff` and `HasDispelBuff` boolean properties checking for `<dispeldebuff>` / `<dispelbuff>` element presence
+    - [✓] `CM_CASTSPELL.cs` — debuff path: sets `IsDebuff = true` on applied AbnormalState; DoT block: same; BUFF path: when `HasDispelDebuff`, calls `ClearDebuffs()` on target, broadcasts cleansed `SM_ABNORMAL_EFFECT`, returns early (no buff state added)
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — sets `IsDebuff = true` on NPC-applied AbnormalState
+    - Java source: `DispelDebuffEffect.applyEffect` — removes effects matching `DispelCategoryType` (DEBUFF_PHYSICAL/MAGICAL) up to `value` count; simplified to clear all IsDebuff states
+    - Previously: 83 Cleanse/Cure skills (Cleric's Cleanse Wounds, Dispel Shock etc.) did nothing — they applied a 0-duration BUFF and immediately expired, never removing any debuff from the target
+    - Build: 0 warnings, 0 errors
+
 195. [✓] AoE heal skills — IsCasterAoe/IsTargetAoe HEAL subtype (session 2026-05-02)
     - [✓] `CM_CASTSPELL.cs` — after the primary single-target heal block, added AoE heal block: when `template.IsCasterAoe || IsTargetAoe` and has `HealEffects`, iterates all alive same-race players within `EffectiveRange` up to `TargetMaxCount`; applies the same healinstant formula (value+delta*level, percent, healBoost) per ally; sends `SM_ATTACK_STATUS(NaturalHp/NaturalMp)` per healed ally
     - Java source: `Skill.java` uses `TargetType.AREA` + `TargetRelation.FRIEND` to collect targets via `getAffectedList()` then applies `HealInstantEffect.applyEffect` on each; first_target="ME" casts from caster position
