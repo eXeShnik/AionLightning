@@ -352,22 +352,23 @@ public sealed class CM_ATTACK : AionClientPacket
                 await AwardLegionContributionAsync(player, ap, ct);
             }
 
-            // Delayed despawn + respawn; also cleans up uncollected loot after 60s
+            // Decay timing mirrors Java RespawnService: 5s (no drops registered), 90s (empty), 300s (with drops)
+            var pendingDrops = _lootService.GetLoot(deadNpc.ObjectId);
+            int decayMs = pendingDrops is null ? 5_000 : pendingDrops.Count == 0 ? 90_000 : 300_000;
+
             var registry  = _connRegistry;
             var spawnSvc  = _spawnService;
             var lootSvc   = _lootService;
             int npcWorldId = deadNpc.Position.WorldId;
             _ = Task.Run(async () =>
             {
-                await Task.Delay(3000);
+                await Task.Delay(decayMs);
                 var del = new SM_DELETE(deadNpc.ObjectId);
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == npcWorldId)
                         try { await c.SendAsync(del); } catch { }
-                spawnSvc.ScheduleRespawn(deadNpc);
-
-                await Task.Delay(57_000); // 60s total from kill
                 lootSvc.ClearLoot(deadNpc.ObjectId);
+                spawnSvc.ScheduleRespawn(deadNpc);
             });
         }
     }

@@ -387,17 +387,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         await AwardLegionContributionAsync(player, ap, registry, _legionDao, CancellationToken.None);
                     }
 
-                    var killedNpc = killed;
+                    var killedNpc    = killed;
+                    var killedDrops  = _lootService.GetLoot(killedNpc.ObjectId);
+                    int killedDecayMs = killedDrops is null ? 5_000 : killedDrops.Count == 0 ? 90_000 : 300_000;
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(3000);
+                        await Task.Delay(killedDecayMs);
                         var del = new SM_DELETE(killedNpc.ObjectId);
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == killedNpc.Position.WorldId)
                                 try { await c.SendAsync(del); } catch { }
-                        _spawnService.ScheduleRespawn(killedNpc);
-                        await Task.Delay(57_000);
                         _lootService.ClearLoot(killedNpc.ObjectId);
+                        _spawnService.ScheduleRespawn(killedNpc);
                     });
                 }
             });
@@ -634,17 +635,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             long splashXp = splash.Template.Stats?.MaxXp > 0 ? splash.Template.Stats.MaxXp : splash.Level * 50L;
                             await _expService.AddGroupExpAsync(player, splashXp, splash.Level, CancellationToken.None);
 
-                            var deadSplash = splash;
+                            var deadSplash    = splash;
+                            var splashDrops   = _lootService.GetLoot(deadSplash.ObjectId);
+                            int splashDecayMs = splashDrops is null ? 5_000 : splashDrops.Count == 0 ? 90_000 : 300_000;
                             _ = Task.Run(async () =>
                             {
-                                await Task.Delay(3000);
+                                await Task.Delay(splashDecayMs);
                                 var del = new SM_DELETE(deadSplash.ObjectId);
                                 foreach (var c in registry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == deadSplash.Position.WorldId)
                                         try { await c.SendAsync(del); } catch { }
-                                _spawnService.ScheduleRespawn(deadSplash);
-                                await Task.Delay(57_000);
                                 _lootService.ClearLoot(deadSplash.ObjectId);
+                                _spawnService.ScheduleRespawn(deadSplash);
                             });
                         }
                     }
@@ -821,15 +823,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         await AwardLegionContributionAsync(player, ap, registry, legionDao, CancellationToken.None);
                     }
 
-                    await Task.Delay(3000);
+                    var stDrops  = lootSvc.GetLoot(deadNpc.ObjectId);
+                    int stDecayMs = stDrops is null ? 5_000 : stDrops.Count == 0 ? 90_000 : 300_000;
+                    await Task.Delay(stDecayMs);
                     var del = new SM_DELETE(deadNpc.ObjectId);
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == npcWorldId)
                             try { await c.SendAsync(del); } catch { }
-                    spawnSvc.ScheduleRespawn(deadNpc);
-
-                    await Task.Delay(57_000); // 60s total from kill
                     lootSvc.ClearLoot(deadNpc.ObjectId);
+                    spawnSvc.ScheduleRespawn(deadNpc);
                 }
             });
         }

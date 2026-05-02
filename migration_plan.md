@@ -1847,6 +1847,16 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+184. [✓] NPC body decay timing mirrors Java RespawnService (session 2026-05-02)
+    - Java: 5s (no drop entry), 90s (empty drop list), 300s (non-empty drops); previously hardcoded 3s in all paths
+    - [✓] `CM_ATTACK` NPC death path — replaced `Task.Delay(3000)` + separate loot-clear delay with `decayMs` computed from `GetLoot(npcObjectId)` result
+    - [✓] `CM_CASTSPELL` AoE kill path — same fix for killed-NPCs foreach loop
+    - [✓] `CM_CASTSPELL` splash AoE path — same fix for deadSplash Task.Run block
+    - [✓] `CM_CASTSPELL` single-target kill path — same fix; removed redundant 57s loot-clear delay
+    - Loot now cleared immediately when corpse despawns (SM_DELETE), not on a separate timer
+    - Java class: `com.aionemu.gameserver.services.RespawnService` (IMMEDIATE_DECAY=5s, WITHOUT_DROP_DECAY=90s, WITH_DROP_DECAY=300s)
+    - Build: 0 warnings, 0 errors
+
 183. [✓] Title stats applied in all stat-recalc paths (session 2026-05-02)
     - Root cause: title stat bonuses (PHYSICAL_ATTACK, SPEED, ATTACK_SPEED, etc.) were computed only in `PlayerEnterWorldService`; equipping/unequipping gear or socketing manastones cleared them
     - [✓] `TitleStatsApplicator` — new static service: `Apply(Player, PlayerTitleTemplate)` adds 20 `<add>` stats and 4 `<rate>` stats on top of EquipStats values
