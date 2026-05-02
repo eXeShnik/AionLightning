@@ -108,7 +108,7 @@ public sealed class CM_ATTACK : AionClientPacket
                 if (Random.Shared.Next(1000) < (int)parryRate)
                 {
                     // Parry: 40% reduction; PvP 50% reduction applied first (Java adjustDamages)
-                    int baseAtkPr = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk + player.PatkDebuffDelta;
+                    int baseAtkPr = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk + player.PatkDebuffDelta + player.PatkStatUpDelta;
                     int rawDmgPr  = player.MainHandMinDmg > 0
                         ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkPr
                         : baseAtkPr + Random.Shared.Next(10, 40);
@@ -135,7 +135,7 @@ public sealed class CM_ATTACK : AionClientPacket
                 if (Random.Shared.Next(1000) < (int)blockRate)
                 {
                     // Block: 50% reduction; PvP 50% reduction applied first (Java adjustDamages)
-                    int baseAtkBl = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk + player.PatkDebuffDelta;
+                    int baseAtkBl = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk + player.PatkDebuffDelta + player.PatkStatUpDelta;
                     int rawDmgBl  = player.MainHandMinDmg > 0
                         ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkBl
                         : baseAtkBl + Random.Shared.Next(10, 40);
@@ -153,7 +153,7 @@ public sealed class CM_ATTACK : AionClientPacket
         }
 
         // Physical damage: weapon + base stat + accessory P-attack bonus, or stat-based fallback
-        int baseAtk = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk + player.PatkDebuffDelta;
+        int baseAtk = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk + player.PatkDebuffDelta + player.PatkStatUpDelta;
         int rawDmg = player.MainHandMinDmg > 0
             ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtk
             : baseAtk + Random.Shared.Next(10, 40);

@@ -380,6 +380,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int magicSuppressionStatUpDelta  = template.Effects?.MagicSuppressionStatUpDelta  ?? 0;
                 int pdefStatUpDelta              = template.Effects?.PdefStatUpDelta              ?? 0;
                 int magicDefStatUpDelta          = template.Effects?.MagicDefStatUpDelta          ?? 0;
+                int patkStatUpDelta              = template.Effects?.PhysAtkStatUpDelta           ?? 0;
+                int magicAtkStatUpDelta          = template.Effects?.MagicAtkStatUpDelta          ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -405,6 +407,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     MagicSuppressionDeltaVal = magicSuppressionStatUpDelta,
                     PdefStatUpDeltaVal       = pdefStatUpDelta,
                     MagicDefDeltaVal         = magicDefStatUpDelta,
+                    PatkStatUpDeltaVal       = patkStatUpDelta,
+                    MagicAtkStatUpDeltaVal   = magicAtkStatUpDelta,
                 };
                 buffTarget.AddEffect(effect);
 
@@ -428,7 +432,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (magicSuppressionStatUpDelta  != 0) buffTarget.MagicSuppressionDelta += magicSuppressionStatUpDelta;
                 if (pdefStatUpDelta              != 0) buffTarget.PdefStatUpDelta       += pdefStatUpDelta;
                 if (magicDefStatUpDelta          != 0) buffTarget.MagicDefDelta         += magicDefStatUpDelta;
-                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0) && buffTarget is Player statUpPlayer)
+                if (patkStatUpDelta              != 0) buffTarget.PatkStatUpDelta       += patkStatUpDelta;
+                if (magicAtkStatUpDelta          != 0) buffTarget.MagicAtkStatUpDelta   += magicAtkStatUpDelta;
+                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
                     var statUpConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == statUpPlayer);
@@ -550,6 +556,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         expiryTarget.MagicDefDelta -= expiryEffect.MagicDefDeltaVal;
                         buffStatChanged = true;
                     }
+                    if (expiryEffect.PatkStatUpDeltaVal != 0)
+                    {
+                        expiryTarget.PatkStatUpDelta -= expiryEffect.PatkStatUpDeltaVal;
+                        buffStatChanged = true;
+                    }
+                    if (expiryEffect.MagicAtkStatUpDeltaVal != 0)
+                    {
+                        expiryTarget.MagicAtkStatUpDelta -= expiryEffect.MagicAtkStatUpDeltaVal;
+                        buffStatChanged = true;
+                    }
                     if (buffStatChanged && expiryTarget is Player expiredBuffPlayer)
                     {
                         var statsInfoExp = new SM_STATS_INFO(expiredBuffPlayer, _dataManager.PlayerStats.GetTemplate(expiredBuffPlayer.PlayerClass, expiredBuffPlayer.Level));
@@ -638,8 +654,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
 
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
-                int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta;
-                int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
+                int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
+                int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
 
                 foreach (var target in targets)
                 {
@@ -865,7 +881,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int rawSpellDmg;
                 if (spellIsMagical)
                 {
-                    int mAtkG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta;
+                    int mAtkG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
                     int tMBSuppressG = target is Player pvpSuppG ? pvpSuppG.BonusMagicSuppression + pvpSuppG.MagicSuppressionDelta
                                      : target is Npc npcSuppG ? (npcSuppG.Template.Stats?.MBResist ?? 0) : 0;
                     float mbMultG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppressG) / 1000f;
@@ -873,7 +889,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
                 else
                 {
-                    int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
+                    int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
                     rawSpellDmg = pAtkG + player.Level * 4 + Random.Shared.Next(10, 40);
                 }
 
@@ -990,8 +1006,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int splashMBSuppress = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0) : 0;
                         float splashMBMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - splashMBSuppress) / 1000f;
                         int splashRaw = spellIsMagical
-                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta) + player.Level * 6 + Random.Shared.Next(10, 40)) * splashMBMult)
-                            : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk) + player.Level * 4 + Random.Shared.Next(10, 40);
+                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta) + player.Level * 6 + Random.Shared.Next(10, 40)) * splashMBMult)
+                            : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta) + player.Level * 4 + Random.Shared.Next(10, 40);
 
                         // Magic resist check for AoE splash
                         if (spellIsMagical)

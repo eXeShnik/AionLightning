@@ -2230,6 +2230,17 @@
     - Previously: cast speed debuffs showed the icon but `castDelay` was always the raw template Duration; SM_STATS_INFO cast speed ignored all buff/debuff effects
     - Build: 0 warnings, 0 errors
 
+222. [✓] StatUp PHYSICAL_ATTACK + MAGICAL_ATTACK — P-attack and M-attack buff from statup skills (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `PhysAtkStatUpDelta` (statup/PHYSICAL_ATTACK), `MagicAtkStatUpDelta` (statup/MAGICAL_ATTACK)
+    - [✓] `Model/Creature.cs` — added `PatkStatUpDelta` (positive from statup buffs), `MagicAtkStatUpDelta` (positive from statup buffs)
+    - [✓] `Model/AbnormalState.cs` — added `PatkStatUpDeltaVal`, `MagicAtkStatUpDeltaVal`
+    - [✓] `SM_STATS_INFO.cs` — `totalAtk` includes `+ p.PatkStatUpDelta`; M-attack display (active + base) includes `+ p.MagicAtkStatUpDelta`
+    - [✓] `CM_ATTACK.cs` — all `baseAtk` formulas (main, parry, block) include `+ player.PatkStatUpDelta` via replace_all
+    - [✓] `CM_CASTSPELL.cs` — all `mAtk`/`mAtkG`/AoE splash M-attack formulas include `+ player.MagicAtkStatUpDelta` (replace_all); all `pAtk`/`pAtkG`/AoE splash P-attack formulas include `+ player.PatkStatUpDelta` (replace_all); full buff apply+restore chain for both vals
+    - Java source: statup PHYSICAL_ATTACK and MAGICAL_ATTACK buffs (e.g. War Cry, Divine Favor) add directly to P-attack/M-attack stat totals
+    - Previously: P/M-attack buffs from statup skills were tracked by AbnormalState but never affected combat damage or stat display
+    - Build: 0 warnings, 0 errors
+
 221. [✓] StatDown/StatUp PHYSICAL_DEFENSE (statup) + MAGICAL_DEFEND (statdown/statup) — pdef buff and mdef buff/debuff (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PdefStatUpDelta` (statup/PHYSICAL_DEFENSE), `MagicDefAddDelta` (statdown/MAGICAL_DEFEND), `MagicDefStatUpDelta` (statup/MAGICAL_DEFEND)
     - [✓] `Model/Creature.cs` — added `PdefStatUpDelta` (positive from statup buffs), `MagicDefDelta` (bidirectional: negative debuff, positive buff)

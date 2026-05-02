@@ -73,6 +73,10 @@ public sealed class AbnormalState
     public int   PdefStatUpDeltaVal { get; init; }
     // Non-zero when this effect changes MAGICAL_DEFEND (negative = debuff, positive = statup buff)
     public int   MagicDefDeltaVal   { get; init; }
+    // Non-zero when this buff increases PHYSICAL_ATTACK via statup (positive = more P-attack)
+    public int   PatkStatUpDeltaVal     { get; init; }
+    // Non-zero when this buff increases MAGICAL_ATTACK via statup (positive = more M-attack)
+    public int   MagicAtkStatUpDeltaVal { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

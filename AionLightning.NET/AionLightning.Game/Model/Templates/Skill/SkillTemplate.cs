@@ -1099,6 +1099,52 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>Sum of all ADD PHYSICAL_ATTACK changes from statup effects (positive = increased P-attack).</summary>
+    public int PhysAtkStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "PHYSICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",             StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAGICAL_ATTACK changes from statup effects (positive = increased M-attack).</summary>
+    public int MagicAtkStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAGICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>Sum of all ADD MAXHP changes from statup effects (positive = increased max HP).</summary>
     public int MaxHpStatUpDelta
     {

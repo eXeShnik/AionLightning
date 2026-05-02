@@ -62,12 +62,12 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // fly state
 
         int weaponAtkBonus = (p.MainHandMinDmg + p.MainHandMaxDmg) / 2;
-        int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus + p.BonusPhysicalAtk + p.PatkDebuffDelta);
+        int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus + p.BonusPhysicalAtk + p.PatkDebuffDelta + p.PatkStatUpDelta);
         w.WriteH((short)totalAtk); w.WriteH(0); // main/off-hand P-attack
         w.WriteH(0);                   // unk 3.0
         int pdef = Math.Max(0, p.PhysicalDefense + p.PdefDebuffDelta + p.PdefStatUpDelta);
         w.WriteD(pdef);                // P-def
-        w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon + accessories + debuff)
+        w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta + p.MagicAtkStatUpDelta)); w.WriteH(0); // main/off-hand M-attack
         int mdef = Math.Max(100, p.MagicDefense + p.MagicDefDelta);
         w.WriteD(mdef);                // M-def
         w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta)); w.WriteH(0); // M-resist, unk 3.0
@@ -112,7 +112,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(maxHp); w.WriteD(maxMp);
         w.WriteD(6000); w.WriteD(p.MaxFp); // base DP cap, base fly time
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
-        w.WriteD(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta); w.WriteD(pdef); // base M-attack, base P-def
+        w.WriteD(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta + p.MagicAtkStatUpDelta); w.WriteD(pdef); // base M-attack, base P-def
         w.WriteD(mdef);                // base M-def
         w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta)); w.WriteF(5.0f); // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
