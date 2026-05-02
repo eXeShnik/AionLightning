@@ -2230,6 +2230,17 @@
     - Previously: cast speed debuffs showed the icon but `castDelay` was always the raw template Duration; SM_STATS_INFO cast speed ignored all buff/debuff effects
     - Build: 0 warnings, 0 errors
 
+224. [✓] StatUp ATTACK_SPEED — haste buff reduces attack speed ms (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `AtkSpeedStatUpDelta` (statup/ATTACK_SPEED; negative ADD = faster attacks)
+    - [✓] `Model/Creature.cs` — added `AtkSpeedStatUpDelta` (negative = faster attacks)
+    - [✓] `Model/AbnormalState.cs` — added `AtkSpeedStatUpDeltaVal`
+    - [✓] `SM_STATS_INFO.cs` — attack speed: `p.CurrentAttackSpeed + p.AtkSpeedDebuffDelta + p.AtkSpeedStatUpDelta`
+    - [✓] `CM_ATTACK.cs` — `effectiveAtkSpd` includes `+ player.AtkSpeedStatUpDelta`
+    - [✓] `CM_CASTSPELL.cs` — buff apply: `AtkSpeedStatUpDelta += atkSpeedStatUpDelta` + START_EMOTE2 broadcast; expiry: reverses delta + re-broadcasts emotion
+    - Java source: ATTACK_SPEED statup buffs (e.g. haste skills) have negative ADD values; lower ms = faster auto-attacks
+    - Previously: attack speed buffs were tracked by AbnormalState but never reduced the effective attack cooldown or updated stat display
+    - Build: 0 warnings, 0 errors
+
 223. [✓] StatUp EVASION + MAGICAL_RESIST — evasion and magic resist buff from statup skills (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `EvasionStatUpDelta` (statup/EVASION), `MResistStatUpDelta` (statup/MAGICAL_RESIST)
     - [✓] `Model/Creature.cs` — added `EvasionStatUpDelta`, `MResistStatUpDelta`

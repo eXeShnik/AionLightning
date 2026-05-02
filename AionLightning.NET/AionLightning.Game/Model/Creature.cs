@@ -82,6 +82,8 @@ public abstract class Creature : VisibleObject
     public int EvasionStatUpDelta   { get; set; }
     // Cumulative MAGICAL_RESIST statup delta (positive from statup buffs)
     public int MResistStatUpDelta   { get; set; }
+    // Cumulative ATTACK_SPEED statup delta (negative = faster attacks; subtracts from ms)
+    public int AtkSpeedStatUpDelta  { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

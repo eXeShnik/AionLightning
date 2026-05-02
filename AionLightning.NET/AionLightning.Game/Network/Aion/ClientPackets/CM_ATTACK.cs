@@ -70,7 +70,7 @@ public sealed class CM_ATTACK : AionClientPacket
 
         // Enforce auto-attack cooldown (weapon attack speed; default 1500ms)
         var now = DateTime.UtcNow;
-        int effectiveAtkSpd = Math.Max(500, player.CurrentAttackSpeed + player.AtkSpeedDebuffDelta);
+        int effectiveAtkSpd = Math.Max(500, player.CurrentAttackSpeed + player.AtkSpeedDebuffDelta + player.AtkSpeedStatUpDelta);
         if ((now - player.LastAttackTime).TotalMilliseconds < effectiveAtkSpd) return;
         player.LastAttackTime = now;
 

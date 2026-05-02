@@ -384,6 +384,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int magicAtkStatUpDelta          = template.Effects?.MagicAtkStatUpDelta          ?? 0;
                 int evasionStatUpDelta           = template.Effects?.EvasionStatUpDelta           ?? 0;
                 int mresistStatUpDelta           = template.Effects?.MResistStatUpDelta           ?? 0;
+                int atkSpeedStatUpDelta          = template.Effects?.AtkSpeedStatUpDelta          ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -413,6 +414,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     MagicAtkStatUpDeltaVal   = magicAtkStatUpDelta,
                     EvasionStatUpDeltaVal    = evasionStatUpDelta,
                     MResistStatUpDeltaVal    = mresistStatUpDelta,
+                    AtkSpeedStatUpDeltaVal   = atkSpeedStatUpDelta,
                 };
                 buffTarget.AddEffect(effect);
 
@@ -440,7 +442,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (magicAtkStatUpDelta          != 0) buffTarget.MagicAtkStatUpDelta   += magicAtkStatUpDelta;
                 if (evasionStatUpDelta           != 0) buffTarget.EvasionStatUpDelta    += evasionStatUpDelta;
                 if (mresistStatUpDelta           != 0) buffTarget.MResistStatUpDelta    += mresistStatUpDelta;
-                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0 || evasionStatUpDelta != 0 || mresistStatUpDelta != 0) && buffTarget is Player statUpPlayer)
+                if (atkSpeedStatUpDelta          != 0)
+                {
+                    buffTarget.AtkSpeedStatUpDelta += atkSpeedStatUpDelta;
+                    var atkSpdEmo = new SM_EMOTION(buffTarget, EmotionType.START_EMOTE2);
+                    int atkSpdWorld = player.Position.WorldId;
+                    foreach (var c in _connRegistry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == atkSpdWorld)
+                            try { await c.SendAsync(atkSpdEmo, ct); } catch { }
+                }
+                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0 || evasionStatUpDelta != 0 || mresistStatUpDelta != 0 || atkSpeedStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
                     var statUpConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == statUpPlayer);
@@ -581,6 +592,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     {
                         expiryTarget.MResistStatUpDelta -= expiryEffect.MResistStatUpDeltaVal;
                         buffStatChanged = true;
+                    }
+                    if (expiryEffect.AtkSpeedStatUpDeltaVal != 0)
+                    {
+                        expiryTarget.AtkSpeedStatUpDelta -= expiryEffect.AtkSpeedStatUpDeltaVal;
+                        buffStatChanged = true;
+                        var restoreAtkEmo = new SM_EMOTION(expiryTarget, EmotionType.START_EMOTE2);
+                        int restoreAtkWorld = expiryTarget.Position.WorldId;
+                        foreach (var c in _connRegistry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == restoreAtkWorld)
+                                try { await c.SendAsync(restoreAtkEmo); } catch { }
                     }
                     if (buffStatChanged && expiryTarget is Player expiredBuffPlayer)
                     {
