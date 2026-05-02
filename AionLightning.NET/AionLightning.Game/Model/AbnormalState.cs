@@ -47,6 +47,10 @@ public sealed class AbnormalState
     public int   PhysAccDeltaVal    { get; init; }
     // Non-zero when this effect changes MAGICAL_ACCURACY (negative = debuff, positive = buff/statup)
     public int   MagicAccDeltaVal   { get; init; }
+    // Non-zero when this effect changes PARRY (negative = debuff, positive = buff/statup)
+    public int   ParryDeltaVal      { get; init; }
+    // Non-zero when this effect changes BLOCK (negative = debuff, positive = buff/statup)
+    public int   BlockDeltaVal      { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

@@ -101,7 +101,7 @@ public sealed class CM_ATTACK : AionClientPacket
         // Parry check — Java calculatePhysicalParryRate: diff=(parry-accuracy)*0.6+50, max 400/1000 (players only; NPCs have no parry stat)
         if (target is Player pvpParry)
         {
-            int totalParry = pvpParry.BaseParry + pvpParry.BonusParry;
+            int totalParry = pvpParry.BaseParry + pvpParry.BonusParry + pvpParry.ParryDelta;
             if (totalParry > 0)
             {
                 float parryRate = Math.Clamp((totalParry - totalAccuracy) * 0.6f + 50f, 0f, 400f);
@@ -128,7 +128,7 @@ public sealed class CM_ATTACK : AionClientPacket
         // Block check — Java calculatePhysicalBlockRate: diff=(block-accuracy), max 500/1000 (players only)
         if (target is Player pvpBlock)
         {
-            int totalBlock = pvpBlock.BaseBlock + pvpBlock.BonusBlock;
+            int totalBlock = pvpBlock.BaseBlock + pvpBlock.BonusBlock + pvpBlock.BlockDelta;
             if (totalBlock > 0)
             {
                 float blockRate = Math.Clamp(totalBlock - totalAccuracy, 0f, 500f);

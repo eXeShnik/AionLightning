@@ -2219,6 +2219,30 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+214. [✓] StatDown/StatUp BLOCK (ADD) — BlockDelta affects block chance for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int BlockDelta { get; set; }` (negative = debuff, positive = buff)
+    - [✓] `Model/AbnormalState.cs` — added `int BlockDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `BlockAddDelta` (statdown) and `BlockStatUpDelta` (statup) to `SkillEffects`
+    - [✓] `SM_STATS_INFO.cs` — block field now `p.BaseBlock + p.BonusBlock + p.BlockDelta` in both current and base sections (replace_all)
+    - [✓] `CM_ATTACK.cs` — `totalBlock = pvpBlock.BaseBlock + pvpBlock.BonusBlock + pvpBlock.BlockDelta`
+    - [✓] `NpcAiService` tick — `blk = pvpDef.BaseBlock + pvpDef.BonusBlock + pvpDef.BlockDelta`
+    - [✓] `CM_CASTSPELL.cs` / `NpcAiService.CastNpcDebuffAsync` — same apply/restore/broadcast pattern as PARRY
+    - Java source: `StatDownEffect`/`StatUpEffect` apply `StatAddFunction` to `BLOCK`; `PlayerGameStats.getBlock()` sums base + mods; `calculatePhysicalBlockRate` uses effective block against accuracy for 50% damage reduction
+    - Previously: BLOCK statdown/statup debuffs applied icons but block check always used `base + bonus` only
+    - Build: 0 warnings, 0 errors
+
+213. [✓] StatDown/StatUp PARRY (ADD) — ParryDelta affects parry chance for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int ParryDelta { get; set; }` (negative = debuff, positive = buff)
+    - [✓] `Model/AbnormalState.cs` — added `int ParryDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `ParryAddDelta` (statdown) and `ParryStatUpDelta` (statup) to `SkillEffects`
+    - [✓] `SM_STATS_INFO.cs` — parry field now `p.BaseParry + p.BonusParry + p.ParryDelta` in both current and base sections (replace_all)
+    - [✓] `CM_ATTACK.cs` — `totalParry = pvpParry.BaseParry + pvpParry.BonusParry + pvpParry.ParryDelta`
+    - [✓] `NpcAiService` tick — `par = pvpDef.BaseParry + pvpDef.BonusParry + pvpDef.ParryDelta`
+    - [✓] `CM_CASTSPELL.cs` debuff block: applies and restores `ParryDeltaVal`; buff block same; `NpcAiService.CastNpcDebuffAsync` — added `int parryDelta` parameter with full apply/restore chain
+    - Java source: `StatDownEffect`/`StatUpEffect` apply `StatAddFunction` to `PARRY`; `PlayerGameStats.getParry()` sums base + all mods; `calculatePhysicalParryRate` uses effective parry against accuracy for 40% damage reduction
+    - Previously: PARRY statdown debuffs (Templar Shield Slash chain) showed icon but parry check always used `base + bonus` only; Cleric/Chanter PARRY buffs were similarly ignored
+    - Build: 0 warnings, 0 errors
+
 212. [✓] StatDown/StatUp MAGICAL_ACCURACY (ADD) — MagicAccDelta affects spell hit rate for duration (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int MagicAccDelta { get; set; }` (negative = debuff, positive = buff)
     - [✓] `Model/AbnormalState.cs` — added `int MagicAccDeltaVal { get; init; }`

@@ -48,6 +48,10 @@ public abstract class Creature : VisibleObject
     public int PhysAccDelta        { get; set; }
     // Cumulative MAGICAL_ACCURACY delta (negative from statdown = lower spell hit rate; positive from statup = higher)
     public int MagicAccDelta       { get; set; }
+    // Cumulative PARRY delta (negative = reduced parry from statdown; positive = increased from statup)
+    public int ParryDelta          { get; set; }
+    // Cumulative BLOCK delta (negative = reduced block from statdown; positive = increased from statup)
+    public int BlockDelta          { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
