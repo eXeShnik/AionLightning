@@ -2045,6 +2045,14 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+187. [✓] DoT effects (bleed/poison/disease) with periodic damage ticks (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillDotInfo` readonly record struct (CheckTimeMs, BaseValue, Delta, Duration2Ms, DotType, Element); `SkillEffects.DotEffects` property parses `<bleed>`, `<poison>`, `<disease>` XML elements from the `[XmlAnyElement]` collection; reads `checktime`, `value`, `delta`, `duration2` attributes
+    - [✓] `Model/AbnormalState.cs` — added `SkillDotInfo? DotInfo { get; init; }` to carry per-tick damage info alongside the abnormal state record
+    - [✓] `CM_CASTSPELL.cs` — after debuff AbnormalState application, added DoT block: iterates `template.Effects.DotEffects`; per dot creates an AbnormalState with `DotInfo` and `Expiry = UtcNow + Duration2Ms`; launches `Task.Run` tick loop: waits `CheckTimeMs`, applies `dmgPerTick` to `CurrentHp`, sends `SM_ATTACK_STATUS` with `LogId.Bleed` or `LogId.Poison`; loop exits when expired or target dead; removes effect and broadcasts cleared SM_ABNORMAL_EFFECT on exit
+    - Java source: `AbstractOverTimeEffect.java` — `checktime` = tick interval; `duration2` = total DoT duration; `value + delta*level` = per-tick damage; `BleedEffect.log=LOG.BLEED`, `PoisonEffect.log=LOG.POISON`; DoT templates have `duration="0"` — duration comes from effect element's `duration2`, not template attribute
+    - Previously: bleed/poison/disease skills applied only a visual debuff; no HP drain occurred at all
+    - Build: 0 warnings, 0 errors
+
 186. [✓] Silence blocks magical skills; CC state blocks all player skill casting (session 2026-05-02)
     - [✓] `CM_CASTSPELL.cs` — added at start of `RunAsync`: `if (CantAttack != 0) return` blocks all offensive casting while stunned/sleeping/paralyzed; `if (SkillType.MAGICAL && Silence != 0) return` blocks only magical skills when silenced (physical skills remain usable)
     - Java source: `PlayerRestrictions.canUseSkill` line 78: CANT_ATTACK_STATE blocks casting; line 134: SILENCE blocks MAGICAL type skills; physical skills unaffected by silence

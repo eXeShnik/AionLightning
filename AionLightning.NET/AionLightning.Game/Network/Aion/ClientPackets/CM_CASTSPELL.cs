@@ -723,6 +723,61 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     });
                 }
 
+                // Apply DoT (bleed/poison/disease) effects from skill <effects> block
+                // Duration comes from the effect's duration2 attribute (template.Duration is 0 for DoT skills)
+                if (target.CurrentHp > 0 && template?.Effects?.DotEffects is { Count: > 0 } dots)
+                {
+                    foreach (var dot in dots)
+                    {
+                        int skillLv    = _level;
+                        int dmgPerTick = Math.Max(1, dot.BaseValue + dot.Delta * skillLv);
+                        var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
+                        var dotEffect  = new AbnormalState
+                        {
+                            SkillId    = spellId,
+                            SkillLevel = skillLv,
+                            EffectorId = player.ObjectId,
+                            Expiry     = dotExpiry,
+                            DotInfo    = dot,
+                        };
+                        target.AddEffect(dotEffect);
+
+                        bool dotTargetIsPlayer = target is Player;
+                        var dotAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, dotTargetIsPlayer,
+                                              target.GetActiveEffects());
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(dotAbnormal); } catch { }
+
+                        // Schedule periodic ticks then expiry removal
+                        var tickTarget  = target;
+                        var tickEffect  = dotEffect;
+                        var tickLogId   = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                        _ = Task.Run(async () =>
+                        {
+                            while (!tickTarget.IsAlreadyDead && DateTime.UtcNow < tickEffect.Expiry)
+                            {
+                                await Task.Delay(dot.CheckTimeMs);
+                                if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
+
+                                tickTarget.CurrentHp = Math.Max(0, tickTarget.CurrentHp - dmgPerTick);
+                                var tickPkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dmgPerTick, tickLogId);
+                                int tickWorld = tickTarget.Position.WorldId;
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == tickWorld)
+                                        try { await c.SendAsync(tickPkt); } catch { }
+                            }
+                            tickTarget.RemoveEffect(tickEffect.SkillId, tickEffect.Expiry);
+                            var expiredDot = new SM_ABNORMAL_EFFECT(tickTarget.ObjectId, dotTargetIsPlayer,
+                                                tickTarget.GetActiveEffects());
+                            int dotExpWorld = tickTarget.Position.WorldId;
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == dotExpWorld)
+                                    try { await c.SendAsync(expiredDot); } catch { }
+                        });
+                    }
+                }
+
                 if (target.CurrentHp > 0) return;
 
                 if (target is Player deadPlayer)

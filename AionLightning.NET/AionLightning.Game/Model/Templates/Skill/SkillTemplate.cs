@@ -60,7 +60,17 @@ public sealed class SkillProperties
     [XmlAttribute("target_maxcount")]    public int    TargetMaxCount  { get; set; }
 }
 
-/// <summary>Captures CC-relevant effect elements from the &lt;effects&gt; block of a skill_template.</summary>
+/// <summary>Per-tick DoT descriptor parsed from &lt;bleed&gt;, &lt;poison&gt;, &lt;disease&gt; effect elements.</summary>
+public readonly record struct SkillDotInfo(
+    int    CheckTimeMs,   // tick interval in ms
+    int    BaseValue,     // damage per tick at skill level 1 (value + delta * level applied at cast time)
+    int    Delta,         // per-level damage increase
+    int    Duration2Ms,   // total effect duration in ms
+    string DotType,       // "bleed" | "poison" | "disease"
+    string Element        // "FIRE", "EARTH", etc. (reserved for future element resist)
+);
+
+/// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
     [XmlAnyElement]
@@ -69,6 +79,27 @@ public sealed class SkillEffects
     public AbnormalCcFlags CcFlags =>
         Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
         ?? AbnormalCcFlags.None;
+
+    private static readonly HashSet<string> DotNames = ["bleed", "poison", "disease"];
+
+    public IReadOnlyList<SkillDotInfo> DotEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillDotInfo>();
+            foreach (var e in Elements)
+            {
+                if (!DotNames.Contains(e.LocalName)) continue;
+                if (!int.TryParse(e.GetAttribute("checktime"), out int check) || check <= 0) continue;
+                if (!int.TryParse(e.GetAttribute("duration2"), out int dur)   || dur   <= 0) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                list.Add(new(check, val, dlt, dur, e.LocalName, e.GetAttribute("element") ?? string.Empty));
+            }
+            return list;
+        }
+    }
 
     private static AbnormalCcFlags ElementToCcFlag(string name) => name switch
     {
