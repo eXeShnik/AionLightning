@@ -25,7 +25,9 @@ public abstract class Creature : VisibleObject
     public int CurrentAttackSpeed { get; set; } = 1500;
 
     // Cumulative PHYSICAL_DEFENSE debuff delta (negative = reduced pdef from statdown effects)
-    public int PdefDebuffDelta { get; set; }
+    public int PdefDebuffDelta    { get; set; }
+    // Cumulative MAGICAL_RESIST debuff delta (negative = reduced magic resist from statdown effects)
+    public int MResistDebuffDelta { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

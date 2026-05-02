@@ -2219,6 +2219,17 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+202. [✓] StatDown MAGICAL_RESIST (ADD) — accumulated mresist delta in resist check, restored on expiry (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MResistDebuffDelta { get; set; }` (negative = reduced magic resist from statdown)
+    - [✓] `Model/AbnormalState.cs` — added `int MResistDelta { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MResistAddDelta` property to `SkillEffects`: sums all `<statdown>/<change stat="MAGICAL_RESIST" func="ADD">` values
+    - [✓] `CM_CASTSPELL.cs` — single-target and ground AoE magic resist checks: `targetMagicResist += target.MResistDebuffDelta`; debuff block accumulates `MResistDebuffDelta` on apply and restores on expiry; combined with pdef delta for single SM_STATS_INFO send
+    - [✓] `SM_STATS_INFO.cs` — M-resist field now uses `Math.Max(0, BonusMagicResist + MResistDebuffDelta)` in both current and base sections
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int mresistDelta` parameter; same pattern as pdef
+    - Java source: `StatDownEffect` applies modifier to `MAGICAL_RESIST`; `PlayerGameStats.getMResist()` sums base + all stat functions; `calculateMagicalResistRate` uses resulting value as resist chance divisor
+    - Previously: 100 MAGICAL_RESIST statdown skills (Sorcerer/Spiritmaster debuff chains) applied the icon but left magic resist unchanged; enemy spellcasters still resisted at full rate after the debuff
+    - Build: 0 warnings, 0 errors
+
 201. [✓] StatDown PHYSICAL_DEFENSE (ADD) — accumulated pdef delta in combat, restored on expiry (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int PdefDebuffDelta { get; set; }` (base class; negative = reduced pdef from statdown stack)
     - [✓] `Model/AbnormalState.cs` — added `int PdefDelta { get; init; }` (the ADD value from statdown; typically -100 to -400)

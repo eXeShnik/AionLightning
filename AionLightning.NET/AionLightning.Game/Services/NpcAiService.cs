@@ -494,6 +494,7 @@ public sealed class NpcAiService : BackgroundService
                     skillTemplate.Effects?.SnareSpeedPct      ?? 0,
                     skillTemplate.Effects?.SlowAttackSpeedPct ?? 0,
                     skillTemplate.Effects?.PdefAddDelta        ?? 0,
+                    skillTemplate.Effects?.MResistAddDelta     ?? 0,
                     now, worldId, ct);
                 break;
             default:
@@ -649,7 +650,7 @@ public sealed class NpcAiService : BackgroundService
     }
 
     private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs,
-        AbnormalCcFlags ccFlags, int snareSpeedPct, int slowAtkPct, int pdefDelta,
+        AbnormalCcFlags ccFlags, int snareSpeedPct, int slowAtkPct, int pdefDelta, int mresistDelta,
         DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
@@ -661,7 +662,7 @@ public sealed class NpcAiService : BackgroundService
             CcFlags = ccFlags, IsDebuff = true,
             MovSpeedPct = snareSpeedPct, PreDebuffSpeed = target.MovementSpeed,
             AttackSpeedPct = slowAtkPct, PreDebuffAtkSpeed = target.CurrentAttackSpeed,
-            PdefDelta = pdefDelta };
+            PdefDelta = pdefDelta, MResistDelta = mresistDelta };
         target.AddEffect(effect);
 
         // Snare: reduce movement speed; Slow: increase attack speed (higher = slower attacks)
@@ -678,10 +679,11 @@ public sealed class NpcAiService : BackgroundService
                     try { await conn.SendAsync(speedEmo, ct); } catch { }
         }
 
-        // StatDown PHYSICAL_DEFENSE: accumulate delta on the player target; send updated stats panel
-        if (pdefDelta != 0)
+        // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST: accumulate deltas; send updated stats panel
+        if (pdefDelta    != 0) target.PdefDebuffDelta    += pdefDelta;
+        if (mresistDelta != 0) target.MResistDebuffDelta += mresistDelta;
+        if (pdefDelta != 0 || mresistDelta != 0)
         {
-            target.PdefDebuffDelta += pdefDelta;
             var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
             var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
             if (dc is not null) try { await dc.SendAsync(statsInfo, ct); } catch { }
@@ -717,12 +719,12 @@ public sealed class NpcAiService : BackgroundService
                     if (conn.ActivePlayer?.Position.WorldId == restoreWorld)
                         try { await conn.SendAsync(restoreEmo); } catch { }
             }
-            // Restore pdef delta; send updated stats to player
-            if (expEffect.PdefDelta != 0)
+            // Restore pdef/mresist deltas; send updated stats to player
+            if (expEffect.PdefDelta    != 0) target.PdefDebuffDelta    -= expEffect.PdefDelta;
+            if (expEffect.MResistDelta != 0) target.MResistDebuffDelta -= expEffect.MResistDelta;
+            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0)
             {
-                target.PdefDebuffDelta -= expEffect.PdefDelta;
                 var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
-                int restoreWorld2 = target.Position.WorldId;
                 var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
                 if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
             }

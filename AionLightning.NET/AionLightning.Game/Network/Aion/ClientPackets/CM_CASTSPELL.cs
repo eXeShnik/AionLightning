@@ -482,9 +482,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (spellIsMagical)
                     {
                         int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
-                        int targetMR = target is Player pvpResist ? pvpResist.BonusMagicResist
+                        int targetMR = (target is Player pvpResist ? pvpResist.BonusMagicResist
                                      : target is Npc npcResist   ? NpcMagicResist(npcResist)
-                                     : 0;
+                                     : 0) + target.MResistDebuffDelta;
                         int resistRate = Math.Max(1, targetMR - totalMagicAcc);
                         int tLvlAoE = target is Player pvpLvl ? pvpLvl.Level : target is Npc npcLvl ? npcLvl.Level : 0;
                         int lvlDiffAoE = tLvlAoE - player.Level - 2;
@@ -666,9 +666,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (spellIsMagical)
                 {
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
-                    int targetMagicResist = target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
+                    int targetMagicResist = (target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
                                          : target is Npc npcResistTarget    ? NpcMagicResist(npcResistTarget)
-                                         : 0;
+                                         : 0) + target.MResistDebuffDelta;
                     int resistRate = Math.Max(1, targetMagicResist - totalMagicAcc);
                     int tLvlST = target is Player pvpSTLvl ? pvpSTLvl.Level : target is Npc npcSTLvl ? npcSTLvl.Level : 0;
                     int lvlDiffST = tLvlST - player.Level - 2;
@@ -914,6 +914,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  snareSpeedPct        = template?.Effects?.SnareSpeedPct     ?? 0;
                     int  slowAtkPct           = template?.Effects?.SlowAttackSpeedPct ?? 0;
                     int  pdefDelta            = template?.Effects?.PdefAddDelta       ?? 0;
+                    int  mresistDelta         = template?.Effects?.MResistAddDelta    ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -927,6 +928,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         AttackSpeedPct      = slowAtkPct,
                         PreDebuffAtkSpeed   = target.CurrentAttackSpeed,
                         PdefDelta           = pdefDelta,
+                        MResistDelta        = mresistDelta,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -944,16 +946,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 try { await c.SendAsync(speedEmo); } catch { }
                     }
 
-                    // StatDown PHYSICAL_DEFENSE: accumulate delta so stacking debuffs subtract independently
-                    if (pdefDelta != 0)
+                    // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST: accumulate deltas so stacking debuffs subtract independently
+                    if (pdefDelta != 0) target.PdefDebuffDelta    += pdefDelta;
+                    if (mresistDelta != 0) target.MResistDebuffDelta += mresistDelta;
+                    if ((pdefDelta != 0 || mresistDelta != 0) && target is Player debuffedPlayer)
                     {
-                        target.PdefDebuffDelta += pdefDelta;
-                        if (target is Player debuffedPlayer)
-                        {
-                            var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
-                            var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);
-                            if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
-                        }
+                        var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
+                        var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);
+                        if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
                     }
 
                     var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,
@@ -991,17 +991,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == restoreWorld)
                                     try { await c.SendAsync(restoreEmo); } catch { }
                         }
-                        // Restore pdef delta; send updated stats to player if target is player
-                        if (expEffect.PdefDelta != 0)
+                        // Restore pdef/mresist deltas; send updated stats to player if target is player
+                        if (expEffect.PdefDelta    != 0) expTarget.PdefDebuffDelta    -= expEffect.PdefDelta;
+                        if (expEffect.MResistDelta != 0) expTarget.MResistDebuffDelta -= expEffect.MResistDelta;
+                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0) && expTarget is Player restoredPlayer)
                         {
-                            expTarget.PdefDebuffDelta -= expEffect.PdefDelta;
-                            if (expTarget is Player restoredPlayer)
-                            {
-                                var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
-                                int restoreWorld2 = expTarget.Position.WorldId;
-                                var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);
-                                if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
-                            }
+                            var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
+                            var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);
+                            if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
                         }
                         expTarget.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
                         var expired = new SM_ABNORMAL_EFFECT(expTarget.ObjectId, debuffTargetIsPlayer,
