@@ -1847,6 +1847,21 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+175. [✓] Physical parry and block — CM_ATTACK + SM_ATTACK HitResult enum (session 2026-05-02)
+    - [✓] `SM_ATTACK` — replaced `bool isCrit` with `HitResult` enum (Normal=10, Critical=202, Dodge=0, Parry=2, CritParry=194, Block=4, CritBlock=196); `CounterFlag()` helper maps HitResult to Java counter-skill flag bits (32=block, 64=parry, 128=dodge)
+    - [✓] `NpcAiService` — updated SM_ATTACK construction to pass `HitResult.Critical`/`HitResult.Normal`
+    - [✓] `Player` — added `BaseParry`, `BaseBlock` (from class template), `BonusParry`, `BonusBlock` (from equipment)
+    - [✓] `ItemTemplate` — added `ParryBonus` and `BlockBonus` computed properties (`GetBonusStat("PARRY")` / `GetBonusStat("BLOCK")`)
+    - [✓] `EquipStats` record — added `Parry` and `Block` fields (19th/20th)
+    - [✓] `EquipStatsCalculator` — accumulates PARRY and BLOCK bonus-stat modifiers
+    - [✓] `PlayerEnterWorldService` — sets `BaseParry`/`BaseBlock` from stat template; applies `BonusParry`/`BonusBlock` from EquipStats
+    - [✓] `ExperienceService` — updates `BaseParry`/`BaseBlock` on level-up
+    - [✓] `CM_EQUIP_ITEM`, `CM_MANASTONE` — apply `BonusParry`/`BonusBlock` from EquipStats on equip/socket
+    - [✓] `CM_ATTACK` — parry check after dodge, block check after parry (both PvP-only; NPCs have 0 parry/block); parry: 40% damage reduction (Java `damage *= 0.6`); block: 50% reduction (simplified, Java uses shield DAMAGE_REDUCE); `goto afterAttack` jumps past normal hit to DP/godstone/death handling
+    - [✓] `SM_STATS_INFO` — writes `BaseParry + BonusParry` and `BaseBlock + BonusBlock` for both current and base sections
+    - Parry formula: `(parry - accuracy) * 0.6 + 50`, capped at 400/1000; block: `(block - accuracy)`, capped at 500/1000 (mirrors Java StatFunctions)
+    - Build: 0 warnings, 0 errors
+
 174. [✓] Level-up base stat refresh — ExperienceService.HandleLevelUpAsync (session 2026-05-02)
     - [✓] `ExperienceService.HandleLevelUpAsync` — added updates for `BasePhysicalAccuracy`, `BaseCritRating`, `BaseEvasion`, `BaseMagicAccuracy`, `MovementSpeed` from the new stat template on level-up; previously only `MaxHp`, `MaxMp`, and `BasePhysicalAttack` were refreshed, leaving accuracy/crit/evasion/speed stale until relog
     - [✓] `MaxHp`/`MaxMp` calculation updated to apply `SoulSicknessMultiplier` (matches `PlayerEnterWorldService` formula)

@@ -70,6 +70,9 @@ public sealed class ItemTemplate
     public int AttackSpeedBonusPct         => Modifiers?.GetBonusStat("ATTACK_SPEED")          ?? 0;
     // BOOST_CASTING_TIME on weapons only (DuplicateStatFunction — max from main/off hand); bonus="true" value 7-9 typical.
     public int CastTimeBonusPct            => Modifiers?.GetBonusStat("BOOST_CASTING_TIME")     ?? 0;
+    // PARRY/BLOCK are percentage-bonus modifiers on equipment (bonus="true")
+    public int ParryBonus                  => Modifiers?.GetBonusStat("PARRY")                   ?? 0;
+    public int BlockBonus                  => Modifiers?.GetBonusStat("BLOCK")                   ?? 0;
     public int ConcentrationBonus          => Modifiers?.GetStat("CONCENTRATION")               ?? 0;
     public int MagicBoostBonus             => Modifiers?.GetStat("BOOST_MAGICAL_SKILL")         ?? 0;
     public int MagicSuppressionBonus       => Modifiers?.GetStat("MAGIC_SKILL_BOOST_RESIST")    ?? 0;

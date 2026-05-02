@@ -32,14 +32,16 @@ public static class EquipStatsCalculator
         int Concentration,
         int MagicBoost,
         int MagicSuppression,
-        int HealBoost);
+        int HealBoost,
+        int Parry,
+        int Block);
 
     public static EquipStats Compute(IEnumerable<Item> equippedItems, IDataManager dm)
     {
         int hp = 0, mp = 0, pDef = 0, mDef = 0, pAtk = 0, mRes = 0, mAtk = 0;
         int evade = 0, pAcc = 0, pCrit = 0, pCritRes = 0;
         int mAcc = 0, mCrit = 0, mCritRes = 0, atkSpd = 0;
-        int conc = 0, mBoost = 0, mSuppress = 0, healBoost = 0;
+        int conc = 0, mBoost = 0, mSuppress = 0, healBoost = 0, parry = 0, block = 0;
 
         foreach (var item in equippedItems)
         {
@@ -48,7 +50,7 @@ public static class EquipStatsCalculator
             {
                 AccumulateTemplate(tpl, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
                     ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes,
-                    ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost);
+                    ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost, ref parry, ref block);
                 if (item.EnchantLevel > 0)
                     AccumulateEnchant(item.EnchantLevel, item.Slot, tpl,
                         ref hp, ref pDef, ref mDef, ref pAtk, ref mAtk, ref pCritRes);
@@ -56,18 +58,19 @@ public static class EquipStatsCalculator
             foreach (var stone in item.ManaStones)
                 Accumulate(stone.ItemId, dm, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
                     ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes,
-                    ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost);
+                    ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost, ref parry, ref block);
         }
 
         return new EquipStats(hp, mp, pDef, mDef, pAtk, mRes, mAtk, evade, pAcc, pCrit, pCritRes, mAcc, mCrit, mCritRes,
-            atkSpd, conc, mBoost, mSuppress, healBoost);
+            atkSpd, conc, mBoost, mSuppress, healBoost, parry, block);
     }
 
     private static void AccumulateTemplate(ItemTemplate tpl,
         ref int hp, ref int mp, ref int pDef, ref int mDef, ref int pAtk, ref int mRes, ref int mAtk,
         ref int evade, ref int pAcc, ref int pCrit, ref int pCritRes,
         ref int mAcc, ref int mCrit, ref int mCritRes,
-        ref int atkSpd, ref int conc, ref int mBoost, ref int mSuppress, ref int healBoost)
+        ref int atkSpd, ref int conc, ref int mBoost, ref int mSuppress, ref int healBoost,
+        ref int parry, ref int block)
     {
         hp        += tpl.MaxHpBonus;
         mp        += tpl.MaxMpBonus;
@@ -88,19 +91,22 @@ public static class EquipStatsCalculator
         mBoost    += tpl.MagicBoostBonus;
         mSuppress += tpl.MagicSuppressionBonus;
         healBoost += tpl.HealBoostBonus;
+        parry     += tpl.ParryBonus;
+        block     += tpl.BlockBonus;
     }
 
     private static void Accumulate(int itemId, IDataManager dm,
         ref int hp, ref int mp, ref int pDef, ref int mDef, ref int pAtk, ref int mRes, ref int mAtk,
         ref int evade, ref int pAcc, ref int pCrit, ref int pCritRes,
         ref int mAcc, ref int mCrit, ref int mCritRes,
-        ref int atkSpd, ref int conc, ref int mBoost, ref int mSuppress, ref int healBoost)
+        ref int atkSpd, ref int conc, ref int mBoost, ref int mSuppress, ref int healBoost,
+        ref int parry, ref int block)
     {
         var tpl = dm.Items.GetTemplate(itemId);
         if (tpl is null) return;
         AccumulateTemplate(tpl, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
             ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes,
-            ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost);
+            ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost, ref parry, ref block);
     }
 
     // Java StatEnchantFunction.getEnchantAdditionModifier — off-hand slots skip weapon enchant bonus.

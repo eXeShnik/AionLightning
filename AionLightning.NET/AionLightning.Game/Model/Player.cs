@@ -139,6 +139,12 @@ public sealed class Player : Creature
     public int BaseEvasion          { get; set; }
     public int BaseMagicAccuracy    { get; set; }
     public int BaseMagicCritRating  { get; set; }
+    public int BaseParry            { get; set; }
+    public int BaseBlock            { get; set; }
+
+    // Equipment parry/block bonuses (bonus="true" PARRY/BLOCK modifiers — percentage-type in XML)
+    public int BonusParry { get; set; }
+    public int BonusBlock { get; set; }
 
     // Flat HP/MP bonus from the active title (from player_titles.xml <add> modifiers)
     public int TitleBonusMaxHp { get; set; }

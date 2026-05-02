@@ -87,9 +87,60 @@ public sealed class CM_ATTACK : AionClientPacket
         float dodgeRate = Math.Clamp((targetEvasion - totalAccuracy) * 0.6f + 50f, 0f, 300f);
         if (Random.Shared.Next(1000) < (int)dodgeRate)
         {
-            // Attack evaded — broadcast miss animation (0 damage) then return
-            await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, 0, false), ct);
+            await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, 0, SM_ATTACK.HitResult.Dodge), ct);
             return;
+        }
+
+        // Parry check — Java calculatePhysicalParryRate: diff=(parry-accuracy)*0.6+50, max 400/1000 (players only; NPCs have no parry stat)
+        if (target is Player pvpParry)
+        {
+            int totalParry = pvpParry.BaseParry + pvpParry.BonusParry;
+            if (totalParry > 0)
+            {
+                float parryRate = Math.Clamp((totalParry - totalAccuracy) * 0.6f + 50f, 0f, 400f);
+                if (Random.Shared.Next(1000) < (int)parryRate)
+                {
+                    // Parry: 40% damage reduction (Java splitPhysicalDamage case PARRY: damage *= 0.6)
+                    int baseAtkPr = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk;
+                    int rawDmgPr  = player.MainHandMinDmg > 0
+                        ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkPr
+                        : baseAtkPr + Random.Shared.Next(10, 40);
+                    int pdefPr    = pvpParry.PhysicalDefense;
+                    int dmgPr     = pdefPr > 0 ? Math.Max(1, rawDmgPr * 1000 / (1000 + pdefPr)) : rawDmgPr;
+                    int parryDmg  = (int)(dmgPr * 0.6f);
+                    target.CurrentHp = Math.Max(0, target.CurrentHp - parryDmg);
+                    player.LastCombatTime = target.LastCombatTime = now;
+                    await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, parryDmg, SM_ATTACK.HitResult.Parry), ct);
+                    await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, parryDmg), ct);
+                    goto afterAttack;
+                }
+            }
+        }
+
+        // Block check — Java calculatePhysicalBlockRate: diff=(block-accuracy), max 500/1000 (players only)
+        if (target is Player pvpBlock)
+        {
+            int totalBlock = pvpBlock.BaseBlock + pvpBlock.BonusBlock;
+            if (totalBlock > 0)
+            {
+                float blockRate = Math.Clamp(totalBlock - totalAccuracy, 0f, 500f);
+                if (Random.Shared.Next(1000) < (int)blockRate)
+                {
+                    // Block: 50% reduction (simplified; Java uses shield DAMAGE_REDUCE which we don't track yet)
+                    int baseAtkBl = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk;
+                    int rawDmgBl  = player.MainHandMinDmg > 0
+                        ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkBl
+                        : baseAtkBl + Random.Shared.Next(10, 40);
+                    int pdefBl    = pvpBlock.PhysicalDefense;
+                    int dmgBl     = pdefBl > 0 ? Math.Max(1, rawDmgBl * 1000 / (1000 + pdefBl)) : rawDmgBl;
+                    int blockDmg  = dmgBl / 2;
+                    target.CurrentHp = Math.Max(0, target.CurrentHp - blockDmg);
+                    player.LastCombatTime = target.LastCombatTime = now;
+                    await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, blockDmg, SM_ATTACK.HitResult.Block), ct);
+                    await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, blockDmg), ct);
+                    goto afterAttack;
+                }
+            }
         }
 
         // Physical damage: weapon + base stat + accessory P-attack bonus, or stat-based fallback
@@ -116,14 +167,14 @@ public sealed class CM_ATTACK : AionClientPacket
         target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 
         // Both attacker and target enter combat — suppresses regen for both
-        var combatNow = now;
-        player.LastCombatTime = combatNow;
-        target.LastCombatTime = combatNow;
+        player.LastCombatTime = target.LastCombatTime = now;
 
         // Broadcast attack animation then damage report
-        await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, damage, isCrit), ct);
+        await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, damage,
+            isCrit ? SM_ATTACK.HitResult.Critical : SM_ATTACK.HitResult.Normal), ct);
         await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage), ct);
 
+        afterAttack:
         // DP gain on successful physical hit (100 DP per attack, capped at 6000)
         if (player.Dp < 6000)
         {

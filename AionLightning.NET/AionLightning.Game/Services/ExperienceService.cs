@@ -203,6 +203,8 @@ public sealed class ExperienceService
             player.BaseCritRating       = tpl.MainHandCritRate;
             player.BaseEvasion          = tpl.Evasion;
             player.BaseMagicAccuracy    = tpl.MagicAccuracy;
+            player.BaseParry            = tpl.Parry;
+            player.BaseBlock            = tpl.Block;
             player.MovementSpeed        = tpl.RunSpeed;
         }
 

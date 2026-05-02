@@ -99,6 +99,8 @@ public sealed class PlayerEnterWorldService
         player.BaseCritRating       = tpl?.MainHandCritRate  ?? 100;
         player.BaseEvasion          = tpl?.Evasion           ?? 200;
         player.BaseMagicAccuracy    = tpl?.MagicAccuracy     ?? 100;
+        player.BaseParry            = tpl?.Parry             ?? 0;
+        player.BaseBlock            = tpl?.Block             ?? 0;
         player.BaseMagicCritRating  = 0; // Java: MAGICAL_CRITICAL base from class stats; 0 until per-class data available
         player.Appearance  = appearance;
         conn.ActivePlayer  = player;
@@ -213,6 +215,8 @@ public sealed class PlayerEnterWorldService
         player.BonusMagicBoost             = equipStats.MagicBoost;
         player.BonusMagicSuppression       = equipStats.MagicSuppression;
         player.BonusHealBoost              = equipStats.HealBoost;
+        player.BonusParry                  = equipStats.Parry;
+        player.BonusBlock                  = equipStats.Block;
         if (player.BonusAttackSpeedPct > 0)
             player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
 

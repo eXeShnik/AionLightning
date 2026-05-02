@@ -74,7 +74,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteF(5.0f);                // attack range
         w.WriteH((short)p.CurrentAttackSpeed); // attack speed
         w.WriteH((short)((t?.Evasion ?? 100) + p.BonusEvasion)); // evasion
-        w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // parry, block
+        w.WriteH((short)(p.BaseParry + p.BonusParry)); w.WriteH((short)(p.BaseBlock + p.BonusBlock)); // parry, block
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // main/off-hand P-crit
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // main/off-hand P-accuracy
         w.WriteH(1);                   // unk
@@ -117,7 +117,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)p.BonusMagicResist); w.WriteF(5.0f); // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
         w.WriteH((short)((t?.Evasion ?? 100) + p.BonusEvasion)); // base evasion
-        w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // base parry, block
+        w.WriteH((short)(p.BaseParry + p.BonusParry)); w.WriteH((short)(p.BaseBlock + p.BonusBlock)); // base parry, block
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // base main/off-hand P-crit
         w.WriteH(0);                   // base M-crit
         w.WriteH(0);                   // unk

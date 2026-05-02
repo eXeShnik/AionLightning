@@ -300,7 +300,8 @@ public sealed class NpcAiService : BackgroundService
             target.LastCombatTime = now;
             npc.LastCombatTime    = now;
 
-            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage, npcCrit);
+            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage,
+                npcCrit ? SM_ATTACK.HitResult.Critical : SM_ATTACK.HitResult.Normal);
             var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
             int npcWorld  = npc.Position.WorldId;
             foreach (var conn in _connRegistry.GetAll())
