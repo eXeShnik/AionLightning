@@ -2045,6 +2045,18 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+185. [✓] CC state flags block player attacks and NPC melee/skills (session 2026-05-02)
+    - [✓] `Model/AbnormalCcFlags.cs` — new `[Flags] enum AbnormalCcFlags : long` with Java bit values: Paralyze=4, Sleep=8, Root=16, Silence=256, Fear=512, Stun=4096, Stumble=16384, Stagger=32768, Spin=524288; computed `CantAttack` and `CantMove` composites
+    - [✓] `Model/AbnormalState.cs` — added `AbnormalCcFlags CcFlags { get; init; }` (default = None)
+    - [✓] `Model/Creature.cs` — added `ActiveCcFlags` property; `AddEffect`/`RemoveEffect`/`ClearAllEffects` maintain the bitmask via `RebuildCcFlags()`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillEffects` class using `[XmlAnyElement]` to capture all child elements of `<effects>`; `CcFlags` maps element names to flags (stun/stunalways→Stun, sleep→Sleep, root→Root, silence→Silence, bind→Sleep, paralyze→Paralyze, fear→Fear, stagger/staggeralways→Stagger, stumble/stumblealways→Stumble, spin→Spin); `SkillTemplate.CcFlags` delegates to `Effects?.CcFlags`
+    - [✓] `CM_CASTSPELL.cs` — debuff path sets `CcFlags = template.CcFlags` when creating `AbnormalState`
+    - [✓] `CM_ATTACK.cs` — added early return: `if ((player.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;` before cooldown check
+    - [✓] `NpcAiService.cs` — added `if ((npc.ActiveCcFlags & CantAttack) != 0) continue;` before NPC melee damage; added same check at start of `TryCastNpcSkillAsync`
+    - Java source: `Creature.canAttack()` checks `isAbnormalState(CANT_ATTACK_STATE)` = Spin|Sleep|Stun|Stumble|Stagger|Paralyze|Fear|CANNOT_MOVE; `StunEffect.java` calls `setAbnormal(AbnormalState.STUN.getId())`; effect types are the XML element names in `<effects>` block
+    - Previously: stunned/sleeping players could still auto-attack; stunned NPCs continued attacking normally; CC debuffs were visual-only with no gameplay gating
+    - Build: 0 warnings, 0 errors
+
 184. [✓] Weapon-type-specific physical crit multiplier for player attacks (session 2026-05-02)
     - [✓] `Player.cs` — added `public string MainHandWeaponType { get; set; } = string.Empty`; set alongside `MainHandHitCount` in equip/enter-world paths
     - [✓] `CM_EQUIP_ITEM.cs` — sets `player.MainHandWeaponType = weaponTpl.WeaponTypeName`; resets to `string.Empty` on unequip

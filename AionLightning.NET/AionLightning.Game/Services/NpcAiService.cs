@@ -282,6 +282,9 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
 
+            // Java NpcController.attack() calls canAttack() which checks CANT_ATTACK_STATE
+            if ((npc.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) continue;
+
             // Deal damage — both NPC and target enter combat (suppresses regen for both)
             int baseAtk = npc.Template.Stats?.MainHandAttack ?? 0;
             int rawDmg  = baseAtk > 0
@@ -451,6 +454,7 @@ public sealed class NpcAiService : BackgroundService
 
     private async Task TryCastNpcSkillAsync(Npc npc, Player target, DateTime now, int worldId, CancellationToken ct)
     {
+        if ((npc.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;
         if ((now - _lastSkillTime.GetValueOrDefault(npc.ObjectId)).TotalMilliseconds < NpcSkillCooldownMs) return;
 
         var skills = _dataManager.NpcSkills.GetSkills(npc.Template.NpcId);

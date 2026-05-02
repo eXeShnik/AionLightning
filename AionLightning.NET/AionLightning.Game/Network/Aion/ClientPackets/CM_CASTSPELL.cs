@@ -691,6 +691,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         SkillLevel = _level,
                         EffectorId = player.ObjectId,
                         Expiry     = DateTime.UtcNow.AddMilliseconds(template.Duration),
+                        CcFlags    = template.CcFlags,
                     };
                     target.AddEffect(debuffEffect);
                     var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,

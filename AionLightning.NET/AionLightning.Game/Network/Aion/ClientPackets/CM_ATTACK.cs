@@ -65,6 +65,9 @@ public sealed class CM_ATTACK : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null || player.IsAlreadyDead) return;
 
+        // Java Creature.canAttack(): block if CANT_ATTACK_STATE (stun/sleep/paralyze/etc.) is active
+        if ((player.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;
+
         // Enforce auto-attack cooldown (weapon attack speed; default 1500ms)
         var now = DateTime.UtcNow;
         if ((now - player.LastAttackTime).TotalMilliseconds < player.CurrentAttackSpeed) return;

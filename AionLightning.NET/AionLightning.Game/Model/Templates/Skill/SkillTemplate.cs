@@ -1,4 +1,6 @@
+using System.Xml;
 using System.Xml.Serialization;
+using AionLightning.Game.Model;
 
 namespace AionLightning.Game.Model.Templates.Skill;
 
@@ -17,6 +19,9 @@ public sealed class SkillTemplate
     [XmlAttribute("duration")]   public int       Duration   { get; set; }
 
     [XmlElement("properties")]   public SkillProperties? Properties { get; set; }
+    [XmlElement("effects")]      public SkillEffects?    Effects    { get; set; }
+
+    public AbnormalCcFlags CcFlags => Effects?.CcFlags ?? AbnormalCcFlags.None;
 
     public float  CastRange       => Properties?.CastRange       ?? 0f;
     public string TargetType      => Properties?.TargetType      ?? string.Empty;
@@ -53,4 +58,30 @@ public sealed class SkillProperties
     [XmlAttribute("effective_range")]    public float  EffectiveRange  { get; set; }
     [XmlAttribute("effective_altitude")] public float  EffectiveAltitude { get; set; }
     [XmlAttribute("target_maxcount")]    public int    TargetMaxCount  { get; set; }
+}
+
+/// <summary>Captures CC-relevant effect elements from the &lt;effects&gt; block of a skill_template.</summary>
+public sealed class SkillEffects
+{
+    [XmlAnyElement]
+    public XmlElement[]? Elements { get; set; }
+
+    public AbnormalCcFlags CcFlags =>
+        Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
+        ?? AbnormalCcFlags.None;
+
+    private static AbnormalCcFlags ElementToCcFlag(string name) => name switch
+    {
+        "stun" or "stunalways"          => AbnormalCcFlags.Stun,
+        "sleep"                         => AbnormalCcFlags.Sleep,
+        "root"                          => AbnormalCcFlags.Root,
+        "silence"                       => AbnormalCcFlags.Silence,
+        "bind"                          => AbnormalCcFlags.Sleep,  // BIND shares Sleep semantics for cant-attack
+        "paralyze"                      => AbnormalCcFlags.Paralyze,
+        "fear"                          => AbnormalCcFlags.Fear,
+        "stagger" or "staggeralways"    => AbnormalCcFlags.Stagger,
+        "stumble" or "stumblealways"    => AbnormalCcFlags.Stumble,
+        "spin"                          => AbnormalCcFlags.Spin,
+        _                               => AbnormalCcFlags.None
+    };
 }

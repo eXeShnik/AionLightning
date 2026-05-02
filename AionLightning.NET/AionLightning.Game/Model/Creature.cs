@@ -28,36 +28,58 @@ public abstract class Creature : VisibleObject
     private readonly object              _effectsLock   = new();
     private readonly List<AbnormalState> _activeEffects = new();
 
+    // Aggregated CC flags from all active effects; checked by attack gating
+    public AbnormalCcFlags ActiveCcFlags { get; private set; } = AbnormalCcFlags.None;
+
     public void AddEffect(AbnormalState state)
     {
         lock (_effectsLock)
         {
             _activeEffects.RemoveAll(e => e.SkillId == state.SkillId);
             _activeEffects.Add(state);
+            ActiveCcFlags = RebuildCcFlags();
         }
     }
 
     public void RemoveEffect(int skillId, DateTime expiry)
     {
         lock (_effectsLock)
+        {
             _activeEffects.RemoveAll(e => e.SkillId == skillId && e.Expiry == expiry);
+            ActiveCcFlags = RebuildCcFlags();
+        }
     }
 
     public void RemoveEffectBySkillId(int skillId)
     {
         lock (_effectsLock)
+        {
             _activeEffects.RemoveAll(e => e.SkillId == skillId);
+            ActiveCcFlags = RebuildCcFlags();
+        }
     }
 
     public void ClearAllEffects()
     {
         lock (_effectsLock)
+        {
             _activeEffects.Clear();
+            ActiveCcFlags = AbnormalCcFlags.None;
+        }
     }
 
     public List<AbnormalState> GetActiveEffects()
     {
         lock (_effectsLock)
             return _activeEffects.Where(e => !e.IsExpired).ToList();
+    }
+
+    private AbnormalCcFlags RebuildCcFlags()
+    {
+        var flags = AbnormalCcFlags.None;
+        foreach (var e in _activeEffects)
+            if (!e.IsExpired)
+                flags |= e.CcFlags;
+        return flags;
     }
 }
