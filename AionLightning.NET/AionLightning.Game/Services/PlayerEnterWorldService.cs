@@ -185,27 +185,14 @@ public sealed class PlayerEnterWorldService
             }
         }
 
-        player.PhysicalDefense = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalDefense ?? 0);
-        player.MagicDefense = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicDefense ?? 0);
-        player.BonusMaxHp = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxHpBonus ?? 0);
-        player.BonusMaxMp = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
-        player.BonusPhysicalAtk = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalAttackBonus ?? 0);
-        player.BonusMagicResist = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicResistBonus ?? 0);
-        player.BonusMagicAtk = storedItems
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicAttackBonus ?? 0);
+        var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
+        player.PhysicalDefense  = equipStats.PhysicalDefense;
+        player.MagicDefense     = equipStats.MagicDefense;
+        player.BonusMaxHp       = equipStats.BonusMaxHp;
+        player.BonusMaxMp       = equipStats.BonusMaxMp;
+        player.BonusPhysicalAtk = equipStats.PhysicalAttackBonus;
+        player.BonusMagicResist = equipStats.MagicResistBonus;
+        player.BonusMagicAtk    = equipStats.MagicAttackBonus;
 
         if (player.TitleId > 0)
         {

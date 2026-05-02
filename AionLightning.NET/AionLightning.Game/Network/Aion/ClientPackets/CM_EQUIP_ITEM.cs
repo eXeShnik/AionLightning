@@ -108,31 +108,16 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.CurrentAttackSpeed = 1500;
         }
 
-        // Recalculate total stats from all currently equipped items
-        player.PhysicalDefense = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalDefense ?? 0);
-        player.MagicDefense = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicDefense ?? 0);
+        var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
+        player.PhysicalDefense  = equipStats.PhysicalDefense;
+        player.MagicDefense     = equipStats.MagicDefense;
+        player.BonusMaxHp       = equipStats.BonusMaxHp;
+        player.BonusMaxMp       = equipStats.BonusMaxMp;
+        player.BonusPhysicalAtk = equipStats.PhysicalAttackBonus;
+        player.BonusMagicResist = equipStats.MagicResistBonus;
+        player.BonusMagicAtk    = equipStats.MagicAttackBonus;
 
-        // Recalculate HP/MP bonuses from equipped items and apply to MaxHp/MaxMp
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        player.BonusMaxHp = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxHpBonus ?? 0);
-        player.BonusMaxMp = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
-        player.BonusPhysicalAtk = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalAttackBonus ?? 0);
-        player.BonusMagicResist = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicResistBonus ?? 0);
-        player.BonusMagicAtk = player.Inventory.All
-            .Where(i => i.IsEquipped)
-            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicAttackBonus ?? 0);
         player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
         player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
 

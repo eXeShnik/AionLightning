@@ -333,7 +333,7 @@ public sealed class GsPacketHandlerFactory
                 0x2E5 => new CM_MOTION(conn, _connRegistry, _motionDao),
                 0x2E6 => new CM_EXCHANGE_OK(conn, _connRegistry, _exchangeService, _itemDao),
                 0x2E7 => new CM_EXCHANGE_CANCEL(conn, _connRegistry, _exchangeService),
-                0x2E8 => new CM_MANASTONE(conn, _itemDao, _manastoneDao),
+                0x2E8 => new CM_MANASTONE(conn, _itemDao, _manastoneDao, _dataManager),
                 0x2E9 => new CM_HOUSE_DECORATE(),
                 0x2EA => new CM_HOUSE_KICK(),
                 0x2EB => new CM_HOUSE_SETTINGS(),

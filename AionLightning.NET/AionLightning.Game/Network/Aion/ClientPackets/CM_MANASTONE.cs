@@ -1,7 +1,9 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -22,6 +24,7 @@ public sealed class CM_MANASTONE : AionClientPacket
     private readonly GsClientConnection _conn;
     private readonly IItemDao           _itemDao;
     private readonly IManastoneDao      _manastoneDao;
+    private readonly IDataManager       _dataManager;
 
     private byte _actionType;
     private byte _targetFusedSlot;
@@ -29,11 +32,12 @@ public sealed class CM_MANASTONE : AionClientPacket
     private int  _stoneUniqueId;
     private byte _slotNum;
 
-    public CM_MANASTONE(GsClientConnection conn, IItemDao itemDao, IManastoneDao manastoneDao)
+    public CM_MANASTONE(GsClientConnection conn, IItemDao itemDao, IManastoneDao manastoneDao, IDataManager dataManager)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _manastoneDao = manastoneDao;
+        _dataManager  = dataManager;
     }
 
     public override void Read(ref PacketReader r)
@@ -135,6 +139,9 @@ public sealed class CM_MANASTONE : AionClientPacket
                 await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
                 await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([target]), ct);
                 await _conn.SendAsync(SM_SYSTEM_MESSAGE.ManastoneSuccess(stone.UniqueId.ToString()), ct);
+
+                if (target.IsEquipped)
+                    await RecomputeAndSendStatsAsync(player, ct);
                 break;
             }
 
@@ -172,8 +179,28 @@ public sealed class CM_MANASTONE : AionClientPacket
                 await _manastoneDao.DeleteByItemAndSlotAsync(target.UniqueId, _slotNum, ct);
                 await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
                 await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([target]), ct);
+
+                if (target.IsEquipped)
+                    await RecomputeAndSendStatsAsync(player, ct);
                 break;
             }
         }
+    }
+
+    private async ValueTask RecomputeAndSendStatsAsync(Model.Player player, CancellationToken ct)
+    {
+        var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
+        player.PhysicalDefense  = equipStats.PhysicalDefense;
+        player.MagicDefense     = equipStats.MagicDefense;
+        player.BonusMaxHp       = equipStats.BonusMaxHp;
+        player.BonusMaxMp       = equipStats.BonusMaxMp;
+        player.BonusPhysicalAtk = equipStats.PhysicalAttackBonus;
+        player.BonusMagicResist = equipStats.MagicResistBonus;
+        player.BonusMagicAtk    = equipStats.MagicAttackBonus;
+
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
+        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
     }
 }

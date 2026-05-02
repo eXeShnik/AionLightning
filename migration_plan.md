@@ -1816,3 +1816,12 @@
     - Death handling: player death from AoE splash is caught by the existing `if (target.CurrentHp > 0) continue;` check in `TickAsync` on the next tick; primary target death is handled synchronously as before
     - Previously: NPC skill damage always hit exactly one player regardless of AoE type — boss AoE spells like group damage effects hit only the aggro target
     - Build: 0 warnings, 0 errors
+
+166. [✓] Manastone stat bonuses applied on socket/equip/login (session 2026-05-02)
+    - [✓] `EquipStatsCalculator` (new) — static helper; `Compute(IEnumerable<Item> equippedItems, IDataManager dm)` iterates each equipped item and then its `ManaStones` list, calls `dm.Items.GetTemplate` once per item/stone, accumulates all 7 stat fields (MaxHpBonus, MaxMpBonus, PhysicalDefense, MagicDefense, PhysicalAttackBonus, MagicResistBonus, MagicAttackBonus) into a `readonly record struct EquipStats`
+    - [✓] `PlayerEnterWorldService` — replaced 7 individual LINQ `.Sum()` calls (one per stat) with a single `EquipStatsCalculator.Compute()` call; manastone stats now included in login stat snapshot
+    - [✓] `CM_EQUIP_ITEM` — same replacement; manastone bonuses from already-socketed stones are included whenever gear is swapped
+    - [✓] `CM_MANASTONE` — injected `IDataManager`; after actionType=2 (socket) and actionType=3 (remove), if the target item is equipped, calls new `RecomputeAndSendStatsAsync` helper which uses `EquipStatsCalculator.Compute`, updates all 7 Player stat fields + MaxHp/MaxMp, sends `SM_STATS_INFO`; `GsPacketHandlerFactory` updated to pass `_dataManager`
+    - Key: previously manastones were stored in the DB and hydrated into `item.ManaStones` on login, but their stat contributions were never summed — socketing a HP+100 manastone had zero visible effect on the stats panel or combat
+    - Previously: stat computation iterated only equipped items, not their manastones; `CM_MANASTONE` had a comment "no stat bonus in this implementation"
+    - Build: 0 warnings, 0 errors
