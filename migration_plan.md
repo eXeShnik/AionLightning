@@ -1809,3 +1809,10 @@
     - Stats: 4195 first_target=ME target_type=AREA skills; 6249 first_target=TARGET (overlaps with ONLYONE but AREA subset)
     - Previously: ALL single-target skill casts hit exactly one creature regardless of AoE type — a gladiator's Storm Strike or templar's Ripple Wave would only damage the single selected target
     - Build: 0 warnings, 0 errors
+
+165. [✓] NPC caster-centered AoE skill damage — NPC skills with IsCasterAoe hit multiple players (session 2026-05-02)
+    - [✓] `NpcAiService.CastNpcDamageAsync` — accepts `SkillTemplate?` parameter; after primary target hit, if `skillTemplate.IsCasterAoe` and `EffectiveRange > 0`, finds all other living players in the zone within NPC's `effective_range` cylinder, caps at `TargetMaxCount`, applies same damage formula per additional player, broadcasts SM_ATTACK_STATUS
+    - `TryCastNpcSkillAsync` — passes `skillTemplate` to `CastNpcDamageAsync`
+    - Death handling: player death from AoE splash is caught by the existing `if (target.CurrentHp > 0) continue;` check in `TickAsync` on the next tick; primary target death is handled synchronously as before
+    - Previously: NPC skill damage always hit exactly one player regardless of AoE type — boss AoE spells like group damage effects hit only the aggro target
+    - Build: 0 warnings, 0 errors

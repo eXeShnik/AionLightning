@@ -418,7 +418,7 @@ public sealed class NpcAiService : BackgroundService
                 await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, skillTemplate.Duration, now, worldId, ct);
                 break;
             default:
-                await CastNpcDamageAsync(npc, target, entry.SkillId, now, worldId, ct);
+                await CastNpcDamageAsync(npc, target, entry.SkillId, skillTemplate, now, worldId, ct);
                 break;
         }
 
@@ -428,8 +428,10 @@ public sealed class NpcAiService : BackgroundService
                 try { await conn.SendAsync(activationPkt, ct); } catch { }
     }
 
-    private async Task CastNpcDamageAsync(Npc npc, Player target, int skillId, DateTime now, int worldId, CancellationToken ct)
+    private async Task CastNpcDamageAsync(Npc npc, Player target, int skillId,
+        SkillTemplate? skillTemplate, DateTime now, int worldId, CancellationToken ct)
     {
+        // Primary target hit
         int rawSpellDmg = Math.Max(1, npc.Level * 8 + Random.Shared.Next(10, 40));
         int mdef        = target.MagicDefense;
         int spellDmg    = mdef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + mdef)) : rawSpellDmg;
@@ -441,6 +443,40 @@ public sealed class NpcAiService : BackgroundService
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
+
+        // Caster-centered AoE splash: hit additional players near the NPC
+        if (skillTemplate?.IsCasterAoe == true && skillTemplate.EffectiveRange > 0)
+        {
+            float aoeR   = skillTemplate.EffectiveRange;
+            float aoeAlt = Math.Max(1f, skillTemplate.EffectiveAltitude);
+            int   maxHits = skillTemplate.TargetMaxCount;
+            int   splashCount = 1; // primary target already counted
+
+            foreach (var other in _world.GetAll())
+            {
+                if (splashCount >= maxHits) break;
+                if (other.ObjectId == target.ObjectId) continue;
+                if (other.IsAlreadyDead) continue;
+                if (other.Position.WorldId != worldId) continue;
+                float dx = other.Position.X - npc.Position.X;
+                float dy = other.Position.Y - npc.Position.Y;
+                float dz = other.Position.Z - npc.Position.Z;
+                if (dx * dx + dy * dy > aoeR * aoeR) continue;
+                if (Math.Abs(dz) > aoeAlt) continue;
+
+                splashCount++;
+                int splashRaw = Math.Max(1, npc.Level * 8 + Random.Shared.Next(10, 40));
+                int splashMdef = other.MagicDefense;
+                int splashDmg  = splashMdef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashMdef)) : splashRaw;
+                other.CurrentHp      = Math.Max(0, other.CurrentHp - splashDmg);
+                other.LastCombatTime = now;
+
+                var splashPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, splashDmg);
+                foreach (var conn in _connRegistry.GetAll())
+                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                        try { await conn.SendAsync(splashPkt, ct); } catch { }
+            }
+        }
     }
 
     private async Task CastNpcHealAsync(Npc npc, int skillId, DateTime now, int worldId, CancellationToken ct)
