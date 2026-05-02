@@ -318,6 +318,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         }
                     }
 
+                    // NPC level-diff damage reduction (Java StatFunctions.adjustDamages, applies to all damage types)
+                    if (target is Npc npcLvlAoEDmg)
+                    {
+                        float lvlMod = NpcLevelDiffMod(npcLvlAoEDmg.Level - player.Level);
+                        if (lvlMod > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlMod)));
+                    }
+
                     int spellDef = target is Player pvpSpellTarget
                                  ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                                  : target is Npc npcSpellTarget
@@ -496,6 +503,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         float mCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(spFt / 1000.0));
                         rawSpellDmg = (int)(rawSpellDmg * mCritCoeffG);
                     }
+                }
+
+                // NPC level-diff damage reduction (Java StatFunctions.adjustDamages)
+                if (target is Npc npcLvlSTDmg)
+                {
+                    float lvlModST = NpcLevelDiffMod(npcLvlSTDmg.Level - player.Level);
+                    if (lvlModST > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlModST)));
                 }
 
                 int spellDef = target is Player pvpSpellTarget
@@ -867,6 +881,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
         int tpl   = npc.Template.Stats?.MResist ?? 0;
         return tpl > 0 ? tpl : @base;
     }
+
+    // Java StatFunctions.getNpcLevelDiffMod: multiplier for dodge and damage when NPC > player level
+    private static float NpcLevelDiffMod(int levelDiff) => levelDiff switch
+    {
+        3 => 0.1f, 4 => 0.2f, 5 => 0.3f, 6 => 0.4f,
+        7 => 0.5f, 8 => 0.6f, 9 => 0.7f,
+        _ => levelDiff > 9 ? 0.8f : 0f
+    };
 
     private static async Task AwardLegionContributionAsync(Model.Player player, long apAmount,
         PlayerConnectionRegistry registry, ILegionDao legionDao, CancellationToken ct)

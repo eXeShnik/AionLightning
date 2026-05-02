@@ -2045,6 +2045,15 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+179. [✓] NPC level-diff modifier for physical evasion and all damage types (session 2026-05-02)
+    - [✓] `CM_ATTACK.cs` — NPC dodge rate: `rawDodgeDiff *= 1 + NpcLevelDiffMod(npcLevel - playerLevel)` before the ×0.6+50 formula; higher-level NPCs dodge more
+    - [✓] `CM_ATTACK.cs` — physical damage vs NPC: `rawDmg *= (1 - NpcLevelDiffMod(...))` applied after crit and before pdef mitigation; reduces player damage when NPC is 3+ levels higher
+    - [✓] `CM_CASTSPELL.cs` — spell damage vs NPC in both single-target and ground AoE paths: same `NpcLevelDiffMod` reduction applied before def mitigation
+    - [✓] `NpcLevelDiffMod` helper added to both CM_ATTACK and CM_CASTSPELL; switch expression table: diff=3→10%, 4→20%, 5→30%, 6→40%, 7→50%, 8→60%, 9→70%, ≥10→80% reduction
+    - Java source: `StatFunctions.adjustDamages` — `damages *= (1 - getNpcLevelDiffMod(levelDiff, 0))`; `calculatePhysicalDodgeRate` — `dodgeRate *= (1 + getNpcLevelDiffMod(levelDiff, 0))`
+    - Previously: players at any level could deal full damage to any NPC; high-level NPCs were not significantly harder to hit
+    - Build: 0 warnings, 0 errors
+
 178. [✓] Magic resist level-difference penalty in all spell damage paths (session 2026-05-02)
     - [✓] `CM_CASTSPELL.cs` ground AoE resist loop — after base `resistRate = max(1, MR - MA)`, add `(targetLevel - casterLevel - 2) * 100` when gap > 2; mirrors Java `StatFunctions.calculateMagicalResistRate` lines 885-886
     - [✓] `CM_CASTSPELL.cs` single-target resist — same level-difference bonus added

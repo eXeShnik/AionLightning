@@ -79,12 +79,15 @@ public sealed class CM_ATTACK : AionClientPacket
         if (target.Position.WorldId != player.Position.WorldId) return;
         if (player.Position.DistanceTo(target.Position) > MaxMeleeRange) return;
 
-        // Hit/miss check — Java calculatePhysicalEvasion: diff = (evasion-accuracy)*0.6+50, out of 1000 (max 300)
+        // Hit/miss check — Java calculatePhysicalDodgeRate: dodge = evasion-accuracy, NPC gets level-diff multiplier
         int totalAccuracy = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy;
         int targetEvasion = target is Player pvpEvade  ? pvpEvade.BaseEvasion + pvpEvade.BonusEvasion
                           : target is Npc npcEvade     ? NpcPhysicalAccuracy(npcEvade) + (npcEvade.Template.Stats?.Evasion ?? 0)
                           : 0;
-        float dodgeRate = Math.Clamp((targetEvasion - totalAccuracy) * 0.6f + 50f, 0f, 300f);
+        float rawDodgeDiff = targetEvasion - totalAccuracy;
+        if (target is Npc npcDodge)
+            rawDodgeDiff *= 1f + NpcLevelDiffMod(npcDodge.Level - player.Level);
+        float dodgeRate = Math.Clamp(rawDodgeDiff * 0.6f + 50f, 0f, 300f);
         if (Random.Shared.Next(1000) < (int)dodgeRate)
         {
             await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, 0, SM_ATTACK.HitResult.Dodge), ct);
@@ -163,6 +166,13 @@ public sealed class CM_ATTACK : AionClientPacket
             int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
             float critCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortitude / 1000.0));
             rawDmg = (int)(rawDmg * critCoeff);
+        }
+
+        // Apply NPC level-diff damage reduction (Java: damages *= 1 - getNpcLevelDiffMod(targetLvl-attackerLvl, 0))
+        if (target is Npc npcLvlDmg)
+        {
+            float lvlMod = NpcLevelDiffMod(npcLvlDmg.Level - player.Level);
+            if (lvlMod > 0f) rawDmg = Math.Max(1, (int)(rawDmg * (1f - lvlMod)));
         }
 
         // Apply physical defense mitigation from the target's armor
@@ -385,6 +395,14 @@ public sealed class CM_ATTACK : AionClientPacket
     // Java NpcGameStats.calcStats(): level*(33.6-0.16*level)+5; used as base for both evasion and physical accuracy
     private static int NpcPhysicalAccuracy(Model.Npc npc)
         => (int)Math.Round(npc.Level * (33.6 - 0.16 * npc.Level) + 5);
+
+    // Java StatFunctions.getNpcLevelDiffMod: multiplier applied to dodge rate and damage when NPC > player level
+    private static float NpcLevelDiffMod(int levelDiff) => levelDiff switch
+    {
+        3  => 0.1f, 4 => 0.2f, 5 => 0.3f, 6 => 0.4f,
+        7  => 0.5f, 8 => 0.6f, 9 => 0.7f,
+        _  => levelDiff > 9 ? 0.8f : 0f
+    };
 
     private async ValueTask AwardLegionContributionAsync(Model.Player player, long apAmount, CancellationToken ct)
     {
