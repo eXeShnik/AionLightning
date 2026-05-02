@@ -108,15 +108,22 @@ public sealed class Player : Creature
     public int BonusMagicAtk    { get; set; }
 
     // Equipment stat bonuses (EVASION, PHYSICAL_ACCURACY, PHYSICAL_CRITICAL, PHYSICAL_CRITICAL_RESIST)
-    public int BonusEvasion               { get; set; }
-    public int BonusPhysicalAccuracy      { get; set; }
-    public int BonusPhysicalCritical      { get; set; }
+    public int BonusEvasion                { get; set; }
+    public int BonusPhysicalAccuracy       { get; set; }
+    public int BonusPhysicalCritical       { get; set; }
     public int BonusPhysicalCriticalResist { get; set; }
+
+    // Equipment stat bonuses (MAGICAL_ACCURACY, MAGICAL_CRITICAL, MAGICAL_CRITICAL_RESIST)
+    public int BonusMagicalAccuracy       { get; set; }
+    public int BonusMagicalCritical       { get; set; }
+    public int BonusMagicalCriticalResist { get; set; }
 
     // Base combat stats from class stat template (set at login, constant until level-up)
     public int BasePhysicalAccuracy { get; set; }
     public int BaseCritRating       { get; set; }
     public int BaseEvasion          { get; set; }
+    public int BaseMagicAccuracy    { get; set; }
+    public int BaseMagicCritRating  { get; set; }
 
     // Flat HP/MP bonus from the active title (from player_titles.xml <add> modifiers)
     public int TitleBonusMaxHp { get; set; }

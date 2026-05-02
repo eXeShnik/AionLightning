@@ -98,6 +98,8 @@ public sealed class PlayerEnterWorldService
         player.BasePhysicalAccuracy = tpl?.MainHandAccuracy ?? 200;
         player.BaseCritRating       = tpl?.MainHandCritRate  ?? 100;
         player.BaseEvasion          = tpl?.Evasion           ?? 200;
+        player.BaseMagicAccuracy    = tpl?.MagicAccuracy     ?? 100;
+        player.BaseMagicCritRating  = 0; // Java: MAGICAL_CRITICAL base from class stats; 0 until per-class data available
         player.Appearance  = appearance;
         conn.ActivePlayer  = player;
         conn.State         = GsClientConnection.AionState.IN_GAME;
@@ -196,10 +198,13 @@ public sealed class PlayerEnterWorldService
         player.BonusPhysicalAtk             = equipStats.PhysicalAttackBonus;
         player.BonusMagicResist             = equipStats.MagicResistBonus;
         player.BonusMagicAtk                = equipStats.MagicAttackBonus;
-        player.BonusEvasion                 = equipStats.Evasion;
-        player.BonusPhysicalAccuracy        = equipStats.PhysicalAccuracy;
-        player.BonusPhysicalCritical        = equipStats.PhysicalCritical;
-        player.BonusPhysicalCriticalResist  = equipStats.PhysicalCriticalResist;
+        player.BonusEvasion                = equipStats.Evasion;
+        player.BonusPhysicalAccuracy       = equipStats.PhysicalAccuracy;
+        player.BonusPhysicalCritical       = equipStats.PhysicalCritical;
+        player.BonusPhysicalCriticalResist = equipStats.PhysicalCriticalResist;
+        player.BonusMagicalAccuracy        = equipStats.MagicalAccuracy;
+        player.BonusMagicalCritical        = equipStats.MagicalCritical;
+        player.BonusMagicalCriticalResist  = equipStats.MagicalCriticalResist;
 
         if (player.TitleId > 0)
         {

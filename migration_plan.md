@@ -1846,3 +1846,15 @@
     - Key stat frequencies in item XML: EVASION=34,454 items, PHYSICAL_ACCURACY=4,910, PHYSICAL_CRITICAL=4,939, PHYSICAL_CRITICAL_RESIST=2,693 — virtually all armor contributes evasion
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
+
+169. [✓] Magical crit and magic resist check for spell damage (session 2026-05-02)
+    - [✓] `ItemTemplate` — added `MagicalAccuracyBonus`, `MagicalCriticalBonus`, `MagicalCriticalResistBonus` shortcuts
+    - [✓] `EquipStats` record — extended with `MagicalAccuracy`, `MagicalCritical`, `MagicalCriticalResist`
+    - [✓] `EquipStatsCalculator.AccumulateTemplate` / `Accumulate` — updated to accumulate all 3 new magical stats
+    - [✓] `Player` model — added `BonusMagicalAccuracy`, `BonusMagicalCritical`, `BonusMagicalCriticalResist` and `BaseMagicAccuracy`, `BaseMagicCritRating`
+    - [✓] `PlayerEnterWorldService`, `CM_EQUIP_ITEM`, `CM_MANASTONE.RecomputeAndSendStatsAsync` — assign 3 new magical bonus fields; `BaseMagicAccuracy` set from `tpl.MagicAccuracy` at login
+    - [✓] `SM_STATS_INFO` — M-accuracy and M-crit fields now include equipment bonus; base-stats section updated identically
+    - [✓] `CM_CASTSPELL` single-target damage path — before damage: magic resist check `resistRate = max(1, target.BonusMagicResist - totalMagicAccuracy)` out of 1000 (Java calculateMagicalResistRate); on resist: broadcasts 0-damage SM_ATTACK_STATUS and returns; after damage calc: magical crit check using same piecewise formula as physical crit, using `BaseMagicCritRating + BonusMagicalCritical` reduced by `BonusMagicalCriticalResist`; 1.5× damage on crit
+    - Key: MAGIC_SKILL_BOOST_RESIST (11,857 items) not yet handled — that's a multiplier on spell bonus damage, deferred to a future milestone; MAGICAL_RESIST (41,003 items) now active as spell resist rating
+    - Previously: all spells hit unconditionally regardless of MAGICAL_RESIST stacking; no magical crit regardless of MAGICAL_CRITICAL gear
+    - Build: 0 warnings, 0 errors

@@ -78,7 +78,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // main/off-hand P-crit
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // main/off-hand P-accuracy
         w.WriteH(1);                   // unk
-        w.WriteH(0); w.WriteH(0);      // M-accuracy, M-crit
+        w.WriteH((short)((t?.MagicAccuracy ?? 0) + p.BonusMagicalAccuracy));
+        w.WriteH((short)(p.BaseMagicCritRating + p.BonusMagicalCritical)); // M-accuracy, M-crit
         w.WriteH(0);                   // unk
         w.WriteF(1.0f);                // cast speed
         w.WriteH(0);                   // unk 3.5
@@ -121,7 +122,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // base M-crit
         w.WriteH(0);                   // unk
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // base main/off-hand P-accuracy
-        w.WriteH(0); w.WriteH((short)(t?.MagicAccuracy ?? 0)); // off-hand M-accuracy, base M-accuracy
+        w.WriteH(0); w.WriteH((short)((t?.MagicAccuracy ?? 0) + p.BonusMagicalAccuracy)); // off-hand M-accuracy, base M-accuracy
         w.WriteH(0);                   // base concentration
         w.WriteH(0); w.WriteH(0);      // base M-boost, suppress
         w.WriteH(0);                   // base heal boost

@@ -24,12 +24,16 @@ public static class EquipStatsCalculator
         int Evasion,
         int PhysicalAccuracy,
         int PhysicalCritical,
-        int PhysicalCriticalResist);
+        int PhysicalCriticalResist,
+        int MagicalAccuracy,
+        int MagicalCritical,
+        int MagicalCriticalResist);
 
     public static EquipStats Compute(IEnumerable<Item> equippedItems, IDataManager dm)
     {
         int hp = 0, mp = 0, pDef = 0, mDef = 0, pAtk = 0, mRes = 0, mAtk = 0;
         int evade = 0, pAcc = 0, pCrit = 0, pCritRes = 0;
+        int mAcc = 0, mCrit = 0, mCritRes = 0;
 
         foreach (var item in equippedItems)
         {
@@ -37,22 +41,23 @@ public static class EquipStatsCalculator
             if (tpl is not null)
             {
                 AccumulateTemplate(tpl, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
-                    ref evade, ref pAcc, ref pCrit, ref pCritRes);
+                    ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes);
                 if (item.EnchantLevel > 0)
                     AccumulateEnchant(item.EnchantLevel, item.Slot, tpl,
                         ref hp, ref pDef, ref mDef, ref pAtk, ref mAtk, ref pCritRes);
             }
             foreach (var stone in item.ManaStones)
                 Accumulate(stone.ItemId, dm, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
-                    ref evade, ref pAcc, ref pCrit, ref pCritRes);
+                    ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes);
         }
 
-        return new EquipStats(hp, mp, pDef, mDef, pAtk, mRes, mAtk, evade, pAcc, pCrit, pCritRes);
+        return new EquipStats(hp, mp, pDef, mDef, pAtk, mRes, mAtk, evade, pAcc, pCrit, pCritRes, mAcc, mCrit, mCritRes);
     }
 
     private static void AccumulateTemplate(ItemTemplate tpl,
         ref int hp, ref int mp, ref int pDef, ref int mDef, ref int pAtk, ref int mRes, ref int mAtk,
-        ref int evade, ref int pAcc, ref int pCrit, ref int pCritRes)
+        ref int evade, ref int pAcc, ref int pCrit, ref int pCritRes,
+        ref int mAcc, ref int mCrit, ref int mCritRes)
     {
         hp       += tpl.MaxHpBonus;
         mp       += tpl.MaxMpBonus;
@@ -65,16 +70,20 @@ public static class EquipStatsCalculator
         pAcc     += tpl.PhysicalAccuracyBonus;
         pCrit    += tpl.PhysicalCriticalBonus;
         pCritRes += tpl.PhysicalCriticalResistBonus;
+        mAcc     += tpl.MagicalAccuracyBonus;
+        mCrit    += tpl.MagicalCriticalBonus;
+        mCritRes += tpl.MagicalCriticalResistBonus;
     }
 
     private static void Accumulate(int itemId, IDataManager dm,
         ref int hp, ref int mp, ref int pDef, ref int mDef, ref int pAtk, ref int mRes, ref int mAtk,
-        ref int evade, ref int pAcc, ref int pCrit, ref int pCritRes)
+        ref int evade, ref int pAcc, ref int pCrit, ref int pCritRes,
+        ref int mAcc, ref int mCrit, ref int mCritRes)
     {
         var tpl = dm.Items.GetTemplate(itemId);
         if (tpl is null) return;
         AccumulateTemplate(tpl, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
-            ref evade, ref pAcc, ref pCrit, ref pCritRes);
+            ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes);
     }
 
     // Java StatEnchantFunction.getEnchantAdditionModifier — off-hand slots skip weapon enchant bonus.

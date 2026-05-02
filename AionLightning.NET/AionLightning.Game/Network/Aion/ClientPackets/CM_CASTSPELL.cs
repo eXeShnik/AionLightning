@@ -394,6 +394,27 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (castRange > 0f && player.Position.DistanceTo(target.Position) > castRange) return;
 
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
+
+                // Magic resist check (Java calculateMagicalResistRate):
+                // resistRate = max(1, target.MagicResist - player.MagicAccuracy); out of 1000
+                if (spellIsMagical)
+                {
+                    int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
+                    int targetMagicResist = target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
+                                         : target is Npc npcResistTarget    ? (npcResistTarget.Template.Stats?.MResist ?? 0)
+                                         : 0;
+                    int resistRate = Math.Max(1, targetMagicResist - totalMagicAcc);
+                    if (Random.Shared.Next(1000) < resistRate)
+                    {
+                        // Spell resisted — send 0-damage status and return
+                        var resistPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(resistPkt); } catch { }
+                        return;
+                    }
+                }
+
                 int rawSpellDmg;
                 if (spellIsMagical)
                 {
@@ -405,6 +426,20 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
                     rawSpellDmg = pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
                 }
+
+                // Magical crit check (Java calculateMagicalCriticalRate, same piecewise formula as physical)
+                if (spellIsMagical)
+                {
+                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical;
+                    int mCritResist = target is Player pvpMCritTarget ? pvpMCritTarget.BonusMagicalCriticalResist : 0;
+                    mCritRating = Math.Max(0, mCritRating - mCritResist);
+                    double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
+                                     : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
+                                     : 52.0 + (mCritRating - 600) * 0.02;
+                    if (Random.Shared.Next(1000) < (int)mCritRate)
+                        rawSpellDmg = (int)(rawSpellDmg * 1.5f);
+                }
+
                 int spellDef = target is Player pvpSpellTarget
                              ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                              : target is Npc npcSpellTarget

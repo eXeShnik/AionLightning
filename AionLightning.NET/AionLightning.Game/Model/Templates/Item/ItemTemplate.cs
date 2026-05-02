@@ -59,10 +59,13 @@ public sealed class ItemTemplate
     public int PhysicalAttackBonus        => Modifiers?.GetStat("PHYSICAL_ATTACK")           ?? 0;
     public int MagicResistBonus           => Modifiers?.GetStat("MAGICAL_RESIST")            ?? 0;
     public int MagicAttackBonus           => Modifiers?.GetStat("MAGICAL_ATTACK")            ?? 0;
-    public int EvasionBonus               => Modifiers?.GetStat("EVASION")                   ?? 0;
-    public int PhysicalAccuracyBonus      => Modifiers?.GetStat("PHYSICAL_ACCURACY")         ?? 0;
-    public int PhysicalCriticalBonus      => Modifiers?.GetStat("PHYSICAL_CRITICAL")         ?? 0;
-    public int PhysicalCriticalResistBonus => Modifiers?.GetStat("PHYSICAL_CRITICAL_RESIST") ?? 0;
+    public int EvasionBonus                => Modifiers?.GetStat("EVASION")                   ?? 0;
+    public int PhysicalAccuracyBonus       => Modifiers?.GetStat("PHYSICAL_ACCURACY")         ?? 0;
+    public int PhysicalCriticalBonus       => Modifiers?.GetStat("PHYSICAL_CRITICAL")         ?? 0;
+    public int PhysicalCriticalResistBonus => Modifiers?.GetStat("PHYSICAL_CRITICAL_RESIST")  ?? 0;
+    public int MagicalAccuracyBonus        => Modifiers?.GetStat("MAGICAL_ACCURACY")          ?? 0;
+    public int MagicalCriticalBonus        => Modifiers?.GetStat("MAGICAL_CRITICAL")          ?? 0;
+    public int MagicalCriticalResistBonus  => Modifiers?.GetStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;
