@@ -2230,6 +2230,19 @@
     - Previously: cast speed debuffs showed the icon but `castDelay` was always the raw template Duration; SM_STATS_INFO cast speed ignored all buff/debuff effects
     - Build: 0 warnings, 0 errors
 
+221. [✓] StatDown/StatUp PHYSICAL_DEFENSE (statup) + MAGICAL_DEFEND (statdown/statup) — pdef buff and mdef buff/debuff (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PdefStatUpDelta` (statup/PHYSICAL_DEFENSE), `MagicDefAddDelta` (statdown/MAGICAL_DEFEND), `MagicDefStatUpDelta` (statup/MAGICAL_DEFEND)
+    - [✓] `Model/Creature.cs` — added `PdefStatUpDelta` (positive from statup buffs), `MagicDefDelta` (bidirectional: negative debuff, positive buff)
+    - [✓] `Model/AbnormalState.cs` — added `PdefStatUpDeltaVal`, `MagicDefDeltaVal`
+    - [✓] `SM_STATS_INFO.cs` — pdef: `PhysicalDefense + PdefDebuffDelta + PdefStatUpDelta`; mdef: `Math.Max(100, MagicDefense + MagicDefDelta)`
+    - [✓] `CM_ATTACK.cs` — main pdef includes `+ target.PdefStatUpDelta`; parry and block pdef sections extended to also include `PdefDebuffDelta + PdefStatUpDelta` (were missing PdefDebuffDelta — bug fix bundled)
+    - [✓] `CM_CASTSPELL.cs` — AoE and single-target spellDef: Player magical path includes `+ MagicDefDelta`; Player physical path includes `+ PdefDebuffDelta + PdefStatUpDelta`; full debuff/buff apply+restore chain for both vals
+    - [✓] `NpcAiService.CastNpcDamageAsync` — `mdef` now `target.MagicDefense + target.MagicDefDelta`
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — 2 new params (`pdefStatUpDelta`, `magicDefDelta`); apply/restore chain
+    - Java source: `PHYSICAL_DEFENSE` statup buffs (e.g. Shield of Darkness) add to pdef alongside statdown debuffs; `MAGICAL_DEFEND` is the magic mitigation stat (very small on most items; 51 items total); statdown reduces it further
+    - Previously: pdef buff statup had no effect on damage formulas; MagicDefDelta was absent so mdef buffs/debuffs never changed spell damage taken
+    - Build: 0 warnings, 0 errors
+
 219. [✓] StatDown/StatUp CONCENTRATION + MAGIC_SKILL_BOOST_RESIST — concentration feeds into magic accuracy; suppression reduces incoming magic boost (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `ConcentrationAddDelta/StatUpDelta` (stat=CONCENTRATION), `MagicSuppressionAddDelta/StatUpDelta` (stat=MAGIC_SKILL_BOOST_RESIST)
     - [✓] `Model/Creature.cs` — added `ConcentrationDelta`, `MagicSuppressionDelta`

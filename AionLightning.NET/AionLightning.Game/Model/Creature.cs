@@ -70,6 +70,10 @@ public abstract class Creature : VisibleObject
     public int ConcentrationDelta   { get; set; }
     // Cumulative MAGIC_SKILL_BOOST_RESIST (magic suppression) delta (positive from statup = reduced incoming M-boost)
     public int MagicSuppressionDelta { get; set; }
+    // Cumulative PHYSICAL_DEFENSE statup delta (positive from statup buffs)
+    public int PdefStatUpDelta  { get; set; }
+    // Cumulative MAGICAL_DEFEND delta (negative = debuff, positive = statup buff)
+    public int MagicDefDelta    { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

@@ -113,7 +113,7 @@ public sealed class CM_ATTACK : AionClientPacket
                         ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkPr
                         : baseAtkPr + Random.Shared.Next(10, 40);
                     rawDmgPr     = Math.Max(1, rawDmgPr / 2); // PvP 50%
-                    int pdefPr    = pvpParry.PhysicalDefense;
+                    int pdefPr    = Math.Max(0, pvpParry.PhysicalDefense + pvpParry.PdefDebuffDelta + pvpParry.PdefStatUpDelta);
                     int dmgPr     = pdefPr > 0 ? Math.Max(1, rawDmgPr * 1000 / (1000 + pdefPr)) : rawDmgPr;
                     int parryDmg  = (int)(dmgPr * 0.6f);
                     target.CurrentHp = Math.Max(0, target.CurrentHp - parryDmg);
@@ -140,7 +140,7 @@ public sealed class CM_ATTACK : AionClientPacket
                         ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkBl
                         : baseAtkBl + Random.Shared.Next(10, 40);
                     rawDmgBl     = Math.Max(1, rawDmgBl / 2); // PvP 50%
-                    int pdefBl    = pvpBlock.PhysicalDefense;
+                    int pdefBl    = Math.Max(0, pvpBlock.PhysicalDefense + pvpBlock.PdefDebuffDelta + pvpBlock.PdefStatUpDelta);
                     int dmgBl     = pdefBl > 0 ? Math.Max(1, rawDmgBl * 1000 / (1000 + pdefBl)) : rawDmgBl;
                     int blockDmg  = dmgBl / 2;
                     target.CurrentHp = Math.Max(0, target.CurrentHp - blockDmg);
@@ -197,7 +197,7 @@ public sealed class CM_ATTACK : AionClientPacket
         int pdefBase = target is Player pvpTarget ? pvpTarget.PhysicalDefense
                      : target is Npc npcTarget    ? (npcTarget.Template.Stats?.PDef ?? 0)
                      : 0;
-        int pdef   = pdefBase + target.PdefDebuffDelta;
+        int pdef   = pdefBase + target.PdefDebuffDelta + target.PdefStatUpDelta;
         int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
 
         // Multi-hit split — Java AttackUtil: player hitCount = Rnd.get(1, weapon.hit_count); split formula same as NPC

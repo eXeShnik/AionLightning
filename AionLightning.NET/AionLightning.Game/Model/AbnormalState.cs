@@ -69,6 +69,10 @@ public sealed class AbnormalState
     public int   ConcentrationDeltaVal    { get; init; }
     // Non-zero when this buff increases MAGIC_SKILL_BOOST_RESIST (magic suppression)
     public int   MagicSuppressionDeltaVal { get; init; }
+    // Non-zero when this buff increases PHYSICAL_DEFENSE via statup (positive = more pdef)
+    public int   PdefStatUpDeltaVal { get; init; }
+    // Non-zero when this effect changes MAGICAL_DEFEND (negative = debuff, positive = statup buff)
+    public int   MagicDefDeltaVal   { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
