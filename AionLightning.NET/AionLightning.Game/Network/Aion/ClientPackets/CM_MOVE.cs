@@ -51,6 +51,9 @@ public sealed class CM_MOVE : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null) return;
 
+        // Java CM_MOVE: reject movement while rooted, stunned, sleeping, etc. (CANT_MOVE_STATE + isUnderFear)
+        if ((player.ActiveCcFlags & AbnormalCcFlags.CantMove) != 0) return;
+
         // Update player state
         player.Position      = player.Position with { X = _x, Y = _y, Z = _z, Heading = _heading };
         player.MovementMask  = _type;

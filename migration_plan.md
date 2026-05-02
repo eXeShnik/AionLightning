@@ -2045,6 +2045,15 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+188. [✓] Root/movement blocking via CantMove flags + SM_TARGET_IMMOBILIZE (session 2026-05-02)
+    - [✓] `Model/AbnormalCcFlags.cs` — added `OpenAerial=65536` and `CannotMove=4194304` to match Java enum; updated `CantMove` composite to include both + Fear (Java CM_MOVE checks CANT_MOVE_STATE plus `isUnderFear()` separately — merged into one composite); updated `CantAttack` to include OpenAerial and CannotMove
+    - [✓] `Network/Aion/ServerPackets/SM_TARGET_IMMOBILIZE.cs` — new packet (opcode 0xCC): writes objectId + x, y, z, heading to freeze the target's position on all clients; Java: sent by RootEffect, StunEffect, StunAlwaysEffect, FearEffect
+    - [✓] `CM_MOVE.cs` — added early return: `if ((player.ActiveCcFlags & AbnormalCcFlags.CantMove) != 0) return;` before position update; Java CM_MOVE line 113-115: silently rejects movement when CANT_MOVE_STATE or fear active
+    - [✓] `CM_CASTSPELL.cs` — after debuff SM_ABNORMAL_EFFECT broadcast, if `(debuffEffect.CcFlags & CantMove) != 0`, broadcasts SM_TARGET_IMMOBILIZE to all world observers; matches Java RootEffect/StunEffect behavior
+    - Java source: `CM_MOVE.java` lines 113-115: `isAbnormalState(CANT_MOVE_STATE) || isUnderFear()`; `RootEffect.java` line 60 + `StunEffect.java` line 57: `broadcastPacketAndReceive(effected, new SM_TARGET_IMMOBILIZE(effected))`
+    - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
+    - Build: 0 warnings, 0 errors
+
 187. [✓] DoT effects (bleed/poison/disease) with periodic damage ticks (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillDotInfo` readonly record struct (CheckTimeMs, BaseValue, Delta, Duration2Ms, DotType, Element); `SkillEffects.DotEffects` property parses `<bleed>`, `<poison>`, `<disease>` XML elements from the `[XmlAnyElement]` collection; reads `checktime`, `value`, `delta`, `duration2` attributes
     - [✓] `Model/AbnormalState.cs` — added `SkillDotInfo? DotInfo { get; init; }` to carry per-tick damage info alongside the abnormal state record

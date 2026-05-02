@@ -707,6 +707,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
                             try { await c.SendAsync(debuffAbnormal); } catch { }
 
+                    // Java RootEffect/StunEffect/ParalyzeEffect: broadcast SM_TARGET_IMMOBILIZE to freeze
+                    // the target's position on all clients when any movement-blocking CC is applied
+                    if ((debuffEffect.CcFlags & AbnormalCcFlags.CantMove) != 0)
+                    {
+                        var immobilize = new SM_TARGET_IMMOBILIZE(target);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(immobilize); } catch { }
+                    }
+
                     // Schedule expiry broadcast at target's current zone
                     var expEffect = debuffEffect;
                     var expTarget = target;
