@@ -2230,6 +2230,15 @@
     - Previously: cast speed debuffs showed the icon but `castDelay` was always the raw template Duration; SM_STATS_INFO cast speed ignored all buff/debuff effects
     - Build: 0 warnings, 0 errors
 
+225. [✓] StatUp MOVEMENT_SPEED — speed buff from statup PERCENT SPEED skills (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `SpeedStatUpPct` (reads statup PERCENT SPEED; positive = faster)
+    - [✓] `Model/AbnormalState.cs` — added `SpeedStatUpPct`, `PreBuffMovSpeed` (used to restore speed on expiry)
+    - [✓] `CM_CASTSPELL.cs` — buff apply: save `PreBuffMovSpeed`, multiply `MovementSpeed` by `(100 + pct)/100`, max 12.0f, broadcast START_EMOTE2; expiry: restore to `PreBuffMovSpeed`, re-broadcast
+    - Java source: SPEED PERCENT statup buffs (e.g. Wind Walk, Speed of Thought) multiply base movement speed; no separate accumulator — direct modify-and-restore
+    - Note: overlapping snare + speed buff interactions produce approximate results (last-applied restoration wins); edge-case acceptable for current scope
+    - Previously: speed buffs from statup skills were parsed but never modified actual MovementSpeed
+    - Build: 0 warnings, 0 errors
+
 224. [✓] StatUp ATTACK_SPEED — haste buff reduces attack speed ms (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `AtkSpeedStatUpDelta` (statup/ATTACK_SPEED; negative ADD = faster attacks)
     - [✓] `Model/Creature.cs` — added `AtkSpeedStatUpDelta` (negative = faster attacks)

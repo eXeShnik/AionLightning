@@ -104,6 +104,31 @@ public sealed class SkillEffects
     private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
 
     /// <summary>
+    /// Movement speed percent change from the first statup effect with a PERCENT SPEED change.
+    /// Positive = faster (e.g. +30 = 30% faster). 0 means no speed buff.
+    /// </summary>
+    public int SpeedStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "SPEED",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int pct)) return pct;
+                }
+            }
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Movement speed percent change from the first snare/absolutesnare effect with a PERCENT SPEED change.
     /// Typically -50 (halve speed). 0 means no movement speed change.
     /// </summary>

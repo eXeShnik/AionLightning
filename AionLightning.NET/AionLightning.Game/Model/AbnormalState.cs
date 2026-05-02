@@ -83,6 +83,10 @@ public sealed class AbnormalState
     public int   MResistStatUpDeltaVal  { get; init; }
     // Non-zero when this buff reduces ATTACK_SPEED ms via statup (negative = faster attacks)
     public int   AtkSpeedStatUpDeltaVal { get; init; }
+    // Non-zero when this buff increases movement speed (positive percent, e.g. 30 = +30%)
+    public int   SpeedStatUpPct         { get; init; }
+    // MovementSpeed before this speed buff was applied — used to restore on expiry
+    public float PreBuffMovSpeed        { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

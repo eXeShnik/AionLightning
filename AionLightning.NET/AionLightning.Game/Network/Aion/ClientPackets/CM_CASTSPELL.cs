@@ -385,12 +385,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int evasionStatUpDelta           = template.Effects?.EvasionStatUpDelta           ?? 0;
                 int mresistStatUpDelta           = template.Effects?.MResistStatUpDelta           ?? 0;
                 int atkSpeedStatUpDelta          = template.Effects?.AtkSpeedStatUpDelta          ?? 0;
+                int speedStatUpPct               = template.Effects?.SpeedStatUpPct               ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
                     SkillLevel         = _level,
                     EffectorId         = player.ObjectId,
                     Expiry             = DateTime.UtcNow.AddMilliseconds(durationMs),
+                    SpeedStatUpPct     = speedStatUpPct,
+                    PreBuffMovSpeed    = buffTarget.MovementSpeed,
                     MaxHpDelta         = maxHpStatUpDelta,
                     MaxMpDelta         = maxMpStatUpDelta,
                     MagicBoostDeltaVal = mBoostStatUpDelta,
@@ -450,6 +453,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var c in _connRegistry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == atkSpdWorld)
                             try { await c.SendAsync(atkSpdEmo, ct); } catch { }
+                }
+                if (speedStatUpPct != 0)
+                {
+                    buffTarget.MovementSpeed = Math.Min(12.0f, buffTarget.MovementSpeed * (100 + speedStatUpPct) / 100f);
+                    var speedEmo = new SM_EMOTION(buffTarget, EmotionType.START_EMOTE2);
+                    int speedWorld = player.Position.WorldId;
+                    foreach (var c in _connRegistry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == speedWorld)
+                            try { await c.SendAsync(speedEmo, ct); } catch { }
                 }
                 if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0 || evasionStatUpDelta != 0 || mresistStatUpDelta != 0 || atkSpeedStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
@@ -602,6 +614,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var c in _connRegistry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == restoreAtkWorld)
                                 try { await c.SendAsync(restoreAtkEmo); } catch { }
+                    }
+                    if (expiryEffect.SpeedStatUpPct != 0)
+                    {
+                        expiryTarget.MovementSpeed = expiryEffect.PreBuffMovSpeed;
+                        var restoreSpeedEmo = new SM_EMOTION(expiryTarget, EmotionType.START_EMOTE2);
+                        int restoreSpeedWorld = expiryTarget.Position.WorldId;
+                        foreach (var c in _connRegistry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == restoreSpeedWorld)
+                                try { await c.SendAsync(restoreSpeedEmo); } catch { }
                     }
                     if (buffStatChanged && expiryTarget is Player expiredBuffPlayer)
                     {
