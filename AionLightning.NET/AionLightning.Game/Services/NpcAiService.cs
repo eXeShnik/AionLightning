@@ -288,9 +288,59 @@ public sealed class NpcAiService : BackgroundService
             if (_rates.NormalMobsRatePw != 1.0)
                 rawDmg = Math.Max(1, (int)(rawDmg * _rates.NormalMobsRatePw));
 
-            // NPC critical hit — 5% base chance, 1.5× multiplier
-            bool npcCrit = Random.Shared.Next(100) < 5;
-            if (npcCrit) rawDmg = (int)(rawDmg * 1.5f);
+            // Dodge / parry / block checks against player targets (mirrors CM_ATTACK player-vs-NPC checks)
+            int npcWorld  = npc.Position.WorldId;
+            int npcAccuracy = npc.Level * 5; // level-based accuracy approximation
+            var hitResult = SM_ATTACK.HitResult.Normal;
+
+            if (target is Player pvpDef)
+            {
+                int ev = pvpDef.BaseEvasion + pvpDef.BonusEvasion;
+                float dodgeChance = Math.Clamp((ev - npcAccuracy) * 0.6f + 50f, 0f, 300f);
+                if (Random.Shared.Next(1000) < (int)dodgeChance)
+                {
+                    var dodgePkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage: 0, SM_ATTACK.HitResult.Dodge);
+                    foreach (var conn in _connRegistry.GetAll())
+                        if (conn.ActivePlayer?.Position.WorldId == npcWorld)
+                            try { await conn.SendAsync(dodgePkt, ct); } catch { }
+                    continue;
+                }
+
+                int par = pvpDef.BaseParry + pvpDef.BonusParry;
+                if (par > 0)
+                {
+                    float parryChance = Math.Clamp((par - npcAccuracy) * 0.6f + 50f, 0f, 400f);
+                    if (Random.Shared.Next(1000) < (int)parryChance)
+                    {
+                        rawDmg    = Math.Max(1, (int)(rawDmg * 0.6f));
+                        hitResult = SM_ATTACK.HitResult.Parry;
+                    }
+                }
+
+                if (hitResult == SM_ATTACK.HitResult.Normal)
+                {
+                    int blk = pvpDef.BaseBlock + pvpDef.BonusBlock;
+                    if (blk > 0)
+                    {
+                        float blockChance = Math.Clamp(blk - npcAccuracy, 0f, 500f);
+                        if (Random.Shared.Next(1000) < (int)blockChance)
+                        {
+                            rawDmg    = Math.Max(1, (int)(rawDmg * 0.5f));
+                            hitResult = SM_ATTACK.HitResult.Block;
+                        }
+                    }
+                }
+            }
+
+            // NPC critical hit — 5% base chance; crit multiplier reduced by target strike fortitude
+            if (Random.Shared.Next(100) < 5)
+            {
+                int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
+                float critCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortitude / 1000.0));
+                rawDmg = (int)(rawDmg * critCoeff);
+                if (hitResult == SM_ATTACK.HitResult.Normal)
+                    hitResult = SM_ATTACK.HitResult.Critical;
+            }
 
             // Apply physical defense mitigation (diminishing returns: pdef / (pdef + 1000))
             int pdef   = target is Player tp ? tp.PhysicalDefense : 0;
@@ -300,10 +350,8 @@ public sealed class NpcAiService : BackgroundService
             target.LastCombatTime = now;
             npc.LastCombatTime    = now;
 
-            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage,
-                npcCrit ? SM_ATTACK.HitResult.Critical : SM_ATTACK.HitResult.Normal);
+            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage, hitResult);
             var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
-            int npcWorld  = npc.Position.WorldId;
             foreach (var conn in _connRegistry.GetAll())
             {
                 if (conn.ActivePlayer?.Position.WorldId != npcWorld) continue;

@@ -1847,6 +1847,21 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+178. [✓] BOOST_MAGICAL_SKILL scaling applied to spell damage (session 2026-05-02)
+    - [✓] `CM_CASTSPELL` single-target path — `rawSpellDmg *= (1 + BonusMagicBoost/1000f)` (Java: `damages = baseDmg * (knowledge/100 + magicBoost/1000)`; with knowledge base=100 the factor reduces to `1 + magicBoost/1000`)
+    - [✓] `CM_CASTSPELL` ground AoE path — same factor applied to `rawSpellDmg`; extracted as local `mbMultG` before the crit check
+    - [✓] `CM_CASTSPELL` splash AoE path — inline factor applied to `splashRaw` for magical spells
+    - Previously: `BonusMagicBoost` was accumulated from equipment and written to SM_STATS_INFO but had no effect on actual spell damage
+    - Build: 0 warnings, 0 errors
+
+177. [✓] NPC attacks check player evasion / parry / block (session 2026-05-02)
+    - [✓] `NpcAiService` melee damage block — before crit+pdef: dodge check `clamp((evasion-npcAcc)*0.6+50, 0, 300)/1000`; on dodge broadcasts SM_ATTACK(Dodge, 0) and `continue`s; parry check `clamp((parry-npcAcc)*0.6+50, 0, 400)/1000` → 40% rawDmg reduction; block check `clamp(block-npcAcc, 0, 500)/1000` → 50% rawDmg reduction; all checks player-only (NPC vs NPC not checked)
+    - [✓] NPC crit multiplier now uses fortitude formula: `critCoeff = max(1.0, 1.5 - round(BonusStrikeFortitude/1000.0))` (was always 1.5×)
+    - [✓] `npcWorld` variable moved up before dodge broadcast to resolve scope dependency
+    - NPC accuracy approximated as `npc.Level * 5` (Java uses NPC stats template; deferred until NPC stats templates are fully loaded)
+    - Previously: NPCs always hit players regardless of evasion/parry/block gear; player defensive stats had no effect in PvE
+    - Build: 0 warnings, 0 errors
+
 176. [✓] Strike/spell fortitude — PHYSICAL/MAGICAL_CRITICAL_DAMAGE_REDUCE (session 2026-05-02)
     - [✓] `ItemTemplate` — added `StrikeFortitudeBonus` (`GetBonusStat("PHYSICAL_CRITICAL_DAMAGE_REDUCE")`) and `SpellFortitudeBonus` (`GetBonusStat("MAGICAL_CRITICAL_DAMAGE_REDUCE")`)
     - [✓] `Player` — added `BonusStrikeFortitude`, `BonusSpellFortitude`

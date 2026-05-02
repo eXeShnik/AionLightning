@@ -264,11 +264,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
                 int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
                 int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
+                // Java: damages = baseDmg * (knowledge/100 + magicBoost/1000); with base knowledge=100 → factor = 1 + magicBoost/1000
+                float magicBoostMult = 1.0f + player.BonusMagicBoost / 1000f;
 
                 foreach (var target in targets)
                 {
                     int rawSpellDmg = spellIsMagical
-                        ? mAtk + player.Level * 6 + Random.Shared.Next(10, 40)
+                        ? (int)((mAtk + player.Level * 6 + Random.Shared.Next(10, 40)) * magicBoostMult)
                         : pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
 
                     // Magic resist check (Java calculateMagicalResistRate)
@@ -453,13 +455,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int rawSpellDmg;
                 if (spellIsMagical)
                 {
-                    int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
-                    rawSpellDmg = mAtk + player.Level * 6 + Random.Shared.Next(10, 40);
+                    int mAtkG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
+                    float mbMultG = 1.0f + player.BonusMagicBoost / 1000f;
+                    rawSpellDmg = (int)((mAtkG + player.Level * 6 + Random.Shared.Next(10, 40)) * mbMultG);
                 }
                 else
                 {
-                    int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
-                    rawSpellDmg = pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
+                    int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
+                    rawSpellDmg = pAtkG + player.Level * 4 + Random.Shared.Next(10, 40);
                 }
 
                 // Magical crit check (Java calculateMagicalCriticalRate, same piecewise formula as physical)
@@ -551,7 +554,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         splashCount++;
 
                         int splashRaw = spellIsMagical
-                            ? (100 + player.MainHandMagicalAtk + player.BonusMagicAtk) + player.Level * 6 + Random.Shared.Next(10, 40)
+                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk) + player.Level * 6 + Random.Shared.Next(10, 40)) * (1.0f + player.BonusMagicBoost / 1000f))
                             : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk) + player.Level * 4 + Random.Shared.Next(10, 40);
 
                         // Magic resist check for AoE splash
