@@ -1732,3 +1732,11 @@
     - Java source: `STR_DEATH_MESSAGE_ME` 1300737, `STR_MSG_COMBAT_MY_DEATH_TO_B` 1340002, `STR_MSG_COMBAT_FRIENDLY_DEATH` 1350000
     - Previously: players received SM_DIE (revive dialog) but no text notification of who killed them; group members saw no death notification at all
     - Build: 0 warnings, 0 errors
+
+156. [✓] Zone-wide PvP kill announcement — "%0 was killed by %1's attack" (session 2026-05-02)
+    - [✓] `SM_SYSTEM_MESSAGE` — added `PlayerKilledByPlayer(string, string)` (code 1350001)
+    - [✓] `CM_ATTACK` (PvP kill) — after dead player SM_DIE: broadcasts `PlayerKilledByPlayer(victim, killer)` to all zone players
+    - [✓] `CM_CASTSPELL` (spell PvP kill) — same zone-wide broadcast
+    - Java source: `PvpService.onKill` calls `broadcastPacketAndReceive(STR_MSG_COMBAT_FRIENDLY_DEATH_TO_B)` zone-wide after every player-kills-player event
+    - Previously: PvP kills were silent to bystanders — only the victim saw a death message; no public zone notification existed
+    - Build: 0 warnings, 0 errors

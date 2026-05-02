@@ -183,6 +183,13 @@ public sealed class CM_ATTACK : AionClientPacket
                 try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(player.Name), ct); } catch { }
             }
 
+            // Zone-wide kill announcement: "%0 was killed by %1's attack."
+            var killAnnounce = SM_SYSTEM_MESSAGE.PlayerKilledByPlayer(deadPlayer.Name, player.Name);
+            int pvpWorldId = player.Position.WorldId;
+            foreach (var c in _connRegistry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == pvpWorldId)
+                    try { await c.SendAsync(killAnnounce, ct); } catch { }
+
             // Group members see "[player] has died."
             var deadGroup = deadPlayer.Group;
             if (deadGroup is not null)

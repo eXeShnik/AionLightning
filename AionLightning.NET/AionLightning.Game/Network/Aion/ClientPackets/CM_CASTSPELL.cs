@@ -342,6 +342,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(player.Name)); } catch { }
                     }
 
+                    // Zone-wide kill announcement: "%0 was killed by %1's attack."
+                    var killAnnounce = SM_SYSTEM_MESSAGE.PlayerKilledByPlayer(deadPlayer.Name, player.Name);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(killAnnounce); } catch { }
+
                     // Group members see "[player] has died."
                     var deadGroup = deadPlayer.Group;
                     if (deadGroup is not null)

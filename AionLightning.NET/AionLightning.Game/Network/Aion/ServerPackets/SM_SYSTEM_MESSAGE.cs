@@ -115,6 +115,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_MSG_COMBAT_FRIENDLY_DEATH — "%0 has died." (msg code 1350000)
     public static SM_SYSTEM_MESSAGE GroupMemberDied(string playerName) => new(1350000, playerName);
 
+    // STR_MSG_COMBAT_FRIENDLY_DEATH_TO_B — "%0 was killed by %1's attack." (msg code 1350001)
+    public static SM_SYSTEM_MESSAGE PlayerKilledByPlayer(string victimName, string killerName) => new(1350001, victimName, killerName);
+
     // STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM — "Item tuning complete." (msg code 1401626)
     public static SM_SYSTEM_MESSAGE TuningComplete() => new(1401626);
 
