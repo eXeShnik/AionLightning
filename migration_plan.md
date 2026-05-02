@@ -1633,3 +1633,10 @@
     - [✓] `CM_CASTSPELL` — added BUFF/CHANT branch (between heal and damage branches): resolves target (self or named player), adds `AbnormalState` to `buffTarget.ActiveEffects`, broadcasts `SM_ABNORMAL_EFFECT` with active effect list to all zone clients; fire-and-forget expiry task removes effect after `template.Duration` ms and re-broadcasts updated list; sends `SM_SKILL_ACTIVATION` after effect is applied; skills with `Duration == 0` or non-player targets are skipped
     - Previously: BUFF/CHANT skills did nothing after cooldown — no activation packet, no buff icon visible on client; now buff icons appear on player portrait with countdown timer matching skill duration
     - Build: 0 warnings, 0 errors
+
+142. [✓] DEBUFF effect tracking on spell targets + BUFF expiry worldId fix (session 2026-05-02)
+    - [✓] `CM_CASTSPELL` (damage Task.Run) — after DP gain, if `target.CurrentHp > 0` and `template.SubType == DEBUFF` and `template.Duration > 0`: creates `AbnormalState` on the target creature, calls `target.AddEffect`, broadcasts `SM_ABNORMAL_EFFECT(target, isPlayer, activeEffects)` to zone; nested fire-and-forget expiry task removes effect after `Duration` ms and re-broadcasts using `expTarget.Position.WorldId` at expiry time
+    - [✓] BUFF expiry worldId bug (M141) — replaced captured-at-cast `buffWorldId` with `expiryTarget.Position.WorldId` evaluated at expiry time; correct if target teleports between zones during buff duration
+    - DEBUFF vs BUFF differences: effectType=1 (creature) for NPC targets omits `effectorId` per wire format; player targets use effectType=2 with effectorId
+    - Debuffs stack independently per skillId (AddEffect deduplicates by skillId); a re-cast of the same debuff refreshes the duration
+    - Build: 0 warnings, 0 errors

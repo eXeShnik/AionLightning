@@ -174,7 +174,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (c.ActivePlayer?.Position.WorldId == buffWorldId)
                         try { await c.SendAsync(abnormal, ct); } catch { }
 
-                // Schedule expiry — remove effect and re-broadcast empty/updated list
+                // Schedule expiry — remove effect and re-broadcast to target's current zone
                 var expiryEffect = effect;
                 var expiryTarget = buffTarget;
                 _ = Task.Run(async () =>
@@ -183,8 +183,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     expiryTarget.RemoveEffect(expiryEffect.SkillId, expiryEffect.Expiry);
                     var expired = new SM_ABNORMAL_EFFECT(expiryTarget.ObjectId, buffTargetIsPlayer,
                                       expiryTarget.GetActiveEffects());
+                    int expWorldId = expiryTarget.Position.WorldId;
                     foreach (var c in _connRegistry.GetAll())
-                        if (c.ActivePlayer?.Position.WorldId == buffWorldId)
+                        if (c.ActivePlayer?.Position.WorldId == expWorldId)
                             try { await c.SendAsync(expired); } catch { }
                 });
             }
@@ -271,6 +272,41 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 {
                     player.Dp = Math.Min(6000, player.Dp + 150);
                     try { await conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp)); } catch { }
+                }
+
+                // Apply DEBUFF visual effect when skill has DEBUFF subtype and a duration
+                if (target.CurrentHp > 0
+                    && template?.SubType == SkillSubType.DEBUFF && template.Duration > 0)
+                {
+                    bool debuffTargetIsPlayer = target is Player;
+                    var  debuffEffect = new AbnormalState
+                    {
+                        SkillId    = spellId,
+                        SkillLevel = _level,
+                        EffectorId = player.ObjectId,
+                        Expiry     = DateTime.UtcNow.AddMilliseconds(template.Duration),
+                    };
+                    target.AddEffect(debuffEffect);
+                    var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,
+                                            target.GetActiveEffects());
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(debuffAbnormal); } catch { }
+
+                    // Schedule expiry broadcast at target's current zone
+                    var expEffect = debuffEffect;
+                    var expTarget = target;
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(template.Duration);
+                        expTarget.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
+                        var expired = new SM_ABNORMAL_EFFECT(expTarget.ObjectId, debuffTargetIsPlayer,
+                                          expTarget.GetActiveEffects());
+                        int expWorldId = expTarget.Position.WorldId;
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == expWorldId)
+                                try { await c.SendAsync(expired); } catch { }
+                    });
                 }
 
                 if (target.CurrentHp > 0) return;
