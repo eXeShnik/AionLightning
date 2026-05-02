@@ -382,6 +382,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int magicDefStatUpDelta          = template.Effects?.MagicDefStatUpDelta          ?? 0;
                 int patkStatUpDelta              = template.Effects?.PhysAtkStatUpDelta           ?? 0;
                 int magicAtkStatUpDelta          = template.Effects?.MagicAtkStatUpDelta          ?? 0;
+                int evasionStatUpDelta           = template.Effects?.EvasionStatUpDelta           ?? 0;
+                int mresistStatUpDelta           = template.Effects?.MResistStatUpDelta           ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -409,6 +411,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     MagicDefDeltaVal         = magicDefStatUpDelta,
                     PatkStatUpDeltaVal       = patkStatUpDelta,
                     MagicAtkStatUpDeltaVal   = magicAtkStatUpDelta,
+                    EvasionStatUpDeltaVal    = evasionStatUpDelta,
+                    MResistStatUpDeltaVal    = mresistStatUpDelta,
                 };
                 buffTarget.AddEffect(effect);
 
@@ -434,7 +438,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (magicDefStatUpDelta          != 0) buffTarget.MagicDefDelta         += magicDefStatUpDelta;
                 if (patkStatUpDelta              != 0) buffTarget.PatkStatUpDelta       += patkStatUpDelta;
                 if (magicAtkStatUpDelta          != 0) buffTarget.MagicAtkStatUpDelta   += magicAtkStatUpDelta;
-                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0) && buffTarget is Player statUpPlayer)
+                if (evasionStatUpDelta           != 0) buffTarget.EvasionStatUpDelta    += evasionStatUpDelta;
+                if (mresistStatUpDelta           != 0) buffTarget.MResistStatUpDelta    += mresistStatUpDelta;
+                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0 || evasionStatUpDelta != 0 || mresistStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
                     var statUpConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == statUpPlayer);
@@ -566,6 +572,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         expiryTarget.MagicAtkStatUpDelta -= expiryEffect.MagicAtkStatUpDeltaVal;
                         buffStatChanged = true;
                     }
+                    if (expiryEffect.EvasionStatUpDeltaVal != 0)
+                    {
+                        expiryTarget.EvasionStatUpDelta -= expiryEffect.EvasionStatUpDeltaVal;
+                        buffStatChanged = true;
+                    }
+                    if (expiryEffect.MResistStatUpDeltaVal != 0)
+                    {
+                        expiryTarget.MResistStatUpDelta -= expiryEffect.MResistStatUpDeltaVal;
+                        buffStatChanged = true;
+                    }
                     if (buffStatChanged && expiryTarget is Player expiredBuffPlayer)
                     {
                         var statsInfoExp = new SM_STATS_INFO(expiredBuffPlayer, _dataManager.PlayerStats.GetTemplate(expiredBuffPlayer.PlayerClass, expiredBuffPlayer.Level));
@@ -677,7 +693,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta + player.ConcentrationDelta;
                         int targetMR = (target is Player pvpResist ? pvpResist.BonusMagicResist
                                      : target is Npc npcResist   ? NpcMagicResist(npcResist)
-                                     : 0) + target.MResistDebuffDelta;
+                                     : 0) + target.MResistDebuffDelta + target.MResistStatUpDelta;
                         int resistRate = Math.Max(1, targetMR - totalMagicAcc);
                         int tLvlAoE = target is Player pvpLvl ? pvpLvl.Level : target is Npc npcLvl ? npcLvl.Level : 0;
                         int lvlDiffAoE = tLvlAoE - player.Level - 2;
@@ -862,7 +878,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
                     int targetMagicResist = (target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
                                          : target is Npc npcResistTarget    ? NpcMagicResist(npcResistTarget)
-                                         : 0) + target.MResistDebuffDelta;
+                                         : 0) + target.MResistDebuffDelta + target.MResistStatUpDelta;
                     int resistRate = Math.Max(1, targetMagicResist - totalMagicAcc);
                     int tLvlST = target is Player pvpSTLvl ? pvpSTLvl.Level : target is Npc npcSTLvl ? npcSTLvl.Level : 0;
                     int lvlDiffST = tLvlST - player.Level - 2;

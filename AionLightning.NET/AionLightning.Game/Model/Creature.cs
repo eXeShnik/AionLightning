@@ -78,6 +78,10 @@ public abstract class Creature : VisibleObject
     public int PatkStatUpDelta      { get; set; }
     // Cumulative MAGICAL_ATTACK statup delta (positive from statup buffs)
     public int MagicAtkStatUpDelta  { get; set; }
+    // Cumulative EVASION statup delta (positive from statup buffs)
+    public int EvasionStatUpDelta   { get; set; }
+    // Cumulative MAGICAL_RESIST statup delta (positive from statup buffs)
+    public int MResistStatUpDelta   { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

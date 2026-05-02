@@ -70,10 +70,10 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta + p.MagicAtkStatUpDelta)); w.WriteH(0); // main/off-hand M-attack
         int mdef = Math.Max(100, p.MagicDefense + p.MagicDefDelta);
         w.WriteD(mdef);                // M-def
-        w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta)); w.WriteH(0); // M-resist, unk 3.0
+        w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta + p.MResistStatUpDelta)); w.WriteH(0); // M-resist, unk 3.0
         w.WriteF(5.0f);                // attack range
         w.WriteH((short)Math.Max(500, p.CurrentAttackSpeed + p.AtkSpeedDebuffDelta)); // attack speed
-        w.WriteH((short)Math.Max(0, (t?.Evasion ?? 100) + p.BonusEvasion + p.EvasionDebuffDelta)); // evasion
+        w.WriteH((short)Math.Max(0, (t?.Evasion ?? 100) + p.BonusEvasion + p.EvasionDebuffDelta + p.EvasionStatUpDelta)); // evasion
         w.WriteH((short)(p.BaseParry + p.BonusParry + p.ParryDelta)); w.WriteH((short)(p.BaseBlock + p.BonusBlock + p.BlockDelta)); // parry, block
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical + p.PhysCritDelta)); w.WriteH(0); // main/off-hand P-crit
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy + p.PhysAccDelta)); w.WriteH(0); // main/off-hand P-accuracy
@@ -114,9 +114,9 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
         w.WriteD(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta + p.MagicAtkStatUpDelta); w.WriteD(pdef); // base M-attack, base P-def
         w.WriteD(mdef);                // base M-def
-        w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta)); w.WriteF(5.0f); // base M-resist, attack range
+        w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta + p.MResistStatUpDelta)); w.WriteF(5.0f); // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
-        w.WriteH((short)((t?.Evasion ?? 100) + p.BonusEvasion)); // base evasion
+        w.WriteH((short)Math.Max(0, (t?.Evasion ?? 100) + p.BonusEvasion + p.EvasionStatUpDelta)); // base evasion
         w.WriteH((short)(p.BaseParry + p.BonusParry + p.ParryDelta)); w.WriteH((short)(p.BaseBlock + p.BonusBlock + p.BlockDelta)); // base parry, block
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical + p.PhysCritDelta)); w.WriteH(0); // base main/off-hand P-crit
         w.WriteH(0);                   // base M-crit

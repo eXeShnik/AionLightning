@@ -2230,6 +2230,17 @@
     - Previously: cast speed debuffs showed the icon but `castDelay` was always the raw template Duration; SM_STATS_INFO cast speed ignored all buff/debuff effects
     - Build: 0 warnings, 0 errors
 
+223. [✓] StatUp EVASION + MAGICAL_RESIST — evasion and magic resist buff from statup skills (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `EvasionStatUpDelta` (statup/EVASION), `MResistStatUpDelta` (statup/MAGICAL_RESIST)
+    - [✓] `Model/Creature.cs` — added `EvasionStatUpDelta`, `MResistStatUpDelta`
+    - [✓] `Model/AbnormalState.cs` — added `EvasionStatUpDeltaVal`, `MResistStatUpDeltaVal`
+    - [✓] `SM_STATS_INFO.cs` — active evasion: `+ p.EvasionStatUpDelta`; base evasion: `+ p.EvasionStatUpDelta`; active M-resist: `+ p.MResistStatUpDelta`; base M-resist: `+ p.MResistStatUpDelta`
+    - [✓] `CM_ATTACK.cs` — `targetEvasion` includes `+ target.EvasionStatUpDelta`
+    - [✓] `CM_CASTSPELL.cs` — AoE and single-target `targetMR`/`targetMagicResist` include `+ target.MResistStatUpDelta` (replace_all); full buff apply+restore chain for both vals
+    - Java source: EVASION statup buffs (e.g. evasion stances) add to dodge chance; MAGICAL_RESIST statup buffs add to magic resist-chance
+    - Previously: evasion buffs and magic resist buffs from statup skills were tracked but never reduced hit/resist-chance or updated stat display
+    - Build: 0 warnings, 0 errors
+
 222. [✓] StatUp PHYSICAL_ATTACK + MAGICAL_ATTACK — P-attack and M-attack buff from statup skills (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs (SkillEffects)` — added `PhysAtkStatUpDelta` (statup/PHYSICAL_ATTACK), `MagicAtkStatUpDelta` (statup/MAGICAL_ATTACK)
     - [✓] `Model/Creature.cs` — added `PatkStatUpDelta` (positive from statup buffs), `MagicAtkStatUpDelta` (positive from statup buffs)

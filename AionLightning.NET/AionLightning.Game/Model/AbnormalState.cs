@@ -77,6 +77,10 @@ public sealed class AbnormalState
     public int   PatkStatUpDeltaVal     { get; init; }
     // Non-zero when this buff increases MAGICAL_ATTACK via statup (positive = more M-attack)
     public int   MagicAtkStatUpDeltaVal { get; init; }
+    // Non-zero when this buff increases EVASION via statup (positive = harder to hit)
+    public int   EvasionStatUpDeltaVal  { get; init; }
+    // Non-zero when this buff increases MAGICAL_RESIST via statup (positive = more magic resist)
+    public int   MResistStatUpDeltaVal  { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
