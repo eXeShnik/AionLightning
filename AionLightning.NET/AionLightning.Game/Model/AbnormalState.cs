@@ -45,6 +45,8 @@ public sealed class AbnormalState
     public int   HealBoostDeltaVal  { get; init; }
     // Non-zero when this effect changes PHYSICAL_ACCURACY (negative = debuff, positive = buff/statup)
     public int   PhysAccDeltaVal    { get; init; }
+    // Non-zero when this effect changes MAGICAL_ACCURACY (negative = debuff, positive = buff/statup)
+    public int   MagicAccDeltaVal   { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

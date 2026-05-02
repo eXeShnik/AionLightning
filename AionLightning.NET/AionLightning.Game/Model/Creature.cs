@@ -46,6 +46,8 @@ public abstract class Creature : VisibleObject
     public int HealBoostDelta      { get; set; }
     // Cumulative PHYSICAL_ACCURACY delta (negative from statdown = lower hit rate; positive from statup = higher)
     public int PhysAccDelta        { get; set; }
+    // Cumulative MAGICAL_ACCURACY delta (negative from statdown = lower spell hit rate; positive from statup = higher)
+    public int MagicAccDelta       { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

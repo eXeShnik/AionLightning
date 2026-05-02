@@ -2219,6 +2219,17 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+212. [✓] StatDown/StatUp MAGICAL_ACCURACY (ADD) — MagicAccDelta affects spell hit rate for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MagicAccDelta { get; set; }` (negative = debuff, positive = buff)
+    - [✓] `Model/AbnormalState.cs` — added `int MagicAccDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MagicAccAddDelta` (statdown) and `MagicAccStatUpDelta` (statup) to `SkillEffects`
+    - [✓] `SM_STATS_INFO.cs` — M-accuracy field now includes `+ p.MagicAccDelta` in both current and base sections (replace_all)
+    - [✓] `CM_CASTSPELL.cs` — all three `totalMagicAcc` computations (ground AoE, single target, AoE splash) now include `+ player.MagicAccDelta`; debuff block: applies and restores `MagicAccDeltaVal`; buff block: applies and restores `MagicAccDeltaVal`
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int magicAccDelta` parameter; apply/restore/broadcast same pattern; `TryCastNpcSkillAsync` passes `Effects?.MagicAccAddDelta ?? 0`
+    - Java source: `StatDownEffect`/`StatUpEffect` apply `StatAddFunction` to `MAGICAL_ACCURACY`; `PlayerGameStats.getMainHandMAccuracy()` sums base + all modifiers; `calculateMagicalResistRate` uses effective M-acc against target MResist; lower M-acc = higher resist chance for all spells
+    - Previously: MAGICAL_ACCURACY debuffs (Spiritmaster chains) applied the icon but `totalMagicAcc` was always `base + bonus` only; caster's spells resisted at unchanged rate despite the debuff; Cleric/Sorcerer M-acc buffs were similarly ignored
+    - Build: 0 warnings, 0 errors
+
 211. [✓] StatDown/StatUp PHYSICAL_ACCURACY (ADD) — PhysAccDelta affects hit rate for duration (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int PhysAccDelta { get; set; }` (negative = debuff, positive = buff)
     - [✓] `Model/AbnormalState.cs` — added `int PhysAccDeltaVal { get; init; }`
