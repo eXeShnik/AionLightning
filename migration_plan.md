@@ -1614,3 +1614,14 @@
     - [✓] `Program.cs` — `AddSingleton<PlayerEnterWorldService>()`
     - Plastic surgery tickets: 169650000–169650007; gender change tickets: 169660000–169660002; Java behavior preserved: world entry is unconditional, error sent after entry when no ticket
     - Build: 0 warnings, 0 errors
+
+140. [✓] Skill cooldown broadcast — CooldownId-based tracking + SM_SKILL_COOLDOWN per cast (session 2026-05-02)
+    - [✓] `SkillTemplate` — added `EffectiveCooldownId` computed property: `CooldownId > 0 ? CooldownId : SkillId`; mirrors Java `getCooldownId()` fallback
+    - [✓] `SkillData.BuildCooldownGroups()` — fixed to key groups by `EffectiveCooldownId` (previously keyed by raw `CooldownId`, causing all skills with CooldownId=0 to share a single spurious group)
+    - [✓] `Player` — added `SkillCooldowns: Dictionary<int, DateTime>`, `IsSkillOnCooldown(effectiveCdId)`, `SetSkillCooldown(effectiveCdId, ms)` mirrors Java `skillCoolDowns FastMap` pattern
+    - [✓] `PlayerSkillEntry` — removed `LastUsedAt`, `IsOnCooldown`, `MarkUsed`; per-skill cooldown tracking replaced by Player-level CooldownId system
+    - [✓] `SM_SKILL_COOLDOWN` — fully rewritten: accepts `SkillData + Dictionary<int,DateTime>`; expands each active cooldown entry into its skill group; wire format: `H(count)+C(1)` then per skill `H(skillId)+D(remainSecs)+D(baseMs)`; matches Java SM_SKILL_COOLDOWN.writeImpl()
+    - [✓] `CM_CASTSPELL` — replaced `skillEntry.IsOnCooldown/MarkUsed` with `player.IsSkillOnCooldown/SetSkillCooldown` keyed by `template.EffectiveCooldownId`; sends `SM_SKILL_COOLDOWN` to caster immediately after setting the cooldown; skills with `Cooldown==0` bypass the cooldown system (instant skills)
+    - [✓] `PlayerEnterWorldService` — passes `_dataManager.Skills + player.SkillCooldowns` to SM_SKILL_COOLDOWN on login; players with no active cooldowns receive count=0 (no overhead)
+    - Previously: multiple skills sharing a CooldownId did not share cooldowns; SM_SKILL_COOLDOWN always sent count=0 so skill icons never showed cooldown timers on client
+    - Build: 0 warnings, 0 errors

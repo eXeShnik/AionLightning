@@ -19,6 +19,9 @@ public sealed class SkillTemplate
     [XmlElement("properties")]   public SkillProperties? Properties { get; set; }
 
     public float CastRange => Properties?.CastRange ?? 0f;
+
+    // When cooldownId == 0 in XML, each skill acts as its own cooldown group (mirrors Java getCooldownId())
+    public int EffectiveCooldownId => CooldownId > 0 ? CooldownId : SkillId;
 }
 
 public sealed class SkillProperties

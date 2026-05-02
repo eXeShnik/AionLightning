@@ -47,8 +47,9 @@ public sealed class SkillData
         var groups = new Dictionary<int, List<int>>();
         foreach (var t in _templates.Values)
         {
-            if (!groups.TryGetValue(t.CooldownId, out var list))
-                groups[t.CooldownId] = list = new List<int>();
+            int cdId = t.EffectiveCooldownId;
+            if (!groups.TryGetValue(cdId, out var list))
+                groups[cdId] = list = new List<int>();
             list.Add(t.SkillId);
         }
         return groups;

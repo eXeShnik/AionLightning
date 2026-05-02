@@ -1,15 +1,40 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.DataHolders;
 
 namespace AionLightning.Game.Network.Aion.ServerPackets;
 
-/// <summary>Sends skill cooldown state. Opcode 0x33.</summary>
+/// <summary>Sends per-skill cooldown state to the client. Opcode 0x33.</summary>
 public sealed class SM_SKILL_COOLDOWN : AionServerPacket
 {
-    public SM_SKILL_COOLDOWN() : base(0x33) { }
+    private readonly List<(int SkillId, int RemainingSecs, int BaseMs)> _entries;
+
+    public SM_SKILL_COOLDOWN(SkillData skillData, Dictionary<int, DateTime> skillCooldowns)
+        : base(0x33)
+    {
+        _entries = new List<(int, int, int)>();
+        var now = DateTime.UtcNow;
+        foreach (var (cdId, expiry) in skillCooldowns)
+        {
+            if (expiry <= now) continue;
+            int remainSecs = (int)(expiry - now).TotalSeconds;
+            foreach (var skillId in skillData.GetSkillsForCooldownId(cdId))
+            {
+                var tmpl = skillData.GetTemplate(skillId);
+                if (tmpl is null) continue;
+                _entries.Add((skillId, remainSecs, tmpl.Cooldown));
+            }
+        }
+    }
 
     public override void Write(ref PacketWriter w)
     {
-        w.WriteH(0); // count of cooldown entries
-        w.WriteC(1); // unk flag (always 1)
+        w.WriteH(_entries.Count);
+        w.WriteC(1);
+        foreach (var (skillId, remain, baseMs) in _entries)
+        {
+            w.WriteH(skillId);
+            w.WriteD(remain);
+            w.WriteD(baseMs);
+        }
     }
 }

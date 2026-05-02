@@ -86,16 +86,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
         if (!player.Skills.IsPresent(_spellId)) return;
 
-        // Resolve template early to check cooldown
         var template = _dataManager.Skills.GetTemplate(_spellId);
 
-        // Server-side cooldown enforcement (client enforces display; server enforces rules)
-        var skillEntry = player.Skills.GetEntry(_spellId);
-        if (skillEntry is not null && template is not null && skillEntry.IsOnCooldown(template.Cooldown))
-            return;
-
-        // Start cooldown immediately on cast attempt
-        skillEntry?.MarkUsed();
+        // Server-side cooldown enforcement keyed by CooldownId group (mirrors Java isSkillDisabled)
+        if (template is not null && template.Cooldown > 0)
+        {
+            int cdId = template.EffectiveCooldownId;
+            if (player.IsSkillOnCooldown(cdId)) return;
+            player.SetSkillCooldown(cdId, template.Cooldown);
+            await _conn.SendAsync(new SM_SKILL_COOLDOWN(_dataManager.Skills, player.SkillCooldowns), ct);
+        }
 
         // Broadcast cast animation
         var castPacket = _targetType is 1 or 2

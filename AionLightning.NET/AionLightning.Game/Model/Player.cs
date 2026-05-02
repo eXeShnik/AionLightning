@@ -138,4 +138,14 @@ public sealed class Player : Creature
 
     public void SetItemCooldown(int delayId, int delayMs) =>
         ItemCooldowns[delayId] = DateTime.UtcNow.AddMilliseconds(delayMs);
+
+    // Skill cooldowns: effectiveCooldownId → expiry UTC time (mirrors Java skillCoolDowns FastMap)
+    // Effective cooldown ID = template.CooldownId > 0 ? template.CooldownId : template.SkillId
+    public Dictionary<int, DateTime> SkillCooldowns { get; } = new();
+
+    public bool IsSkillOnCooldown(int effectiveCdId) =>
+        SkillCooldowns.TryGetValue(effectiveCdId, out var expiry) && DateTime.UtcNow < expiry;
+
+    public void SetSkillCooldown(int effectiveCdId, int cooldownMs) =>
+        SkillCooldowns[effectiveCdId] = DateTime.UtcNow.AddMilliseconds(cooldownMs);
 }
