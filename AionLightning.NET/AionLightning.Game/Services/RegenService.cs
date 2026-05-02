@@ -1,15 +1,16 @@
+using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Services;
 
 /// <summary>
-/// Background service that ticks every 6 seconds and restores HP/MP for living players and NPCs.
-/// Regen amounts: 2% of max per tick for players, 1% for NPCs.
+/// Background service that ticks every 6 seconds and restores HP/MP for living players.
+/// NPC HP regen is handled by NpcAiService (MaxHp/4 every 6s with SM_ATTACK_STATUS broadcast).
+/// Player regen follows Java LifeStatsRestoreService: (level+3)*health/100 HP, (level+8)*will/100 MP per tick.
 /// </summary>
 public sealed class RegenService : BackgroundService
 {
@@ -17,13 +18,14 @@ public sealed class RegenService : BackgroundService
     private static readonly TimeSpan OutOfCombatDelay = TimeSpan.FromSeconds(5);
 
     private readonly PlayerConnectionRegistry _connRegistry;
-    private readonly GameWorld _world;
-    private readonly ILogger<RegenService> _log;
+    private readonly IDataManager             _dataManager;
+    private readonly ILogger<RegenService>    _log;
 
-    public RegenService(PlayerConnectionRegistry connRegistry, GameWorld world, ILogger<RegenService> log)
+    public RegenService(PlayerConnectionRegistry connRegistry, IDataManager dataManager,
+        ILogger<RegenService> log)
     {
         _connRegistry = connRegistry;
-        _world        = world;
+        _dataManager  = dataManager;
         _log          = log;
     }
 
@@ -95,12 +97,14 @@ public sealed class RegenService : BackgroundService
 
             if (now - player.LastCombatTime < OutOfCombatDelay) continue;
 
+            // Java LifeStatsRestoreService: HP += (level+3)*health/100, MP += (level+8)*will/100 per 6s tick
+            var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
             bool changed = false;
 
             if (player.CurrentHp < player.MaxHp)
             {
-                int regen   = Math.Max(1, player.MaxHp / 50);
-                int actual  = Math.Min(regen, player.MaxHp - player.CurrentHp);
+                int regen  = Math.Max(1, (player.Level + 3) * (statTpl?.Health ?? 100) / 100);
+                int actual = Math.Min(regen, player.MaxHp - player.CurrentHp);
                 player.CurrentHp += actual;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, 0, actual,
                     SM_ATTACK_STATUS.LogId.RegularHeal);
@@ -113,8 +117,8 @@ public sealed class RegenService : BackgroundService
 
             if (player.CurrentMp < player.MaxMp)
             {
-                int regen   = Math.Max(1, player.MaxMp / 50);
-                int actual  = Math.Min(regen, player.MaxMp - player.CurrentMp);
+                int regen  = Math.Max(1, (player.Level + 8) * (statTpl?.Will ?? 100) / 100);
+                int actual = Math.Min(regen, player.MaxMp - player.CurrentMp);
                 player.CurrentMp += actual;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, 0, actual,
                     SM_ATTACK_STATUS.LogId.MpHeal);
@@ -127,14 +131,6 @@ public sealed class RegenService : BackgroundService
 
             if (changed)
                 await BroadcastGroupMemberUpdateAsync(player, ct);
-        }
-
-        foreach (var npc in _world.GetAllNpcs())
-        {
-            if (npc.IsAlreadyDead || npc.CurrentHp >= npc.MaxHp) continue;
-            if (now - npc.LastCombatTime < OutOfCombatDelay) continue;
-            int regen = Math.Max(1, npc.MaxHp / 100);
-            npc.CurrentHp = Math.Min(npc.MaxHp, npc.CurrentHp + regen);
         }
     }
 }

@@ -1705,3 +1705,11 @@
     - Java source: `LifeStatsRestoreService` schedules `HpRestoreTask` at 1700ms delay then 6000ms fixed interval; rate is `NpcGameStats.getHpRegenRate()` = `maxHp / 4` per tick; broadcasts `SM_ATTACK_STATUS` with `TYPE.NATURAL_HP` (value 3)
     - Previously: NPCs never regenerated HP after combat; a mob beaten to near-death and then leashed would re-engage at the same low HP indefinitely, making repeated pulls trivially easy
     - Build: 0 warnings, 0 errors
+
+153. [✓] RegenService — remove duplicate NPC regen, fix player regen to Java level-based formula (session 2026-05-02)
+    - [✓] `RegenService` — removed NPC HP regen block (was MaxHp/100 per tick, no broadcast; now superseded by M152 NpcAiService which does MaxHp/4 per 6s with SM_ATTACK_STATUS broadcast); removed `GameWorld` injection and unused alias
+    - [✓] `RegenService` (player HP) — replaced `MaxHp/50` flat rate with Java formula `(level+3)*health/100` per 6s tick; injected `IDataManager` to resolve `PlayerStatsTemplate` per player; falls back to health=100 if template missing
+    - [✓] `RegenService` (player MP) — replaced `MaxMp/50` flat rate with Java formula `(level+8)*will/100` per 6s tick
+    - Java source: `PlayerLifeStats` HP regen = `(level+3) * healthStat / 100`; MP regen = `(level+8) * willStat / 100`; both on 6s interval after 1.7s out-of-combat delay
+    - Previously: player regen used a flat 2% of max HP/MP per tick, ignoring level and stats — low-level players regenerated proportionally too fast, high-level players too slow relative to their stat investment
+    - Build: 0 warnings, 0 errors
