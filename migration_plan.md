@@ -1482,6 +1482,15 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+137. [✓] Stigma socketing — parse `<stigma>` XML, shard consumption, skill grant/removal on equip/unequip, re-apply on login (session 2026-05-02)
+    - [✓] `ItemTemplate` — added `[XmlElement("stigma")] public StigmaTemplate? Stigma { get; set; }` and `IsStigmaItem` computed property
+    - [✓] `StigmaTemplate` (NEW) — maps `<stigma shard="N" skill="level:skillId ..."/>`; `GetSkills()` parses space-separated "level:id" pairs; mirrors Java Stigma.java
+    - [✓] `PlayerSkillList` — added `RemoveStigmaSkill(skillId)` to remove a stigma skill from the `_stigma` dict on unequip
+    - [✓] `SM_SYSTEM_MESSAGE.StigmaNotEnoughShards()` — factory for msg code 1300450 (STR_UI_STIGMA_NOT_ENOUGH_MATERIAL)
+    - [✓] `CM_EQUIP_ITEM` — routes stigma items to new `HandleStigmaAsync`: validates shard count (item 141000001); removes displaced stigma's skills; moves displaced to bag; equips new stigma; consumes exact shard count (deletes item if stack depleted, decrements otherwise); grants skills via `AddSkill(id, lvl, isStigma: true)`; sends `SM_SKILL_LIST(granted, isNew: true)` on equip; on unequip removes skills and sends full `SM_SKILL_LIST(AllSkills, isNew: false)` refresh
+    - [✓] `CM_ENTER_WORLD` — after inventory loads, re-applies stigma skills from all currently equipped stigma items; stigma skills are NOT persisted in `player_skills` DB — re-derived on login (mirrors Java StigmaService.onPlayerLogin)
+    - Build: 0 warnings, 0 errors
+
 136. [✓] Death XP loss — XPLossEnum + ExpRecoverable drain-back (session 2026-05-01)
     - [✓] `Player.ExpRecoverable` — new long property; tracks recoverable death-loss XP shown on the client XP bar
     - [✓] `ExperienceService.ApplyDeathXpLoss(player, dataManager)` — 0 for level<50; for level 50+: loss=0.25% of (nextLevelXP−currentXP); unrecoverable≈33% deducted from player.Exp immediately; recoverable≈67% added to ExpRecoverable (capped at 25% of expNeed); mirrors Java XPLossEnum + PlayerCommonData.calculateExpLoss

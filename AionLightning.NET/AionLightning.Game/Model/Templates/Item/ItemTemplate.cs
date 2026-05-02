@@ -25,6 +25,7 @@ public sealed class ItemTemplate
     [XmlElement("godstone")]          public GodstoneInfo?     Godstone    { get; set; }
     [XmlElement("enchant")]           public ItemEnchantInfo?  EnchantInfo { get; set; }
     [XmlElement("uselimits")]         public ItemUseLimits?    UseLimits   { get; set; }
+    [XmlElement("stigma")]            public StigmaTemplate?   Stigma      { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
@@ -58,6 +59,7 @@ public sealed class ItemTemplate
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;
+    public bool IsStigmaItem       => Stigma != null;
 }
 
 public sealed class ItemModifiers
@@ -165,4 +167,32 @@ public sealed class ItemUseLimits
     [XmlAttribute("usedelay")]   public int DelayMs  { get; set; }
     /// <summary>Cooldown group ID — items with the same ID share a single cooldown timer.</summary>
     [XmlAttribute("usedelayid")] public int DelayId  { get; set; }
+}
+
+/// <summary>
+/// Maps to &lt;stigma shard="N" skill="level:skillId [level:skillId ...]"/&gt;.
+/// Mirrors Java Stigma.java — describes the skills granted by a stigma stone and the
+/// number of stigma shards required to socket it.
+/// </summary>
+public sealed class StigmaTemplate
+{
+    /// <summary>Number of stigma shards (item 141000001) consumed on equip.</summary>
+    [XmlAttribute("shard")] public int    Shard     { get; set; }
+    /// <summary>Space-separated "skillLevel:skillId" pairs, e.g. "9:11504" or "1:19 2:20".</summary>
+    [XmlAttribute("skill")] public string SkillData { get; set; } = string.Empty;
+
+    public IReadOnlyList<(int SkillLevel, int SkillId)> GetSkills()
+    {
+        if (string.IsNullOrEmpty(SkillData)) return [];
+        var list = new List<(int, int)>();
+        foreach (var part in SkillData.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var colon = part.IndexOf(':');
+            if (colon > 0
+                && int.TryParse(part.AsSpan(0, colon),  out int lvl)
+                && int.TryParse(part.AsSpan(colon + 1), out int id))
+                list.Add((lvl, id));
+        }
+        return list;
+    }
 }

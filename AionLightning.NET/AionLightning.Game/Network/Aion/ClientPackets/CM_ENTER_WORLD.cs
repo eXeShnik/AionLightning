@@ -134,6 +134,15 @@ public sealed class CM_ENTER_WORLD : AionClientPacket
                 player.Inventory.Add(item);
         }
 
+        // Re-apply stigma skills from equipped stigma items (not persisted in player_skills, re-derived on login)
+        foreach (var equippedItem in player.Inventory.All.Where(i => i.IsEquipped))
+        {
+            var stigmaTpl = _dataManager.Items.GetTemplate(equippedItem.ItemId);
+            if (stigmaTpl?.Stigma is { } stigma)
+                foreach (var (skillLevel, skillId) in stigma.GetSkills())
+                    player.Skills.AddSkill(skillId, skillLevel, isStigma: true);
+        }
+
         // Apply cube expansion — capacity comes from persisted NpcExpands loaded from DB
         player.Inventory.Capacity = player.CubeCapacity;
 

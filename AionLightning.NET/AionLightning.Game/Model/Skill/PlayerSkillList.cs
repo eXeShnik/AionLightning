@@ -22,6 +22,7 @@ public sealed class PlayerSkillList
         return true;
     }
 
+    public bool RemoveStigmaSkill(int skillId) => _stigma.Remove(skillId);
     public bool IsPresent(int skillId) => _basic.ContainsKey(skillId) || _stigma.ContainsKey(skillId);
     public int  GetLevel(int skillId)  => _basic.TryGetValue(skillId, out var e) ? e.SkillLevel :
                                           _stigma.TryGetValue(skillId, out e)   ? e.SkillLevel : 0;
