@@ -24,6 +24,9 @@ public abstract class Creature : VisibleObject
     public float MovementSpeed    { get; set; } = 6.0f;
     public int CurrentAttackSpeed { get; set; } = 1500;
 
+    // Cumulative PHYSICAL_DEFENSE debuff delta (negative = reduced pdef from statdown effects)
+    public int PdefDebuffDelta { get; set; }
+
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
     private readonly List<AbnormalState> _activeEffects = new();

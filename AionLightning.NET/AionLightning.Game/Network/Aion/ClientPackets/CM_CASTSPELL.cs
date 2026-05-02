@@ -913,6 +913,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     bool debuffTargetIsPlayer = target is Player;
                     int  snareSpeedPct        = template?.Effects?.SnareSpeedPct     ?? 0;
                     int  slowAtkPct           = template?.Effects?.SlowAttackSpeedPct ?? 0;
+                    int  pdefDelta            = template?.Effects?.PdefAddDelta       ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -925,6 +926,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         PreDebuffSpeed      = target.MovementSpeed,
                         AttackSpeedPct      = slowAtkPct,
                         PreDebuffAtkSpeed   = target.CurrentAttackSpeed,
+                        PdefDelta           = pdefDelta,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -940,6 +942,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(speedEmo); } catch { }
+                    }
+
+                    // StatDown PHYSICAL_DEFENSE: accumulate delta so stacking debuffs subtract independently
+                    if (pdefDelta != 0)
+                    {
+                        target.PdefDebuffDelta += pdefDelta;
+                        if (target is Player debuffedPlayer)
+                        {
+                            var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
+                            var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);
+                            if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
+                        }
                     }
 
                     var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,
@@ -976,6 +990,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             foreach (var c in registry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == restoreWorld)
                                     try { await c.SendAsync(restoreEmo); } catch { }
+                        }
+                        // Restore pdef delta; send updated stats to player if target is player
+                        if (expEffect.PdefDelta != 0)
+                        {
+                            expTarget.PdefDebuffDelta -= expEffect.PdefDelta;
+                            if (expTarget is Player restoredPlayer)
+                            {
+                                var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
+                                int restoreWorld2 = expTarget.Position.WorldId;
+                                var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);
+                                if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
+                            }
                         }
                         expTarget.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
                         var expired = new SM_ABNORMAL_EFFECT(expTarget.ObjectId, debuffTargetIsPlayer,

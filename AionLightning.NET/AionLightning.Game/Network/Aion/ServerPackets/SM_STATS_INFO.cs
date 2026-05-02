@@ -65,7 +65,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus + p.BonusPhysicalAtk);
         w.WriteH((short)totalAtk); w.WriteH(0); // main/off-hand P-attack
         w.WriteH(0);                   // unk 3.0
-        int pdef = Math.Max(100, p.PhysicalDefense);
+        int pdef = Math.Max(0, p.PhysicalDefense + p.PdefDebuffDelta);
         w.WriteD(pdef);                // P-def
         w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon + accessories)
         int mdef = Math.Max(100, p.MagicDefense);

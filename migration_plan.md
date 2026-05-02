@@ -2219,6 +2219,18 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+201. [✓] StatDown PHYSICAL_DEFENSE (ADD) — accumulated pdef delta in combat, restored on expiry (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int PdefDebuffDelta { get; set; }` (base class; negative = reduced pdef from statdown stack)
+    - [✓] `Model/AbnormalState.cs` — added `int PdefDelta { get; init; }` (the ADD value from statdown; typically -100 to -400)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PdefAddDelta` property to `SkillEffects`: sums all `<statdown>/<change stat="PHYSICAL_DEFENSE" func="ADD">` values
+    - [✓] `CM_ATTACK.cs` — pdef now uses `pdefBase + target.PdefDebuffDelta`; multiple stacked statdowns combine correctly; negative pdef increases damage
+    - [✓] `CM_CASTSPELL.cs` — in debuff block: reads `PdefAddDelta`; applies `target.PdefDebuffDelta += pdefDelta`; sends `SM_STATS_INFO` to debuffed player; on expiry `PdefDebuffDelta -= PdefDelta` and sends `SM_STATS_INFO` again
+    - [✓] `SM_STATS_INFO.cs` — pdef field now uses `Math.Max(0, p.PhysicalDefense + p.PdefDebuffDelta)` so stat panel reflects debuffed pdef
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int pdefDelta` parameter; same accumulate/restore/stats-update pattern; `TryCastNpcSkillAsync` passes `Effects?.PdefAddDelta ?? 0`
+    - Java source: `StatDownEffect` applies `StatAddFunction` to `PHYSICAL_DEFENSE`; each effect is a separate modifier; `endEffect` removes the modifier and triggers stat recalculation; `PlayerGameStats.getPDef()` sums base + all modifiers
+    - Previously: 262 statdown skills with PHYSICAL_DEFENSE changes (Warrior Weakening Severe Blow chain, Gladiator Destabilizer, etc.) showed the debuff icon but left pdef unchanged; targets took the same damage before/after pdef reduction
+    - Build: 0 warnings, 0 errors
+
 200. [✓] Slow attack speed increase applied on debuff, restored on expiry (session 2026-05-02)
     - [✓] `Model/AbnormalState.cs` — added `int AttackSpeedPct { get; init; }` and `int PreDebuffAtkSpeed { get; init; }`
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SlowAttackSpeedPct` property to `SkillEffects`: walks `<slow>/<change stat="ATTACK_SPEED" func="PERCENT">` children and returns the int value (positive = attacks slower)

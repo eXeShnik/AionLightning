@@ -192,10 +192,11 @@ public sealed class CM_ATTACK : AionClientPacket
         // PvP damage reduction: Java adjustDamages caps PvP damage at 50% of base (damages * 0.50f)
         if (target is Player) rawDmg = Math.Max(1, rawDmg / 2);
 
-        // Apply physical defense mitigation from the target's armor
-        int pdef = target is Player pvpTarget ? pvpTarget.PhysicalDefense
-                 : target is Npc npcTarget    ? (npcTarget.Template.Stats?.PDef ?? 0)
-                 : 0;
+        // Apply physical defense mitigation; PdefDebuffDelta accumulates statdown reductions (may go negative)
+        int pdefBase = target is Player pvpTarget ? pvpTarget.PhysicalDefense
+                     : target is Npc npcTarget    ? (npcTarget.Template.Stats?.PDef ?? 0)
+                     : 0;
+        int pdef   = pdefBase + target.PdefDebuffDelta;
         int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
 
         // Multi-hit split — Java AttackUtil: player hitCount = Rnd.get(1, weapon.hit_count); split formula same as NPC

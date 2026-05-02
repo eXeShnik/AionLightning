@@ -23,6 +23,9 @@ public sealed class AbnormalState
     // Target's CurrentAttackSpeed before this debuff was applied — used to restore on expiry
     public int   PreDebuffAtkSpeed  { get; init; }
 
+    // Non-zero when this debuff reduces PHYSICAL_DEFENSE (e.g. Weakening Severe Blow: -100 to -400)
+    public int   PdefDelta          { get; init; }
+
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
 }
