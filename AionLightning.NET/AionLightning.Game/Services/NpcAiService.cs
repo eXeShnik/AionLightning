@@ -335,7 +335,7 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
 
-            // NPC critical hit — Java NpcGameStats: base PHYSICAL_CRITICAL=10 → rate=10*0.1=1%
+            // NPC critical hit — Java AttackUtil.calculateWeaponCritical(weaponType=null) → coef=2.0; fortitude reduces by round(fortitude/1000)
             int npcCritRating = npc.Template.Stats?.Power > 0 ? npc.Template.Stats.Power : 10;
             double npcCritRate = npcCritRating <= 440 ? npcCritRating * 0.1
                                : npcCritRating <= 600 ? 44.0 + (npcCritRating - 440) * 0.05
@@ -343,7 +343,7 @@ public sealed class NpcAiService : BackgroundService
             if (Random.Shared.Next(100) < (int)npcCritRate)
             {
                 int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
-                float critCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortitude / 1000.0));
+                float critCoeff = Math.Max(1.0f, 2.0f - (float)Math.Round(sFortitude / 1000.0));
                 rawDmg = (int)(rawDmg * critCoeff);
                 if (hitResult == SM_ATTACK.HitResult.Normal)
                     hitResult = SM_ATTACK.HitResult.Critical;
@@ -353,12 +353,21 @@ public sealed class NpcAiService : BackgroundService
             int pdef   = target is Player tp ? tp.PhysicalDefense : 0;
             int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
 
-            target.CurrentHp      = Math.Max(0, target.CurrentHp - damage);
+            // Multi-hit split — Java AttackUtil: NPC hits = Rnd.get(1,3); first = damage*(1-0.1*(n-1)), rest = damage*0.1
+            int hitCount = Random.Shared.Next(1, 4);
+            var hits = new SM_ATTACK.HitEntry[hitCount];
+            hits[0] = new(Math.Max(1, (int)(damage * (1f - 0.1f * (hitCount - 1)))), hitResult);
+            int otherHit = hitCount > 1 ? Math.Max(1, (int)(damage * 0.1f)) : 0;
+            for (int hi = 1; hi < hitCount; hi++)
+                hits[hi] = new(otherHit, hitResult);
+            int totalDamage = hits.Sum(h => h.Damage);
+
+            target.CurrentHp      = Math.Max(0, target.CurrentHp - totalDamage);
             target.LastCombatTime = now;
             npc.LastCombatTime    = now;
 
-            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage, hitResult);
-            var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
+            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, hits);
+            var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, totalDamage);
             foreach (var conn in _connRegistry.GetAll())
             {
                 if (conn.ActivePlayer?.Position.WorldId != npcWorld) continue;

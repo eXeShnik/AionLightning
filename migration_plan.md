@@ -2045,6 +2045,14 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+182. [✓] NPC multi-hit physical attacks and crit multiplier correction (session 2026-05-02)
+    - [✓] `SM_ATTACK.cs` — extended to support a variable-length hit list: added `HitEntry` record, multi-hit constructor accepting `HitEntry[]`; `Write` loops all entries; single-hit constructor remains for compatibility
+    - [✓] `NpcAiService.cs` melee attack — after pdef mitigation, roll `hitCount = Random.Shared.Next(1, 4)` (1–3); first hit = `damage*(1-0.1*(n-1))`, subsequent hits = `damage*0.1`; total HP loss = sum; SM_ATTACK now carries the full hit list
+    - [✓] `NpcAiService.cs` crit multiplier — base changed from 1.5f to 2.0f; Java `AttackUtil.calculateWeaponCritical(weaponType=null)` uses default `coeficient=2f` for NPCs; fortitude reduction `Math.Round(fortitude/1000f)` unchanged
+    - Java source: `AttackUtil.calculateMainHandResult` line 80: `mainHandHits = Rnd.get(1, 3)`; `splitPhysicalDamage` lines 140-144: `firstHit = damage*(1-0.1*(n-1))`, `otherHits = damage*0.1`; crit coeff=2.0 when weaponType=null (line 158 default)
+    - Previously: NPC always dealt a single hit per attack cycle; crit coefficient was 1.5× instead of 2×, under-multiplying NPC critical strikes
+    - Build: 0 warnings, 0 errors
+
 181. [✓] Separate MResist (resist chance) from MDef (damage mitigation) for NPC spell targets (session 2026-05-02)
     - [✓] `CM_CASTSPELL.cs` single-target — `spellDef` for NPC magical spells changed from `NpcMagicResist(npc)` to `npc.Template.Stats?.MBResist ?? 0`
     - [✓] `CM_CASTSPELL.cs` ground AoE loop — same fix for NPC magical spell defense
