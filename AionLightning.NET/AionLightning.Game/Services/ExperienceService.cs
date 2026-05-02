@@ -194,11 +194,16 @@ public sealed class ExperienceService
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         if (tpl is not null)
         {
-            player.MaxHp              = tpl.MaxHp + player.BonusMaxHp + player.TitleBonusMaxHp;
-            player.MaxMp              = tpl.MaxMp + player.BonusMaxMp + player.TitleBonusMaxMp;
-            player.CurrentHp          = player.MaxHp;
-            player.CurrentMp          = player.MaxMp;
-            player.BasePhysicalAttack = tpl.MainHandAttack;
+            player.MaxHp = (int)((tpl.MaxHp + player.BonusMaxHp + player.TitleBonusMaxHp) * player.SoulSicknessMultiplier);
+            player.MaxMp = (int)((tpl.MaxMp + player.BonusMaxMp + player.TitleBonusMaxMp) * player.SoulSicknessMultiplier);
+            player.CurrentHp            = player.MaxHp;
+            player.CurrentMp            = player.MaxMp;
+            player.BasePhysicalAttack   = tpl.MainHandAttack;
+            player.BasePhysicalAccuracy = tpl.MainHandAccuracy;
+            player.BaseCritRating       = tpl.MainHandCritRate;
+            player.BaseEvasion          = tpl.Evasion;
+            player.BaseMagicAccuracy    = tpl.MagicAccuracy;
+            player.MovementSpeed        = tpl.RunSpeed;
         }
 
         // Auto-learn new skills for the new level

@@ -1847,6 +1847,11 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+174. [✓] Level-up base stat refresh — ExperienceService.HandleLevelUpAsync (session 2026-05-02)
+    - [✓] `ExperienceService.HandleLevelUpAsync` — added updates for `BasePhysicalAccuracy`, `BaseCritRating`, `BaseEvasion`, `BaseMagicAccuracy`, `MovementSpeed` from the new stat template on level-up; previously only `MaxHp`, `MaxMp`, and `BasePhysicalAttack` were refreshed, leaving accuracy/crit/evasion/speed stale until relog
+    - [✓] `MaxHp`/`MaxMp` calculation updated to apply `SoulSicknessMultiplier` (matches `PlayerEnterWorldService` formula)
+    - Build: 0 warnings, 0 errors
+
 173. [✓] BOOST_CASTING_TIME weapon modifier — cast speed display in SM_STATS_INFO (session 2026-05-02)
     - [✓] `ItemTemplate.CastTimeBonusPct` — `GetBonusStat("BOOST_CASTING_TIME")`; values 7–9 typical on staves/books/orbs (bonus="true")
     - [✓] `Player.WeaponCastTimeBonus` — stores the weapon's cast time bonus (0 when no weapon equipped)
