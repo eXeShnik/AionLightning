@@ -2045,6 +2045,15 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+184. [✓] Weapon-type-specific physical crit multiplier for player attacks (session 2026-05-02)
+    - [✓] `Player.cs` — added `public string MainHandWeaponType { get; set; } = string.Empty`; set alongside `MainHandHitCount` in equip/enter-world paths
+    - [✓] `CM_EQUIP_ITEM.cs` — sets `player.MainHandWeaponType = weaponTpl.WeaponTypeName`; resets to `string.Empty` on unequip
+    - [✓] `PlayerEnterWorldService.cs` — same assignment on enter-world weapon resolution
+    - [✓] `CM_ATTACK.cs` — player physical crit coefficient now uses weapon-type switch: DAGGER_1H→2.3f, SWORD_1H→2.2f, MACE_1H→2.0f, KEYBLADE_2H/KEYHAMMER_2H/SWORD_2H/POLEARM_2H→1.8f, GUN_1H/CANNON_2H/HARP_2H/STAFF_2H/BOW→1.7f, default→1.5f; minus Math.Round(fortitude/1000f), min 1.0f
+    - Java source: `AttackUtil.calculateWeaponCritical` lines 161-188; NPC case (weaponType=null) uses 2.0f default (already fixed in M182); magical crit (MAGICAL_CRITICAL_DAMAGE_REDUCE) always 1.5f (already correct in CM_CASTSPELL)
+    - Previously: all player weapon crits used 1.5f (dagger crits were 35% weaker than Java; sword crits were 32% weaker); class asymmetry was lost
+    - Build: 0 warnings, 0 errors
+
 183. [✓] Player weapon multi-hit using weapon_stats hit_count (session 2026-05-02)
     - [✓] `ItemTemplate.cs` / `WeaponStats` — added `[XmlAttribute("hit_count")] public int HitCount { get; set; } = 1`; XML field already present in item_templates.xml (e.g. daggers have hit_count="4", swords hit_count="2")
     - [✓] `Player.cs` — added `public int MainHandHitCount { get; set; } = 1`; set alongside `MainHandMinDmg/MaxDmg`

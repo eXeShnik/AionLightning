@@ -164,9 +164,18 @@ public sealed class CM_ATTACK : AionClientPacket
         bool isCrit = Random.Shared.Next(100) < (int)critRate;
         if (isCrit)
         {
-            // Java calculateWeaponCritical: coeff = 1.5f - Math.Round(strikeFortitude / 1000f), min 1.0
+            // Java calculateWeaponCritical: coefficient by weapon type, reduced by strikeFortitude/1000, min 1.0
             int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
-            float critCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortitude / 1000.0));
+            float baseCoeff = player.MainHandWeaponType switch
+            {
+                "DAGGER_1H"                                                          => 2.3f,
+                "SWORD_1H"                                                           => 2.2f,
+                "MACE_1H"                                                            => 2.0f,
+                "KEYBLADE_2H" or "KEYHAMMER_2H" or "SWORD_2H" or "POLEARM_2H"      => 1.8f,
+                "GUN_1H" or "CANNON_2H" or "HARP_2H" or "STAFF_2H" or "BOW"        => 1.7f,
+                _                                                                    => 1.5f,
+            };
+            float critCoeff = Math.Max(1.0f, baseCoeff - (float)Math.Round(sFortitude / 1000.0));
             rawDmg = (int)(rawDmg * critCoeff);
         }
 

@@ -100,16 +100,18 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
                     player.MainHandMaxDmg     = ws.MaxDamage;
                     player.MainHandMagicalAtk = 0;
                 }
-                player.MainHandHitCount = ws.HitCount > 0 ? ws.HitCount : 1;
+                player.MainHandHitCount   = ws.HitCount > 0 ? ws.HitCount : 1;
+                player.MainHandWeaponType = weaponTpl.WeaponTypeName;
             }
         }
         else
         {
-            player.State             &= ~CreatureState.WeaponEquipped;
-            player.MainHandMinDmg     = 0;
-            player.MainHandMaxDmg     = 0;
-            player.MainHandHitCount   = 1;
-            player.MainHandMagicalAtk = 0;
+            player.State              &= ~CreatureState.WeaponEquipped;
+            player.MainHandMinDmg      = 0;
+            player.MainHandMaxDmg      = 0;
+            player.MainHandHitCount    = 1;
+            player.MainHandWeaponType  = string.Empty;
+            player.MainHandMagicalAtk  = 0;
             player.BaseAttackSpeed     = 1500;
             player.CurrentAttackSpeed  = 1500;
             player.WeaponCastTimeBonus = 0;
