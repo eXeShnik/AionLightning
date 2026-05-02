@@ -83,8 +83,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // unk
         w.WriteF(Math.Max(0f, (1000 - p.WeaponCastTimeBonus) / 1000f)); // cast speed (ReverseStat: lower = faster)
         w.WriteH(0);                   // unk 3.5
-        w.WriteH((short)p.BonusConcentration);           // concentration
-        w.WriteH((short)(p.BonusMagicBoost + p.MagicBoostDelta)); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress
+        w.WriteH((short)(p.BonusConcentration + p.ConcentrationDelta)); // concentration
+        w.WriteH((short)(p.BonusMagicBoost + p.MagicBoostDelta)); w.WriteH((short)(p.BonusMagicSuppression + p.MagicSuppressionDelta)); // M-boost, M-suppress
         w.WriteH((short)(p.BonusHealBoost + p.HealBoostDelta)); // heal boost
         w.WriteH((short)(p.BonusPhysicalCriticalResist + p.PhysCritResistDelta)); w.WriteH((short)(p.BonusMagicalCriticalResist + p.MagicCritResistDelta)); // P-crit resist, M-crit resist
         w.WriteH((short)(p.BonusStrikeFortitude + p.StrikeFortitudeDelta)); w.WriteH((short)(p.BonusSpellFortitude + p.SpellFortitudeDelta)); // P-crit fortitude, M-crit fortitude

@@ -63,6 +63,10 @@ public sealed class AbnormalState
     public int   StrikeFortitudeDeltaVal  { get; init; }
     // Non-zero when this buff increases MAGICAL_CRITICAL_DAMAGE_REDUCE (spell fortitude)
     public int   SpellFortitudeDeltaVal   { get; init; }
+    // Non-zero when this effect changes CONCENTRATION (negative = debuff, positive = buff/statup)
+    public int   ConcentrationDeltaVal    { get; init; }
+    // Non-zero when this buff increases MAGIC_SKILL_BOOST_RESIST (magic suppression)
+    public int   MagicSuppressionDeltaVal { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

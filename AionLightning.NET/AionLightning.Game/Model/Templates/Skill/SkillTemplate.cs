@@ -524,6 +524,98 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>Sum of all ADD CONCENTRATION changes from statdown effects (negative = reduced concentration).</summary>
+    public int ConcentrationAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "CONCENTRATION", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD CONCENTRATION changes from statup effects (positive = increased concentration).</summary>
+    public int ConcentrationStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "CONCENTRATION", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAGIC_SKILL_BOOST_RESIST changes from statdown effects (negative = reduced M-suppression).</summary>
+    public int MagicSuppressionAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAGIC_SKILL_BOOST_RESIST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",                      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAGIC_SKILL_BOOST_RESIST changes from statup effects (positive = increased M-suppression).</summary>
+    public int MagicSuppressionStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAGIC_SKILL_BOOST_RESIST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",                      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>Sum of all ADD PHYSICAL_CRITICAL changes from statdown effects (negative = reduced P-crit rating).</summary>
     public int PhysCritAddDelta
     {

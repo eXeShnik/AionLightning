@@ -366,10 +366,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int blockStatUpDelta     = template.Effects?.BlockStatUpDelta     ?? 0;
                 int physCritStatUpDelta         = template.Effects?.PhysCritStatUpDelta         ?? 0;
                 int magicCritStatUpDelta        = template.Effects?.MagicCritStatUpDelta        ?? 0;
-                int physCritResistStatUpDelta   = template.Effects?.PhysCritResistStatUpDelta   ?? 0;
-                int magicCritResistStatUpDelta  = template.Effects?.MagicCritResistStatUpDelta  ?? 0;
-                int strikeFortitudeStatUpDelta  = template.Effects?.StrikeFortitudeStatUpDelta  ?? 0;
-                int spellFortitudeStatUpDelta   = template.Effects?.SpellFortitudeStatUpDelta   ?? 0;
+                int physCritResistStatUpDelta    = template.Effects?.PhysCritResistStatUpDelta    ?? 0;
+                int magicCritResistStatUpDelta   = template.Effects?.MagicCritResistStatUpDelta   ?? 0;
+                int strikeFortitudeStatUpDelta   = template.Effects?.StrikeFortitudeStatUpDelta   ?? 0;
+                int spellFortitudeStatUpDelta    = template.Effects?.SpellFortitudeStatUpDelta    ?? 0;
+                int concentrationStatUpDelta     = template.Effects?.ConcentrationStatUpDelta     ?? 0;
+                int magicSuppressionStatUpDelta  = template.Effects?.MagicSuppressionStatUpDelta  ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -386,10 +388,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     BlockDeltaVal      = blockStatUpDelta,
                     PhysCritDeltaVal        = physCritStatUpDelta,
                     MagicCritDeltaVal       = magicCritStatUpDelta,
-                    PhysCritResistDeltaVal  = physCritResistStatUpDelta,
-                    MagicCritResistDeltaVal = magicCritResistStatUpDelta,
-                    StrikeFortitudeDeltaVal = strikeFortitudeStatUpDelta,
-                    SpellFortitudeDeltaVal  = spellFortitudeStatUpDelta,
+                    PhysCritResistDeltaVal   = physCritResistStatUpDelta,
+                    MagicCritResistDeltaVal  = magicCritResistStatUpDelta,
+                    StrikeFortitudeDeltaVal  = strikeFortitudeStatUpDelta,
+                    SpellFortitudeDeltaVal   = spellFortitudeStatUpDelta,
+                    ConcentrationDeltaVal    = concentrationStatUpDelta,
+                    MagicSuppressionDeltaVal = magicSuppressionStatUpDelta,
                 };
                 buffTarget.AddEffect(effect);
 
@@ -406,9 +410,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (magicCritStatUpDelta        != 0) buffTarget.MagicCritDelta       += magicCritStatUpDelta;
                 if (physCritResistStatUpDelta   != 0) buffTarget.PhysCritResistDelta  += physCritResistStatUpDelta;
                 if (magicCritResistStatUpDelta  != 0) buffTarget.MagicCritResistDelta += magicCritResistStatUpDelta;
-                if (strikeFortitudeStatUpDelta  != 0) buffTarget.StrikeFortitudeDelta += strikeFortitudeStatUpDelta;
-                if (spellFortitudeStatUpDelta   != 0) buffTarget.SpellFortitudeDelta  += spellFortitudeStatUpDelta;
-                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0) && buffTarget is Player statUpPlayer)
+                if (strikeFortitudeStatUpDelta   != 0) buffTarget.StrikeFortitudeDelta  += strikeFortitudeStatUpDelta;
+                if (spellFortitudeStatUpDelta    != 0) buffTarget.SpellFortitudeDelta   += spellFortitudeStatUpDelta;
+                if (concentrationStatUpDelta     != 0) buffTarget.ConcentrationDelta    += concentrationStatUpDelta;
+                if (magicSuppressionStatUpDelta  != 0) buffTarget.MagicSuppressionDelta += magicSuppressionStatUpDelta;
+                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
                     var statUpConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == statUpPlayer);
@@ -503,6 +509,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (expiryEffect.SpellFortitudeDeltaVal != 0)
                     {
                         expiryTarget.SpellFortitudeDelta -= expiryEffect.SpellFortitudeDeltaVal;
+                        buffStatChanged = true;
+                    }
+                    if (expiryEffect.ConcentrationDeltaVal != 0)
+                    {
+                        expiryTarget.ConcentrationDelta -= expiryEffect.ConcentrationDeltaVal;
+                        buffStatChanged = true;
+                    }
+                    if (expiryEffect.MagicSuppressionDeltaVal != 0)
+                    {
+                        expiryTarget.MagicSuppressionDelta -= expiryEffect.MagicSuppressionDeltaVal;
                         buffStatChanged = true;
                     }
                     if (buffStatChanged && expiryTarget is Player expiredBuffPlayer)
@@ -600,8 +616,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 {
                     // Java: magicBoost -= getMBResist() (target suppression reduces caster boost, min 0)
                     int tMBSuppress = spellIsMagical
-                        ? (target is Player pvpSupp ? pvpSupp.BonusMagicSuppression
-                         : target is Npc npcSupp ? (npcSupp.Template.Stats?.MBResist ?? 0)
+                        ? (target is Player pvpSupp ? pvpSupp.BonusMagicSuppression + pvpSupp.MagicSuppressionDelta
+                         : target is Npc npcSupp   ? (npcSupp.Template.Stats?.MBResist ?? 0)
                          : 0)
                         : 0;
                     float magicBoostMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppress) / 1000f;
@@ -613,7 +629,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // Magic resist check (Java calculateMagicalResistRate)
                     if (spellIsMagical)
                     {
-                        int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
+                        int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta + player.ConcentrationDelta;
                         int targetMR = (target is Player pvpResist ? pvpResist.BonusMagicResist
                                      : target is Npc npcResist   ? NpcMagicResist(npcResist)
                                      : 0) + target.MResistDebuffDelta;
@@ -820,7 +836,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (spellIsMagical)
                 {
                     int mAtkG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta;
-                    int tMBSuppressG = target is Player pvpSuppG ? pvpSuppG.BonusMagicSuppression
+                    int tMBSuppressG = target is Player pvpSuppG ? pvpSuppG.BonusMagicSuppression + pvpSuppG.MagicSuppressionDelta
                                      : target is Npc npcSuppG ? (npcSuppG.Template.Stats?.MBResist ?? 0) : 0;
                     float mbMultG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppressG) / 1000f;
                     rawSpellDmg = (int)((mAtkG + player.Level * 6 + Random.Shared.Next(10, 40)) * mbMultG);
@@ -1060,10 +1076,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  blockDelta            = template?.Effects?.BlockAddDelta         ?? 0;
                     int  physCritDelta         = template?.Effects?.PhysCritAddDelta         ?? 0;
                     int  magicCritDelta        = template?.Effects?.MagicCritAddDelta        ?? 0;
-                    int  physCritResistDelta   = template?.Effects?.PhysCritResistAddDelta   ?? 0;
-                    int  magicCritResistDelta  = template?.Effects?.MagicCritResistAddDelta  ?? 0;
-                    int  strikeFortitudeDelta  = template?.Effects?.StrikeFortitudeAddDelta  ?? 0;
-                    int  spellFortitudeDelta   = template?.Effects?.SpellFortitudeAddDelta   ?? 0;
+                    int  physCritResistDelta   = template?.Effects?.PhysCritResistAddDelta    ?? 0;
+                    int  magicCritResistDelta  = template?.Effects?.MagicCritResistAddDelta   ?? 0;
+                    int  strikeFortitudeDelta  = template?.Effects?.StrikeFortitudeAddDelta   ?? 0;
+                    int  spellFortitudeDelta   = template?.Effects?.SpellFortitudeAddDelta    ?? 0;
+                    int  concentrationDelta    = template?.Effects?.ConcentrationAddDelta     ?? 0;
+                    int  magicSuppressionDelta = template?.Effects?.MagicSuppressionAddDelta  ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -1095,6 +1113,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         MagicCritResistDeltaVal = magicCritResistDelta,
                         StrikeFortitudeDeltaVal = strikeFortitudeDelta,
                         SpellFortitudeDeltaVal  = spellFortitudeDelta,
+                        ConcentrationDeltaVal   = concentrationDelta,
+                        MagicSuppressionDeltaVal = magicSuppressionDelta,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -1147,9 +1167,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (magicCritDelta       != 0) target.MagicCritDelta       += magicCritDelta;
                     if (physCritResistDelta  != 0) target.PhysCritResistDelta  += physCritResistDelta;
                     if (magicCritResistDelta != 0) target.MagicCritResistDelta += magicCritResistDelta;
-                    if (strikeFortitudeDelta != 0) target.StrikeFortitudeDelta += strikeFortitudeDelta;
-                    if (spellFortitudeDelta  != 0) target.SpellFortitudeDelta  += spellFortitudeDelta;
-                    if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 || strikeFortitudeDelta != 0 || spellFortitudeDelta != 0) && target is Player debuffedPlayer)
+                    if (strikeFortitudeDelta  != 0) target.StrikeFortitudeDelta  += strikeFortitudeDelta;
+                    if (spellFortitudeDelta   != 0) target.SpellFortitudeDelta   += spellFortitudeDelta;
+                    if (concentrationDelta    != 0) target.ConcentrationDelta    += concentrationDelta;
+                    if (magicSuppressionDelta != 0) target.MagicSuppressionDelta += magicSuppressionDelta;
+                    if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 || strikeFortitudeDelta != 0 || spellFortitudeDelta != 0 || concentrationDelta != 0 || magicSuppressionDelta != 0) && target is Player debuffedPlayer)
                     {
                         var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
                         var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);
@@ -1218,8 +1240,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (expEffect.PhysCritResistDeltaVal  != 0) expTarget.PhysCritResistDelta  -= expEffect.PhysCritResistDeltaVal;
                         if (expEffect.MagicCritResistDeltaVal != 0) expTarget.MagicCritResistDelta -= expEffect.MagicCritResistDeltaVal;
                         if (expEffect.StrikeFortitudeDeltaVal != 0) expTarget.StrikeFortitudeDelta -= expEffect.StrikeFortitudeDeltaVal;
-                        if (expEffect.SpellFortitudeDeltaVal  != 0) expTarget.SpellFortitudeDelta  -= expEffect.SpellFortitudeDeltaVal;
-                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 || expEffect.MagicCritDeltaVal != 0 || expEffect.PhysCritResistDeltaVal != 0 || expEffect.MagicCritResistDeltaVal != 0 || expEffect.StrikeFortitudeDeltaVal != 0 || expEffect.SpellFortitudeDeltaVal != 0) && expTarget is Player restoredPlayer)
+                        if (expEffect.SpellFortitudeDeltaVal   != 0) expTarget.SpellFortitudeDelta   -= expEffect.SpellFortitudeDeltaVal;
+                        if (expEffect.ConcentrationDeltaVal    != 0) expTarget.ConcentrationDelta    -= expEffect.ConcentrationDeltaVal;
+                        if (expEffect.MagicSuppressionDeltaVal != 0) expTarget.MagicSuppressionDelta -= expEffect.MagicSuppressionDeltaVal;
+                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 || expEffect.MagicCritDeltaVal != 0 || expEffect.PhysCritResistDeltaVal != 0 || expEffect.MagicCritResistDeltaVal != 0 || expEffect.StrikeFortitudeDeltaVal != 0 || expEffect.SpellFortitudeDeltaVal != 0 || expEffect.ConcentrationDeltaVal != 0 || expEffect.MagicSuppressionDeltaVal != 0) && expTarget is Player restoredPlayer)
                         {
                             var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
                             var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);

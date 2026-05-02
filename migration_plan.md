@@ -2219,6 +2219,19 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+219. [✓] StatDown/StatUp CONCENTRATION + MAGIC_SKILL_BOOST_RESIST — concentration feeds into magic accuracy; suppression reduces incoming magic boost (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `ConcentrationAddDelta/StatUpDelta` (stat=CONCENTRATION), `MagicSuppressionAddDelta/StatUpDelta` (stat=MAGIC_SKILL_BOOST_RESIST)
+    - [✓] `Model/Creature.cs` — added `ConcentrationDelta`, `MagicSuppressionDelta`
+    - [✓] `Model/AbnormalState.cs` — added `ConcentrationDeltaVal`, `MagicSuppressionDeltaVal`
+    - [✓] `SM_STATS_INFO.cs` — concentration now `p.BonusConcentration + p.ConcentrationDelta`; M-suppress now `p.BonusMagicSuppression + p.MagicSuppressionDelta`
+    - [✓] `CM_CASTSPELL.cs` — `totalMagicAcc` (replace_all) includes `+ player.ConcentrationDelta`; AoE `tMBSuppress` and single-target `tMBSuppressG` include player `MagicSuppressionDelta`; full debuff/buff apply+restore chain for both vals
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — 2 new params; apply/restore chain
+    - Java source: CONCENTRATION is additive to magic accuracy in PlayerGameStats; MAGIC_SKILL_BOOST_RESIST reduces effective magic boost received by the target
+    - Previously: concentration debuffs had no effect on spell hit-rate; suppression buffs had no effect on incoming magic damage reduction
+    - Build: 0 warnings, 0 errors
+
+218. [✓] StatDown/StatUp PHYSICAL_CRITICAL_RESIST / MAGICAL_CRITICAL_RESIST / STRIKE_FORTITUDE / SPELL_FORTITUDE — see M217
+
 217. [✓] StatDown/StatUp PHYSICAL_CRITICAL_RESIST / MAGICAL_CRITICAL_RESIST / STRIKE_FORTITUDE / SPELL_FORTITUDE — target-defensive crit resist and crit-damage reduction (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PhysCritResistAddDelta/StatUpDelta`, `MagicCritResistAddDelta/StatUpDelta`, `StrikeFortitudeAddDelta/StatUpDelta`, `SpellFortitudeAddDelta/StatUpDelta`
     - [✓] `Model/Creature.cs` — added `PhysCritResistDelta`, `MagicCritResistDelta`, `StrikeFortitudeDelta`, `SpellFortitudeDelta`

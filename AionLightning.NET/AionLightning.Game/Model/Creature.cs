@@ -64,6 +64,10 @@ public abstract class Creature : VisibleObject
     public int StrikeFortitudeDelta { get; set; }
     // Cumulative MAGICAL_CRITICAL_DAMAGE_REDUCE (spell fortitude) delta (positive from statup)
     public int SpellFortitudeDelta  { get; set; }
+    // Cumulative CONCENTRATION delta (negative from statdown = lower magic accuracy; positive from statup)
+    public int ConcentrationDelta   { get; set; }
+    // Cumulative MAGIC_SKILL_BOOST_RESIST (magic suppression) delta (positive from statup = reduced incoming M-boost)
+    public int MagicSuppressionDelta { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
