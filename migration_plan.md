@@ -1625,3 +1625,11 @@
     - [✓] `PlayerEnterWorldService` — passes `_dataManager.Skills + player.SkillCooldowns` to SM_SKILL_COOLDOWN on login; players with no active cooldowns receive count=0 (no overhead)
     - Previously: multiple skills sharing a CooldownId did not share cooldowns; SM_SKILL_COOLDOWN always sent count=0 so skill icons never showed cooldown timers on client
     - Build: 0 warnings, 0 errors
+
+141. [✓] Buff/debuff effect tracking — SM_ABNORMAL_EFFECT wire format + BUFF/CHANT skill activation (session 2026-05-02)
+    - [✓] `AbnormalState` (NEW model) — `SkillId`, `SkillLevel`, `EffectorId`, `Expiry`; computed `IsExpired` and `RemainingMs`; represents one active buff or debuff on a creature
+    - [✓] `Creature` — added `AddEffect(AbnormalState)`, `RemoveEffect(int, DateTime)`, `GetActiveEffects()`; uses `_effectsLock` object for thread safety; `AddEffect` removes any prior entry for the same SkillId before inserting (one stack per skill)
+    - [✓] `SM_ABNORMAL_EFFECT` — fully rewritten from always-zero stub; new overload `(int, bool, List<AbnormalState>)`; wire format: `D(effectedId) C(effectType) D(0) D(0) D(0) C(0x7F) H(count)` then per effect `[D(effectorId) if player]` + `H(skillId) C(level) C(targetSlot=0) D(remainMs)`; mirrors Java SM_ABNORMAL_EFFECT.writeImpl()
+    - [✓] `CM_CASTSPELL` — added BUFF/CHANT branch (between heal and damage branches): resolves target (self or named player), adds `AbnormalState` to `buffTarget.ActiveEffects`, broadcasts `SM_ABNORMAL_EFFECT` with active effect list to all zone clients; fire-and-forget expiry task removes effect after `template.Duration` ms and re-broadcasts updated list; sends `SM_SKILL_ACTIVATION` after effect is applied; skills with `Duration == 0` or non-player targets are skipped
+    - Previously: BUFF/CHANT skills did nothing after cooldown — no activation packet, no buff icon visible on client; now buff icons appear on player portrait with countdown timer matching skill duration
+    - Build: 0 warnings, 0 errors

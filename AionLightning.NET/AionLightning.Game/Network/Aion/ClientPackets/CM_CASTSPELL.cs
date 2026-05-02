@@ -146,6 +146,51 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var activation = new SM_SKILL_ACTIVATION(_spellId);
             await BroadcastAsync(activation, ct);
         }
+        else if (template?.SubType is SkillSubType.BUFF or SkillSubType.CHANT
+                 && _targetType is 0 or 3 or 4 && template.Duration > 0)
+        {
+            // Determine buff target: self when targetObjectId is 0 or caster's own id
+            Creature? buffTarget = (_targetObjectId == 0 || _targetObjectId == player.ObjectId)
+                ? player
+                : _world.GetPlayerByObjectId(_targetObjectId);
+
+            if (buffTarget is not null && !buffTarget.IsAlreadyDead)
+            {
+                int durationMs = template.Duration;
+                var effect = new AbnormalState
+                {
+                    SkillId    = _spellId,
+                    SkillLevel = _level,
+                    EffectorId = player.ObjectId,
+                    Expiry     = DateTime.UtcNow.AddMilliseconds(durationMs),
+                };
+                buffTarget.AddEffect(effect);
+
+                bool buffTargetIsPlayer = buffTarget is Player;
+                int  buffWorldId        = player.Position.WorldId;
+                var  abnormal = new SM_ABNORMAL_EFFECT(buffTarget.ObjectId, buffTargetIsPlayer,
+                                    buffTarget.GetActiveEffects());
+                foreach (var c in _connRegistry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == buffWorldId)
+                        try { await c.SendAsync(abnormal, ct); } catch { }
+
+                // Schedule expiry — remove effect and re-broadcast empty/updated list
+                var expiryEffect = effect;
+                var expiryTarget = buffTarget;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(durationMs);
+                    expiryTarget.RemoveEffect(expiryEffect.SkillId, expiryEffect.Expiry);
+                    var expired = new SM_ABNORMAL_EFFECT(expiryTarget.ObjectId, buffTargetIsPlayer,
+                                      expiryTarget.GetActiveEffects());
+                    foreach (var c in _connRegistry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == buffWorldId)
+                            try { await c.SendAsync(expired); } catch { }
+                });
+            }
+
+            await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
+        }
         else if (isDamageSkill && _targetType is 0 or 3 or 4 && _targetObjectId != 0)
         {
             var spellId    = _spellId;

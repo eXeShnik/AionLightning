@@ -23,4 +23,29 @@ public abstract class Creature : VisibleObject
 
     public float MovementSpeed    { get; protected set; } = 6.0f;
     public int CurrentAttackSpeed { get; set; } = 1500;
+
+    // Active buff/debuff effects — thread-safe via _effectsLock
+    private readonly object              _effectsLock   = new();
+    private readonly List<AbnormalState> _activeEffects = new();
+
+    public void AddEffect(AbnormalState state)
+    {
+        lock (_effectsLock)
+        {
+            _activeEffects.RemoveAll(e => e.SkillId == state.SkillId);
+            _activeEffects.Add(state);
+        }
+    }
+
+    public void RemoveEffect(int skillId, DateTime expiry)
+    {
+        lock (_effectsLock)
+            _activeEffects.RemoveAll(e => e.SkillId == skillId && e.Expiry == expiry);
+    }
+
+    public List<AbnormalState> GetActiveEffects()
+    {
+        lock (_effectsLock)
+            return _activeEffects.Where(e => !e.IsExpired).ToList();
+    }
 }
