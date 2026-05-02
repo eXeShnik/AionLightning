@@ -21,7 +21,7 @@ public abstract class Creature : VisibleObject
     // Tracks the last auto-attack time for cooldown enforcement
     public DateTime LastAttackTime { get; set; } = DateTime.MinValue;
 
-    public float MovementSpeed    { get; protected set; } = 6.0f;
+    public float MovementSpeed    { get; set; } = 6.0f;
     public int CurrentAttackSpeed { get; set; } = 1500;
 
     // Active buff/debuff effects — thread-safe via _effectsLock

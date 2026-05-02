@@ -57,6 +57,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IPlayerTitleDao        _playerTitleDao;
     private readonly NpcAiService           _npcAi;
     private readonly PlayerEnterWorldService _enterWorldService;
+    private readonly RepurchaseService       _repurchaseService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -99,7 +100,8 @@ public sealed class GsPacketHandlerFactory
         IManastoneDao manastoneDao,
         IPlayerTitleDao playerTitleDao,
         NpcAiService npcAi,
-        PlayerEnterWorldService enterWorldService)
+        PlayerEnterWorldService enterWorldService,
+        RepurchaseService repurchaseService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -142,6 +144,7 @@ public sealed class GsPacketHandlerFactory
         _playerTitleDao    = playerTitleDao;
         _npcAi             = npcAi;
         _enterWorldService = enterWorldService;
+        _repurchaseService = repurchaseService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -203,7 +206,7 @@ public sealed class GsPacketHandlerFactory
                 0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates),
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
-                0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry),
+                0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
                 0xF4  => new CM_PET(),
@@ -227,7 +230,7 @@ public sealed class GsPacketHandlerFactory
                 0x110 => new CM_HOUSE_EDIT(),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(),
-                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillDao, _legionDao, _expService, _connRegistry, _rates, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
+                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillDao, _legionDao, _expService, _connRegistry, _repurchaseService, _rates, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
                 0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _connRegistry),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),

@@ -1746,3 +1746,38 @@
     - RESURRECT_BIND dialog action (code 34) was already implemented in CM_DIALOG_SELECT (binds at NPC position, persists via UpdateBindPointAsync, sends SM_BIND_POINT_INFO + BindPointSet message)
     - Previously: the bind point was set correctly in DB and sent immediately on binding, but was never re-sent on zone entry — after any teleport/zone change the revive dialog showed no bind point location even though one was set
     - Build: 0 warnings, 0 errors
+
+158. [✓] SM_PLAYER_INFO — run speed and attack speed from player model (session 2026-05-02)
+    - [✓] `Creature.MovementSpeed` — changed `protected set` to `set` so external services can assign it
+    - [✓] `PlayerEnterWorldService` — sets `player.MovementSpeed = tpl?.RunSpeed ?? 6.0f` from the per-class/level stats template, placed alongside the existing CurrentAttackSpeed assignment
+    - [✓] `SM_PLAYER_INFO` — replaced hardcoded `6.0f` move speed with `p.MovementSpeed`; replaced hardcoded `1500`/`1500` attack speed base/current with `(short)p.CurrentAttackSpeed`
+    - Java source: `PlayerGameStats.getRunSpeed()` returns stat-template run speed + modifiers; `getAttackSpeed()` defaults to 1500ms, overridden by main-hand weapon template; both sent in SM_PLAYER_INFO
+    - Previously: all players appeared to other clients with a hardcoded 6.0 run speed and 1500ms attack speed regardless of their stats template or equipped weapon — weapon attack-speed buffs had no visible effect on the animation timing seen by others
+    - Build: 0 warnings, 0 errors
+
+159. [✓] CM_USE_ITEM — broadcast HP/MP restore to zone peers and update group HP bars (session 2026-05-02)
+    - [✓] `CM_USE_ITEM` (HP/MP restore path) — after applying the restore, broadcasts `SM_ATTACK_STATUS(NaturalHp/NaturalMp)` to all zone players (was self-only); if player is in a group, sends `SM_GROUP_MEMBER_INFO(Update)` to all group members
+    - Java source: `PlayerLifeStats.increaseHp/increaseMp` → `PacketSendUtility.broadcastPacketAndReceive` for life stats updates
+    - Previously: when a player used a HP or MP potion, other players in the zone saw no HP bar change; group members' party panel showed stale HP until the next regen tick or combat hit; the heal popup (floating number) was invisible to nearby players
+    - Build: 0 warnings, 0 errors
+
+160. [✓] Repurchase system — buy back recently sold items from NPC shops (session 2026-05-02)
+    - [✓] `RepurchaseService` (new) — session-scoped store; `Add` records sold items keyed by player ObjectId; `Get`/`GetAll`/`Remove`/`Clear` for lookup and cleanup; thread-safe with lock; items not persisted (lost on restart/logout)
+    - [✓] `SM_REPURCHASE` (new, opcode 0xA7) — sends NPC objectId + repurchase item list; each entry writes item info blob via `SM_INVENTORY_INFO.WriteItemInfo` then appends `writeQ(repurchasePrice)`
+    - [✓] `CM_BUY_ITEM.SellToShopAsync` — after selling, records each sold item in `RepurchaseService`; for full sells (item deleted) reuses the original UniqueId as the session reference; for partial sells calls `NextUniqueIdAsync` for a fresh stable ID
+    - [✓] `CM_BUY_ITEM` case 2 (repurchase) — new `RepurchaseFromShopAsync`: validates NPC range, checks kinah and inventory space, deducts kinah, creates new `Item` instances for repurchased entries, saves inventory, sends `SM_INVENTORY_ADD_ITEM`
+    - [✓] `CM_DIALOG_SELECT` case `BUY_AGAIN` (dialog action 70) — validates NPC range, fetches repurchase list from `RepurchaseService`, sends `SM_REPURCHASE`
+    - [✓] `Program.cs` — registered `RepurchaseService` as singleton; `GsPacketHandlerFactory` updated with new constructor parameter
+    - Java source: `RepurchaseService` (singleton Multimap), `TradeService.performSellToShop` → `addRepurchaseItems`, `DialogService` case `BUY_AGAIN` → `SM_REPURCHASE`, `CM_BUY_ITEM` case 2 → `repurchaseFromShop`
+    - Previously: `CM_BUY_ITEM` silently ignored `tradeActionId = 2`; the "Buy Again" NPC dialog button had no handler — players could sell items but had no way to buy them back
+    - Build: 0 warnings, 0 errors
+
+161. [✓] Magical weapon M-attack — staffs/orbs/maces set MainHandMagicalAtk; used in SM_STATS_INFO and spell damage (session 2026-05-02)
+    - [✓] `ItemTemplate` — added `IsMagicalWeapon` property (MACE_1H, STAFF_2H, BOOK_2H, ORB_2H, HARP_2H, GUN_1H, CANNON_2H, KEYBLADE_2H); these weapon types store magical attack in their `weapon_stats min_damage/max_damage`, not physical attack
+    - [✓] `Player` — added `MainHandMagicalAtk` property (default 0; average of magical weapon min/max damage when equipped)
+    - [✓] `CM_EQUIP_ITEM` and `PlayerEnterWorldService` — when equipping the main hand: if `IsMagicalWeapon`, sets `MainHandMagicalAtk = (min + max) / 2` and clears `MainHandMinDmg`/`MaxDmg`; otherwise sets physical damage fields and clears `MainHandMagicalAtk`
+    - [✓] `SM_STATS_INFO` — replaced hardcoded `100` M-attack with `(short)(100 + p.MainHandMagicalAtk)` (100 = base M-attack for all classes per Java constants)
+    - [✓] `CM_CASTSPELL` — spell damage formula changed from `level * 8 + rand(20,60)` to `(100 + MainHandMagicalAtk) + level * 6 + rand(10,40)`; casters with a good magical weapon now deal more damage
+    - Java source: `StatEnchantFunction.getWeaponModifiers` shows BOOST_MAGICAL_SKILL for MACE_1H/STAFF_2H/ORB_2H/BOOK_2H/HARP_2H/GUN_1H/CANNON_2H/KEYBLADE_2H; `PlayerGameStats.getMainHandMagicalAttack()` sums BASE_MAGICAL_ATTACK (100) + equipment MAGICAL_ATTACK modifiers
+    - Previously: all weapons set only physical attack fields (`MainHandMinDmg`/`MaxDmg`); `SM_STATS_INFO` always sent M-attack = 100 regardless of equipped weapon; spell damage ignored the equipped weapon entirely — a sorcerer with a legendary staff hit identically to one with no weapon
+    - Build: 0 warnings, 0 errors

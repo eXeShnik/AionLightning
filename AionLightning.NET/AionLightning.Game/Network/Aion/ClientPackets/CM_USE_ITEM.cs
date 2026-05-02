@@ -132,22 +132,45 @@ public sealed class CM_USE_ITEM : AionClientPacket
             if (peer.ActivePlayer?.Position.WorldId == worldId)
                 try { await peer.SendAsync(anim, ct); } catch { }
 
-        // Apply HP restore
+        bool hpMpChanged = false;
+        int itemWorldId  = player.Position.WorldId;
+
+        // Apply HP restore — broadcast so zone peers and group HP bars see the change
         if (effect.Hp > 0 && player.MaxHp > 0)
         {
             int restore = Math.Max(1, player.MaxHp * effect.Hp / 100);
             player.CurrentHp = Math.Min(player.MaxHp, player.CurrentHp + restore);
-            await _conn.SendAsync(
-                new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, restore, SM_ATTACK_STATUS.LogId.Heal), ct);
+            var hpStatus = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, restore, SM_ATTACK_STATUS.LogId.Heal);
+            try { await _conn.SendAsync(hpStatus, ct); } catch { }
+            foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+                if (peer.ActivePlayer?.Position.WorldId == itemWorldId)
+                    try { await peer.SendAsync(hpStatus, ct); } catch { }
+            hpMpChanged = true;
         }
 
-        // Apply MP restore
+        // Apply MP restore — broadcast so zone peers and group HP bars see the change
         if (effect.Mp > 0 && player.MaxMp > 0)
         {
             int restore = Math.Max(1, player.MaxMp * effect.Mp / 100);
             player.CurrentMp = Math.Min(player.MaxMp, player.CurrentMp + restore);
-            await _conn.SendAsync(
-                new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, skillId, restore, SM_ATTACK_STATUS.LogId.MpHeal), ct);
+            var mpStatus = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, skillId, restore, SM_ATTACK_STATUS.LogId.MpHeal);
+            try { await _conn.SendAsync(mpStatus, ct); } catch { }
+            foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+                if (peer.ActivePlayer?.Position.WorldId == itemWorldId)
+                    try { await peer.SendAsync(mpStatus, ct); } catch { }
+            hpMpChanged = true;
+        }
+
+        // Update group HP bars for this player
+        if (hpMpChanged && player.Group is { } grp)
+        {
+            var groupUpdate = new SM_GROUP_MEMBER_INFO(grp.GroupId, player, SM_GROUP_MEMBER_INFO.GroupEvent.Update);
+            foreach (var m in grp.Members)
+            {
+                if (m.ObjectId == player.ObjectId) continue;
+                var mc = _connRegistry.Get(m.ObjectId);
+                if (mc is not null) try { await mc.SendAsync(groupUpdate, ct); } catch { }
+            }
         }
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);

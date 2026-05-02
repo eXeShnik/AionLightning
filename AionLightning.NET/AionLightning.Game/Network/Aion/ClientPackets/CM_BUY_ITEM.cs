@@ -4,6 +4,7 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -20,6 +21,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
     private readonly IDataManager             _dataManager;
     private readonly GameWorld                _world;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly RepurchaseService        _repurchaseService;
 
     private int _sellerObjectId;
     private int _tradeActionId;
@@ -27,13 +29,14 @@ public sealed class CM_BUY_ITEM : AionClientPacket
     private bool _invalid;
 
     public CM_BUY_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        GameWorld world, PlayerConnectionRegistry connRegistry)
+        GameWorld world, PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService)
     {
-        _conn         = conn;
-        _itemDao      = itemDao;
-        _dataManager  = dataManager;
-        _world        = world;
-        _connRegistry = connRegistry;
+        _conn              = conn;
+        _itemDao           = itemDao;
+        _dataManager       = dataManager;
+        _world             = world;
+        _connRegistry      = connRegistry;
+        _repurchaseService = repurchaseService;
     }
 
     public override void Read(ref PacketReader r)
@@ -64,11 +67,14 @@ public sealed class CM_BUY_ITEM : AionClientPacket
             case 0:  // buy from player's private store
                 await BuyFromPrivateStoreAsync(player, ct);
                 break;
-            case 13: // buy from normal NPC shop
-                await BuyFromShopAsync(player, ct);
-                break;
             case 1:  // sell items to NPC shop
                 await SellToShopAsync(player, ct);
+                break;
+            case 2:  // repurchase previously sold items
+                await RepurchaseFromShopAsync(player, ct);
+                break;
+            case 13: // buy from normal NPC shop
+                await BuyFromShopAsync(player, ct);
                 break;
         }
     }
@@ -156,6 +162,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
         long kinahGained = 0;
         var itemsToDelete = new List<long>();
         var itemsToUpdate = new List<Item>();
+        var repurchaseEntries = new List<RepurchaseService.RepurchaseEntry>();
 
         foreach (var (itemId, count) in _tradeEntries)
         {
@@ -165,20 +172,29 @@ public sealed class CM_BUY_ITEM : AionClientPacket
             var item = player.Inventory.FindByItemId(itemId);
             if (item is null || item.IsEquipped) continue;
 
-            long sellCount = Math.Min(count, item.Count);
-            kinahGained += sellPrice * sellCount;
-            item.Count -= sellCount;
+            long sellCount     = Math.Min(count, item.Count);
+            long sellKinah     = sellPrice * sellCount;
+            kinahGained       += sellKinah;
+            item.Count        -= sellCount;
 
+            long repurchaseId;
             if (item.Count <= 0)
             {
                 player.Inventory.Remove(item.UniqueId);
                 itemsToDelete.Add(item.UniqueId);
+                repurchaseId = item.UniqueId; // freed from DB — safe to reuse as session reference
             }
             else
             {
                 itemsToUpdate.Add(item);
+                repurchaseId = await _itemDao.NextUniqueIdAsync(ct); // partial sell: new session-only ID
             }
+
+            repurchaseEntries.Add(new RepurchaseService.RepurchaseEntry(repurchaseId, itemId, sellCount, sellKinah));
         }
+
+        if (repurchaseEntries.Count > 0)
+            _repurchaseService.Add(player.ObjectId, repurchaseEntries);
 
         // Add kinah gained in memory
         Item? kinahItem = null;
@@ -208,6 +224,71 @@ public sealed class CM_BUY_ITEM : AionClientPacket
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(itemsToUpdate), ct);
         if (kinahItem is not null)
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
+    }
+
+    private async ValueTask RepurchaseFromShopAsync(Player player, CancellationToken ct)
+    {
+        var npc = _world.GetNpcByObjectId(_sellerObjectId);
+        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+
+        var entries = new List<RepurchaseService.RepurchaseEntry>();
+        long totalCost = 0;
+
+        foreach (var (rawId, _) in _tradeEntries) // count is ignored — always restore the full sold quantity
+        {
+            var entry = _repurchaseService.Get(player.ObjectId, rawId);
+            if (entry is null) continue;
+            entries.Add(entry);
+            totalCost += entry.RepurchasePrice;
+        }
+
+        if (entries.Count == 0) return;
+
+        var kinahItem = player.Inventory.FindByItemId(KinahItemId);
+        if ((kinahItem?.Count ?? 0) < totalCost)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
+            return;
+        }
+
+        int slotsNeeded = entries.Count(e =>
+            player.Inventory.FindByItemId(e.ItemId) is null
+            || (_dataManager.Items.GetTemplate(e.ItemId)?.MaxStackCount ?? 1) <= 1);
+        if (player.Inventory.BagSlotUsed + slotsNeeded > player.Inventory.Capacity)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.InventoryFull(), ct);
+            return;
+        }
+
+        if (kinahItem is not null)
+            kinahItem.Count -= totalCost;
+
+        var itemsAdded = new List<Item>();
+        foreach (var entry in entries)
+        {
+            var template = _dataManager.Items.GetTemplate(entry.ItemId);
+            var existing = player.Inventory.FindByItemId(entry.ItemId);
+            if (existing is not null && (template?.MaxStackCount ?? 1) > 1)
+            {
+                existing.Count += entry.Count;
+                itemsAdded.Add(existing);
+            }
+            else
+            {
+                long uid    = await _itemDao.NextUniqueIdAsync(ct);
+                var newItem = new Item { UniqueId = uid, ItemId = entry.ItemId, Count = entry.Count, Slot = -1 };
+                player.Inventory.Add(newItem);
+                itemsAdded.Add(newItem);
+            }
+            _repurchaseService.Remove(player.ObjectId, entry.UniqueId);
+        }
+
+        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+
+        if (kinahItem is not null)
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
+        if (itemsAdded.Count > 0)
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(itemsAdded), ct);
     }
 
     private async ValueTask BuyFromPrivateStoreAsync(Player buyer, CancellationToken ct)

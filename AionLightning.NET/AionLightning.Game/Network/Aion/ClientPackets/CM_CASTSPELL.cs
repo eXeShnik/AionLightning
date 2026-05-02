@@ -227,7 +227,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (target.Position.WorldId != castWorldId) return;
                 if (castRange > 0f && player.Position.DistanceTo(target.Position) > castRange) return;
 
-                int rawSpellDmg = player.Level * 8 + Random.Shared.Next(20, 60);
+                int mAtk = 100 + player.MainHandMagicalAtk;
+                int rawSpellDmg = mAtk + player.Level * 6 + Random.Shared.Next(10, 40);
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
                 int spellDef = target is Player pvpSpellTarget
                              ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)

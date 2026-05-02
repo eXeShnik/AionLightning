@@ -84,16 +84,27 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             var weaponTpl = _dataManager.Items.GetTemplate(mainHandItem.ItemId);
             if (weaponTpl?.WeaponStats is { } ws)
             {
-                player.MainHandMinDmg     = ws.MinDamage;
-                player.MainHandMaxDmg     = ws.MaxDamage;
                 player.CurrentAttackSpeed = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+                if (weaponTpl.IsMagicalWeapon)
+                {
+                    player.MainHandMagicalAtk = (ws.MinDamage + ws.MaxDamage) / 2;
+                    player.MainHandMinDmg     = 0;
+                    player.MainHandMaxDmg     = 0;
+                }
+                else
+                {
+                    player.MainHandMinDmg     = ws.MinDamage;
+                    player.MainHandMaxDmg     = ws.MaxDamage;
+                    player.MainHandMagicalAtk = 0;
+                }
             }
         }
         else
         {
-            player.State &= ~CreatureState.WeaponEquipped;
+            player.State             &= ~CreatureState.WeaponEquipped;
             player.MainHandMinDmg     = 0;
             player.MainHandMaxDmg     = 0;
+            player.MainHandMagicalAtk = 0;
             player.CurrentAttackSpeed = 1500;
         }
 

@@ -144,10 +144,10 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
         w.WriteF(a.Height);
         w.WriteF(0.25f);        // scale
         w.WriteF(2.0f);         // gravity
-        w.WriteF(6.0f);         // move speed
+        w.WriteF(p.MovementSpeed);
 
-        w.WriteH(1500);         // attack speed base
-        w.WriteH(1500);         // attack speed current
+        w.WriteH((short)p.CurrentAttackSpeed); // attack speed base
+        w.WriteH((short)p.CurrentAttackSpeed); // attack speed current
         w.WriteC(0);            // port animation
 
         w.WriteS(string.Empty); // private store message

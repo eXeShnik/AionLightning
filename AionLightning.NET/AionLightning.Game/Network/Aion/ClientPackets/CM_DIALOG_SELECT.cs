@@ -35,6 +35,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private const int COMBINE_SKILL_LEVELUP   = 46;
     private const int RECOVERY                = 35;
     private const int OPEN_LEGION_WAREHOUSE   = 53;
+    private const int BUY_AGAIN               = 70; // repurchase previously sold items from NPC
 
     // Kinah cost per soul sickness stack when recovering at a Healer NPC
     private const long SoulSicknessCostPerStack = 5_000;
@@ -96,6 +97,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly ILegionDao                _legionDao;
     private readonly ExperienceService         _expService;
     private readonly PlayerConnectionRegistry  _connRegistry;
+    private readonly RepurchaseService         _repurchaseService;
     private readonly RateOptions               _rates;
     private readonly ILogger<CM_DIALOG_SELECT> _log;
 
@@ -107,21 +109,23 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
         IMailDao mailDao, ISkillDao skillDao, ILegionDao legionDao, ExperienceService expService,
-        PlayerConnectionRegistry connRegistry, RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
+        PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
+        RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
     {
-        _conn         = conn;
-        _world        = world;
-        _dataManager  = dataManager;
-        _questDao     = questDao;
-        _itemDao      = itemDao;
-        _playerDao    = playerDao;
-        _mailDao      = mailDao;
-        _skillDao     = skillDao;
-        _legionDao    = legionDao;
-        _expService   = expService;
-        _connRegistry = connRegistry;
-        _rates        = rates;
-        _log          = log;
+        _conn              = conn;
+        _world             = world;
+        _dataManager       = dataManager;
+        _questDao          = questDao;
+        _itemDao           = itemDao;
+        _playerDao         = playerDao;
+        _mailDao           = mailDao;
+        _skillDao          = skillDao;
+        _legionDao         = legionDao;
+        _expService        = expService;
+        _connRegistry      = connRegistry;
+        _repurchaseService = repurchaseService;
+        _rates             = rates;
+        _log               = log;
     }
 
     public override void Read(ref PacketReader r)
@@ -280,6 +284,15 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             case OPEN_LEGION_WAREHOUSE:
                 await HandleOpenLegionWarehouseAsync(player, ct);
                 break;
+
+            case BUY_AGAIN:
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+                var entries = _repurchaseService.GetAll(player.ObjectId);
+                await _conn.SendAsync(new SM_REPURCHASE(_targetObjectId, entries), ct);
+                break;
+            }
 
             default:
                 _log.LogDebug("Unhandled dialog: targetId={TargetId} dialogId={DialogId} questId={QuestId}",

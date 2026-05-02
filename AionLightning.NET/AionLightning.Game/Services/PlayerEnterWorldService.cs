@@ -161,15 +161,27 @@ public sealed class PlayerEnterWorldService
             item?.ManaStones.Add(stone);
         }
 
+        player.MovementSpeed = tpl?.RunSpeed ?? 6.0f;
+
         var equippedMainHand = storedItems.FirstOrDefault(i => i.IsEquipped && i.Slot == 1);
         if (equippedMainHand is not null)
         {
             var wpnTpl = _dataManager.Items.GetTemplate(equippedMainHand.ItemId);
             if (wpnTpl?.WeaponStats is { } ws)
             {
-                player.MainHandMinDmg     = ws.MinDamage;
-                player.MainHandMaxDmg     = ws.MaxDamage;
                 player.CurrentAttackSpeed = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+                if (wpnTpl.IsMagicalWeapon)
+                {
+                    player.MainHandMagicalAtk = (ws.MinDamage + ws.MaxDamage) / 2;
+                    player.MainHandMinDmg     = 0;
+                    player.MainHandMaxDmg     = 0;
+                }
+                else
+                {
+                    player.MainHandMinDmg     = ws.MinDamage;
+                    player.MainHandMaxDmg     = ws.MaxDamage;
+                    player.MainHandMagicalAtk = 0;
+                }
             }
         }
 

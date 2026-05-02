@@ -60,6 +60,11 @@ public sealed class ItemTemplate
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;
     public bool IsStigmaItem       => Stigma != null;
+
+    // Magical weapon types: their min/max damage is magical attack, not physical
+    private static readonly HashSet<string> MagicalWeaponTypes =
+        ["MACE_1H", "STAFF_2H", "BOOK_2H", "ORB_2H", "HARP_2H", "GUN_1H", "CANNON_2H", "KEYBLADE_2H"];
+    public bool IsMagicalWeapon => MagicalWeaponTypes.Contains(WeaponTypeName);
 }
 
 public sealed class ItemModifiers

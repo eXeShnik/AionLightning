@@ -67,7 +67,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // unk 3.0
         int pdef = Math.Max(100, p.PhysicalDefense);
         w.WriteD(pdef);                // P-def
-        w.WriteH(100); w.WriteH(0);    // main/off-hand M-attack
+        w.WriteH((short)(100 + p.MainHandMagicalAtk)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon bonus)
         int mdef = Math.Max(100, p.MagicDefense);
         w.WriteD(mdef);                // M-def
         w.WriteH(0); w.WriteH(0);      // M-resist, unk 3.0

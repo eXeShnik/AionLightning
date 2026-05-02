@@ -85,9 +85,12 @@ public sealed class Player : Creature
     // Base physical attack from class/level stat template (updated on login and level-up)
     public int BasePhysicalAttack { get; set; }
 
-    // Equipped main-hand weapon damage range; both 0 when no weapon is equipped
+    // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
     public int MainHandMinDmg { get; set; }
     public int MainHandMaxDmg { get; set; }
+
+    // Magical attack bonus from equipped magical weapon (staff/orb/mace/etc.); average of min/max weapon damage
+    public int MainHandMagicalAtk { get; set; }
 
     // Sum of PHYSICAL_DEFENSE from all equipped items; applied in mitigation formula
     public int PhysicalDefense { get; set; }
