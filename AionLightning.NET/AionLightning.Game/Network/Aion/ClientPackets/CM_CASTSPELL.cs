@@ -326,10 +326,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
 
                     deadPlayer.State |= CreatureState.Dead;
-                    var die = new SM_EMOTION(deadPlayer, EmotionType.DIE);
+                    deadPlayer.ClearAllEffects();
+                    var die         = new SM_EMOTION(deadPlayer, EmotionType.DIE);
+                    var clearEffect = new SM_ABNORMAL_EFFECT(deadPlayer.ObjectId, isPlayer: true);
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                        {
                             try { await c.SendAsync(die); } catch { }
+                            try { await c.SendAsync(clearEffect); } catch { }
+                        }
                     var targetConn = registry.Get(deadPlayer.ObjectId);
                     if (targetConn is not null) try { await targetConn.SendAsync(new SM_DIE()); } catch { }
 

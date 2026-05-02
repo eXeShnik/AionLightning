@@ -85,6 +85,10 @@ public sealed class CM_ATTACK : AionClientPacket
             ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtk
             : baseAtk + Random.Shared.Next(10, 40);
 
+        // Critical hit — base 10% chance, 1.5× multiplier (Java base ~10% for unarmed)
+        bool isCrit = Random.Shared.Next(100) < 10;
+        if (isCrit) rawDmg = (int)(rawDmg * 1.5f);
+
         // Apply physical defense mitigation from the target's armor
         int pdef = target is Player pvpTarget ? pvpTarget.PhysicalDefense
                  : target is Npc npcTarget    ? (npcTarget.Template.Stats?.PDef ?? 0)
@@ -98,7 +102,7 @@ public sealed class CM_ATTACK : AionClientPacket
         target.LastCombatTime = combatNow;
 
         // Broadcast attack animation then damage report
-        await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, damage), ct);
+        await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, damage, isCrit), ct);
         await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage), ct);
 
         // DP gain on successful physical hit (100 DP per attack, capped at 6000)
@@ -168,7 +172,9 @@ public sealed class CM_ATTACK : AionClientPacket
             }
 
             deadPlayer.State |= CreatureState.Dead;
+            deadPlayer.ClearAllEffects();
             await BroadcastAsync(new SM_EMOTION(deadPlayer, EmotionType.DIE), ct);
+            await BroadcastAsync(new SM_ABNORMAL_EFFECT(deadPlayer.ObjectId, isPlayer: true), ct);
 
             var targetConn = _connRegistry.Get(deadPlayer.ObjectId);
             if (targetConn is not null)

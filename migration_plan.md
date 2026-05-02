@@ -1640,3 +1640,55 @@
     - DEBUFF vs BUFF differences: effectType=1 (creature) for NPC targets omits `effectorId` per wire format; player targets use effectType=2 with effectorId
     - Debuffs stack independently per skillId (AddEffect deduplicates by skillId); a re-cast of the same debuff refreshes the duration
     - Build: 0 warnings, 0 errors
+
+143. [✓] NPC skill type dispatch — HEAL/BUFF/DEBUFF branches in TryCastNpcSkillAsync (session 2026-05-02)
+    - [✓] `NpcAiService.TryCastNpcSkillAsync` — replaced single always-damage path with `switch(skillTemplate?.SubType)`: HEAL → `CastNpcHealAsync`, BUFF/CHANT → `CastNpcBuffAsync`, DEBUFF → `CastNpcDebuffAsync`, default → `CastNpcDamageAsync`; SM_CASTSPELL broadcast remains before the switch; SM_SKILL_ACTIVATION broadcast added after switch (was previously missing entirely)
+    - [✓] `CastNpcDamageAsync` — existing magic damage logic (level*8 + rand, MagicDefense mitigation, SM_ATTACK_STATUS Damage); extracted verbatim from old TryCastNpcSkillAsync
+    - [✓] `CastNpcHealAsync` — restores NPC.CurrentHp by MaxHp/6 (capped at MaxHp); broadcasts SM_ATTACK_STATUS(NaturalHp) so nearby players see the green heal number
+    - [✓] `CastNpcBuffAsync` — creates AbnormalState on the NPC, broadcasts SM_ABNORMAL_EFFECT(npc, isPlayer=false); fire-and-forget expiry task removes effect and re-broadcasts with current position worldId
+    - [✓] `CastNpcDebuffAsync` — creates AbnormalState on the player target, broadcasts SM_ABNORMAL_EFFECT(player, isPlayer=true); fire-and-forget expiry mirrors player DEBUFF expiry pattern; combat time updated on both npc and target
+    - Previously: all NPC skills regardless of SubType always applied magic damage to the player; NPCs could not heal themselves, buff themselves, or apply debuffs; SM_SKILL_ACTIVATION was never sent for NPC casts
+    - Build: 0 warnings, 0 errors
+
+144. [✓] CM_REMOVE_ALTERED_STATE — player manually cancels a buff/debuff (session 2026-05-02)
+    - [✓] `Creature` — added `RemoveEffectBySkillId(int skillId)` overload that removes all effects matching only by skillId (without expiry requirement); needed for player-triggered removal where expiry is not known
+    - [✓] `CM_REMOVE_ALTERED_STATE` — fully implemented from stub: reads `skillId` (short), calls `player.RemoveEffectBySkillId`, broadcasts `SM_ABNORMAL_EFFECT(player, isPlayer=true, updatedEffects)` to all zone clients; mirrors Java EffectController.removeEffect + broadCastEffects
+    - [✓] `GsPacketHandlerFactory` — updated opcode 0xE1 registration to pass `conn` and `_connRegistry`
+    - Previously: clicking a buff/debuff icon sent the packet but nothing happened; buff icons persisted even after manual cancel
+    - Build: 0 warnings, 0 errors
+
+145. [✓] Buff icons survive zone transitions — CM_LEVEL_READY sends active effects on entry (session 2026-05-02)
+    - [✓] `CM_LEVEL_READY` — replaced all three `SM_ABNORMAL_EFFECT(id, isPlayer)` empty-list calls with `SM_ABNORMAL_EFFECT(id, isPlayer, GetActiveEffects())` calls; affects: (1) self on zone entry, (2) each zone peer's effects shown to the entering player, (3) entering player's effects shown to each zone peer
+    - Previously: zone entry always sent count=0 SM_ABNORMAL_EFFECT (clear), erasing all buff icons for every player in the zone every time anyone teleported; buffs existed on the server but became invisible on client after any zone transition
+    - Build: 0 warnings, 0 errors
+
+146. [✓] Clear active effects on player death — all three kill paths (session 2026-05-02)
+    - [✓] `Creature` — added `ClearAllEffects()` that clears the entire `_activeEffects` list under `_effectsLock`
+    - [✓] `NpcAiService` (NPC kills player) — after `target.State |= Dead`: calls `target.ClearAllEffects()`, broadcasts `SM_ABNORMAL_EFFECT(target, isPlayer:true)` (clear form, empty list) alongside the DIE emotion to all zone clients
+    - [✓] `CM_ATTACK` (melee kill of player) — same clear + broadcast after `deadPlayer.State |= Dead`
+    - [✓] `CM_CASTSPELL` (spell kill of player) — same clear + broadcast after `deadPlayer.State |= Dead`
+    - Previously: buff/debuff icons remained visible on dead players until their fire-and-forget expiry tasks happened to fire; NPC debuffs applied just before a kill would show for their full duration on a corpse
+    - Build: 0 warnings, 0 errors
+
+147. [✓] CM_TOGGLE_SKILL_DEACTIVATE removes chant/buff effect on stance-off (session 2026-05-02)
+    - [✓] `CM_TOGGLE_SKILL_DEACTIVATE` — added `PlayerConnectionRegistry` injection; after sending `SM_PLAYER_STANCE(0)`, calls `player.RemoveEffectBySkillId(_skillId)` and broadcasts `SM_ABNORMAL_EFFECT` with updated active effects to all zone clients
+    - [✓] `GsPacketHandlerFactory` — updated opcode 0xE0 to pass `_connRegistry`
+    - Previously: deactivating a chant sent the stance-off indicator but left the associated buff icon visible on the player's portrait and the effect record in the active-effects list; re-casting the skill would replace the old entry but manual deactivation was silently ignored
+    - Build: 0 warnings, 0 errors
+
+148. [✓] Melee critical hit — 10% base chance, 1.5× damage, AttackStatus 202 in SM_ATTACK (session 2026-05-02)
+    - [✓] `SM_ATTACK` — added `isCrit` optional bool param (default false); selects between `AttackStatusNormalHit=10` and `AttackStatusCritical=202` for the attack-list entry; Java AttackStatus enum IDs documented inline
+    - [✓] `CM_ATTACK` — before defense mitigation: rolls `Random.Shared.Next(100) < 10` for crit; multiplies rawDmg × 1.5 on crit; passes `isCrit` to SM_ATTACK; mitigation applies to the already-boosted raw damage
+    - Previously: melee always sent AttackStatus 10 (NORMALHIT) regardless of damage — no crit flash on target, no crit sound, all hits look identical on the client
+    - Build: 0 warnings, 0 errors
+
+149. [✓] NPC melee critical hit — 5% base chance, 1.5× damage, AttackStatus 202 (session 2026-05-02)
+    - [✓] `NpcAiService` (melee damage path) — after rate scaling, before pdef mitigation: rolls `Random.Shared.Next(100) < 5`; on crit multiplies rawDmg × 1.5f; passes `npcCrit` to SM_ATTACK constructor; NPCs use 5% (vs player's 10%) to feel less threatening
+    - Previously: NPC melee attacks always sent AttackStatus 10; no visual crit indicator for players being attacked
+    - Build: 0 warnings, 0 errors
+
+150. [✓] SM_STATS_INFO — fix DP and recoverable XP always being sent as 0 (session 2026-05-02)
+    - [✓] `SM_STATS_INFO` (current section) — `w.WriteH(0)` for current DP replaced with `w.WriteH((short)p.Dp)`; `w.WriteQ(0)` for ExpRecoverable replaced with `w.WriteQ(p.ExpRecoverable)`; fly time replaced with `p.MaxFp`/`p.CurrentFp`
+    - [✓] `SM_STATS_INFO` (base section) — `w.WriteD(60)` for base fly time replaced with `p.MaxFp`
+    - Previously: on zone entry or level-up, the stat panel showed DP=0 even if the player had accumulated DP mid-session; the XP bar's grey "recoverable" portion was always 0; fly meter showed hardcoded 60 instead of player's actual FP pool
+    - Build: 0 warnings, 0 errors

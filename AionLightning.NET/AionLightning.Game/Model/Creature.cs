@@ -43,6 +43,18 @@ public abstract class Creature : VisibleObject
             _activeEffects.RemoveAll(e => e.SkillId == skillId && e.Expiry == expiry);
     }
 
+    public void RemoveEffectBySkillId(int skillId)
+    {
+        lock (_effectsLock)
+            _activeEffects.RemoveAll(e => e.SkillId == skillId);
+    }
+
+    public void ClearAllEffects()
+    {
+        lock (_effectsLock)
+            _activeEffects.Clear();
+    }
+
     public List<AbnormalState> GetActiveEffects()
     {
         lock (_effectsLock)

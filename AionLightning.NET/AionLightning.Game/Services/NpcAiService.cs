@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Hosting;
@@ -250,6 +251,10 @@ public sealed class NpcAiService : BackgroundService
             if (_rates.NormalMobsRatePw != 1.0)
                 rawDmg = Math.Max(1, (int)(rawDmg * _rates.NormalMobsRatePw));
 
+            // NPC critical hit — 5% base chance, 1.5× multiplier
+            bool npcCrit = Random.Shared.Next(100) < 5;
+            if (npcCrit) rawDmg = (int)(rawDmg * 1.5f);
+
             // Apply physical defense mitigation (diminishing returns: pdef / (pdef + 1000))
             int pdef   = target is Player tp ? tp.PhysicalDefense : 0;
             int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
@@ -258,7 +263,7 @@ public sealed class NpcAiService : BackgroundService
             target.LastCombatTime = now;
             npc.LastCombatTime    = now;
 
-            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage);
+            var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage, npcCrit);
             var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
             int npcWorld  = npc.Position.WorldId;
             foreach (var conn in _connRegistry.GetAll())
@@ -299,11 +304,14 @@ public sealed class NpcAiService : BackgroundService
             await BroadcastAttackEndShoutAsync(npc, ct);
 
             target.State |= CreatureState.Dead;
-            var diePkt = new SM_EMOTION(target, EmotionType.DIE);
+            target.ClearAllEffects();
+            var diePkt      = new SM_EMOTION(target, EmotionType.DIE);
+            var clearEffect = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true);
             foreach (var conn in _connRegistry.GetAll())
             {
                 if (conn.ActivePlayer?.Position.WorldId != npcWorld) continue;
                 try { await conn.SendAsync(diePkt, ct); } catch { /* ignore */ }
+                try { await conn.SendAsync(clearEffect, ct); } catch { /* ignore */ }
             }
 
             var targetConn = _connRegistry.Get(target.ObjectId);
@@ -330,7 +338,6 @@ public sealed class NpcAiService : BackgroundService
         var skills = _dataManager.NpcSkills.GetSkills(npc.Template.NpcId);
         if (skills is null || skills.Count == 0) return;
 
-        // Filter to skills whose HP% range covers the NPC's current health
         int npcHpPct = npc.HpPercentage;
         var eligible = skills.Where(s => s.IsReadyForNpcHp(npcHpPct)).ToList();
         if (eligible.Count == 0) return;
@@ -345,6 +352,31 @@ public sealed class NpcAiService : BackgroundService
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(castPkt, ct); } catch { }
 
+        var skillTemplate = _dataManager.Skills.GetTemplate(entry.SkillId);
+        switch (skillTemplate?.SubType)
+        {
+            case SkillSubType.HEAL:
+                await CastNpcHealAsync(npc, entry.SkillId, now, worldId, ct);
+                break;
+            case SkillSubType.BUFF or SkillSubType.CHANT:
+                await CastNpcBuffAsync(npc, entry.SkillId, entry.SkillLevel, skillTemplate.Duration, now, worldId, ct);
+                break;
+            case SkillSubType.DEBUFF:
+                await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, skillTemplate.Duration, now, worldId, ct);
+                break;
+            default:
+                await CastNpcDamageAsync(npc, target, entry.SkillId, now, worldId, ct);
+                break;
+        }
+
+        var activationPkt = new SM_SKILL_ACTIVATION(entry.SkillId);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(activationPkt, ct); } catch { }
+    }
+
+    private async Task CastNpcDamageAsync(Npc npc, Player target, int skillId, DateTime now, int worldId, CancellationToken ct)
+    {
         int rawSpellDmg = Math.Max(1, npc.Level * 8 + Random.Shared.Next(10, 40));
         int mdef        = target.MagicDefense;
         int spellDmg    = mdef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + mdef)) : rawSpellDmg;
@@ -352,10 +384,77 @@ public sealed class NpcAiService : BackgroundService
         target.LastCombatTime = now;
         npc.LastCombatTime    = now;
 
-        var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, entry.SkillId, spellDmg);
+        var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, spellDmg);
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
+    }
+
+    private async Task CastNpcHealAsync(Npc npc, int skillId, DateTime now, int worldId, CancellationToken ct)
+    {
+        int healAmt      = Math.Max(1, npc.MaxHp / 6);
+        npc.CurrentHp    = Math.Min(npc.MaxHp, npc.CurrentHp + healAmt);
+        npc.LastCombatTime = now;
+
+        var statusPkt = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, healAmt);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(statusPkt, ct); } catch { }
+    }
+
+    private async Task CastNpcBuffAsync(Npc npc, int skillId, int skillLevel, int durationMs, DateTime now, int worldId, CancellationToken ct)
+    {
+        if (durationMs <= 0) return;
+        npc.LastCombatTime = now;
+
+        var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
+            EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs) };
+        npc.AddEffect(effect);
+
+        var abnormal = new SM_ABNORMAL_EFFECT(npc.ObjectId, isPlayer: false, npc.GetActiveEffects());
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(abnormal, ct); } catch { }
+
+        var expEffect = effect;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(durationMs);
+            npc.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
+            var expired = new SM_ABNORMAL_EFFECT(npc.ObjectId, isPlayer: false, npc.GetActiveEffects());
+            int expWorldId = npc.Position.WorldId;
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer?.Position.WorldId == expWorldId)
+                    try { await conn.SendAsync(expired); } catch { }
+        });
+    }
+
+    private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs, DateTime now, int worldId, CancellationToken ct)
+    {
+        if (durationMs <= 0) return;
+        target.LastCombatTime = now;
+        npc.LastCombatTime    = now;
+
+        var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
+            EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs) };
+        target.AddEffect(effect);
+
+        var abnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(abnormal, ct); } catch { }
+
+        var expEffect = effect;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(durationMs);
+            target.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
+            var expired = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
+            int expWorldId = target.Position.WorldId;
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer?.Position.WorldId == expWorldId)
+                    try { await conn.SendAsync(expired); } catch { }
+        });
     }
 
     private async Task ChaseAsync(Npc npc, Player target, CancellationToken ct)

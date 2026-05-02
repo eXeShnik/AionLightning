@@ -36,10 +36,10 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         // Send this player's info to themselves
         await _conn.SendAsync(new SM_PLAYER_INFO(player, player.Appearance, enemy: false, playerEquipment), ct);
 
-        // Broadcast entering player's motion and clear abnormal effects to others
-        var motionBroadcast   = SM_MOTION.Broadcast(player.ObjectId, player.ActiveMotions);
-        var abnormalClearSelf = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true);
-        await _conn.SendAsync(abnormalClearSelf, ct);
+        // Broadcast entering player's motion and current active effects to zone
+        var motionBroadcast  = SM_MOTION.Broadcast(player.ObjectId, player.ActiveMotions);
+        var selfAbnormal     = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
+        await _conn.SendAsync(selfAbnormal, ct);
 
         // Introduce each already-online player in the same zone to the newcomer and vice versa
         int worldId        = player.Position.WorldId;
@@ -52,18 +52,18 @@ public sealed class CM_LEVEL_READY : AionClientPacket
 
             var otherEquipment = other.Inventory.All.Where(i => i.IsEquipped).ToList();
 
-            // New player sees existing player + their motion + clear abnormal + social settings + legion title
+            // New player sees existing player + their motion + active effects + social settings + legion title
             try { await _conn.SendAsync(new SM_PLAYER_INFO(other, other.Appearance, enemy: false, otherEquipment), ct); } catch { }
             try { await _conn.SendAsync(SM_MOTION.Broadcast(other.ObjectId, other.ActiveMotions), ct); } catch { }
-            try { await _conn.SendAsync(new SM_ABNORMAL_EFFECT(other.ObjectId, isPlayer: true), ct); } catch { }
+            try { await _conn.SendAsync(new SM_ABNORMAL_EFFECT(other.ObjectId, isPlayer: true, other.GetActiveEffects()), ct); } catch { }
             try { await _conn.SendAsync(new SM_CUSTOM_SETTINGS(other.ObjectId, other.DisplaySettings, other.DenySettings), ct); } catch { }
             if (other.Legion is { } otherLegion && otherLegion.Members.TryGetValue(other.ObjectId, out var otherMember))
                 try { await _conn.SendAsync(new SM_LEGION_UPDATE_TITLE(other.ObjectId, otherLegion.LegionId, otherLegion.Name, otherMember.Rank), ct); } catch { }
 
-            // Existing player sees new player + their social settings + legion title
+            // Existing player sees new player + their active effects + social settings + legion title
             try { await otherConn.SendAsync(playerInfo, ct); } catch { }
             try { await otherConn.SendAsync(motionBroadcast, ct); } catch { }
-            try { await otherConn.SendAsync(new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true), ct); } catch { }
+            try { await otherConn.SendAsync(new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects()), ct); } catch { }
             try { await otherConn.SendAsync(playerSettings, ct); } catch { }
             if (player.Legion is { } myLegion && myLegion.Members.TryGetValue(player.ObjectId, out var myMember))
                 try { await otherConn.SendAsync(new SM_LEGION_UPDATE_TITLE(player.ObjectId, myLegion.LegionId, myLegion.Name, myMember.Rank), ct); } catch { }

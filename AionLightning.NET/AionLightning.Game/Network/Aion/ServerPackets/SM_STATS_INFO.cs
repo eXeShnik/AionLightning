@@ -44,9 +44,9 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0); w.WriteH(0); w.WriteH(0); // unk
 
         long expNeeded = _expTable?.GetStartExpForLevel(_player.Level + 1) ?? 0;
-        w.WriteQ(expNeeded);       // exp needed for next level
-        w.WriteQ(0);               // exp recoverable
-        w.WriteQ(_player.Exp);     // exp current
+        w.WriteQ(expNeeded);                // exp needed for next level
+        w.WriteQ(p.ExpRecoverable);         // exp recoverable (grey portion of XP bar)
+        w.WriteQ(_player.Exp);              // exp current
 
         w.WriteD(0); // unk
 
@@ -57,8 +57,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
 
         w.WriteD(maxHp); w.WriteD(curHp);
         w.WriteD(maxMp); w.WriteD(curMp);
-        w.WriteH(6000); w.WriteH(0);   // max DP, current DP
-        w.WriteD(60);   w.WriteD(60);  // max fly time, current fly time
+        w.WriteH(6000); w.WriteH((short)p.Dp); // max DP, current DP
+        w.WriteD(p.MaxFp); w.WriteD(p.CurrentFp); // max fly time, current fly time
         w.WriteH(0);                   // fly state
 
         int weaponAtkBonus = (p.MainHandMinDmg + p.MainHandMaxDmg) / 2;
@@ -109,7 +109,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)(t?.Will     ?? 100));
         w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); w.WriteH(0); // resistances
         w.WriteD(maxHp); w.WriteD(maxMp);
-        w.WriteD(6000); w.WriteD(60);  // base DP, fly time
+        w.WriteD(6000); w.WriteD(p.MaxFp); // base DP cap, base fly time
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
         w.WriteD(100); w.WriteD(pdef); // base M-attack, base P-def
         w.WriteD(mdef);                // base M-def
