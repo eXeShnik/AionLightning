@@ -544,6 +544,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
                             try { await c.SendAsync(statusPkt); } catch { }
+
+                    if (template?.Effects?.HasDispelBuff == true && target.CurrentHp > 0)
+                    {
+                        target.ClearBuffs();
+                        bool dtip = target is Player;
+                        var dp = new SM_ABNORMAL_EFFECT(target.ObjectId, dtip, target.GetActiveEffects());
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(dp); } catch { }
+                    }
                 }
 
                 // DP gain for successful AoE cast
@@ -753,6 +763,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                         try { await c.SendAsync(statusPkt); } catch { }
+
+                // Dispel buff: strip all non-debuff effects from the target after impact
+                if (template?.Effects?.HasDispelBuff == true && target.CurrentHp > 0)
+                {
+                    target.ClearBuffs();
+                    bool dispelTargetIsPlayer = target is Player;
+                    var dispelPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, dispelTargetIsPlayer, target.GetActiveEffects());
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(dispelPkt); } catch { }
+                }
 
                 // DP gain on successful spell hit (150 DP per skill, capped at 6000)
                 if (player.Dp < 6000)

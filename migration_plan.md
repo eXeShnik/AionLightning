@@ -2072,6 +2072,13 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+197. [✓] Dispel buff skills — strip buffs from enemy targets (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `ClearBuffs()`: removes all effects where `IsDebuff == false` (self-buffs and allied buffs) and rebuilds CcFlags
+    - [✓] `CM_CASTSPELL.cs` — single-target damage path: after `SM_ATTACK_STATUS`, if `HasDispelBuff == true` and target alive, calls `ClearBuffs()` and broadcasts `SM_ABNORMAL_EFFECT`; ground AoE damage path: same check per hit target
+    - Java source: `DispelBuffEffect.applyEffect` removes effects where `DispelCategoryType` is BUFF type; simplified to strip all non-IsDebuff effects
+    - Previously: 48 dispelbuff skills (Disenchant, Word of Wind etc.) dealt incidental spell damage but never stripped any buffs; enemies kept all self-buffs permanently
+    - Build: 0 warnings, 0 errors
+
 196. [✓] Dispel debuff skills — remove active debuffs from target (session 2026-05-02)
     - [✓] `Model/AbnormalState.cs` — added `bool IsDebuff { get; init; }` (defaults false); marks player/NPC-applied debuffs so dispel can distinguish them from buffs
     - [✓] `Model/Creature.cs` — added `ClearDebuffs()`: removes all effects where `IsDebuff == true` and rebuilds CcFlags
