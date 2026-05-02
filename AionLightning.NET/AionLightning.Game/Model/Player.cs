@@ -108,6 +108,12 @@ public sealed class Player : Creature
     // weapon_type attribute from item template (e.g. "DAGGER_1H", "SWORD_2H"); empty string = unarmed
     public string MainHandWeaponType { get; set; } = string.Empty;
 
+    // Off-hand (sub-hand, slot 2) weapon damage range and hit count; all 0/empty when no weapon in sub slot or sub slot holds a shield
+    public int    OffHandMinDmg    { get; set; }
+    public int    OffHandMaxDmg    { get; set; }
+    public int    OffHandHitCount  { get; set; } = 1;
+    public string OffHandWeaponType { get; set; } = string.Empty;
+
     // Magical attack bonus from equipped magical weapon (staff/orb/mace/etc.); average of min/max weapon damage
     public int MainHandMagicalAtk { get; set; }
 

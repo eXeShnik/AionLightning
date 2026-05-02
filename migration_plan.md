@@ -2045,6 +2045,17 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+189. [✓] Dual-wield off-hand physical attacks (session 2026-05-02)
+    - [✓] `SM_ATTACK.cs` — expanded `HitResult` enum with off-hand values: OffHandNormal=11, OffHandCritical=219, OffHandDodge=1, OffHandParry=3, OffHandBlock=5 (Java AttackStatus.java)
+    - [✓] `Player.cs` — added `OffHandMinDmg`, `OffHandMaxDmg`, `OffHandHitCount`, `OffHandWeaponType` to track sub-hand weapon stats
+    - [✓] `CM_EQUIP_ITEM.cs` — after main-hand block, reads slot 2 item; if it is a weapon (IsWeapon==true, not a shield/orb), sets off-hand stats from WeaponStats; resets all off-hand fields when slot 2 is empty or holds a non-weapon item
+    - [✓] `PlayerEnterWorldService.cs` — same off-hand stat resolution from slot 2 equipped items on world entry
+    - [✓] `CM_ATTACK.cs` — after main-hand hit list is built, if `OffHandMinDmg > 0`: calculates off-hand raw damage (same base stats, /2 dual-wield penalty since WeaponDualEffect passive is not implemented); inherits crit status from main-hand (Java getOffHandStats maps CRITICAL→OFFHAND_CRITICAL); rolls separate hit count (1..OffHandHitCount); applies same pdef/PvP/level-diff modifiers; appends to `hits[]` and adds to `totalDamage`
+    - Java source: `AttackUtil.java` line 58-59: `getOffHandWeaponType() != null` triggers `calculateOffHandResult`; line 92: `StatFunctions.calculateAttackDamage(false, NONE)`; line 93: `Rnd.get(1, offHandWeapon.getHitCount())`; ItemSlot: MAIN_HAND=1, SUB_HAND=2
+    - Dual-wield penalty: Java uses `(200-dualEffectValue)*0.01*diff` negative range causing weak off-hand without the WeaponDualEffect passive buff; simplified to /2 flat penalty for now
+    - Previously: players dual-wielding two daggers (e.g. Assassin) dealt 0 off-hand hits; only main-hand damage was calculated
+    - Build: 0 warnings, 0 errors
+
 188. [✓] Root/movement blocking via CantMove flags + SM_TARGET_IMMOBILIZE (session 2026-05-02)
     - [✓] `Model/AbnormalCcFlags.cs` — added `OpenAerial=65536` and `CannotMove=4194304` to match Java enum; updated `CantMove` composite to include both + Fear (Java CM_MOVE checks CANT_MOVE_STATE plus `isUnderFear()` separately — merged into one composite); updated `CantAttack` to include OpenAerial and CannotMove
     - [✓] `Network/Aion/ServerPackets/SM_TARGET_IMMOBILIZE.cs` — new packet (opcode 0xCC): writes objectId + x, y, z, heading to freeze the target's position on all clients; Java: sent by RootEffect, StunEffect, StunAlwaysEffect, FearEffect

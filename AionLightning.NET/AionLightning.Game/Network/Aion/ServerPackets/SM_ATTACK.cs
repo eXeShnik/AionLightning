@@ -7,7 +7,12 @@ namespace AionLightning.Game.Network.Aion.ServerPackets;
 public sealed class SM_ATTACK : AionServerPacket
 {
     // Java AttackStatus enum IDs (AttackStatus.java)
-    public enum HitResult { Normal = 10, Critical = 202, Dodge = 0, Parry = 2, CritParry = 194, Block = 4, CritBlock = 196 }
+    // Off-hand values: OFFHAND_NORMALHIT=11, OFFHAND_CRITICAL=219, OFFHAND_DODGE=1, OFFHAND_PARRY=3, OFFHAND_BLOCK=5
+    public enum HitResult
+    {
+        Normal = 10, Critical = 202, Dodge = 0, Parry = 2, CritParry = 194, Block = 4, CritBlock = 196,
+        OffHandNormal = 11, OffHandCritical = 219, OffHandDodge = 1, OffHandParry = 3, OffHandBlock = 5,
+    }
 
     public readonly record struct HitEntry(int Damage, HitResult Result);
 

@@ -117,6 +117,24 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.WeaponCastTimeBonus = 0;
         }
 
+        // Off-hand weapon (slot 2 = ItemSlot.SUB_HAND): daggers/swords/maces only; shields/orbs clear the stats
+        var subHandItem = player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.Slot == 2);
+        var subTpl = subHandItem is not null ? _dataManager.Items.GetTemplate(subHandItem.ItemId) : null;
+        if (subTpl?.IsWeapon == true && subTpl.WeaponStats is { } sws2)
+        {
+            player.OffHandMinDmg     = sws2.MinDamage;
+            player.OffHandMaxDmg     = sws2.MaxDamage;
+            player.OffHandHitCount   = sws2.HitCount > 0 ? sws2.HitCount : 1;
+            player.OffHandWeaponType = subTpl.WeaponTypeName;
+        }
+        else
+        {
+            player.OffHandMinDmg     = 0;
+            player.OffHandMaxDmg     = 0;
+            player.OffHandHitCount   = 1;
+            player.OffHandWeaponType = string.Empty;
+        }
+
         var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
         player.PhysicalDefense             = equipStats.PhysicalDefense;
         player.MagicDefense                = equipStats.MagicDefense;

@@ -209,6 +209,36 @@ public sealed class CM_ATTACK : AionClientPacket
             hits[hi] = new(otherHit, hitResult);
         int totalDamage = hits.Sum(h => h.Damage);
 
+        // Off-hand dual-wield (Java AttackUtil.calculateOffHandResult): triggered when player has a weapon in slot 2.
+        // Off-hand inherits main-hand crit status (getOffHandStats maps CRITICAL→OFFHAND_CRITICAL).
+        // 50% damage penalty applied before pdef — approximates dualEffectValue=0 in Java WeaponDualEffect.
+        if (player.OffHandMinDmg > 0)
+        {
+            int ohRaw = Random.Shared.Next(player.OffHandMinDmg, Math.Max(player.OffHandMinDmg + 1, player.OffHandMaxDmg + 1)) + baseAtk;
+            ohRaw /= 2; // dual-wield penalty (no WeaponDualEffect passive)
+            if (isCrit)
+            {
+                int ohSF = target is Player pvpOhSF ? pvpOhSF.BonusStrikeFortitude : 0;
+                float ohCoeff = Math.Max(1.0f, (player.OffHandWeaponType switch
+                {
+                    "DAGGER_1H" => 2.3f, "SWORD_1H" => 2.2f, "MACE_1H" => 2.0f, _ => 1.5f,
+                }) - (float)Math.Round(ohSF / 1000.0));
+                ohRaw = (int)(ohRaw * ohCoeff);
+            }
+            if (target is Npc npcOh) { float m = NpcLevelDiffMod(npcOh.Level - player.Level); if (m > 0f) ohRaw = Math.Max(1, (int)(ohRaw * (1f - m))); }
+            else if (target is Player) ohRaw = Math.Max(1, ohRaw / 2); // PvP 50%
+            int ohDamage   = pdef > 0 ? Math.Max(1, ohRaw * 1000 / (1000 + pdef)) : Math.Max(1, ohRaw);
+            var ohResult   = isCrit ? SM_ATTACK.HitResult.OffHandCritical : SM_ATTACK.HitResult.OffHandNormal;
+            int ohMaxHits  = player.OffHandHitCount > 1 ? player.OffHandHitCount : 1;
+            int ohHitCount = ohMaxHits > 1 ? Random.Shared.Next(1, ohMaxHits + 1) : 1;
+            var ohHits     = new SM_ATTACK.HitEntry[ohHitCount];
+            ohHits[0] = new(Math.Max(1, (int)(ohDamage * (1f - 0.1f * (ohHitCount - 1)))), ohResult);
+            int ohOther = ohHitCount > 1 ? Math.Max(1, (int)(ohDamage * 0.1f)) : 0;
+            for (int i = 1; i < ohHitCount; i++) ohHits[i] = new(ohOther, ohResult);
+            hits         = [..hits, ..ohHits];
+            totalDamage += ohHits.Sum(h => h.Damage);
+        }
+
         target.CurrentHp = Math.Max(0, target.CurrentHp - totalDamage);
 
         // Both attacker and target enter combat — suppresses regen for both

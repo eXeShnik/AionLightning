@@ -197,6 +197,24 @@ public sealed class PlayerEnterWorldService
             }
         }
 
+        // Off-hand weapon (slot 2 = ItemSlot.SUB_HAND): daggers/swords/maces; shields/orbs/nothing → clear stats
+        var equippedSubHand = storedItems.FirstOrDefault(i => i.IsEquipped && i.Slot == 2);
+        var subWpnTpl = equippedSubHand is not null ? _dataManager.Items.GetTemplate(equippedSubHand.ItemId) : null;
+        if (subWpnTpl?.IsWeapon == true && subWpnTpl.WeaponStats is { } sw2)
+        {
+            player.OffHandMinDmg     = sw2.MinDamage;
+            player.OffHandMaxDmg     = sw2.MaxDamage;
+            player.OffHandHitCount   = sw2.HitCount > 0 ? sw2.HitCount : 1;
+            player.OffHandWeaponType = subWpnTpl.WeaponTypeName;
+        }
+        else
+        {
+            player.OffHandMinDmg     = 0;
+            player.OffHandMaxDmg     = 0;
+            player.OffHandHitCount   = 1;
+            player.OffHandWeaponType = string.Empty;
+        }
+
         var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
         player.PhysicalDefense              = equipStats.PhysicalDefense;
         player.MagicDefense                 = equipStats.MagicDefense;
