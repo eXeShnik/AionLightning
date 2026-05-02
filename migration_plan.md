@@ -2032,3 +2032,15 @@
     - Key: MAGIC_SKILL_BOOST_RESIST (11,857 items) not yet handled — that's a multiplier on spell bonus damage, deferred to a future milestone; MAGICAL_RESIST (41,003 items) now active as spell resist rating
     - Previously: all spells hit unconditionally regardless of MAGICAL_RESIST stacking; no magical crit regardless of MAGICAL_CRITICAL gear
     - Build: 0 warnings, 0 errors
+
+174. [✓] Base combat stats initialized at login in PlayerEnterWorldService (session 2026-05-02)
+    - [✓] `PlayerEnterWorldService` — sets `BasePhysicalAttack`, `BasePhysicalAccuracy`, `BaseCritRating`, `BaseEvasion`, `BaseMagicAccuracy`, `BaseParry`, `BaseBlock`, `BaseMagicCritRating` from `PlayerStatsTemplate` on enter-world; fallback defaults if template missing
+    - These were already set in `ExperienceService` on level-up; this ensures fresh logins also have correct values before any level-up event fires
+    - Build: 0 warnings, 0 errors
+
+175. [✓] NPC evasion/accuracy from NpcStatsTemplate instead of level×5 approximation (session 2026-05-02)
+    - [✓] `CM_ATTACK.cs` — `targetEvasion` for NPC now reads `npc.Template.Stats?.Evasion` (falls back to `Level * 5` only if template field is 0/null)
+    - [✓] `NpcAiService.cs` — `npcAccuracy` now reads `npc.Template.Stats?.Accuracy` (same fallback)
+    - Java source: `npc_stats.xml` carries `evasion` and `accuracy` attributes per level-band; `NpcStatsTemplate` already parses both fields
+    - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
+    - Build: 0 warnings, 0 errors

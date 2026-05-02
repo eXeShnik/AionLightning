@@ -292,7 +292,7 @@ public sealed class NpcAiService : BackgroundService
 
             // Dodge / parry / block checks against player targets (mirrors CM_ATTACK player-vs-NPC checks)
             int npcWorld  = npc.Position.WorldId;
-            int npcAccuracy = npc.Level * 5; // level-based accuracy approximation
+            int npcAccuracy = npc.Template.Stats?.Accuracy > 0 ? npc.Template.Stats.Accuracy : npc.Level * 5;
             var hitResult = SM_ATTACK.HitResult.Normal;
 
             if (target is Player pvpDef)

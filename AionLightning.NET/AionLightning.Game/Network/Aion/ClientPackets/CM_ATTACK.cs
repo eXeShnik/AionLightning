@@ -82,7 +82,7 @@ public sealed class CM_ATTACK : AionClientPacket
         // Hit/miss check — Java calculatePhysicalEvasion: diff = (evasion-accuracy)*0.6+50, out of 1000 (max 300)
         int totalAccuracy = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy;
         int targetEvasion = target is Player pvpEvade  ? pvpEvade.BaseEvasion + pvpEvade.BonusEvasion
-                          : target is Npc npcEvade     ? npcEvade.Level * 5
+                          : target is Npc npcEvade     ? (npcEvade.Template.Stats?.Evasion > 0 ? npcEvade.Template.Stats.Evasion : npcEvade.Level * 5)
                           : 0;
         float dodgeRate = Math.Clamp((targetEvasion - totalAccuracy) * 0.6f + 50f, 0f, 300f);
         if (Random.Shared.Next(1000) < (int)dodgeRate)
