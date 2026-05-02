@@ -118,7 +118,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 : (Creature?)_world.GetPlayerByObjectId(_targetObjectId);
             if (healTarget is not null && !healTarget.IsAlreadyDead)
             {
-                int heal = player.Level * 6 + Random.Shared.Next(15, 40);
+                // Java AbstractHealEffect: healBoost adds additively (1000 = +100%); simplified to multiplicative factor
+                int heal = (int)((player.Level * 6 + Random.Shared.Next(15, 40)) * (1.0f + player.BonusHealBoost / 1000f));
                 healTarget.CurrentHp = Math.Min(healTarget.MaxHp, healTarget.CurrentHp + heal);
                 var healStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
                     _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
@@ -264,11 +265,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
                 int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
                 int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
-                // Java: damages = baseDmg * (knowledge/100 + magicBoost/1000); with base knowledge=100 → factor = 1 + magicBoost/1000
-                float magicBoostMult = 1.0f + player.BonusMagicBoost / 1000f;
 
                 foreach (var target in targets)
                 {
+                    // Java: magicBoost -= getMBResist() (target suppression reduces caster boost, min 0)
+                    int tMBSuppress = spellIsMagical
+                        ? (target is Player pvpSupp ? pvpSupp.BonusMagicSuppression
+                         : target is Npc npcSupp ? (npcSupp.Template.Stats?.MBResist ?? 0)
+                         : 0)
+                        : 0;
+                    float magicBoostMult = 1.0f + Math.Max(0, player.BonusMagicBoost - tMBSuppress) / 1000f;
+
                     int rawSpellDmg = spellIsMagical
                         ? (int)((mAtk + player.Level * 6 + Random.Shared.Next(10, 40)) * magicBoostMult)
                         : pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
@@ -456,7 +463,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (spellIsMagical)
                 {
                     int mAtkG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
-                    float mbMultG = 1.0f + player.BonusMagicBoost / 1000f;
+                    int tMBSuppressG = target is Player pvpSuppG ? pvpSuppG.BonusMagicSuppression
+                                     : target is Npc npcSuppG ? (npcSuppG.Template.Stats?.MBResist ?? 0) : 0;
+                    float mbMultG = 1.0f + Math.Max(0, player.BonusMagicBoost - tMBSuppressG) / 1000f;
                     rawSpellDmg = (int)((mAtkG + player.Level * 6 + Random.Shared.Next(10, 40)) * mbMultG);
                 }
                 else
@@ -553,8 +562,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (splashCount >= maxHits) break;
                         splashCount++;
 
+                        int splashMBSuppress = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0) : 0;
+                        float splashMBMult = 1.0f + Math.Max(0, player.BonusMagicBoost - splashMBSuppress) / 1000f;
                         int splashRaw = spellIsMagical
-                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk) + player.Level * 6 + Random.Shared.Next(10, 40)) * (1.0f + player.BonusMagicBoost / 1000f))
+                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk) + player.Level * 6 + Random.Shared.Next(10, 40)) * splashMBMult)
                             : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk) + player.Level * 4 + Random.Shared.Next(10, 40);
 
                         // Magic resist check for AoE splash

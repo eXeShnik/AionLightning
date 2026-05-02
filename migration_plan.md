@@ -1847,6 +1847,20 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+180. [✓] HEAL_BOOST applied to healing spells (session 2026-05-02)
+    - [✓] `CM_CASTSPELL` heal path — `heal *= (1 + BonusHealBoost/1000f)` (Java AbstractHealEffect adds HEAL_BOOST additively at 1000=+100%; simplified to multiplicative factor)
+    - Previously: heal boost gear had no effect on the actual HP restored by healing spells
+    - Build: 0 warnings, 0 errors
+
+179. [✓] MAGIC_SKILL_BOOST_RESIST (magic suppression) reduces caster's effective magic boost (session 2026-05-02)
+    - [✓] `NpcStatsTemplate` — added `MBResist` field (`[XmlAttribute("mbresist")]`)
+    - [✓] `CM_CASTSPELL` single-target path — `magicBoostMult` moved inside foreach loop; effective boost = `max(0, BonusMagicBoost - targetMBSuppress)` where `targetMBSuppress = Player.BonusMagicSuppression` or `Npc.Template.Stats.MBResist`
+    - [✓] `CM_CASTSPELL` ground AoE path — same per-target suppression subtraction
+    - [✓] `CM_CASTSPELL` splash AoE path — same; splash targets are NPC-only so uses `MBResist` from template
+    - Java: `magicBoost -= tgs.getMBResist().getCurrent()` then capped at [0, 2901] in StatFunctions.calculateMagicalSkillDamage
+    - Previously: BonusMagicSuppression was written to SM_STATS_INFO but had no effect on incoming spell damage
+    - Build: 0 warnings, 0 errors
+
 178. [✓] BOOST_MAGICAL_SKILL scaling applied to spell damage (session 2026-05-02)
     - [✓] `CM_CASTSPELL` single-target path — `rawSpellDmg *= (1 + BonusMagicBoost/1000f)` (Java: `damages = baseDmg * (knowledge/100 + magicBoost/1000)`; with knowledge base=100 the factor reduces to `1 + magicBoost/1000`)
     - [✓] `CM_CASTSPELL` ground AoE path — same factor applied to `rawSpellDmg`; extracted as local `mbMultG` before the crit check

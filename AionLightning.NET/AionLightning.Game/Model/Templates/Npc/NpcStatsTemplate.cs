@@ -11,6 +11,7 @@ public sealed class NpcStatsTemplate
     [XmlAttribute("main_hand_accuracy")] public int MainHandAccuracy  { get; set; }
     [XmlAttribute("pdef")]               public int PDef              { get; set; }
     [XmlAttribute("mresist")]            public int MResist           { get; set; }
+    [XmlAttribute("mbresist")]           public int MBResist          { get; set; }
     [XmlAttribute("evasion")]            public int Evasion           { get; set; }
     [XmlAttribute("power")]              public int Power             { get; set; }
     [XmlAttribute("accuracy")]           public int Accuracy          { get; set; }
