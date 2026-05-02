@@ -103,11 +103,12 @@ public sealed class CM_ATTACK : AionClientPacket
                 float parryRate = Math.Clamp((totalParry - totalAccuracy) * 0.6f + 50f, 0f, 400f);
                 if (Random.Shared.Next(1000) < (int)parryRate)
                 {
-                    // Parry: 40% damage reduction (Java splitPhysicalDamage case PARRY: damage *= 0.6)
+                    // Parry: 40% reduction; PvP 50% reduction applied first (Java adjustDamages)
                     int baseAtkPr = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk;
                     int rawDmgPr  = player.MainHandMinDmg > 0
                         ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkPr
                         : baseAtkPr + Random.Shared.Next(10, 40);
+                    rawDmgPr     = Math.Max(1, rawDmgPr / 2); // PvP 50%
                     int pdefPr    = pvpParry.PhysicalDefense;
                     int dmgPr     = pdefPr > 0 ? Math.Max(1, rawDmgPr * 1000 / (1000 + pdefPr)) : rawDmgPr;
                     int parryDmg  = (int)(dmgPr * 0.6f);
@@ -129,11 +130,12 @@ public sealed class CM_ATTACK : AionClientPacket
                 float blockRate = Math.Clamp(totalBlock - totalAccuracy, 0f, 500f);
                 if (Random.Shared.Next(1000) < (int)blockRate)
                 {
-                    // Block: 50% reduction (simplified; Java uses shield DAMAGE_REDUCE which we don't track yet)
+                    // Block: 50% reduction; PvP 50% reduction applied first (Java adjustDamages)
                     int baseAtkBl = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk;
                     int rawDmgBl  = player.MainHandMinDmg > 0
                         ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtkBl
                         : baseAtkBl + Random.Shared.Next(10, 40);
+                    rawDmgBl     = Math.Max(1, rawDmgBl / 2); // PvP 50%
                     int pdefBl    = pvpBlock.PhysicalDefense;
                     int dmgBl     = pdefBl > 0 ? Math.Max(1, rawDmgBl * 1000 / (1000 + pdefBl)) : rawDmgBl;
                     int blockDmg  = dmgBl / 2;
@@ -174,6 +176,9 @@ public sealed class CM_ATTACK : AionClientPacket
             float lvlMod = NpcLevelDiffMod(npcLvlDmg.Level - player.Level);
             if (lvlMod > 0f) rawDmg = Math.Max(1, (int)(rawDmg * (1f - lvlMod)));
         }
+
+        // PvP damage reduction: Java adjustDamages caps PvP damage at 50% of base (damages * 0.50f)
+        if (target is Player) rawDmg = Math.Max(1, rawDmg / 2);
 
         // Apply physical defense mitigation from the target's armor
         int pdef = target is Player pvpTarget ? pvpTarget.PhysicalDefense

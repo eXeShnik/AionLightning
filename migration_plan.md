@@ -2045,6 +2045,16 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+180. [✓] PvP 50% physical and spell damage reduction for player-vs-player combat (session 2026-05-02)
+    - [✓] `CM_ATTACK.cs` main damage path — `rawDmg = rawDmg / 2` when `target is Player`; applied after crit and NPC level-diff (no PvP paths there), before pdef mitigation
+    - [✓] `CM_ATTACK.cs` parry branch — `rawDmgPr / 2` applied before pdef and 0.6f parry factor
+    - [✓] `CM_ATTACK.cs` block branch — `rawDmgBl / 2` applied before pdef and 0.5f block factor
+    - [✓] `CM_CASTSPELL.cs` single-target — `rawSpellDmg / 2` when `target is Player`, in `else if` after NPC level-diff branch
+    - [✓] `CM_CASTSPELL.cs` ground AoE loop — same `else if (target is Player) rawSpellDmg /= 2` after NPC level-diff
+    - Java source: `StatFunctions.adjustDamages` PvP branch: `damages = Math.round(damages * 0.50f)` — applied after weapon randomization but before parry/block split; affects all damage types
+    - Previously: player-vs-player damage was full (unhalved); could one-shot low-defense players
+    - Build: 0 warnings, 0 errors
+
 179. [✓] NPC level-diff modifier for physical evasion and all damage types (session 2026-05-02)
     - [✓] `CM_ATTACK.cs` — NPC dodge rate: `rawDodgeDiff *= 1 + NpcLevelDiffMod(npcLevel - playerLevel)` before the ×0.6+50 formula; higher-level NPCs dodge more
     - [✓] `CM_ATTACK.cs` — physical damage vs NPC: `rawDmg *= (1 - NpcLevelDiffMod(...))` applied after crit and before pdef mitigation; reduces player damage when NPC is 3+ levels higher

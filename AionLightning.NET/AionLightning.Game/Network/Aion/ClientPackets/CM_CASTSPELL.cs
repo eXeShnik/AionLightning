@@ -318,12 +318,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         }
                     }
 
-                    // NPC level-diff damage reduction (Java StatFunctions.adjustDamages, applies to all damage types)
+                    // NPC level-diff or PvP damage reduction (Java StatFunctions.adjustDamages)
                     if (target is Npc npcLvlAoEDmg)
                     {
                         float lvlMod = NpcLevelDiffMod(npcLvlAoEDmg.Level - player.Level);
                         if (lvlMod > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlMod)));
                     }
+                    else if (target is Player)
+                        rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
 
                     int spellDef = target is Player pvpSpellTarget
                                  ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
@@ -505,12 +507,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
-                // NPC level-diff damage reduction (Java StatFunctions.adjustDamages)
+                // NPC level-diff or PvP damage reduction (Java StatFunctions.adjustDamages)
                 if (target is Npc npcLvlSTDmg)
                 {
                     float lvlModST = NpcLevelDiffMod(npcLvlSTDmg.Level - player.Level);
                     if (lvlModST > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlModST)));
                 }
+                else if (target is Player)
+                    rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
 
                 int spellDef = target is Player pvpSpellTarget
                              ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
