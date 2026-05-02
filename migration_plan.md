@@ -1699,3 +1699,9 @@
     - [✓] `NpcAiService.ForceEngage` — new target addition via ForceEngage (player hits NPC or NPC retaliates from spell) fires a fire-and-forget Task.Run to broadcast `SM_EMOTION(npc, ATTACKMODE)` since ForceEngage is synchronous
     - Previously: NPCs never sent ATTACKMODE or NEUTRALMODE; clients always displayed NPCs in their spawn-default visual stance even while they were actively attacking; the combat-mode stance change animation (weapon raised, posture shift) never played
     - Build: 0 warnings, 0 errors
+
+152. [✓] NPC out-of-combat HP regeneration (session 2026-05-02)
+    - [✓] `NpcAiService` — added `_lastRegenTime` dictionary; in tick loop (after dead-check, before returning-home block): if NPC has no locked target, HP < MaxHp, and 1700ms have elapsed since `LastCombatTime`, restores `MaxHp/4` HP every 6s; broadcasts `SM_ATTACK_STATUS(NaturalHp, heal)` to zone clients; dead-NPC cleanup removes entry from `_lastRegenTime`
+    - Java source: `LifeStatsRestoreService` schedules `HpRestoreTask` at 1700ms delay then 6000ms fixed interval; rate is `NpcGameStats.getHpRegenRate()` = `maxHp / 4` per tick; broadcasts `SM_ATTACK_STATUS` with `TYPE.NATURAL_HP` (value 3)
+    - Previously: NPCs never regenerated HP after combat; a mob beaten to near-death and then leashed would re-engage at the same low HP indefinitely, making repeated pulls trivially easy
+    - Build: 0 warnings, 0 errors

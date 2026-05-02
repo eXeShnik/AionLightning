@@ -54,6 +54,8 @@ public sealed class NpcAiService : BackgroundService
     private readonly Dictionary<int, DateTime>    _lastIdleShoutTime  = new();
     // ATTACK_BEGIN shout: objectIds that have already fired the shout in current combat
     private readonly HashSet<int>                 _attackBegunNpcs    = new();
+    // Out-of-combat HP regen: NPC objectId → last regen timestamp
+    private readonly Dictionary<int, DateTime>    _lastRegenTime      = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates)
@@ -104,10 +106,31 @@ public sealed class NpcAiService : BackgroundService
                 _walkerStepIndex.Remove(npc.ObjectId);
                 _lastIdleShoutTime.Remove(npc.ObjectId);
                 _attackBegunNpcs.Remove(npc.ObjectId);
+                _lastRegenTime.Remove(npc.ObjectId);
                 npc.Target = null;
                 continue;
             }
             bool isDummy = string.Equals(npc.Template.Ai, "dummy", StringComparison.OrdinalIgnoreCase);
+
+            // Out-of-combat HP regen — Java LifeStatsRestoreService: MaxHp/4 every 6s, 1.7s initial delay
+            if (!_npcTargets.ContainsKey(npc.ObjectId) && npc.CurrentHp < npc.MaxHp && npc.MaxHp > 0)
+            {
+                var regenNow = DateTime.UtcNow;
+                if ((regenNow - npc.LastCombatTime).TotalMilliseconds >= 1700
+                    && (!_lastRegenTime.TryGetValue(npc.ObjectId, out var lastRegen)
+                        || (regenNow - lastRegen).TotalSeconds >= 6.0))
+                {
+                    int heal = Math.Max(1, npc.MaxHp / 4);
+                    npc.CurrentHp = Math.Min(npc.MaxHp, npc.CurrentHp + heal);
+                    _lastRegenTime[npc.ObjectId] = regenNow;
+
+                    var regenPkt  = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.NaturalHp, 0, heal);
+                    int regenWorld = npc.Position.WorldId;
+                    foreach (var conn in _connRegistry.GetAll())
+                        if (conn.ActivePlayer?.Position.WorldId == regenWorld)
+                            try { await conn.SendAsync(regenPkt, ct); } catch { }
+                }
+            }
 
             // If returning home, snap position on arrival; skip all AI until home
             if (_returnState.TryGetValue(npc.ObjectId, out var rs))
