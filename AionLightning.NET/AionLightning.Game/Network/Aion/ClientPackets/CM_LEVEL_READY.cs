@@ -36,6 +36,10 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         // Send this player's info to themselves
         await _conn.SendAsync(new SM_PLAYER_INFO(player, player.Appearance, enemy: false, playerEquipment), ct);
 
+        // Restore bind point display (client forgets it on zone reload)
+        if (player.BindPosition.HasValue)
+            try { await _conn.SendAsync(new SM_BIND_POINT_INFO(player.BindPosition.Value), ct); } catch { }
+
         // Broadcast entering player's motion and current active effects to zone
         var motionBroadcast  = SM_MOTION.Broadcast(player.ObjectId, player.ActiveMotions);
         var selfAbnormal     = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());

@@ -1740,3 +1740,9 @@
     - Java source: `PvpService.onKill` calls `broadcastPacketAndReceive(STR_MSG_COMBAT_FRIENDLY_DEATH_TO_B)` zone-wide after every player-kills-player event
     - Previously: PvP kills were silent to bystanders — only the victim saw a death message; no public zone notification existed
     - Build: 0 warnings, 0 errors
+
+157. [✓] Obelisk bind point — SM_BIND_POINT_INFO restored on zone entry (session 2026-05-02)
+    - [✓] `CM_LEVEL_READY` — after SM_PLAYER_INFO self-send: if `player.BindPosition.HasValue`, sends `SM_BIND_POINT_INFO(bindPos)` so the client's revive dialog shows the correct obelisk location after every zone reload
+    - RESURRECT_BIND dialog action (code 34) was already implemented in CM_DIALOG_SELECT (binds at NPC position, persists via UpdateBindPointAsync, sends SM_BIND_POINT_INFO + BindPointSet message)
+    - Previously: the bind point was set correctly in DB and sent immediately on binding, but was never re-sent on zone entry — after any teleport/zone change the revive dialog showed no bind point location even though one was set
+    - Build: 0 warnings, 0 errors
