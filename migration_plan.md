@@ -2044,3 +2044,11 @@
     - Java source: `npc_stats.xml` carries `evasion` and `accuracy` attributes per level-band; `NpcStatsTemplate` already parses both fields
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
+
+176. [✓] Fix crit rate 10× scaling bug and NPC crit accuracy (session 2026-05-02)
+    - [✓] `CM_ATTACK.cs` — player physical crit: `Random.Shared.Next(1000)` → `Random.Shared.Next(100)`; Java `StatFunctions.calculatePhysicalCriticalRate` uses `nextInt(100)` not `nextInt(1000)`
+    - [✓] `CM_CASTSPELL.cs` — magical crit in all 3 damage paths (single-target, ground AoE, AoE splash): same `Next(1000)` → `Next(100)` fix; mCritRate values are percent-scale (0-100), not per-mille
+    - [✓] `NpcAiService.cs` — NPC crit: was hardcoded 5%; now uses same piecewise formula with `npc.Template.Stats?.Power` as PHYSICAL_CRITICAL rating (Java `NpcGameStats.getMainHandPCritical()` default=10 → 1%); falls back to 10 when field absent
+    - Java reference: `NpcGameStats.getMainHandPCritical()` returns `getStat(PHYSICAL_CRITICAL, 10)` (base 10, not 5%); `calculatePhysicalCriticalRate` compares against `nextInt(100)`, giving rate=10×0.1=1% for NPC base
+    - Previously: all crit chances were 10× too low; NPC crit was 5× too high relative to Java
+    - Build: 0 warnings, 0 errors

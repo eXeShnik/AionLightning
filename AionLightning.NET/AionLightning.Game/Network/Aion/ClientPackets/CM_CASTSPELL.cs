@@ -307,7 +307,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
                                          : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                          : 52.0 + (mCritRating - 600) * 0.02;
-                        if (Random.Shared.Next(1000) < (int)mCritRate)
+                        if (Random.Shared.Next(100) < (int)mCritRate)
                         {
                             int spF = target is Player pvpSpF ? pvpSpF.BonusSpellFortitude : 0;
                             float mCritCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(spF / 1000.0));
@@ -484,7 +484,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
                                      : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                      : 52.0 + (mCritRating - 600) * 0.02;
-                    if (Random.Shared.Next(1000) < (int)mCritRate)
+                    if (Random.Shared.Next(100) < (int)mCritRate)
                     {
                         int spFt = target is Player pvpSpFt ? pvpSpFt.BonusSpellFortitude : 0;
                         float mCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(spFt / 1000.0));
@@ -592,7 +592,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             double mCritRateS = mCritRatingS <= 440 ? mCritRatingS * 0.1
                                               : mCritRatingS <= 600 ? 44.0 + (mCritRatingS - 440) * 0.05
                                               : 52.0 + (mCritRatingS - 600) * 0.02;
-                            if (Random.Shared.Next(1000) < (int)mCritRateS)
+                            if (Random.Shared.Next(100) < (int)mCritRateS)
                                 splashRaw = (int)(splashRaw * 1.5f);
                         }
 

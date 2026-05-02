@@ -334,8 +334,12 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
 
-            // NPC critical hit — 5% base chance; crit multiplier reduced by target strike fortitude
-            if (Random.Shared.Next(100) < 5)
+            // NPC critical hit — Java NpcGameStats: base PHYSICAL_CRITICAL=10 → rate=10*0.1=1%
+            int npcCritRating = npc.Template.Stats?.Power > 0 ? npc.Template.Stats.Power : 10;
+            double npcCritRate = npcCritRating <= 440 ? npcCritRating * 0.1
+                               : npcCritRating <= 600 ? 44.0 + (npcCritRating - 440) * 0.05
+                               : 52.0 + (npcCritRating - 600) * 0.02;
+            if (Random.Shared.Next(100) < (int)npcCritRate)
             {
                 int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
                 float critCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortitude / 1000.0));

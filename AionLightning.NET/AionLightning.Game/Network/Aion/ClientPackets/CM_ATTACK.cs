@@ -156,7 +156,7 @@ public sealed class CM_ATTACK : AionClientPacket
         double critRate = critRating <= 440 ? critRating * 0.1
                         : critRating <= 600 ? 44.0 + (critRating - 440) * 0.05
                         : 52.0 + (critRating - 600) * 0.02;
-        bool isCrit = Random.Shared.Next(1000) < (int)critRate;
+        bool isCrit = Random.Shared.Next(100) < (int)critRate;
         if (isCrit)
         {
             // Java calculateWeaponCritical: coeff = 1.5f - Math.Round(strikeFortitude / 1000f), min 1.0
