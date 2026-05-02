@@ -75,11 +75,11 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)Math.Max(500, p.CurrentAttackSpeed + p.AtkSpeedDebuffDelta)); // attack speed
         w.WriteH((short)Math.Max(0, (t?.Evasion ?? 100) + p.BonusEvasion + p.EvasionDebuffDelta)); // evasion
         w.WriteH((short)(p.BaseParry + p.BonusParry + p.ParryDelta)); w.WriteH((short)(p.BaseBlock + p.BonusBlock + p.BlockDelta)); // parry, block
-        w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // main/off-hand P-crit
+        w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical + p.PhysCritDelta)); w.WriteH(0); // main/off-hand P-crit
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy + p.PhysAccDelta)); w.WriteH(0); // main/off-hand P-accuracy
         w.WriteH(1);                   // unk
         w.WriteH((short)((t?.MagicAccuracy ?? 0) + p.BonusMagicalAccuracy + p.MagicAccDelta));
-        w.WriteH((short)(p.BaseMagicCritRating + p.BonusMagicalCritical)); // M-accuracy, M-crit
+        w.WriteH((short)(p.BaseMagicCritRating + p.BonusMagicalCritical + p.MagicCritDelta)); // M-accuracy, M-crit
         w.WriteH(0);                   // unk
         w.WriteF(Math.Max(0f, (1000 - p.WeaponCastTimeBonus) / 1000f)); // cast speed (ReverseStat: lower = faster)
         w.WriteH(0);                   // unk 3.5
@@ -118,7 +118,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // unk 3.5
         w.WriteH((short)((t?.Evasion ?? 100) + p.BonusEvasion)); // base evasion
         w.WriteH((short)(p.BaseParry + p.BonusParry + p.ParryDelta)); w.WriteH((short)(p.BaseBlock + p.BonusBlock + p.BlockDelta)); // base parry, block
-        w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // base main/off-hand P-crit
+        w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical + p.PhysCritDelta)); w.WriteH(0); // base main/off-hand P-crit
         w.WriteH(0);                   // base M-crit
         w.WriteH(0);                   // unk
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // base main/off-hand P-accuracy

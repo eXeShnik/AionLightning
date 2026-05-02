@@ -364,6 +364,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int magicAccStatUpDelta  = template.Effects?.MagicAccStatUpDelta  ?? 0;
                 int parryStatUpDelta     = template.Effects?.ParryStatUpDelta     ?? 0;
                 int blockStatUpDelta     = template.Effects?.BlockStatUpDelta     ?? 0;
+                int physCritStatUpDelta  = template.Effects?.PhysCritStatUpDelta  ?? 0;
+                int magicCritStatUpDelta = template.Effects?.MagicCritStatUpDelta ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -378,6 +380,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     MagicAccDeltaVal   = magicAccStatUpDelta,
                     ParryDeltaVal      = parryStatUpDelta,
                     BlockDeltaVal      = blockStatUpDelta,
+                    PhysCritDeltaVal   = physCritStatUpDelta,
+                    MagicCritDeltaVal  = magicCritStatUpDelta,
                 };
                 buffTarget.AddEffect(effect);
 
@@ -390,7 +394,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (magicAccStatUpDelta != 0) buffTarget.MagicAccDelta   += magicAccStatUpDelta;
                 if (parryStatUpDelta   != 0) buffTarget.ParryDelta      += parryStatUpDelta;
                 if (blockStatUpDelta   != 0) buffTarget.BlockDelta      += blockStatUpDelta;
-                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0) && buffTarget is Player statUpPlayer)
+                if (physCritStatUpDelta  != 0) buffTarget.PhysCritDelta  += physCritStatUpDelta;
+                if (magicCritStatUpDelta != 0) buffTarget.MagicCritDelta += magicCritStatUpDelta;
+                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
                     var statUpConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == statUpPlayer);
@@ -455,6 +461,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (expiryEffect.BlockDeltaVal != 0)
                     {
                         expiryTarget.BlockDelta -= expiryEffect.BlockDeltaVal;
+                        buffStatChanged = true;
+                    }
+                    if (expiryEffect.PhysCritDeltaVal != 0)
+                    {
+                        expiryTarget.PhysCritDelta -= expiryEffect.PhysCritDeltaVal;
+                        buffStatChanged = true;
+                    }
+                    if (expiryEffect.MagicCritDeltaVal != 0)
+                    {
+                        expiryTarget.MagicCritDelta -= expiryEffect.MagicCritDeltaVal;
                         buffStatChanged = true;
                     }
                     if (buffStatChanged && expiryTarget is Player expiredBuffPlayer)
@@ -586,7 +602,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // Magical crit check (same piecewise formula as physical crit)
                     if (spellIsMagical)
                     {
-                        int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical;
+                        int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
                         int mCritResist = target is Player pvpMCrit ? pvpMCrit.BonusMagicalCriticalResist : 0;
                         mCritRating = Math.Max(0, mCritRating - mCritResist);
                         double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
@@ -786,7 +802,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // Magical crit check (Java calculateMagicalCriticalRate, same piecewise formula as physical)
                 if (spellIsMagical)
                 {
-                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical;
+                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
                     int mCritResist = target is Player pvpMCritTarget ? pvpMCritTarget.BonusMagicalCriticalResist : 0;
                     mCritRating = Math.Max(0, mCritRating - mCritResist);
                     double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
@@ -919,7 +935,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         // Magical crit check for AoE splash
                         if (spellIsMagical)
                         {
-                            int mCritRatingS = player.BaseMagicCritRating + player.BonusMagicalCritical;
+                            int mCritRatingS = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
                             double mCritRateS = mCritRatingS <= 440 ? mCritRatingS * 0.1
                                               : mCritRatingS <= 600 ? 44.0 + (mCritRatingS - 440) * 0.05
                                               : 52.0 + (mCritRatingS - 600) * 0.02;
@@ -1010,6 +1026,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  magicAccDelta         = template?.Effects?.MagicAccAddDelta      ?? 0;
                     int  parryDelta            = template?.Effects?.ParryAddDelta         ?? 0;
                     int  blockDelta            = template?.Effects?.BlockAddDelta         ?? 0;
+                    int  physCritDelta         = template?.Effects?.PhysCritAddDelta      ?? 0;
+                    int  magicCritDelta        = template?.Effects?.MagicCritAddDelta     ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -1035,6 +1053,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         MagicAccDeltaVal    = magicAccDelta,
                         ParryDeltaVal       = parryDelta,
                         BlockDeltaVal       = blockDelta,
+                        PhysCritDeltaVal    = physCritDelta,
+                        MagicCritDeltaVal   = magicCritDelta,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -1083,7 +1103,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (magicAccDelta    != 0) target.MagicAccDelta    += magicAccDelta;
                     if (parryDelta       != 0) target.ParryDelta       += parryDelta;
                     if (blockDelta       != 0) target.BlockDelta       += blockDelta;
-                    if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0) && target is Player debuffedPlayer)
+                    if (physCritDelta    != 0) target.PhysCritDelta    += physCritDelta;
+                    if (magicCritDelta   != 0) target.MagicCritDelta   += magicCritDelta;
+                    if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0) && target is Player debuffedPlayer)
                     {
                         var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
                         var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);
@@ -1147,7 +1169,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (expEffect.MagicAccDeltaVal   != 0) expTarget.MagicAccDelta   -= expEffect.MagicAccDeltaVal;
                         if (expEffect.ParryDeltaVal      != 0) expTarget.ParryDelta      -= expEffect.ParryDeltaVal;
                         if (expEffect.BlockDeltaVal      != 0) expTarget.BlockDelta      -= expEffect.BlockDeltaVal;
-                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0) && expTarget is Player restoredPlayer)
+                        if (expEffect.PhysCritDeltaVal   != 0) expTarget.PhysCritDelta   -= expEffect.PhysCritDeltaVal;
+                        if (expEffect.MagicCritDeltaVal  != 0) expTarget.MagicCritDelta  -= expEffect.MagicCritDeltaVal;
+                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 || expEffect.MagicCritDeltaVal != 0) && expTarget is Player restoredPlayer)
                         {
                             var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
                             var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);

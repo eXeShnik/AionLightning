@@ -159,7 +159,7 @@ public sealed class CM_ATTACK : AionClientPacket
             : baseAtk + Random.Shared.Next(10, 40);
 
         // Critical hit — Java calculatePhysicalCriticalRate piecewise: <=440: rate*0.1, <=600: 44+(r-440)*0.05, else +0.02
-        int critRating = player.BaseCritRating + player.BonusPhysicalCritical;
+        int critRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
         int critResist = target is Player pvpCritTarget ? pvpCritTarget.BonusPhysicalCriticalResist : 0;
         critRating = Math.Max(0, critRating - critResist);
         double critRate = critRating <= 440 ? critRating * 0.1

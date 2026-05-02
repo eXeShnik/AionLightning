@@ -2219,6 +2219,29 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+216. [✓] StatDown/StatUp MAGICAL_CRITICAL (ADD) — MagicCritDelta affects M-crit chance for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MagicCritDelta { get; set; }`
+    - [✓] `Model/AbnormalState.cs` — added `int MagicCritDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MagicCritAddDelta` (statdown) and `MagicCritStatUpDelta` (statup)
+    - [✓] `SM_STATS_INFO.cs` — active M-crit field now `p.BaseMagicCritRating + p.BonusMagicalCritical + p.MagicCritDelta`
+    - [✓] `CM_CASTSPELL.cs` — all three `mCritRating` and `mCritRatingS` computations include `+ player.MagicCritDelta` (replace_all); debuff/buff apply/restore via `MagicCritDeltaVal`
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int magicCritDelta` parameter with full apply/restore chain
+    - Java source: `StatDownEffect`/`StatUpEffect` apply to `MAGICAL_CRITICAL`; `PlayerGameStats.getMagicCriticalRate()` sums base + all mods; `calculateMagicalCriticalRate` uses effective value for the piecewise formula
+    - Previously: MAGICAL_CRITICAL debuffs applied the icon but `mCritRating` was always `base + bonus` only
+    - Build: 0 warnings, 0 errors
+
+215. [✓] StatDown/StatUp PHYSICAL_CRITICAL (ADD) — PhysCritDelta affects P-crit chance for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int PhysCritDelta { get; set; }`
+    - [✓] `Model/AbnormalState.cs` — added `int PhysCritDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PhysCritAddDelta` (statdown) and `PhysCritStatUpDelta` (statup)
+    - [✓] `SM_STATS_INFO.cs` — P-crit field now `(t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical + p.PhysCritDelta` (replace_all both sections)
+    - [✓] `CM_ATTACK.cs` — `critRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta`
+    - [✓] `NpcAiService` tick — `npcCritRating = (npc.Template.Stats?.Power > 0 ? npc.Template.Stats.Power : 10) + npc.PhysCritDelta`
+    - [✓] `CM_CASTSPELL.cs` / `NpcAiService.CastNpcDebuffAsync` — full debuff/buff apply/restore chain for `PhysCritDeltaVal`
+    - Java source: `StatDownEffect`/`StatUpEffect` apply to `PHYSICAL_CRITICAL`; `PlayerGameStats.getMainHandPCritRate()` sums base + all mods; `calculatePhysicalCriticalRate` uses the piecewise formula
+    - Previously: PHYSICAL_CRITICAL debuffs (Cleric/Spiritmaster chains) applied icon but crit formula never saw the delta
+    - Build: 0 warnings, 0 errors
+
 214. [✓] StatDown/StatUp BLOCK (ADD) — BlockDelta affects block chance for duration (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int BlockDelta { get; set; }` (negative = debuff, positive = buff)
     - [✓] `Model/AbnormalState.cs` — added `int BlockDeltaVal { get; init; }`

@@ -52,6 +52,10 @@ public abstract class Creature : VisibleObject
     public int ParryDelta          { get; set; }
     // Cumulative BLOCK delta (negative = reduced block from statdown; positive = increased from statup)
     public int BlockDelta          { get; set; }
+    // Cumulative PHYSICAL_CRITICAL delta (negative = reduced P-crit from statdown; positive from statup)
+    public int PhysCritDelta       { get; set; }
+    // Cumulative MAGICAL_CRITICAL delta (negative = reduced M-crit from statdown; positive from statup)
+    public int MagicCritDelta      { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

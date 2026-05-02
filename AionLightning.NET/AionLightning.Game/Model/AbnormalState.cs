@@ -51,6 +51,10 @@ public sealed class AbnormalState
     public int   ParryDeltaVal      { get; init; }
     // Non-zero when this effect changes BLOCK (negative = debuff, positive = buff/statup)
     public int   BlockDeltaVal      { get; init; }
+    // Non-zero when this effect changes PHYSICAL_CRITICAL (negative = debuff, positive = buff/statup)
+    public int   PhysCritDeltaVal   { get; init; }
+    // Non-zero when this effect changes MAGICAL_CRITICAL (negative = debuff, positive = buff/statup)
+    public int   MagicCritDeltaVal  { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
