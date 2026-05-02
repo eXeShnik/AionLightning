@@ -101,11 +101,38 @@ public sealed class SkillEffects
     public bool HasDispelDebuff => Elements?.Any(e => e.LocalName == "dispeldebuff") == true;
     public bool HasDispelBuff   => Elements?.Any(e => e.LocalName == "dispelbuff")   == true;
 
+    private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
+
+    /// <summary>
+    /// Movement speed percent change from the first snare/absolutesnare effect with a PERCENT SPEED change.
+    /// Typically -50 (halve speed). 0 means no movement speed change.
+    /// </summary>
+    public int SnareSpeedPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (!SnareNames.Contains(e.LocalName)) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "SPEED",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int pct)) return pct;
+                }
+            }
+            return 0;
+        }
+    }
+
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
     // Elements that carry debuff durations via their duration2 attribute
-    private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
+    private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
     {

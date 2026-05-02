@@ -2219,6 +2219,15 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+199. [✓] Snare movement speed reduction applied on debuff, restored on expiry (session 2026-05-02)
+    - [✓] `Model/AbnormalState.cs` — added `int MovSpeedPct { get; init; }` and `float PreDebuffSpeed { get; init; }` to capture the speed change and original speed at cast time
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SnareNames` set (`snare`/`absolutesnare`); added `SnareSpeedPct` property to `SkillEffects` that walks `<snare>/<change stat="SPEED" func="PERCENT">` child elements and returns the int percent value; added `absolutesnare` to `EffectDurNames` for duration2 parsing
+    - [✓] `CM_CASTSPELL.cs` — in the debuff block: reads `template.Effects.SnareSpeedPct`; stores it and `PreDebuffSpeed` on `debuffEffect`; applies `target.MovementSpeed *= (100+pct)/100f` clamped ≥ 1.0f; broadcasts `SM_EMOTION(START_EMOTE2)` to zone; on expiry Task restores `target.MovementSpeed = PreDebuffSpeed` and re-broadcasts `SM_EMOTION(START_EMOTE2)` before removing the effect
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int snareSpeedPct` parameter; same apply/restore/broadcast pattern; `TryCastNpcSkillAsync` passes `skillTemplate.Effects?.SnareSpeedPct ?? 0`
+    - Java source: `SlowEffect`/`SnareEffect` extend `BufEffect` which applies `StatAddFunction` on `StatEnum.SPEED`; `NpcGameStats.getSpeed()` returns modified speed; `BroadcastMode.UPDATE_SPEED` triggers `SM_EMOTION(START_EMOTE2)` broadcast; `endEffect` removes stat modifier and re-broadcasts speed
+    - Previously: 361 snare skills (Ranger Entangling Shot, Chanter Chain of Earth, Spiritmaster Web of Wind etc.) applied the CC visual and icon but left target.MovementSpeed unchanged; players/NPCs still moved at full speed through snares
+    - Build: 0 warnings, 0 errors
+
 198. [✓] NPC debuff/buff duration from effect elements — effectiveDuration fallback (session 2026-05-02)
     - [✓] `NpcAiService.TryCastNpcSkillAsync` — compute `effectiveDuration = Duration > 0 ? Duration : Effects?.EffectDuration ?? 0` before the SubType switch; pass to both BUFF/CHANT and DEBUFF cases; mirrors M194 player-side fix
     - Java source: NPC skill cast path reads effect duration the same way as player — `EffectController.scheduleEffect` calls `getEffectsDuration()` from the XML effect element, not the template-level `duration` attribute

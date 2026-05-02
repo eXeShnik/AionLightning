@@ -490,7 +490,7 @@ public sealed class NpcAiService : BackgroundService
                 break;
             case SkillSubType.DEBUFF:
                 await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, effectiveDuration,
-                    skillTemplate.CcFlags, now, worldId, ct);
+                    skillTemplate.CcFlags, skillTemplate.Effects?.SnareSpeedPct ?? 0, now, worldId, ct);
                 break;
             default:
                 await CastNpcDamageAsync(npc, target, entry.SkillId, skillTemplate, now, worldId, ct);
@@ -645,7 +645,7 @@ public sealed class NpcAiService : BackgroundService
     }
 
     private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs,
-        AbnormalCcFlags ccFlags, DateTime now, int worldId, CancellationToken ct)
+        AbnormalCcFlags ccFlags, int snareSpeedPct, DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
         target.LastCombatTime = now;
@@ -653,8 +653,19 @@ public sealed class NpcAiService : BackgroundService
 
         var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
             EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs),
-            CcFlags = ccFlags, IsDebuff = true };
+            CcFlags = ccFlags, IsDebuff = true,
+            MovSpeedPct = snareSpeedPct, PreDebuffSpeed = target.MovementSpeed };
         target.AddEffect(effect);
+
+        // Snare: reduce target movement speed and broadcast to all clients in zone
+        if (snareSpeedPct != 0)
+        {
+            target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + snareSpeedPct) / 100f);
+            var speedEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    try { await conn.SendAsync(speedEmo, ct); } catch { }
+        }
 
         var abnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
         foreach (var conn in _connRegistry.GetAll())
@@ -674,6 +685,16 @@ public sealed class NpcAiService : BackgroundService
         _ = Task.Run(async () =>
         {
             await Task.Delay(durationMs);
+            // Restore movement speed before removing the effect
+            if (expEffect.MovSpeedPct != 0)
+            {
+                target.MovementSpeed = expEffect.PreDebuffSpeed;
+                var restoreEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
+                int restoreWorld = target.Position.WorldId;
+                foreach (var conn in _connRegistry.GetAll())
+                    if (conn.ActivePlayer?.Position.WorldId == restoreWorld)
+                        try { await conn.SendAsync(restoreEmo); } catch { }
+            }
             target.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
             var expired = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
             int expWorldId = target.Position.WorldId;

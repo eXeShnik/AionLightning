@@ -911,16 +911,30 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0)
                 {
                     bool debuffTargetIsPlayer = target is Player;
+                    int  snareSpeedPct        = template?.Effects?.SnareSpeedPct ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
-                        SkillId    = spellId,
-                        SkillLevel = _level,
-                        EffectorId = player.ObjectId,
-                        Expiry     = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
-                        CcFlags    = template!.CcFlags,
-                        IsDebuff   = true,
+                        SkillId        = spellId,
+                        SkillLevel     = _level,
+                        EffectorId     = player.ObjectId,
+                        Expiry         = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
+                        CcFlags        = template!.CcFlags,
+                        IsDebuff       = true,
+                        MovSpeedPct    = snareSpeedPct,
+                        PreDebuffSpeed = target.MovementSpeed,
                     };
                     target.AddEffect(debuffEffect);
+
+                    // Snare: reduce target movement speed and broadcast to all clients in zone
+                    if (snareSpeedPct != 0)
+                    {
+                        target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + snareSpeedPct) / 100f);
+                        var speedEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(speedEmo); } catch { }
+                    }
+
                     var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,
                                             target.GetActiveEffects());
                     foreach (var c in registry.GetAll())
@@ -944,6 +958,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(expDurationMs);
+                        // Restore movement speed before removing the effect
+                        if (expEffect.MovSpeedPct != 0)
+                        {
+                            expTarget.MovementSpeed = expEffect.PreDebuffSpeed;
+                            var restoreEmo = new SM_EMOTION(expTarget, EmotionType.START_EMOTE2);
+                            int restoreWorld = expTarget.Position.WorldId;
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == restoreWorld)
+                                    try { await c.SendAsync(restoreEmo); } catch { }
+                        }
                         expTarget.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
                         var expired = new SM_ABNORMAL_EFFECT(expTarget.ObjectId, debuffTargetIsPlayer,
                                           expTarget.GetActiveEffects());
