@@ -2219,6 +2219,17 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+204. [✓] StatDown EVASION (ADD) — accumulated evasion delta in dodge rate, restored on expiry (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int EvasionDebuffDelta { get; set; }` (negative = reduced evasion from statdown)
+    - [✓] `Model/AbnormalState.cs` — added `int EvasionDelta { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `EvasionAddDelta` property to `SkillEffects`
+    - [✓] `CM_ATTACK.cs` — `targetEvasion` now includes `+ target.EvasionDebuffDelta`; lower evasion = higher hit rate against the debuffed target
+    - [✓] `SM_STATS_INFO.cs` — evasion field includes `+ p.EvasionDebuffDelta`
+    - [✓] CM_CASTSPELL and NpcAiService debuff apply/restore chains extended with `evasionDelta`
+    - Java source: `StatDownEffect` applies modifier to `EVASION`; `NpcGameStats.getEvasion()` / `PlayerGameStats.getEvasion()` sum base + modifiers; `calculatePhysicalDodgeRate` uses resulting value
+    - Previously: 66 EVASION statdown skills (Ranger Disorienting Arrow, Assassin Slashing Strike, etc.) showed the icon but left target evasion unchanged; attackers didn't benefit from the debuff
+    - Build: 0 warnings, 0 errors
+
 203. [✓] StatDown PHYSICAL_ATTACK (ADD) — accumulated patk delta reduces attacker damage, restored on expiry (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int PatkDebuffDelta { get; set; }` (negative = reduced physical attack from statdown)
     - [✓] `Model/AbnormalState.cs` — added `int PatkDelta { get; init; }`

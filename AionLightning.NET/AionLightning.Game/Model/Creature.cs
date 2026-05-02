@@ -30,6 +30,8 @@ public abstract class Creature : VisibleObject
     public int MResistDebuffDelta { get; set; }
     // Cumulative PHYSICAL_ATTACK debuff delta (negative = reduced physical attack from statdown effects)
     public int PatkDebuffDelta    { get; set; }
+    // Cumulative EVASION debuff delta (negative = reduced evasion from statdown effects)
+    public int EvasionDebuffDelta { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
