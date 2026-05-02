@@ -528,7 +528,55 @@ public sealed class NpcAiService : BackgroundService
                     if (conn.ActivePlayer?.Position.WorldId == worldId)
                         try { await conn.SendAsync(splashPkt, ct); } catch { }
                 if (other is Player splashPlayer)
+                {
                     await BroadcastGroupHpAsync(splashPlayer, ct);
+                    if (splashPlayer.CurrentHp <= 0)
+                        await HandleNpcSplashKillAsync(npc, splashPlayer, worldId, ct);
+                }
+            }
+        }
+    }
+
+    private async Task HandleNpcSplashKillAsync(Npc npc, Player killed, int worldId, CancellationToken ct)
+    {
+        killed.State |= CreatureState.Dead;
+        killed.ClearAllEffects();
+
+        var diePkt      = new SM_EMOTION(killed, EmotionType.DIE);
+        var clearEffect = new SM_ABNORMAL_EFFECT(killed.ObjectId, isPlayer: true);
+        foreach (var conn in _connRegistry.GetAll())
+        {
+            if (conn.ActivePlayer?.Position.WorldId != worldId) continue;
+            try { await conn.SendAsync(diePkt, ct); } catch { }
+            try { await conn.SendAsync(clearEffect, ct); } catch { }
+        }
+
+        var killedConn = _connRegistry.Get(killed.ObjectId);
+        if (killedConn is not null)
+        {
+            try { await killedConn.SendAsync(new SM_DIE(), ct); } catch { }
+            try { await killedConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(npc.Template.Name), ct); } catch { }
+        }
+
+        var group = killed.Group;
+        if (group is not null)
+        {
+            var groupDied = SM_SYSTEM_MESSAGE.GroupMemberDied(killed.Name);
+            foreach (var m in group.Members)
+            {
+                if (m.ObjectId == killed.ObjectId) continue;
+                var mc = _connRegistry.Get(m.ObjectId);
+                if (mc is not null) try { await mc.SendAsync(groupDied, ct); } catch { }
+            }
+        }
+
+        if (killedConn is not null)
+        {
+            long xpLost = _expService.ApplyDeathXpLoss(killed, _dataManager);
+            if (xpLost > 0)
+            {
+                long expNeeded = _dataManager.ExpTable.GetStartExpForLevel(killed.Level + 1);
+                try { await killedConn.SendAsync(new SM_STATUPDATE_EXP(killed.Exp, killed.ExpRecoverable, expNeeded), ct); } catch { }
             }
         }
     }

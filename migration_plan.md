@@ -1847,6 +1847,12 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+188. [✓] Death handling for players killed by NPC AoE splash (session 2026-05-02)
+    - Previous: `CastNpcDamageAsync` splash loop set HP=0 but never sent SM_DIE, SM_EMOTION(DIE), or triggered XP loss for splash-killed players
+    - [✓] `NpcAiService.CastNpcDamageAsync` — after splash hit check `if (splashPlayer.CurrentHp <= 0) HandleNpcSplashKillAsync()`
+    - [✓] `NpcAiService.HandleNpcSplashKillAsync` — new private helper: sets Dead state, clears effects, broadcasts SM_EMOTION(DIE)+SM_ABNORMAL_EFFECT, sends SM_DIE+YouWereKilledBy to victim, notifies group, applies XP death loss
+    - Build: 0 warnings, 0 errors
+
 187. [✓] Group HP update after NPC spell damage (session 2026-05-02)
     - Previous: `CastNpcDamageAsync` sent `SM_ATTACK_STATUS` but never called `BroadcastGroupHpAsync`; group members saw HP frozen after NPC spell hits
     - [✓] `NpcAiService.CastNpcDamageAsync` — added `BroadcastGroupHpAsync(target, ct)` after primary SM_ATTACK_STATUS broadcast
