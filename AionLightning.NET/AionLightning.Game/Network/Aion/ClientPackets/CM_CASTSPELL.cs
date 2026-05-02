@@ -805,9 +805,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
-                // Apply DEBUFF visual effect when skill has DEBUFF subtype and a duration
-                if (target.CurrentHp > 0
-                    && template?.SubType == SkillSubType.DEBUFF && template.Duration > 0)
+                // Apply DEBUFF visual effect when:
+                // (a) DEBUFF subtype with template.Duration > 0, OR
+                // (b) ATTACK/other subtype with tslot=DEBUFF and effect elements have a duration2
+                // Java: AttackSkill effects (slow/statdown etc.) apply via EffectController alongside damage
+                int debuffDurationMs = template?.Duration > 0 ? template.Duration
+                                     : (template?.Effects?.EffectDuration ?? 0);
+                bool isDebuffSkill = template?.SubType == SkillSubType.DEBUFF
+                                  || (string.Equals(template?.TSlot, "DEBUFF",
+                                          StringComparison.OrdinalIgnoreCase) && debuffDurationMs > 0);
+                if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0)
                 {
                     bool debuffTargetIsPlayer = target is Player;
                     var  debuffEffect = new AbnormalState
@@ -815,8 +822,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         SkillId    = spellId,
                         SkillLevel = _level,
                         EffectorId = player.ObjectId,
-                        Expiry     = DateTime.UtcNow.AddMilliseconds(template.Duration),
-                        CcFlags    = template.CcFlags,
+                        Expiry     = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
+                        CcFlags    = template!.CcFlags,
                     };
                     target.AddEffect(debuffEffect);
                     var debuffAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, debuffTargetIsPlayer,
@@ -836,11 +843,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
 
                     // Schedule expiry broadcast at target's current zone
-                    var expEffect = debuffEffect;
-                    var expTarget = target;
+                    var expEffect      = debuffEffect;
+                    var expTarget      = target;
+                    int expDurationMs  = debuffDurationMs;
                     _ = Task.Run(async () =>
                     {
-                        await Task.Delay(template.Duration);
+                        await Task.Delay(expDurationMs);
                         expTarget.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
                         var expired = new SM_ABNORMAL_EFFECT(expTarget.ObjectId, debuffTargetIsPlayer,
                                           expTarget.GetActiveEffects());

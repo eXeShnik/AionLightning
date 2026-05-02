@@ -17,6 +17,7 @@ public sealed class SkillTemplate
     [XmlAttribute("activation")]   public string       Activation { get; set; } = "";
     [XmlAttribute("cooldown")]   public int       Cooldown   { get; set; }
     [XmlAttribute("duration")]   public int       Duration   { get; set; }
+    [XmlAttribute("tslot")]      public string    TSlot      { get; set; } = "";
 
     [XmlElement("properties")]   public SkillProperties? Properties { get; set; }
     [XmlElement("effects")]      public SkillEffects?    Effects    { get; set; }
@@ -97,9 +98,11 @@ public sealed class SkillEffects
         Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
         ?? AbnormalCcFlags.None;
 
-    private static readonly HashSet<string> HealInstantNames = ["healinstant", "mphealinstant"];
-    private static readonly HashSet<string> HotNames         = ["heal", "mpheal"];
-    private static readonly HashSet<string> DotNames         = ["bleed", "poison", "disease"];
+    private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
+    private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
+    private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
+    // Elements that carry debuff durations via their duration2 attribute
+    private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
     {
@@ -117,6 +120,26 @@ public sealed class SkillEffects
                 list.Add(new(val, dlt, pct, ht));
             }
             return list;
+        }
+    }
+
+    /// <summary>
+    /// Max duration2 found in any debuff-class effect element (slow/snare/statdown/statup/blind/confuse).
+    /// Used when the skill_template's own duration attribute is 0.
+    /// </summary>
+    public int EffectDuration
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int max = 0;
+            foreach (var e in Elements)
+            {
+                if (!EffectDurNames.Contains(e.LocalName)) continue;
+                if (int.TryParse(e.GetAttribute("duration2"), out int d) && d > max)
+                    max = d;
+            }
+            return max;
         }
     }
 

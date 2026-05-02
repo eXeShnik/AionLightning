@@ -2072,6 +2072,13 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+194. [✓] Debuff duration from effect element duration2 — slow/snare/statdown/statup (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `TSlot` property (`tslot` XML attribute); added `EffectDuration` property to `SkillEffects`: iterates slow/snare/statdown/statup/blind/confuse elements and returns max `duration2`
+    - [✓] `CM_CASTSPELL.cs` — debuff block: `debuffDurationMs = template.Duration > 0 ? template.Duration : effects.EffectDuration`; `isDebuffSkill` now also fires for ATTACK+tslot=DEBUFF when debuffDurationMs > 0; expiry `Task.Delay` uses captured `debuffDurationMs` instead of `template.Duration`
+    - Java source: `AttackResult` skills apply CC effects via `EffectController.scheduleEffect()` which reads `getEffectsDuration()` from the effect XML element; `SlowEffect.java` extends `StatAddEffect` with `statEnum=SPEED`; `StatDownEffect.java` iterates `<change>` children
+    - Previously: ~1267 debuff skills with `duration="0"` in skill_template (slow/statdown/snare effects whose actual duration is in the `<slow duration2=...>` element) never applied any debuff visual; e.g. Weakening Severe Blow, Dazing Severe Blow, Slowing Arrow showed no debuff icon
+    - Build: 0 warnings, 0 errors
+
 193. [✓] Heal-over-time (HoT) effects — heal / mpheal periodic ticks (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillHotInfo` readonly record struct (CheckTimeMs, BaseValue, Delta, Duration2Ms, HealType); added `HotEffects` property to `SkillEffects` parsing `<heal>` (hp) and `<mpheal>` (mp) elements using same checktime/value/delta/duration2 attribute pattern as DoT
     - [✓] `CM_CASTSPELL.cs` — in the HEAL subtype branch, when no `HealEffects` are found, check `HotEffects`: adds `AbnormalState` to target, broadcasts `SM_ABNORMAL_EFFECT` buff icon; spawns `Task.Run` tick loop per effect entry: waits `CheckTimeMs`, heals `BaseValue+Delta*level` capped at headroom, sends `SM_ATTACK_STATUS(NaturalHp/NaturalMp)` each tick; removes effect and clears buff icon on expiry; fallback to level-based instant heal only when both HealEffects and HotEffects are empty
