@@ -2072,6 +2072,13 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+191. [✓] Dual-wield attack speed adjustment (session 2026-05-02)
+    - [✓] `CM_EQUIP_ITEM.cs` — in the off-hand weapon block (slot 2, IsWeapon==true): after setting OffHand stats, adds `sws2.AttackSpeed / 4` to `player.BaseAttackSpeed` if AttackSpeed > 0; the existing final recalculation applies BonusAttackSpeedPct on the updated base
+    - [✓] `PlayerEnterWorldService.cs` — same adjustment in the off-hand block on world entry
+    - Java source: `PlayerGameStats.getAttackSpeed()` line 132: `speed += offhandweapon.getWeaponType().getAttackSpeed() / 4` when dual-wielding; higher value = slower individual swings but more off-hand hits per cycle
+    - Previously: equipping an off-hand weapon had no effect on base attack speed; dual-wielding computed attack speed from main-hand only
+    - Build: 0 warnings, 0 errors
+
 187. [✓] DoT effects (bleed/poison/disease) with periodic damage ticks (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillDotInfo` readonly record struct (CheckTimeMs, BaseValue, Delta, Duration2Ms, DotType, Element); `SkillEffects.DotEffects` property parses `<bleed>`, `<poison>`, `<disease>` XML elements from the `[XmlAnyElement]` collection; reads `checktime`, `value`, `delta`, `duration2` attributes
     - [✓] `Model/AbnormalState.cs` — added `SkillDotInfo? DotInfo { get; init; }` to carry per-tick damage info alongside the abnormal state record

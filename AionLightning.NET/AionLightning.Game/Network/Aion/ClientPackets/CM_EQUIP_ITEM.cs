@@ -126,6 +126,9 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.OffHandMaxDmg     = sws2.MaxDamage;
             player.OffHandHitCount   = sws2.HitCount > 0 ? sws2.HitCount : 1;
             player.OffHandWeaponType = subTpl.WeaponTypeName;
+            // Java PlayerGameStats.getAttackSpeed: dual-wield adds offHand.attackSpeed / 4 to base
+            if (sws2.AttackSpeed > 0)
+                player.BaseAttackSpeed += sws2.AttackSpeed / 4;
         }
         else
         {

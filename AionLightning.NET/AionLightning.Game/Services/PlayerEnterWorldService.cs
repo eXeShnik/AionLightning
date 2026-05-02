@@ -206,6 +206,8 @@ public sealed class PlayerEnterWorldService
             player.OffHandMaxDmg     = sw2.MaxDamage;
             player.OffHandHitCount   = sw2.HitCount > 0 ? sw2.HitCount : 1;
             player.OffHandWeaponType = subWpnTpl.WeaponTypeName;
+            if (sw2.AttackSpeed > 0)
+                player.BaseAttackSpeed += sw2.AttackSpeed / 4;
         }
         else
         {
