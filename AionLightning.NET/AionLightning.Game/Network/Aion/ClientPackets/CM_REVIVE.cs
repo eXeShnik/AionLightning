@@ -39,8 +39,8 @@ public sealed class CM_REVIVE : AionClientPacket
         // Recompute MaxHp/MaxMp with the updated soul sickness penalty before restoring HP/MP
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         float ssMult = player.SoulSicknessMultiplier;
-        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
-        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
+        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult);
 
         // Apply soul sickness debuff effect — skull icon (Java skill 8291, level = stack count)
         if (player.SoulSicknessCount > 0)

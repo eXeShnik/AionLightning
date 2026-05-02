@@ -348,8 +348,8 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, 0, ct);
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
-        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
+        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp;
+        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp;
         player.CurrentHp = Math.Min(player.CurrentHp, player.MaxHp);
         player.CurrentMp = Math.Min(player.CurrentMp, player.MaxMp);
 

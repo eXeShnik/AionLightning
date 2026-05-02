@@ -256,15 +256,51 @@ public sealed class PlayerEnterWorldService
             }
         }
 
+        // M226: accumulate passive skill stat bonuses — activation="PASSIVE" skills apply permanently each session
+        foreach (var skillEntry in player.Skills.AllSkills)
+        {
+            var passiveTpl = _dataManager.Skills.GetTemplate(skillEntry.SkillId);
+            if (passiveTpl is null
+                || !string.Equals(passiveTpl.Activation, "PASSIVE", StringComparison.OrdinalIgnoreCase)
+                || passiveTpl.Effects is null) continue;
+            var fx = passiveTpl.Effects;
+            int pv;
+            if ((pv = fx.MaxHpStatUpDelta)           != 0) player.PassiveBonusMaxHp           += pv;
+            if ((pv = fx.MaxMpStatUpDelta)            != 0) player.PassiveBonusMaxMp           += pv;
+            if ((pv = fx.PhysAtkStatUpDelta)          != 0) player.PatkStatUpDelta       += pv;
+            if ((pv = fx.MagicAtkStatUpDelta)         != 0) player.MagicAtkStatUpDelta   += pv;
+            if ((pv = fx.PdefStatUpDelta)             != 0) player.PdefStatUpDelta       += pv;
+            if ((pv = fx.EvasionStatUpDelta)          != 0) player.EvasionStatUpDelta    += pv;
+            if ((pv = fx.MResistStatUpDelta)          != 0) player.MResistStatUpDelta    += pv;
+            if ((pv = fx.PhysAccStatUpDelta)          != 0) player.PhysAccDelta          += pv;
+            if ((pv = fx.MagicAccStatUpDelta)         != 0) player.MagicAccDelta         += pv;
+            if ((pv = fx.ParryStatUpDelta)            != 0) player.ParryDelta            += pv;
+            if ((pv = fx.BlockStatUpDelta)            != 0) player.BlockDelta            += pv;
+            if ((pv = fx.PhysCritStatUpDelta)         != 0) player.PhysCritDelta         += pv;
+            if ((pv = fx.MagicCritStatUpDelta)        != 0) player.MagicCritDelta        += pv;
+            if ((pv = fx.PhysCritResistStatUpDelta)   != 0) player.PhysCritResistDelta   += pv;
+            if ((pv = fx.MagicCritResistStatUpDelta)  != 0) player.MagicCritResistDelta  += pv;
+            if ((pv = fx.StrikeFortitudeStatUpDelta)  != 0) player.StrikeFortitudeDelta  += pv;
+            if ((pv = fx.SpellFortitudeStatUpDelta)   != 0) player.SpellFortitudeDelta   += pv;
+            if ((pv = fx.MagicBoostStatUpDelta)       != 0) player.MagicBoostDelta       += pv;
+            if ((pv = fx.HealBoostStatUpDelta)        != 0) player.HealBoostDelta        += pv;
+            if ((pv = fx.MagicDefStatUpDelta)         != 0) player.MagicDefDelta         += pv;
+            if ((pv = fx.ConcentrationStatUpDelta)    != 0) player.ConcentrationDelta    += pv;
+            if ((pv = fx.MagicSuppressionStatUpDelta) != 0) player.MagicSuppressionDelta += pv;
+            if ((pv = fx.CastTimeStatUpDelta)         != 0) player.CastTimeDelta         += pv;
+            if ((pv = fx.AtkSpeedStatUpDelta)         != 0) player.AtkSpeedStatUpDelta   += pv;
+            if ((pv = fx.SpeedStatUpPct)              != 0) player.PassiveBonusMovementSpeedPct += pv;
+        }
+
         // Compute derived stats after equipment + title bonuses are fully applied
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;
-        player.MovementSpeed = (tpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct) / 1000f;
+        player.MovementSpeed = (tpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct + player.PassiveBonusMovementSpeedPct) / 1000f;
 
         float ssMult  = player.SoulSicknessMultiplier;
-        player.MaxHp  = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
-        player.MaxMp  = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
+        player.MaxHp  = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult);
+        player.MaxMp  = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult);
 
         // Re-apply soul sickness debuff so skull icon appears on login (Java skill 8291, level = stack count)
         if (player.SoulSicknessCount > 0)

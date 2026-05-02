@@ -177,9 +177,10 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             : player.BaseAttackSpeed;
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        player.MovementSpeed = ((statTpl?.RunSpeed ?? 6.0f)) * (1000 + player.BonusMovementSpeedPct) / 1000f;
-        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
-        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
+        player.MovementSpeed = (statTpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct + player.PassiveBonusMovementSpeedPct) / 1000f;
+        float ssMult = player.SoulSicknessMultiplier;
+        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult);
 
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 

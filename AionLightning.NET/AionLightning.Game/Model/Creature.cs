@@ -96,7 +96,10 @@ public abstract class Creature : VisibleObject
     {
         lock (_effectsLock)
         {
+            foreach (var existing in _activeEffects.Where(e => e.SkillId == state.SkillId))
+                ReverseEffectDeltas(existing);
             _activeEffects.RemoveAll(e => e.SkillId == state.SkillId);
+            ApplyEffectDeltas(state);
             _activeEffects.Add(state);
             ActiveCcFlags = RebuildCcFlags();
         }
@@ -115,6 +118,9 @@ public abstract class Creature : VisibleObject
     {
         lock (_effectsLock)
         {
+            for (int i = _activeEffects.Count - 1; i >= 0; i--)
+                if (_activeEffects[i].SkillId == skillId)
+                    ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.RemoveAll(e => e.SkillId == skillId);
             ActiveCcFlags = RebuildCcFlags();
         }
@@ -124,6 +130,8 @@ public abstract class Creature : VisibleObject
     {
         lock (_effectsLock)
         {
+            for (int i = _activeEffects.Count - 1; i >= 0; i--)
+                ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.Clear();
             ActiveCcFlags = AbnormalCcFlags.None;
         }
@@ -133,6 +141,8 @@ public abstract class Creature : VisibleObject
     {
         lock (_effectsLock)
         {
+            for (int i = _activeEffects.Count - 1; i >= 0; i--)
+                if (_activeEffects[i].IsDebuff) ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.RemoveAll(e => e.IsDebuff);
             ActiveCcFlags = RebuildCcFlags();
         }
@@ -142,9 +152,92 @@ public abstract class Creature : VisibleObject
     {
         lock (_effectsLock)
         {
+            for (int i = _activeEffects.Count - 1; i >= 0; i--)
+                if (!_activeEffects[i].IsDebuff) ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.RemoveAll(e => !e.IsDebuff);
             ActiveCcFlags = RebuildCcFlags();
         }
+    }
+
+    internal void ApplyEffectDeltas(AbnormalState e)
+    {
+        int v;
+        if ((v = e.PdefDelta)               != 0) PdefDebuffDelta       += v;
+        if ((v = e.MResistDelta)            != 0) MResistDebuffDelta    += v;
+        if ((v = e.PatkDelta)               != 0) PatkDebuffDelta       += v;
+        if ((v = e.EvasionDelta)            != 0) EvasionDebuffDelta    += v;
+        if ((v = e.MaxHpDelta)              != 0)
+        {
+            MaxHpBonusDelta += v;
+            if (v < 0) { int cap = Math.Max(1, MaxHp + MaxHpBonusDelta); if (CurrentHp > cap) CurrentHp = cap; }
+        }
+        if ((v = e.MagicAtkDelta)           != 0) MagicAtkDebuffDelta   += v;
+        if ((v = e.AtkSpeedDelta)           != 0) AtkSpeedDebuffDelta   += v;
+        if ((v = e.MaxMpDelta)              != 0)
+        {
+            MaxMpBonusDelta += v;
+            if (v < 0) { int cap = Math.Max(1, MaxMp + MaxMpBonusDelta); if (CurrentMp > cap) CurrentMp = cap; }
+        }
+        if ((v = e.MagicBoostDeltaVal)      != 0) MagicBoostDelta       += v;
+        if ((v = e.HealBoostDeltaVal)       != 0) HealBoostDelta        += v;
+        if ((v = e.PhysAccDeltaVal)         != 0) PhysAccDelta          += v;
+        if ((v = e.MagicAccDeltaVal)        != 0) MagicAccDelta         += v;
+        if ((v = e.ParryDeltaVal)           != 0) ParryDelta            += v;
+        if ((v = e.BlockDeltaVal)           != 0) BlockDelta            += v;
+        if ((v = e.PhysCritDeltaVal)        != 0) PhysCritDelta         += v;
+        if ((v = e.MagicCritDeltaVal)       != 0) MagicCritDelta        += v;
+        if ((v = e.PhysCritResistDeltaVal)  != 0) PhysCritResistDelta   += v;
+        if ((v = e.MagicCritResistDeltaVal) != 0) MagicCritResistDelta  += v;
+        if ((v = e.StrikeFortitudeDeltaVal) != 0) StrikeFortitudeDelta  += v;
+        if ((v = e.SpellFortitudeDeltaVal)  != 0) SpellFortitudeDelta   += v;
+        if ((v = e.CastTimeDeltaVal)        != 0) CastTimeDelta         += v;
+        if ((v = e.ConcentrationDeltaVal)   != 0) ConcentrationDelta    += v;
+        if ((v = e.MagicSuppressionDeltaVal)!= 0) MagicSuppressionDelta += v;
+        if ((v = e.PdefStatUpDeltaVal)      != 0) PdefStatUpDelta       += v;
+        if ((v = e.MagicDefDeltaVal)        != 0) MagicDefDelta         += v;
+        if ((v = e.PatkStatUpDeltaVal)      != 0) PatkStatUpDelta       += v;
+        if ((v = e.MagicAtkStatUpDeltaVal)  != 0) MagicAtkStatUpDelta   += v;
+        if ((v = e.EvasionStatUpDeltaVal)   != 0) EvasionStatUpDelta    += v;
+        if ((v = e.MResistStatUpDeltaVal)   != 0) MResistStatUpDelta    += v;
+        if ((v = e.AtkSpeedStatUpDeltaVal)  != 0) AtkSpeedStatUpDelta   += v;
+    }
+
+    internal void ReverseEffectDeltas(AbnormalState e)
+    {
+        int v;
+        if ((v = e.PdefDelta)               != 0) PdefDebuffDelta       -= v;
+        if ((v = e.MResistDelta)            != 0) MResistDebuffDelta    -= v;
+        if ((v = e.PatkDelta)               != 0) PatkDebuffDelta       -= v;
+        if ((v = e.EvasionDelta)            != 0) EvasionDebuffDelta    -= v;
+        if ((v = e.MagicAtkDelta)           != 0) MagicAtkDebuffDelta   -= v;
+        if ((v = e.AtkSpeedDelta)           != 0) AtkSpeedDebuffDelta   -= v;
+        if ((v = e.MaxHpDelta)              != 0) MaxHpBonusDelta       -= v;
+        if ((v = e.MaxMpDelta)              != 0) MaxMpBonusDelta       -= v;
+        if ((v = e.MagicBoostDeltaVal)      != 0) MagicBoostDelta       -= v;
+        if ((v = e.HealBoostDeltaVal)       != 0) HealBoostDelta        -= v;
+        if ((v = e.PhysAccDeltaVal)         != 0) PhysAccDelta          -= v;
+        if ((v = e.MagicAccDeltaVal)        != 0) MagicAccDelta         -= v;
+        if ((v = e.ParryDeltaVal)           != 0) ParryDelta            -= v;
+        if ((v = e.BlockDeltaVal)           != 0) BlockDelta            -= v;
+        if ((v = e.PhysCritDeltaVal)        != 0) PhysCritDelta         -= v;
+        if ((v = e.MagicCritDeltaVal)       != 0) MagicCritDelta        -= v;
+        if ((v = e.PhysCritResistDeltaVal)  != 0) PhysCritResistDelta   -= v;
+        if ((v = e.MagicCritResistDeltaVal) != 0) MagicCritResistDelta  -= v;
+        if ((v = e.StrikeFortitudeDeltaVal) != 0) StrikeFortitudeDelta  -= v;
+        if ((v = e.SpellFortitudeDeltaVal)  != 0) SpellFortitudeDelta   -= v;
+        if ((v = e.CastTimeDeltaVal)        != 0) CastTimeDelta         -= v;
+        if ((v = e.ConcentrationDeltaVal)   != 0) ConcentrationDelta    -= v;
+        if ((v = e.MagicSuppressionDeltaVal)!= 0) MagicSuppressionDelta -= v;
+        if ((v = e.PdefStatUpDeltaVal)      != 0) PdefStatUpDelta       -= v;
+        if ((v = e.MagicDefDeltaVal)        != 0) MagicDefDelta         -= v;
+        if ((v = e.PatkStatUpDeltaVal)      != 0) PatkStatUpDelta       -= v;
+        if ((v = e.MagicAtkStatUpDeltaVal)  != 0) MagicAtkStatUpDelta   -= v;
+        if ((v = e.EvasionStatUpDeltaVal)   != 0) EvasionStatUpDelta    -= v;
+        if ((v = e.MResistStatUpDeltaVal)   != 0) MResistStatUpDelta    -= v;
+        if ((v = e.AtkSpeedStatUpDeltaVal)  != 0) AtkSpeedStatUpDelta   -= v;
+        if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
+        if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
+        if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;
     }
 
     public List<AbnormalState> GetActiveEffects()

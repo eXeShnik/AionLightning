@@ -2203,6 +2203,33 @@
     - Previously: players at any level could deal full damage to any NPC; high-level NPCs were not significantly harder to hit
     - Build: 0 warnings, 0 errors
 
+226. [✓] Passive skill stat accumulation on login — activation="PASSIVE" skills apply permanent session-wide stat bonuses (session 2026-05-02)
+    - [✓] `Services/PlayerEnterWorldService.cs` — after equipment + title bonuses, iterates `player.Skills.AllSkills`; for each skill with `Activation == "PASSIVE"` and non-null `Effects`, reads all statup properties and accumulates to the corresponding creature delta fields; MAXHP/MAXMP go to `BonusMaxHp`/`BonusMaxMp` so they're included in the `player.MaxHp/MaxMp` derivation; SpeedStatUpPct goes to `BonusMovementSpeedPct`; all other stats (PatkStatUpDelta, MagicAtkStatUpDelta, PdefStatUpDelta, EvasionStatUpDelta, MResistStatUpDelta, PhysAccDelta, MagicAccDelta, ParryDelta, BlockDelta, PhysCritDelta, MagicCritDelta, PhysCritResistDelta, MagicCritResistDelta, StrikeFortitudeDelta, SpellFortitudeDelta, MagicBoostDelta, HealBoostDelta, MagicDefDelta, ConcentrationDelta, MagicSuppressionDelta, CastTimeDelta, AtkSpeedStatUpDelta) go to the shared delta fields already used by temporary buffs
+    - Java source: `PassiveEffect.applyEffect()` calls `target.getGameStats().setStat(stat, addValue)` via `StatAddFunction`; executed once on skill learn and re-applied on re-login via `EffectController.init()` which iterates all permanent effects; passive skills have `activation="PASSIVE"` in skill XML and `duration="0"` (they never expire)
+    - Previously: all passive skills (e.g. Gladiator Discipline = +accuracy, Ranger Swift Shot = +critical, Spiritmaster mana mastery = +magic accuracy, etc.) were shown in the skill list but their stat bonuses were never applied; players had lower effective stats than Java server for their class and level
+    - Build: 0 warnings, 0 errors
+
+229. [✓] RemoveEffectBySkillId now reverses stat deltas before removing the effect (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — `RemoveEffectBySkillId` now iterates matching effects in LIFO order calling `ReverseEffectDeltas(e)` before `RemoveAll`; covers player-clicked buff/debuff removal (CM_REMOVE_ALTERED_STATE), stance deactivation (CM_TOGGLE_SKILL_DEACTIVATE), and soul sickness removal (8291 — no stat deltas, so ReverseEffectDeltas is a no-op for it)
+    - `RemoveEffect(skillId, expiry)` is intentionally not changed — it is called only by CM_CASTSPELL/NpcAiService expiry Task.Run blocks that already manually reverse their own deltas
+    - Previously: clicking a buff/debuff icon or turning off a stance removed the AbnormalState from the list but left all accumulated delta fields (PdefStatUpDelta, AtkSpeedStatUpDelta, etc.) at stale non-zero values; stats remained buffed/debuffed until next logout despite the effect appearing removed on the client
+    - Build: 0 warnings, 0 errors
+
+228. [✓] Passive MaxHp/MaxMp/Speed not overwritten by equipment changes (session 2026-05-02)
+    - [✓] `Model/Player.cs` — added `PassiveBonusMaxHp`, `PassiveBonusMaxMp`, `PassiveBonusMovementSpeedPct`; these are set once at login by the passive skill loop and are never touched by EquipStatsCalculator or equipment change paths
+    - [✓] `Services/PlayerEnterWorldService.cs` (M226 loop) — passive MaxHp/MaxMp accumulate into `PassiveBonusMaxHp`/`PassiveBonusMaxMp` instead of `BonusMaxHp`/`BonusMaxMp`; passive speed goes to `PassiveBonusMovementSpeedPct` instead of `BonusMovementSpeedPct`; MaxHp/MaxMp/Speed derivation now sums both equipment bonus and passive bonus fields
+    - [✓] `CM_EQUIP_ITEM.cs` — MaxHp/MaxMp derivation updated to include `PassiveBonusMaxHp`/`PassiveBonusMaxMp`; added missing `SoulSicknessMultiplier` application (equipment change was computing raw MaxHp without soul sickness penalty); MovementSpeed updated to include `PassiveBonusMovementSpeedPct`
+    - [✓] `CM_REVIVE.cs`, `CM_TITLE_SET.cs`, `ExperienceService.cs`, `CM_MANASTONE.cs`, `CM_DIALOG_SELECT.cs`, `CM_GM_COMMAND_SEND.cs` — all MaxHp/MaxMp derivations updated to include passive bonus fields; fixed wrong ssMult application in CM_DIALOG_SELECT class-change path (ssMult was applied only to base, not to bonuses)
+    - Previously: equipping or unequipping any item overwrote `BonusMaxHp` with equipment-only value, losing passive MAXHP contributions; soul-sick players equipping items would get wrong (too high) MaxHp
+    - Build: 0 warnings, 0 errors
+
+227. [✓] On-death stat delta reset — ClearAllEffects/ClearDebuffs/ClearBuffs now reverse accumulated deltas (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — `ClearAllEffects()` now iterates `_activeEffects` in LIFO order calling `ReverseEffectDeltas(e)` before clearing; same pattern added to `ClearDebuffs()` (only effects with `IsDebuff=true`) and `ClearBuffs()` (only `IsDebuff=false`); LIFO order correctly unwinds stacked speed chains (snare B's `PreDebuffSpeed` restores to post-snare-A speed, then snare A's `PreDebuffSpeed` restores to original)
+    - [✓] `Model/Creature.cs` — new private `ReverseEffectDeltas(AbnormalState e)` method: subtracts each effect's individual delta contribution from the 31 creature aggregate delta fields (PdefDebuffDelta, MResistDebuffDelta, PatkDebuffDelta, EvasionDebuffDelta, MagicAtkDebuffDelta, AtkSpeedDebuffDelta, MaxHpBonusDelta, MaxMpBonusDelta, MagicBoostDelta, HealBoostDelta, PhysAccDelta, MagicAccDelta, ParryDelta, BlockDelta, PhysCritDelta, MagicCritDelta, PhysCritResistDelta, MagicCritResistDelta, StrikeFortitudeDelta, SpellFortitudeDelta, CastTimeDelta, ConcentrationDelta, MagicSuppressionDelta, PdefStatUpDelta, MagicDefDelta, PatkStatUpDelta, MagicAtkStatUpDelta, EvasionStatUpDelta, MResistStatUpDelta, AtkSpeedStatUpDelta); for speed/attack-speed effects restores from stored pre-effect values (`PreDebuffSpeed`, `PreDebuffAtkSpeed`, `PreBuffMovSpeed`)
+    - Java source: `EffectController.removeAllEffects()` calls `endEffect()` on each effect which reverses stat contributions; passive skills in Java are stored as permanent effects so they survive `removeAllEffects()`; in .NET passives are applied directly to delta fields at login (M226) without an AbnormalState entry so they are naturally preserved by this approach
+    - Previously: when a player died (ClearAllEffects called), all stat delta fields (PdefDebuffDelta, MResistDebuffDelta, etc.) retained their pre-death values; on respawn the player was debuffed as if the debuffs were still active, and stale buff statup values inflated their stats until next login
+    - Build: 0 warnings, 0 errors
+
 178. [✓] Magic resist level-difference penalty in all spell damage paths (session 2026-05-02)
     - [✓] `CM_CASTSPELL.cs` ground AoE resist loop — after base `resistRate = max(1, MR - MA)`, add `(targetLevel - casterLevel - 2) * 100` when gap > 2; mirrors Java `StatFunctions.calculateMagicalResistRate` lines 885-886
     - [✓] `CM_CASTSPELL.cs` single-target resist — same level-difference bonus added
@@ -2525,4 +2552,39 @@
     - [✓] `NpcAiService.cs` — NPC crit: was hardcoded 5%; now uses same piecewise formula with `npc.Template.Stats?.Power` as PHYSICAL_CRITICAL rating (Java `NpcGameStats.getMainHandPCritical()` default=10 → 1%); falls back to 10 when field absent
     - Java reference: `NpcGameStats.getMainHandPCritical()` returns `getStat(PHYSICAL_CRITICAL, 10)` (base 10, not 5%); `calculatePhysicalCriticalRate` compares against `nextInt(100)`, giving rate=10×0.1=1% for NPC base
     - Previously: all crit chances were 10× too low; NPC crit was 5× too high relative to Java
+    - Build: 0 warnings, 0 errors
+
+230. [✓] Centralize buff/debuff delta apply/reverse in Creature — eliminate 250+ lines of inline duplication (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `internal void ApplyEffectDeltas(AbnormalState e)`: mirrors `ReverseEffectDeltas` but uses `+=` for all 31 int delta fields; includes HP/MP clamping when `MaxHpDelta < 0` (debuff reduces cap) or `MaxMpDelta < 0`; speed floats (MovementSpeed, CurrentAttackSpeed) intentionally excluded — their percent-based application needs caller context (clamping constants, SM_EMOTION broadcast)
+    - [✓] `Model/Creature.cs` — `ReverseEffectDeltas` visibility changed from `private` to `internal`
+    - [✓] `Model/Creature.cs` — `AddEffect` now reverses deltas of any same-skillId effect before removing it from the list, then calls `ApplyEffectDeltas` on the new state; correct re-application when the same skill is refreshed mid-duration
+    - [✓] `CM_CASTSPELL.cs` — buff apply block: removed 24-line manual delta accumulation (`if (xxx != 0) buffTarget.XxxDelta += xxx`) since `AddEffect` now applies via `ApplyEffectDeltas`; kept SM_EMOTION broadcast for atkSpeedStatUpDelta and speedStatUpPct (those need network side-effects)
+    - [✓] `CM_CASTSPELL.cs` — buff expiry Task.Run: replaced 120-line manual reversal + `RemoveEffect(skillId, expiry)` with `expiryTarget.RemoveEffectBySkillId(skillId)` (reverses all deltas + removes from list); added HP/MP clamp after removal (buff cap shrinks on expiry); kept SM_EMOTION broadcasts for speed/atkspeed; kept SM_STATS_INFO and SM_ABNORMAL_EFFECT sends
+    - [✓] `CM_CASTSPELL.cs` — debuff apply block: removed 24-line manual delta accumulation; kept atkSpdDelta SM_EMOTION broadcast; kept SM_STATS_INFO send
+    - [✓] `CM_CASTSPELL.cs` — debuff expiry Task.Run: replaced 40-line manual reversal + `RemoveEffect(skillId, expiry)` with `expTarget.RemoveEffectBySkillId(skillId)`; kept speed-restore SM_EMOTION and SM_STATS_INFO sends
+    - [✓] `NpcAiService.cs` — `CastNpcDebuffAsync` apply block: removed 24-line manual delta accumulation; kept atkSpdDelta SM_EMOTION broadcast; kept SM_STATS_INFO send
+    - [✓] `NpcAiService.cs` — `CastNpcDebuffAsync` expiry Task.Run: same replacement as CM_CASTSPELL debuff expiry
+    - Key distinction preserved: `RemoveEffect(skillId, expiry)` remains list-only (no delta reversal) — used by DoT expiry (DoT effects have zero stat deltas so reversal would be a no-op anyway); `RemoveEffectBySkillId` reverses + removes (used by buff/debuff expiry and explicit removal)
+    - Net reduction: ~255 lines removed from CM_CASTSPELL.cs and NpcAiService.cs; new stat fields need to be added in only 3 places (AbnormalState field, Creature cumulative field, ApplyEffectDeltas/ReverseEffectDeltas) instead of 7
+    - Java analogy: Java `EffectController.addEffect` calls `applyEffect()` on each effect which calls `setStat(StatAddFunction)` centrally; `endEffect` reverses via `removeStat`; same centralization pattern
+    - Build: 0 warnings, 0 errors
+
+231. [✓] NPC self-buff stat delta support — extend CastNpcBuffAsync to apply statup deltas (session 2026-05-03)
+    - [✓] `Services/NpcAiService.cs` — `CastNpcBuffAsync` signature: added `SkillEffects? effects` parameter (avoids 25-param explosion, passes template effects block directly)
+    - [✓] `Services/NpcAiService.cs` — `CastNpcBuffAsync` body: `AbnormalState` now populated with all 25 statup fields from `effects?.*StatUpDelta` / `effects?.SpeedStatUpPct`; `PreBuffMovSpeed = npc.MovementSpeed` captured before buff is applied
+    - [✓] `Services/NpcAiService.cs` — `CastNpcBuffAsync` body: speed statup applied manually after `AddEffect` (`npc.MovementSpeed *= (100 + speedStatUpPct) / 100f`) since `ApplyEffectDeltas` intentionally excludes percent-speed floats
+    - [✓] `Services/NpcAiService.cs` — `CastNpcBuffAsync` expiry: changed from `npc.RemoveEffect(expEffect.SkillId, expEffect.Expiry)` (list-only, no delta reversal) to `npc.RemoveEffectBySkillId(expEffect.SkillId)` (reverses all deltas + restores `MovementSpeed = PreBuffMovSpeed`)
+    - [✓] `Services/NpcAiService.cs` — `TryCastNpcSkillAsync` dispatch: passes `skillTemplate.Effects` to `CastNpcBuffAsync` (template already loaded at dispatch call site)
+    - Java analogy: Java `StatupEffect.applyEffect` applies stat changes to the NPC's `LifeStats`; `endEffect` reverses them — same centralized pattern now mirrored via `AddEffect`/`RemoveEffectBySkillId`
+    - Build: 0 warnings, 0 errors
+
+232. [✓] Craft fail/crit chance — success/fail roll and combo product (critical craft) support (session 2026-05-03)
+    - [✓] `Model/Templates/Recipe/RecipeTemplate.cs` — added `NameId` attribute; added `ComboProducts` list (`[XmlElement("comboproduct")] List<RecipeComboProduct>`); added `ComboProductId` convenience property (first combo product's itemId or 0); added new `RecipeComboProduct` record with `ItemId`
+    - [✓] `CM_CRAFT.cs` — success/fail roll: `skillLvlDiff = playerSkillLevel - recipe.SkillPoint`, `successChance = clamp(50 + lvlDiff*2, 5, 95)%`; mirrors Java CraftingTask multi-tick success bar spirit (50% at margin 0, 95% at margin 22+)
+    - [✓] `CM_CRAFT.cs` — crit roll: 15% if recipe has a combo product (mirrors Java `CraftConfig.CRAFT_CRIT_RATE` default)
+    - [✓] `CM_CRAFT.cs` — on fail: materials consumed (mirrors Java pre-task component deduction in `checkCraft`), SM_CRAFT_UPDATE action=6 (fail), stop animation, no product
+    - [✓] `CM_CRAFT.cs` — on crit: SM_CRAFT_UPDATE action=2 (bluecrit) then deliver combo product instead of normal product
+    - [✓] `CM_CRAFT.cs` — inventory check moved to success-only path (fail path needs no product slot); quest and XP use `productId` (combo or normal)
+    - [✓] SM_CRAFT_UPDATE now receives `recipe.NameId` for correct item-name display in craft window
+    - Java analogy: Java `CraftingTask.onInteractionStart` rolls crit before bars fill; `onFailureFinish` action=6; `checkCrit` delivers combo product; our single-tick simplification collapses multi-tick bar fill into one probability roll
     - Build: 0 warnings, 0 errors

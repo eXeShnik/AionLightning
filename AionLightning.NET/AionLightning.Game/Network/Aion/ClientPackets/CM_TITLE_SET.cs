@@ -43,8 +43,8 @@ public sealed class CM_TITLE_SET : AionClientPacket
         // Recompute MaxHp/MaxMp to include the new title bonus
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         float ssMult = player.SoulSicknessMultiplier;
-        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
-        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
+        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult);
+        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult);
         player.CurrentHp = Math.Min(player.CurrentHp, player.MaxHp);
         player.CurrentMp = Math.Min(player.CurrentMp, player.MaxMp);
 

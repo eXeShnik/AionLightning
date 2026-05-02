@@ -421,33 +421,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 };
                 buffTarget.AddEffect(effect);
 
-                // StatUp deltas: MAXHP / MAXMP / MAGIC_BOOST / HEAL_BOOST / PHYS_ACC
-                if (maxHpStatUpDelta    != 0) buffTarget.MaxHpBonusDelta += maxHpStatUpDelta;
-                if (maxMpStatUpDelta    != 0) buffTarget.MaxMpBonusDelta += maxMpStatUpDelta;
-                if (mBoostStatUpDelta   != 0) buffTarget.MagicBoostDelta += mBoostStatUpDelta;
-                if (healBoostStatUpDelta != 0) buffTarget.HealBoostDelta += healBoostStatUpDelta;
-                if (physAccStatUpDelta  != 0) buffTarget.PhysAccDelta    += physAccStatUpDelta;
-                if (magicAccStatUpDelta != 0) buffTarget.MagicAccDelta   += magicAccStatUpDelta;
-                if (parryStatUpDelta   != 0) buffTarget.ParryDelta      += parryStatUpDelta;
-                if (blockStatUpDelta   != 0) buffTarget.BlockDelta      += blockStatUpDelta;
-                if (physCritStatUpDelta         != 0) buffTarget.PhysCritDelta        += physCritStatUpDelta;
-                if (magicCritStatUpDelta        != 0) buffTarget.MagicCritDelta       += magicCritStatUpDelta;
-                if (physCritResistStatUpDelta   != 0) buffTarget.PhysCritResistDelta  += physCritResistStatUpDelta;
-                if (magicCritResistStatUpDelta  != 0) buffTarget.MagicCritResistDelta += magicCritResistStatUpDelta;
-                if (strikeFortitudeStatUpDelta   != 0) buffTarget.StrikeFortitudeDelta  += strikeFortitudeStatUpDelta;
-                if (spellFortitudeStatUpDelta    != 0) buffTarget.SpellFortitudeDelta   += spellFortitudeStatUpDelta;
-                if (castTimeStatUpDelta          != 0) buffTarget.CastTimeDelta         += castTimeStatUpDelta;
-                if (concentrationStatUpDelta     != 0) buffTarget.ConcentrationDelta    += concentrationStatUpDelta;
-                if (magicSuppressionStatUpDelta  != 0) buffTarget.MagicSuppressionDelta += magicSuppressionStatUpDelta;
-                if (pdefStatUpDelta              != 0) buffTarget.PdefStatUpDelta       += pdefStatUpDelta;
-                if (magicDefStatUpDelta          != 0) buffTarget.MagicDefDelta         += magicDefStatUpDelta;
-                if (patkStatUpDelta              != 0) buffTarget.PatkStatUpDelta       += patkStatUpDelta;
-                if (magicAtkStatUpDelta          != 0) buffTarget.MagicAtkStatUpDelta   += magicAtkStatUpDelta;
-                if (evasionStatUpDelta           != 0) buffTarget.EvasionStatUpDelta    += evasionStatUpDelta;
-                if (mresistStatUpDelta           != 0) buffTarget.MResistStatUpDelta    += mresistStatUpDelta;
-                if (atkSpeedStatUpDelta          != 0)
+                if (atkSpeedStatUpDelta != 0)
                 {
-                    buffTarget.AtkSpeedStatUpDelta += atkSpeedStatUpDelta;
                     var atkSpdEmo = new SM_EMOTION(buffTarget, EmotionType.START_EMOTE2);
                     int atkSpdWorld = player.Position.WorldId;
                     foreach (var c in _connRegistry.GetAll())
@@ -484,140 +459,45 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(durationMs);
-                    // Restore StatUp MAXHP / MAXMP deltas; clamp HP/MP if needed
-                    bool buffStatChanged = false;
+                    bool buffStatChanged = expiryEffect.MaxHpDelta != 0 || expiryEffect.MaxMpDelta != 0 ||
+                        expiryEffect.MagicBoostDeltaVal != 0 || expiryEffect.HealBoostDeltaVal != 0 ||
+                        expiryEffect.PhysAccDeltaVal != 0 || expiryEffect.MagicAccDeltaVal != 0 ||
+                        expiryEffect.ParryDeltaVal != 0 || expiryEffect.BlockDeltaVal != 0 ||
+                        expiryEffect.PhysCritDeltaVal != 0 || expiryEffect.MagicCritDeltaVal != 0 ||
+                        expiryEffect.PhysCritResistDeltaVal != 0 || expiryEffect.MagicCritResistDeltaVal != 0 ||
+                        expiryEffect.StrikeFortitudeDeltaVal != 0 || expiryEffect.SpellFortitudeDeltaVal != 0 ||
+                        expiryEffect.CastTimeDeltaVal != 0 || expiryEffect.ConcentrationDeltaVal != 0 ||
+                        expiryEffect.MagicSuppressionDeltaVal != 0 || expiryEffect.PdefStatUpDeltaVal != 0 ||
+                        expiryEffect.MagicDefDeltaVal != 0 || expiryEffect.PatkStatUpDeltaVal != 0 ||
+                        expiryEffect.MagicAtkStatUpDeltaVal != 0 || expiryEffect.EvasionStatUpDeltaVal != 0 ||
+                        expiryEffect.MResistStatUpDeltaVal != 0 || expiryEffect.AtkSpeedStatUpDeltaVal != 0;
+                    bool atkSpeedChanged = expiryEffect.AtkSpeedStatUpDeltaVal != 0;
+                    bool movSpeedChanged = expiryEffect.SpeedStatUpPct != 0;
+
+                    expiryTarget.RemoveEffectBySkillId(expiryEffect.SkillId);
+
+                    // Clamp HP/MP when a MaxHp/MaxMp buff expires (cap went down)
                     if (expiryEffect.MaxHpDelta != 0)
                     {
-                        expiryTarget.MaxHpBonusDelta -= expiryEffect.MaxHpDelta;
                         int newMaxHp = Math.Max(1, expiryTarget.MaxHp + expiryTarget.MaxHpBonusDelta);
                         if (expiryTarget.CurrentHp > newMaxHp) expiryTarget.CurrentHp = newMaxHp;
-                        buffStatChanged = true;
                     }
                     if (expiryEffect.MaxMpDelta != 0)
                     {
-                        expiryTarget.MaxMpBonusDelta -= expiryEffect.MaxMpDelta;
                         int newMaxMp = Math.Max(1, expiryTarget.MaxMp + expiryTarget.MaxMpBonusDelta);
                         if (expiryTarget.CurrentMp > newMaxMp) expiryTarget.CurrentMp = newMaxMp;
-                        buffStatChanged = true;
                     }
-                    if (expiryEffect.MagicBoostDeltaVal != 0)
+
+                    if (atkSpeedChanged)
                     {
-                        expiryTarget.MagicBoostDelta -= expiryEffect.MagicBoostDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.HealBoostDeltaVal != 0)
-                    {
-                        expiryTarget.HealBoostDelta -= expiryEffect.HealBoostDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.PhysAccDeltaVal != 0)
-                    {
-                        expiryTarget.PhysAccDelta -= expiryEffect.PhysAccDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MagicAccDeltaVal != 0)
-                    {
-                        expiryTarget.MagicAccDelta -= expiryEffect.MagicAccDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.ParryDeltaVal != 0)
-                    {
-                        expiryTarget.ParryDelta -= expiryEffect.ParryDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.BlockDeltaVal != 0)
-                    {
-                        expiryTarget.BlockDelta -= expiryEffect.BlockDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.PhysCritDeltaVal != 0)
-                    {
-                        expiryTarget.PhysCritDelta -= expiryEffect.PhysCritDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MagicCritDeltaVal != 0)
-                    {
-                        expiryTarget.MagicCritDelta -= expiryEffect.MagicCritDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.PhysCritResistDeltaVal != 0)
-                    {
-                        expiryTarget.PhysCritResistDelta -= expiryEffect.PhysCritResistDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MagicCritResistDeltaVal != 0)
-                    {
-                        expiryTarget.MagicCritResistDelta -= expiryEffect.MagicCritResistDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.StrikeFortitudeDeltaVal != 0)
-                    {
-                        expiryTarget.StrikeFortitudeDelta -= expiryEffect.StrikeFortitudeDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.SpellFortitudeDeltaVal != 0)
-                    {
-                        expiryTarget.SpellFortitudeDelta -= expiryEffect.SpellFortitudeDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.CastTimeDeltaVal != 0)
-                    {
-                        expiryTarget.CastTimeDelta -= expiryEffect.CastTimeDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.ConcentrationDeltaVal != 0)
-                    {
-                        expiryTarget.ConcentrationDelta -= expiryEffect.ConcentrationDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MagicSuppressionDeltaVal != 0)
-                    {
-                        expiryTarget.MagicSuppressionDelta -= expiryEffect.MagicSuppressionDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.PdefStatUpDeltaVal != 0)
-                    {
-                        expiryTarget.PdefStatUpDelta -= expiryEffect.PdefStatUpDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MagicDefDeltaVal != 0)
-                    {
-                        expiryTarget.MagicDefDelta -= expiryEffect.MagicDefDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.PatkStatUpDeltaVal != 0)
-                    {
-                        expiryTarget.PatkStatUpDelta -= expiryEffect.PatkStatUpDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MagicAtkStatUpDeltaVal != 0)
-                    {
-                        expiryTarget.MagicAtkStatUpDelta -= expiryEffect.MagicAtkStatUpDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.EvasionStatUpDeltaVal != 0)
-                    {
-                        expiryTarget.EvasionStatUpDelta -= expiryEffect.EvasionStatUpDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.MResistStatUpDeltaVal != 0)
-                    {
-                        expiryTarget.MResistStatUpDelta -= expiryEffect.MResistStatUpDeltaVal;
-                        buffStatChanged = true;
-                    }
-                    if (expiryEffect.AtkSpeedStatUpDeltaVal != 0)
-                    {
-                        expiryTarget.AtkSpeedStatUpDelta -= expiryEffect.AtkSpeedStatUpDeltaVal;
-                        buffStatChanged = true;
                         var restoreAtkEmo = new SM_EMOTION(expiryTarget, EmotionType.START_EMOTE2);
                         int restoreAtkWorld = expiryTarget.Position.WorldId;
                         foreach (var c in _connRegistry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == restoreAtkWorld)
                                 try { await c.SendAsync(restoreAtkEmo); } catch { }
                     }
-                    if (expiryEffect.SpeedStatUpPct != 0)
+                    if (movSpeedChanged)
                     {
-                        expiryTarget.MovementSpeed = expiryEffect.PreBuffMovSpeed;
                         var restoreSpeedEmo = new SM_EMOTION(expiryTarget, EmotionType.START_EMOTE2);
                         int restoreSpeedWorld = expiryTarget.Position.WorldId;
                         foreach (var c in _connRegistry.GetAll())
@@ -630,7 +510,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         var expBuffConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == expiredBuffPlayer);
                         if (expBuffConn is not null) try { await expBuffConn.SendAsync(statsInfoExp); } catch { }
                     }
-                    expiryTarget.RemoveEffect(expiryEffect.SkillId, expiryEffect.Expiry);
                     var expired = new SM_ABNORMAL_EFFECT(expiryTarget.ObjectId, buffTargetIsPlayer,
                                       expiryTarget.GetActiveEffects());
                     int expWorldId = expiryTarget.Position.WorldId;
@@ -1241,47 +1120,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 try { await c.SendAsync(speedEmo); } catch { }
                     }
 
-                    // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST / PHYSICAL_ATTACK / EVASION / MAXHP: accumulate deltas
-                    if (pdefDelta    != 0) target.PdefDebuffDelta    += pdefDelta;
-                    if (mresistDelta != 0) target.MResistDebuffDelta += mresistDelta;
-                    if (patkDelta    != 0) target.PatkDebuffDelta    += patkDelta;
-                    if (evasionDelta != 0) target.EvasionDebuffDelta += evasionDelta;
-                    if (maxHpDelta   != 0)
+                    if (atkSpdDelta != 0)
                     {
-                        target.MaxHpBonusDelta += maxHpDelta;
-                        int effectiveMax = Math.Max(1, target.MaxHp + target.MaxHpBonusDelta);
-                        if (target.CurrentHp > effectiveMax) target.CurrentHp = effectiveMax;
-                    }
-                    if (magicAtkDelta != 0) target.MagicAtkDebuffDelta += magicAtkDelta;
-                    if (atkSpdDelta   != 0)
-                    {
-                        target.AtkSpeedDebuffDelta += atkSpdDelta;
                         var atkSpdEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(atkSpdEmo); } catch { }
                     }
-                    if (maxMpDelta   != 0)
-                    {
-                        target.MaxMpBonusDelta += maxMpDelta;
-                        int effectiveMaxMp = Math.Max(1, target.MaxMp + target.MaxMpBonusDelta);
-                        if (target.CurrentMp > effectiveMaxMp) target.CurrentMp = effectiveMaxMp;
-                    }
-                    if (mBoostDebuffDelta != 0) target.MagicBoostDelta += mBoostDebuffDelta;
-                    if (physAccDelta     != 0) target.PhysAccDelta     += physAccDelta;
-                    if (magicAccDelta    != 0) target.MagicAccDelta    += magicAccDelta;
-                    if (parryDelta       != 0) target.ParryDelta       += parryDelta;
-                    if (blockDelta       != 0) target.BlockDelta       += blockDelta;
-                    if (physCritDelta        != 0) target.PhysCritDelta        += physCritDelta;
-                    if (magicCritDelta       != 0) target.MagicCritDelta       += magicCritDelta;
-                    if (physCritResistDelta  != 0) target.PhysCritResistDelta  += physCritResistDelta;
-                    if (magicCritResistDelta != 0) target.MagicCritResistDelta += magicCritResistDelta;
-                    if (strikeFortitudeDelta  != 0) target.StrikeFortitudeDelta  += strikeFortitudeDelta;
-                    if (spellFortitudeDelta   != 0) target.SpellFortitudeDelta   += spellFortitudeDelta;
-                    if (castTimeDelta         != 0) target.CastTimeDelta         += castTimeDelta;
-                    if (concentrationDelta    != 0) target.ConcentrationDelta    += concentrationDelta;
-                    if (magicSuppressionDelta != 0) target.MagicSuppressionDelta += magicSuppressionDelta;
-                    if (magicDefDelta         != 0) target.MagicDefDelta         += magicDefDelta;
                     if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 || strikeFortitudeDelta != 0 || spellFortitudeDelta != 0 || castTimeDelta != 0 || concentrationDelta != 0 || magicSuppressionDelta != 0 || magicDefDelta != 0) && target is Player debuffedPlayer)
                     {
                         var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
@@ -1312,11 +1157,24 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(expDurationMs);
-                        // Restore movement speed and attack speed before removing the effect
-                        bool restored = expEffect.MovSpeedPct != 0 || expEffect.AttackSpeedPct != 0;
-                        if (expEffect.MovSpeedPct    != 0) expTarget.MovementSpeed     = expEffect.PreDebuffSpeed;
-                        if (expEffect.AttackSpeedPct != 0) expTarget.CurrentAttackSpeed = expEffect.PreDebuffAtkSpeed;
-                        if (restored)
+                        bool statChanged = expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 ||
+                            expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 ||
+                            expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 ||
+                            expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 ||
+                            expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 ||
+                            expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 ||
+                            expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 ||
+                            expEffect.MagicCritDeltaVal != 0 || expEffect.PhysCritResistDeltaVal != 0 ||
+                            expEffect.MagicCritResistDeltaVal != 0 || expEffect.StrikeFortitudeDeltaVal != 0 ||
+                            expEffect.SpellFortitudeDeltaVal != 0 || expEffect.CastTimeDeltaVal != 0 ||
+                            expEffect.ConcentrationDeltaVal != 0 || expEffect.MagicSuppressionDeltaVal != 0 ||
+                            expEffect.MagicDefDeltaVal != 0;
+                        bool speedRestored    = expEffect.MovSpeedPct != 0 || expEffect.AttackSpeedPct != 0;
+                        bool atkSpeedRestored = expEffect.AtkSpeedDelta != 0;
+
+                        expTarget.RemoveEffectBySkillId(expEffect.SkillId);
+
+                        if (speedRestored)
                         {
                             var restoreEmo = new SM_EMOTION(expTarget, EmotionType.START_EMOTE2);
                             int restoreWorld = expTarget.Position.WorldId;
@@ -1324,45 +1182,20 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == restoreWorld)
                                     try { await c.SendAsync(restoreEmo); } catch { }
                         }
-                        // Restore pdef/mresist/patk/evasion/maxhp deltas; send updated stats to player if target is player
-                        if (expEffect.PdefDelta    != 0) expTarget.PdefDebuffDelta    -= expEffect.PdefDelta;
-                        if (expEffect.MResistDelta != 0) expTarget.MResistDebuffDelta -= expEffect.MResistDelta;
-                        if (expEffect.PatkDelta    != 0) expTarget.PatkDebuffDelta    -= expEffect.PatkDelta;
-                        if (expEffect.EvasionDelta != 0) expTarget.EvasionDebuffDelta -= expEffect.EvasionDelta;
-                        if (expEffect.MaxHpDelta    != 0) expTarget.MaxHpBonusDelta     -= expEffect.MaxHpDelta;
-                        if (expEffect.MagicAtkDelta != 0) expTarget.MagicAtkDebuffDelta -= expEffect.MagicAtkDelta;
-                        if (expEffect.AtkSpeedDelta != 0)
+                        if (atkSpeedRestored)
                         {
-                            expTarget.AtkSpeedDebuffDelta -= expEffect.AtkSpeedDelta;
                             var restoreAtkEmo = new SM_EMOTION(expTarget, EmotionType.START_EMOTE2);
                             int restoreAtkWorld = expTarget.Position.WorldId;
                             foreach (var c in registry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == restoreAtkWorld)
                                     try { await c.SendAsync(restoreAtkEmo); } catch { }
                         }
-                        if (expEffect.MaxMpDelta        != 0) expTarget.MaxMpBonusDelta  -= expEffect.MaxMpDelta;
-                        if (expEffect.MagicBoostDeltaVal != 0) expTarget.MagicBoostDelta -= expEffect.MagicBoostDeltaVal;
-                        if (expEffect.PhysAccDeltaVal    != 0) expTarget.PhysAccDelta    -= expEffect.PhysAccDeltaVal;
-                        if (expEffect.MagicAccDeltaVal   != 0) expTarget.MagicAccDelta   -= expEffect.MagicAccDeltaVal;
-                        if (expEffect.ParryDeltaVal      != 0) expTarget.ParryDelta      -= expEffect.ParryDeltaVal;
-                        if (expEffect.BlockDeltaVal      != 0) expTarget.BlockDelta      -= expEffect.BlockDeltaVal;
-                        if (expEffect.PhysCritDeltaVal        != 0) expTarget.PhysCritDelta        -= expEffect.PhysCritDeltaVal;
-                        if (expEffect.MagicCritDeltaVal       != 0) expTarget.MagicCritDelta       -= expEffect.MagicCritDeltaVal;
-                        if (expEffect.PhysCritResistDeltaVal  != 0) expTarget.PhysCritResistDelta  -= expEffect.PhysCritResistDeltaVal;
-                        if (expEffect.MagicCritResistDeltaVal != 0) expTarget.MagicCritResistDelta -= expEffect.MagicCritResistDeltaVal;
-                        if (expEffect.StrikeFortitudeDeltaVal != 0) expTarget.StrikeFortitudeDelta -= expEffect.StrikeFortitudeDeltaVal;
-                        if (expEffect.SpellFortitudeDeltaVal   != 0) expTarget.SpellFortitudeDelta   -= expEffect.SpellFortitudeDeltaVal;
-                        if (expEffect.CastTimeDeltaVal         != 0) expTarget.CastTimeDelta         -= expEffect.CastTimeDeltaVal;
-                        if (expEffect.ConcentrationDeltaVal    != 0) expTarget.ConcentrationDelta    -= expEffect.ConcentrationDeltaVal;
-                        if (expEffect.MagicSuppressionDeltaVal != 0) expTarget.MagicSuppressionDelta -= expEffect.MagicSuppressionDeltaVal;
-                        if (expEffect.MagicDefDeltaVal         != 0) expTarget.MagicDefDelta         -= expEffect.MagicDefDeltaVal;
-                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 || expEffect.MagicCritDeltaVal != 0 || expEffect.PhysCritResistDeltaVal != 0 || expEffect.MagicCritResistDeltaVal != 0 || expEffect.StrikeFortitudeDeltaVal != 0 || expEffect.SpellFortitudeDeltaVal != 0 || expEffect.CastTimeDeltaVal != 0 || expEffect.ConcentrationDeltaVal != 0 || expEffect.MagicSuppressionDeltaVal != 0 || expEffect.MagicDefDeltaVal != 0) && expTarget is Player restoredPlayer)
+                        if (statChanged && expTarget is Player restoredPlayer)
                         {
                             var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
                             var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);
                             if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
                         }
-                        expTarget.RemoveEffect(expEffect.SkillId, expEffect.Expiry);
                         var expired = new SM_ABNORMAL_EFFECT(expTarget.ObjectId, debuffTargetIsPlayer,
                                           expTarget.GetActiveEffects());
                         int expWorldId = expTarget.Position.WorldId;

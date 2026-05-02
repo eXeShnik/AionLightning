@@ -127,6 +127,12 @@ public sealed class Player : Creature
     public int BonusMaxHp { get; set; }
     public int BonusMaxMp { get; set; }
 
+    // HP/MP bonus from passive skills (MAXHP/MAXMP statup); set once at login, survives equipment changes
+    public int PassiveBonusMaxHp { get; set; }
+    public int PassiveBonusMaxMp { get; set; }
+    // SPEED percentage bonus from passive skills; same scale as BonusMovementSpeedPct (1000 = +100%)
+    public int PassiveBonusMovementSpeedPct { get; set; }
+
     // Equipment stat bonuses (sum of PHYSICAL_ATTACK, MAGICAL_RESIST, MAGICAL_ATTACK from all equipped items)
     public int BonusPhysicalAtk { get; set; }
     public int BonusMagicResist { get; set; }

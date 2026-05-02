@@ -228,9 +228,10 @@ public sealed class CM_MANASTONE : AionClientPacket
             : player.BaseAttackSpeed;
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        player.MovementSpeed = (statTpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct) / 1000f;
-        player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
-        player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
+        player.MovementSpeed = (statTpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct + player.PassiveBonusMovementSpeedPct) / 1000f;
+        float ssMult2 = player.SoulSicknessMultiplier;
+        player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult2);
+        player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult2);
         await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
     }
 }

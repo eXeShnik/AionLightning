@@ -338,8 +338,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var tpl = _dataManager.PlayerStats.GetTemplate(newClass, player.Level);
         if (tpl is not null)
         {
-            player.MaxHp     = (int)(tpl.MaxHp * player.SoulSicknessMultiplier) + player.BonusMaxHp + player.TitleBonusMaxHp;
-            player.MaxMp     = (int)(tpl.MaxMp * player.SoulSicknessMultiplier) + player.BonusMaxMp + player.TitleBonusMaxMp;
+            player.MaxHp     = (int)((tpl.MaxHp + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * player.SoulSicknessMultiplier);
+            player.MaxMp     = (int)((tpl.MaxMp + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * player.SoulSicknessMultiplier);
             player.CurrentHp = player.MaxHp;
             player.CurrentMp = player.MaxMp;
             player.BasePhysicalAttack = tpl.MainHandAttack;
@@ -761,8 +761,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         if (statTpl is not null)
         {
-            player.MaxHp = statTpl.MaxHp + player.BonusMaxHp + player.TitleBonusMaxHp;
-            player.MaxMp = statTpl.MaxMp + player.BonusMaxMp + player.TitleBonusMaxMp;
+            player.MaxHp = statTpl.MaxHp + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp;
+            player.MaxMp = statTpl.MaxMp + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp;
         }
 
         // Remove soul sickness skull icon from client

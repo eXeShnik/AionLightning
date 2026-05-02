@@ -194,8 +194,8 @@ public sealed class ExperienceService
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         if (tpl is not null)
         {
-            player.MaxHp = (int)((tpl.MaxHp + player.BonusMaxHp + player.TitleBonusMaxHp) * player.SoulSicknessMultiplier);
-            player.MaxMp = (int)((tpl.MaxMp + player.BonusMaxMp + player.TitleBonusMaxMp) * player.SoulSicknessMultiplier);
+            player.MaxHp = (int)((tpl.MaxHp + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * player.SoulSicknessMultiplier);
+            player.MaxMp = (int)((tpl.MaxMp + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * player.SoulSicknessMultiplier);
             player.CurrentHp            = player.MaxHp;
             player.CurrentMp            = player.MaxMp;
             player.BasePhysicalAttack   = tpl.MainHandAttack;
