@@ -1847,6 +1847,12 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+170. [✓] Magic resist + magical crit in AoE damage paths (session 2026-05-02)
+    - [✓] `CM_CASTSPELL` ground AoE loop — inside `foreach (var target in targets)`: after `rawSpellDmg` roll, added magic resist check (`resistRate = max(1, targetMR - totalMagicAccuracy)` out of 1000; on resist: broadcasts 0-damage SM_ATTACK_STATUS and `continue`s to next target) and magical crit check (same piecewise formula as single-target path; 1.5× on crit); target MR resolves to Player.BonusMagicResist or NPC MResist from template
+    - [✓] `CM_CASTSPELL` caster/target AoE splash loop — inside `foreach (var splash in splashNpcs)`: same two checks added after `splashRaw` roll; splash targets are NPCs only so crit resist is not applied (NPC crit resist not tracked)
+    - Both checks mirror the single-target path added in M169; all three CM_CASTSPELL damage paths (single-target, ground AoE, splash) now apply the same magic combat checks uniformly
+    - Build: 0 warnings, 0 errors
+
 169. [✓] Magical crit and magic resist check for spell damage (session 2026-05-02)
     - [✓] `ItemTemplate` — added `MagicalAccuracyBonus`, `MagicalCriticalBonus`, `MagicalCriticalResistBonus` shortcuts
     - [✓] `EquipStats` record — extended with `MagicalAccuracy`, `MagicalCritical`, `MagicalCriticalResist`

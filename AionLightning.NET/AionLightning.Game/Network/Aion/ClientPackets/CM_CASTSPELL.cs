@@ -271,6 +271,37 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         ? mAtk + player.Level * 6 + Random.Shared.Next(10, 40)
                         : pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
 
+                    // Magic resist check (Java calculateMagicalResistRate)
+                    if (spellIsMagical)
+                    {
+                        int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
+                        int targetMR = target is Player pvpResist ? pvpResist.BonusMagicResist
+                                     : target is Npc npcResist   ? (npcResist.Template.Stats?.MResist ?? 0)
+                                     : 0;
+                        int resistRate = Math.Max(1, targetMR - totalMagicAcc);
+                        if (Random.Shared.Next(1000) < resistRate)
+                        {
+                            var resistPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(resistPkt); } catch { }
+                            continue;
+                        }
+                    }
+
+                    // Magical crit check (same piecewise formula as physical crit)
+                    if (spellIsMagical)
+                    {
+                        int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical;
+                        int mCritResist = target is Player pvpMCrit ? pvpMCrit.BonusMagicalCriticalResist : 0;
+                        mCritRating = Math.Max(0, mCritRating - mCritResist);
+                        double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
+                                         : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
+                                         : 52.0 + (mCritRating - 600) * 0.02;
+                        if (Random.Shared.Next(1000) < (int)mCritRate)
+                            rawSpellDmg = (int)(rawSpellDmg * 1.5f);
+                    }
+
                     int spellDef = target is Player pvpSpellTarget
                                  ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                                  : target is Npc npcSpellTarget
@@ -514,6 +545,34 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int splashRaw = spellIsMagical
                             ? (100 + player.MainHandMagicalAtk + player.BonusMagicAtk) + player.Level * 6 + Random.Shared.Next(10, 40)
                             : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk) + player.Level * 4 + Random.Shared.Next(10, 40);
+
+                        // Magic resist check for AoE splash
+                        if (spellIsMagical)
+                        {
+                            int totalMagicAccS = player.BaseMagicAccuracy + player.BonusMagicalAccuracy;
+                            int splashMR = splash.Template.Stats?.MResist ?? 0;
+                            int splashResistRate = Math.Max(1, splashMR - totalMagicAccS);
+                            if (Random.Shared.Next(1000) < splashResistRate)
+                            {
+                                var resistPktS = new SM_ATTACK_STATUS(splash, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                        try { await c.SendAsync(resistPktS); } catch { }
+                                continue;
+                            }
+                        }
+
+                        // Magical crit check for AoE splash
+                        if (spellIsMagical)
+                        {
+                            int mCritRatingS = player.BaseMagicCritRating + player.BonusMagicalCritical;
+                            double mCritRateS = mCritRatingS <= 440 ? mCritRatingS * 0.1
+                                              : mCritRatingS <= 600 ? 44.0 + (mCritRatingS - 440) * 0.05
+                                              : 52.0 + (mCritRatingS - 600) * 0.02;
+                            if (Random.Shared.Next(1000) < (int)mCritRateS)
+                                splashRaw = (int)(splashRaw * 1.5f);
+                        }
+
                         int splashDef = spellIsMagical ? (splash.Template.Stats?.MResist ?? 0)
                                                        : (splash.Template.Stats?.PDef    ?? 0);
                         int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
