@@ -14,9 +14,14 @@ public sealed class AbnormalState
     public SkillDotInfo?   DotInfo    { get; init; }
 
     // Non-zero when this debuff reduces movement speed (e.g. snare: -50 = halve speed)
-    public int   MovSpeedPct      { get; init; }
+    public int   MovSpeedPct        { get; init; }
     // Target's MovementSpeed before this debuff was applied — used to restore on expiry
-    public float PreDebuffSpeed   { get; init; }
+    public float PreDebuffSpeed     { get; init; }
+
+    // Non-zero when this debuff increases attack speed (slow: +30 = 30% slower attacks)
+    public int   AttackSpeedPct     { get; init; }
+    // Target's CurrentAttackSpeed before this debuff was applied — used to restore on expiry
+    public int   PreDebuffAtkSpeed  { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

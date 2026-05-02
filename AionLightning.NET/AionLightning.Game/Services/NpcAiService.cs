@@ -490,7 +490,10 @@ public sealed class NpcAiService : BackgroundService
                 break;
             case SkillSubType.DEBUFF:
                 await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, effectiveDuration,
-                    skillTemplate.CcFlags, skillTemplate.Effects?.SnareSpeedPct ?? 0, now, worldId, ct);
+                    skillTemplate.CcFlags,
+                    skillTemplate.Effects?.SnareSpeedPct      ?? 0,
+                    skillTemplate.Effects?.SlowAttackSpeedPct ?? 0,
+                    now, worldId, ct);
                 break;
             default:
                 await CastNpcDamageAsync(npc, target, entry.SkillId, skillTemplate, now, worldId, ct);
@@ -645,7 +648,7 @@ public sealed class NpcAiService : BackgroundService
     }
 
     private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs,
-        AbnormalCcFlags ccFlags, int snareSpeedPct, DateTime now, int worldId, CancellationToken ct)
+        AbnormalCcFlags ccFlags, int snareSpeedPct, int slowAtkPct, DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
         target.LastCombatTime = now;
@@ -654,13 +657,18 @@ public sealed class NpcAiService : BackgroundService
         var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
             EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs),
             CcFlags = ccFlags, IsDebuff = true,
-            MovSpeedPct = snareSpeedPct, PreDebuffSpeed = target.MovementSpeed };
+            MovSpeedPct = snareSpeedPct, PreDebuffSpeed = target.MovementSpeed,
+            AttackSpeedPct = slowAtkPct, PreDebuffAtkSpeed = target.CurrentAttackSpeed };
         target.AddEffect(effect);
 
-        // Snare: reduce target movement speed and broadcast to all clients in zone
+        // Snare: reduce movement speed; Slow: increase attack speed (higher = slower attacks)
+        bool speedChanged = snareSpeedPct != 0 || slowAtkPct != 0;
         if (snareSpeedPct != 0)
-        {
             target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + snareSpeedPct) / 100f);
+        if (slowAtkPct != 0)
+            target.CurrentAttackSpeed = Math.Max(500, (int)(target.CurrentAttackSpeed * (100 + slowAtkPct) / 100f));
+        if (speedChanged)
+        {
             var speedEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
             foreach (var conn in _connRegistry.GetAll())
                 if (conn.ActivePlayer?.Position.WorldId == worldId)
@@ -685,10 +693,12 @@ public sealed class NpcAiService : BackgroundService
         _ = Task.Run(async () =>
         {
             await Task.Delay(durationMs);
-            // Restore movement speed before removing the effect
-            if (expEffect.MovSpeedPct != 0)
+            // Restore movement speed and attack speed before removing the effect
+            bool restored = expEffect.MovSpeedPct != 0 || expEffect.AttackSpeedPct != 0;
+            if (expEffect.MovSpeedPct    != 0) target.MovementSpeed      = expEffect.PreDebuffSpeed;
+            if (expEffect.AttackSpeedPct != 0) target.CurrentAttackSpeed = expEffect.PreDebuffAtkSpeed;
+            if (restored)
             {
-                target.MovementSpeed = expEffect.PreDebuffSpeed;
                 var restoreEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
                 int restoreWorld = target.Position.WorldId;
                 foreach (var conn in _connRegistry.GetAll())

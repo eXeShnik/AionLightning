@@ -128,6 +128,31 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>
+    /// Attack speed percent increase from the first slow effect with a PERCENT ATTACK_SPEED change.
+    /// Positive value (e.g. 30) means attacks become 30% slower. 0 means no change.
+    /// </summary>
+    public int SlowAttackSpeedPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "slow") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "ATTACK_SPEED", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int pct)) return pct;
+                }
+            }
+            return 0;
+        }
+    }
+
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];

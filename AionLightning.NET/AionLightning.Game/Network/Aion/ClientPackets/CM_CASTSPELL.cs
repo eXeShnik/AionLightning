@@ -911,24 +911,31 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0)
                 {
                     bool debuffTargetIsPlayer = target is Player;
-                    int  snareSpeedPct        = template?.Effects?.SnareSpeedPct ?? 0;
+                    int  snareSpeedPct        = template?.Effects?.SnareSpeedPct     ?? 0;
+                    int  slowAtkPct           = template?.Effects?.SlowAttackSpeedPct ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
-                        SkillId        = spellId,
-                        SkillLevel     = _level,
-                        EffectorId     = player.ObjectId,
-                        Expiry         = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
-                        CcFlags        = template!.CcFlags,
-                        IsDebuff       = true,
-                        MovSpeedPct    = snareSpeedPct,
-                        PreDebuffSpeed = target.MovementSpeed,
+                        SkillId             = spellId,
+                        SkillLevel          = _level,
+                        EffectorId          = player.ObjectId,
+                        Expiry              = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
+                        CcFlags             = template!.CcFlags,
+                        IsDebuff            = true,
+                        MovSpeedPct         = snareSpeedPct,
+                        PreDebuffSpeed      = target.MovementSpeed,
+                        AttackSpeedPct      = slowAtkPct,
+                        PreDebuffAtkSpeed   = target.CurrentAttackSpeed,
                     };
                     target.AddEffect(debuffEffect);
 
-                    // Snare: reduce target movement speed and broadcast to all clients in zone
+                    // Snare: reduce movement speed; Slow: increase attack speed (higher = slower)
+                    bool speedChanged = snareSpeedPct != 0 || slowAtkPct != 0;
                     if (snareSpeedPct != 0)
-                    {
                         target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + snareSpeedPct) / 100f);
+                    if (slowAtkPct != 0)
+                        target.CurrentAttackSpeed = Math.Max(500, (int)(target.CurrentAttackSpeed * (100 + slowAtkPct) / 100f));
+                    if (speedChanged)
+                    {
                         var speedEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
@@ -958,10 +965,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(expDurationMs);
-                        // Restore movement speed before removing the effect
-                        if (expEffect.MovSpeedPct != 0)
+                        // Restore movement speed and attack speed before removing the effect
+                        bool restored = expEffect.MovSpeedPct != 0 || expEffect.AttackSpeedPct != 0;
+                        if (expEffect.MovSpeedPct    != 0) expTarget.MovementSpeed     = expEffect.PreDebuffSpeed;
+                        if (expEffect.AttackSpeedPct != 0) expTarget.CurrentAttackSpeed = expEffect.PreDebuffAtkSpeed;
+                        if (restored)
                         {
-                            expTarget.MovementSpeed = expEffect.PreDebuffSpeed;
                             var restoreEmo = new SM_EMOTION(expTarget, EmotionType.START_EMOTE2);
                             int restoreWorld = expTarget.Position.WorldId;
                             foreach (var c in registry.GetAll())

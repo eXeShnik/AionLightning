@@ -2219,6 +2219,15 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+200. [✓] Slow attack speed increase applied on debuff, restored on expiry (session 2026-05-02)
+    - [✓] `Model/AbnormalState.cs` — added `int AttackSpeedPct { get; init; }` and `int PreDebuffAtkSpeed { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SlowAttackSpeedPct` property to `SkillEffects`: walks `<slow>/<change stat="ATTACK_SPEED" func="PERCENT">` children and returns the int value (positive = attacks slower)
+    - [✓] `CM_CASTSPELL.cs` — in debuff block: reads `SlowAttackSpeedPct`; applies `target.CurrentAttackSpeed *= (100+pct)/100f` clamped ≥ 500ms; folds snare and slow into single `SM_EMOTION(START_EMOTE2)` broadcast; on expiry restores both `MovementSpeed` and `CurrentAttackSpeed` then re-broadcasts
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int slowAtkPct` parameter; same apply/restore/broadcast pattern; `TryCastNpcSkillAsync` passes `skillTemplate.Effects?.SlowAttackSpeedPct ?? 0`
+    - Java source: `SlowEffect` extends `BufEffect` applying `StatAddFunction` on `StatEnum.ATTACK_SPEED`; positive PERCENT increases the attack_speed stat (higher = slower); `BroadcastMode.UPDATE_SPEED` broadcasts `SM_EMOTION(START_EMOTE2)` carrying updated `attackSpeed`
+    - Previously: 120 slow skills (Gladiator Dazing Severe Blow, Templar Break Power, Spiritmaster Deceleration Curse etc.) applied the CC icon but never modified `CurrentAttackSpeed`; debuffed targets attacked at full speed
+    - Build: 0 warnings, 0 errors
+
 199. [✓] Snare movement speed reduction applied on debuff, restored on expiry (session 2026-05-02)
     - [✓] `Model/AbnormalState.cs` — added `int MovSpeedPct { get; init; }` and `float PreDebuffSpeed { get; init; }` to capture the speed change and original speed at cast time
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SnareNames` set (`snare`/`absolutesnare`); added `SnareSpeedPct` property to `SkillEffects` that walks `<snare>/<change stat="SPEED" func="PERCENT">` child elements and returns the int percent value; added `absolutesnare` to `EffectDurNames` for duration2 parsing
