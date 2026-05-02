@@ -2219,6 +2219,18 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+203. [✓] StatDown PHYSICAL_ATTACK (ADD) — accumulated patk delta reduces attacker damage, restored on expiry (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int PatkDebuffDelta { get; set; }` (negative = reduced physical attack from statdown)
+    - [✓] `Model/AbnormalState.cs` — added `int PatkDelta { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PhysAtkAddDelta` property to `SkillEffects`: sums all `<statdown>/<change stat="PHYSICAL_ATTACK" func="ADD">` values
+    - [✓] `CM_ATTACK.cs` — `baseAtk` formula now includes `+ player.PatkDebuffDelta` (all 3 occurrences: parry, block, main path); reduces the debuffed player's physical damage output
+    - [✓] `NpcAiService.cs` — NPC melee `baseAtk = (MainHandAttack + npc.PatkDebuffDelta)` so player-debuffed NPCs deal less melee damage
+    - [✓] `SM_STATS_INFO.cs` — `totalAtk` now includes `+ p.PatkDebuffDelta` so stat panel reflects debuffed P-attack
+    - [✓] CM_CASTSPELL and NpcAiService debuff apply/restore chains extended with `patkDelta` alongside pdef/mresist
+    - Java source: `StatDownEffect` applies `StatAddFunction` to `PHYSICAL_ATTACK`; `PlayerGameStats.getMainHandPAttack()` returns base + template + bonuses + all modifiers; NPC uses `NpcGameStats.getMainHandPAttack()`
+    - Previously: 90 PHYSICAL_ATTACK statdown skills (Gladiator Destabilizer, Spiritmaster Weakening, etc.) showed the icon but left attacker damage unchanged
+    - Build: 0 warnings, 0 errors
+
 202. [✓] StatDown MAGICAL_RESIST (ADD) — accumulated mresist delta in resist check, restored on expiry (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int MResistDebuffDelta { get; set; }` (negative = reduced magic resist from statdown)
     - [✓] `Model/AbnormalState.cs` — added `int MResistDelta { get; init; }`

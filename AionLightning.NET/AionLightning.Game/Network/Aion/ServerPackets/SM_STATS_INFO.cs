@@ -62,7 +62,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // fly state
 
         int weaponAtkBonus = (p.MainHandMinDmg + p.MainHandMaxDmg) / 2;
-        int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus + p.BonusPhysicalAtk);
+        int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus + p.BonusPhysicalAtk + p.PatkDebuffDelta);
         w.WriteH((short)totalAtk); w.WriteH(0); // main/off-hand P-attack
         w.WriteH(0);                   // unk 3.0
         int pdef = Math.Max(0, p.PhysicalDefense + p.PdefDebuffDelta);

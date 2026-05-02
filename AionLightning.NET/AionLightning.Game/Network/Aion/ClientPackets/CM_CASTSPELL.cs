@@ -915,6 +915,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  slowAtkPct           = template?.Effects?.SlowAttackSpeedPct ?? 0;
                     int  pdefDelta            = template?.Effects?.PdefAddDelta       ?? 0;
                     int  mresistDelta         = template?.Effects?.MResistAddDelta    ?? 0;
+                    int  patkDelta            = template?.Effects?.PhysAtkAddDelta    ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -929,6 +930,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         PreDebuffAtkSpeed   = target.CurrentAttackSpeed,
                         PdefDelta           = pdefDelta,
                         MResistDelta        = mresistDelta,
+                        PatkDelta           = patkDelta,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -946,10 +948,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 try { await c.SendAsync(speedEmo); } catch { }
                     }
 
-                    // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST: accumulate deltas so stacking debuffs subtract independently
-                    if (pdefDelta != 0) target.PdefDebuffDelta    += pdefDelta;
+                    // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST / PHYSICAL_ATTACK: accumulate deltas
+                    if (pdefDelta    != 0) target.PdefDebuffDelta    += pdefDelta;
                     if (mresistDelta != 0) target.MResistDebuffDelta += mresistDelta;
-                    if ((pdefDelta != 0 || mresistDelta != 0) && target is Player debuffedPlayer)
+                    if (patkDelta    != 0) target.PatkDebuffDelta    += patkDelta;
+                    if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0) && target is Player debuffedPlayer)
                     {
                         var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
                         var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);
@@ -991,10 +994,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == restoreWorld)
                                     try { await c.SendAsync(restoreEmo); } catch { }
                         }
-                        // Restore pdef/mresist deltas; send updated stats to player if target is player
+                        // Restore pdef/mresist/patk deltas; send updated stats to player if target is player
                         if (expEffect.PdefDelta    != 0) expTarget.PdefDebuffDelta    -= expEffect.PdefDelta;
                         if (expEffect.MResistDelta != 0) expTarget.MResistDebuffDelta -= expEffect.MResistDelta;
-                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0) && expTarget is Player restoredPlayer)
+                        if (expEffect.PatkDelta    != 0) expTarget.PatkDebuffDelta    -= expEffect.PatkDelta;
+                        if ((expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0) && expTarget is Player restoredPlayer)
                         {
                             var statsInfo = new SM_STATS_INFO(restoredPlayer, _dataManager.PlayerStats.GetTemplate(restoredPlayer.PlayerClass, restoredPlayer.Level));
                             var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == restoredPlayer);

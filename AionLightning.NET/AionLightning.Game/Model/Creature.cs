@@ -28,6 +28,8 @@ public abstract class Creature : VisibleObject
     public int PdefDebuffDelta    { get; set; }
     // Cumulative MAGICAL_RESIST debuff delta (negative = reduced magic resist from statdown effects)
     public int MResistDebuffDelta { get; set; }
+    // Cumulative PHYSICAL_ATTACK debuff delta (negative = reduced physical attack from statdown effects)
+    public int PatkDebuffDelta    { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

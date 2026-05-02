@@ -27,6 +27,8 @@ public sealed class AbnormalState
     public int   PdefDelta          { get; init; }
     // Non-zero when this debuff reduces MAGICAL_RESIST
     public int   MResistDelta       { get; init; }
+    // Non-zero when this debuff reduces PHYSICAL_ATTACK
+    public int   PatkDelta          { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

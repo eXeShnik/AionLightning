@@ -286,7 +286,7 @@ public sealed class NpcAiService : BackgroundService
             if ((npc.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) continue;
 
             // Deal damage — both NPC and target enter combat (suppresses regen for both)
-            int baseAtk = npc.Template.Stats?.MainHandAttack ?? 0;
+            int baseAtk = (npc.Template.Stats?.MainHandAttack ?? 0) + npc.PatkDebuffDelta;
             int rawDmg  = baseAtk > 0
                 ? Math.Max(1, baseAtk + Random.Shared.Next(-(baseAtk / 4), baseAtk / 4 + 1))
                 : Math.Max(1, npc.Level * 5 + Random.Shared.Next(5, 20));
@@ -495,6 +495,7 @@ public sealed class NpcAiService : BackgroundService
                     skillTemplate.Effects?.SlowAttackSpeedPct ?? 0,
                     skillTemplate.Effects?.PdefAddDelta        ?? 0,
                     skillTemplate.Effects?.MResistAddDelta     ?? 0,
+                    skillTemplate.Effects?.PhysAtkAddDelta     ?? 0,
                     now, worldId, ct);
                 break;
             default:
@@ -650,7 +651,7 @@ public sealed class NpcAiService : BackgroundService
     }
 
     private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs,
-        AbnormalCcFlags ccFlags, int snareSpeedPct, int slowAtkPct, int pdefDelta, int mresistDelta,
+        AbnormalCcFlags ccFlags, int snareSpeedPct, int slowAtkPct, int pdefDelta, int mresistDelta, int patkDelta,
         DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
@@ -662,7 +663,7 @@ public sealed class NpcAiService : BackgroundService
             CcFlags = ccFlags, IsDebuff = true,
             MovSpeedPct = snareSpeedPct, PreDebuffSpeed = target.MovementSpeed,
             AttackSpeedPct = slowAtkPct, PreDebuffAtkSpeed = target.CurrentAttackSpeed,
-            PdefDelta = pdefDelta, MResistDelta = mresistDelta };
+            PdefDelta = pdefDelta, MResistDelta = mresistDelta, PatkDelta = patkDelta };
         target.AddEffect(effect);
 
         // Snare: reduce movement speed; Slow: increase attack speed (higher = slower attacks)
@@ -679,10 +680,11 @@ public sealed class NpcAiService : BackgroundService
                     try { await conn.SendAsync(speedEmo, ct); } catch { }
         }
 
-        // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST: accumulate deltas; send updated stats panel
+        // StatDown PHYSICAL_DEFENSE / MAGICAL_RESIST / PHYSICAL_ATTACK: accumulate deltas; send updated stats panel
         if (pdefDelta    != 0) target.PdefDebuffDelta    += pdefDelta;
         if (mresistDelta != 0) target.MResistDebuffDelta += mresistDelta;
-        if (pdefDelta != 0 || mresistDelta != 0)
+        if (patkDelta    != 0) target.PatkDebuffDelta    += patkDelta;
+        if (pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0)
         {
             var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
             var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
@@ -719,10 +721,11 @@ public sealed class NpcAiService : BackgroundService
                     if (conn.ActivePlayer?.Position.WorldId == restoreWorld)
                         try { await conn.SendAsync(restoreEmo); } catch { }
             }
-            // Restore pdef/mresist deltas; send updated stats to player
+            // Restore pdef/mresist/patk deltas; send updated stats to player
             if (expEffect.PdefDelta    != 0) target.PdefDebuffDelta    -= expEffect.PdefDelta;
             if (expEffect.MResistDelta != 0) target.MResistDebuffDelta -= expEffect.MResistDelta;
-            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0)
+            if (expEffect.PatkDelta    != 0) target.PatkDebuffDelta    -= expEffect.PatkDelta;
+            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0)
             {
                 var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
                 var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
