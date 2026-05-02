@@ -2072,6 +2072,12 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+195. [✓] AoE heal skills — IsCasterAoe/IsTargetAoe HEAL subtype (session 2026-05-02)
+    - [✓] `CM_CASTSPELL.cs` — after the primary single-target heal block, added AoE heal block: when `template.IsCasterAoe || IsTargetAoe` and has `HealEffects`, iterates all alive same-race players within `EffectiveRange` up to `TargetMaxCount`; applies the same healinstant formula (value+delta*level, percent, healBoost) per ally; sends `SM_ATTACK_STATUS(NaturalHp/NaturalMp)` per healed ally
+    - Java source: `Skill.java` uses `TargetType.AREA` + `TargetRelation.FRIEND` to collect targets via `getAffectedList()` then applies `HealInstantEffect.applyEffect` on each; first_target="ME" casts from caster position
+    - Previously: 89 AoE heal skills (Healing Wind, Prayer of Wind, Ripple of Purification etc.) only healed the primary target (self); all party members within range received no healing at all
+    - Build: 0 warnings, 0 errors
+
 194. [✓] Debuff duration from effect element duration2 — slow/snare/statdown/statup (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `TSlot` property (`tslot` XML attribute); added `EffectDuration` property to `SkillEffects`: iterates slow/snare/statdown/statup/blind/confuse elements and returns max `duration2`
     - [✓] `CM_CASTSPELL.cs` — debuff block: `debuffDurationMs = template.Duration > 0 ? template.Duration : effects.EffectDuration`; `isDebuffSkill` now also fires for ATTACK+tslot=DEBUFF when debuffDurationMs > 0; expiry `Task.Delay` uses captured `debuffDurationMs` instead of `template.Duration`

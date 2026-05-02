@@ -269,6 +269,63 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
             }
+
+            // AoE heal: when the skill has AREA target type, apply the same instant heal to all
+            // nearby allies (Healing Wind, Prayer of Wind, etc.) up to target_maxcount
+            if ((template?.IsCasterAoe == true || template?.IsTargetAoe == true)
+                && template.EffectiveRange > 0
+                && template?.Effects?.HealEffects is { Count: > 0 } aoeHealEffects)
+            {
+                int aoeSkillLv      = _level;
+                float aoeBoostMult  = 1.0f + player.BonusHealBoost / 1000f;
+                int aoeWorldId      = player.Position.WorldId;
+                float aoeR          = template.EffectiveRange;
+                Position aoeCenter  = healTarget?.Position ?? player.Position;
+                int aoeMaxTargets   = template.TargetMaxCount;
+                int aoeHealed       = healTarget is not null ? 1 : 0;
+
+                foreach (var ally in _world.GetAll())
+                {
+                    if (aoeHealed >= aoeMaxTargets) break;
+                    if (ally.IsAlreadyDead || ally.ObjectId == healTarget?.ObjectId) continue;
+                    if (ally.Race != player.Race) continue;
+                    if (ally.Position.WorldId != aoeWorldId) continue;
+                    float adx = ally.Position.X - aoeCenter.X, ady = ally.Position.Y - aoeCenter.Y;
+                    if (adx * adx + ady * ady > aoeR * aoeR) continue;
+
+                    foreach (var he in aoeHealEffects)
+                    {
+                        int vd = he.BaseValue + he.Delta * aoeSkillLv;
+                        int h  = he.IsPercent
+                            ? (he.HealType == "hp" ? ally.MaxHp : ally.MaxMp) * vd / 100
+                            : vd;
+                        h = (int)(h * aoeBoostMult);
+
+                        if (he.HealType == "hp")
+                        {
+                            h = Math.Min(h, ally.MaxHp - ally.CurrentHp);
+                            if (h <= 0) continue;
+                            ally.CurrentHp += h;
+                            var pkt = new SM_ATTACK_STATUS(ally, SM_ATTACK_STATUS.AttackType.NaturalHp, _spellId, h, SM_ATTACK_STATUS.LogId.Heal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == aoeWorldId)
+                                    try { await c.SendAsync(pkt, ct); } catch { }
+                        }
+                        else
+                        {
+                            h = Math.Min(h, ally.MaxMp - ally.CurrentMp);
+                            if (h <= 0) continue;
+                            ally.CurrentMp += h;
+                            var pkt = new SM_ATTACK_STATUS(ally, SM_ATTACK_STATUS.AttackType.NaturalMp, _spellId, h, SM_ATTACK_STATUS.LogId.MpHeal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == aoeWorldId)
+                                    try { await c.SendAsync(pkt, ct); } catch { }
+                        }
+                    }
+                    aoeHealed++;
+                }
+            }
+
             var activation = new SM_SKILL_ACTIVATION(_spellId);
             await BroadcastAsync(activation, ct);
         }
