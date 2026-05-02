@@ -56,6 +56,14 @@ public abstract class Creature : VisibleObject
     public int PhysCritDelta       { get; set; }
     // Cumulative MAGICAL_CRITICAL delta (negative = reduced M-crit from statdown; positive from statup)
     public int MagicCritDelta      { get; set; }
+    // Cumulative PHYSICAL_CRITICAL_RESIST delta (positive = more P-crit resist from statup)
+    public int PhysCritResistDelta  { get; set; }
+    // Cumulative MAGICAL_CRITICAL_RESIST delta (positive = more M-crit resist from statup)
+    public int MagicCritResistDelta { get; set; }
+    // Cumulative PHYSICAL_CRITICAL_DAMAGE_REDUCE (strike fortitude) delta (positive from statup)
+    public int StrikeFortitudeDelta { get; set; }
+    // Cumulative MAGICAL_CRITICAL_DAMAGE_REDUCE (spell fortitude) delta (positive from statup)
+    public int SpellFortitudeDelta  { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

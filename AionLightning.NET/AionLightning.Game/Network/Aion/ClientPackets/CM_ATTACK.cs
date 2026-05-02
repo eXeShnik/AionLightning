@@ -160,7 +160,7 @@ public sealed class CM_ATTACK : AionClientPacket
 
         // Critical hit — Java calculatePhysicalCriticalRate piecewise: <=440: rate*0.1, <=600: 44+(r-440)*0.05, else +0.02
         int critRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
-        int critResist = target is Player pvpCritTarget ? pvpCritTarget.BonusPhysicalCriticalResist : 0;
+        int critResist = target is Player pvpCritTarget ? pvpCritTarget.BonusPhysicalCriticalResist + pvpCritTarget.PhysCritResistDelta : 0;
         critRating = Math.Max(0, critRating - critResist);
         double critRate = critRating <= 440 ? critRating * 0.1
                         : critRating <= 600 ? 44.0 + (critRating - 440) * 0.05
@@ -169,7 +169,7 @@ public sealed class CM_ATTACK : AionClientPacket
         if (isCrit)
         {
             // Java calculateWeaponCritical: coefficient by weapon type, reduced by strikeFortitude/1000, min 1.0
-            int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
+            int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude + pvpSF.StrikeFortitudeDelta : 0;
             float baseCoeff = player.MainHandWeaponType switch
             {
                 "DAGGER_1H"                                                          => 2.3f,
@@ -220,7 +220,7 @@ public sealed class CM_ATTACK : AionClientPacket
             ohRaw /= 2; // dual-wield penalty (no WeaponDualEffect passive)
             if (isCrit)
             {
-                int ohSF = target is Player pvpOhSF ? pvpOhSF.BonusStrikeFortitude : 0;
+                int ohSF = target is Player pvpOhSF ? pvpOhSF.BonusStrikeFortitude + pvpOhSF.StrikeFortitudeDelta : 0;
                 float ohCoeff = Math.Max(1.0f, (player.OffHandWeaponType switch
                 {
                     "DAGGER_1H" => 2.3f, "SWORD_1H" => 2.2f, "MACE_1H" => 2.0f, _ => 1.5f,

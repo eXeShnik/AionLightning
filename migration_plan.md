@@ -2219,6 +2219,18 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+217. [✓] StatDown/StatUp PHYSICAL_CRITICAL_RESIST / MAGICAL_CRITICAL_RESIST / STRIKE_FORTITUDE / SPELL_FORTITUDE — target-defensive crit resist and crit-damage reduction (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PhysCritResistAddDelta/StatUpDelta`, `MagicCritResistAddDelta/StatUpDelta`, `StrikeFortitudeAddDelta/StatUpDelta`, `SpellFortitudeAddDelta/StatUpDelta`
+    - [✓] `Model/Creature.cs` — added `PhysCritResistDelta`, `MagicCritResistDelta`, `StrikeFortitudeDelta`, `SpellFortitudeDelta`
+    - [✓] `Model/AbnormalState.cs` — added `PhysCritResistDeltaVal`, `MagicCritResistDeltaVal`, `StrikeFortitudeDeltaVal`, `SpellFortitudeDeltaVal`
+    - [✓] `SM_STATS_INFO.cs` — P-crit-resist fixed from missing `BonusMagicalCriticalResist` (was `0`); both crit-resist and fortitude fields now include delta
+    - [✓] `CM_ATTACK.cs` — `critResist` and `sFortitude` (main-hand + off-hand) include player delta
+    - [✓] `CM_CASTSPELL.cs` — AoE and single-target `mCritResist`/`spFt` include delta; full debuff/buff apply+restore chain for all 4 vals
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — 4 new params; apply/restore chain; `sFortitude` in NPC crit section includes player delta
+    - Java source: `PHYSICAL_CRITICAL_RESIST` reduces attacker crit chance; `MAGICAL_CRITICAL_RESIST` same for spells; `PHYSICAL/MAGICAL_CRITICAL_DAMAGE_REDUCE` reduces crit coefficient (fortitude/1000)
+    - Previously: M-crit-resist was hardcoded 0 in SM_STATS_INFO; crit-resist/fortitude deltas from buffs/debuffs were never applied to combat formulas
+    - Build: 0 warnings, 0 errors
+
 216. [✓] StatDown/StatUp MAGICAL_CRITICAL (ADD) — MagicCritDelta affects M-crit chance for duration (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int MagicCritDelta { get; set; }`
     - [✓] `Model/AbnormalState.cs` — added `int MagicCritDeltaVal { get; init; }`

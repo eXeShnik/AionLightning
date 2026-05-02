@@ -86,8 +86,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)p.BonusConcentration);           // concentration
         w.WriteH((short)(p.BonusMagicBoost + p.MagicBoostDelta)); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress
         w.WriteH((short)(p.BonusHealBoost + p.HealBoostDelta)); // heal boost
-        w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // P-crit resist, M-crit resist
-        w.WriteH((short)p.BonusStrikeFortitude); w.WriteH((short)p.BonusSpellFortitude); // P-crit fortitude, M-crit fortitude
+        w.WriteH((short)(p.BonusPhysicalCriticalResist + p.PhysCritResistDelta)); w.WriteH((short)(p.BonusMagicalCriticalResist + p.MagicCritResistDelta)); // P-crit resist, M-crit resist
+        w.WriteH((short)(p.BonusStrikeFortitude + p.StrikeFortitudeDelta)); w.WriteH((short)(p.BonusSpellFortitude + p.SpellFortitudeDelta)); // P-crit fortitude, M-crit fortitude
         w.WriteH(0);                   // unk 3.5
         w.WriteD(p.Inventory.Capacity); w.WriteD(p.Inventory.BagSlotUsed); // inventory limit, current size
         w.WriteD(0); w.WriteD(0);      // unk

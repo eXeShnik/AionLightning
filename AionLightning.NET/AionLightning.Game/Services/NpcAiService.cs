@@ -345,7 +345,7 @@ public sealed class NpcAiService : BackgroundService
                                : 52.0 + (npcCritRating - 600) * 0.02;
             if (Random.Shared.Next(100) < (int)npcCritRate)
             {
-                int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
+                int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude + pvpSF.StrikeFortitudeDelta : 0;
                 float critCoeff = Math.Max(1.0f, 2.0f - (float)Math.Round(sFortitude / 1000.0));
                 rawDmg = (int)(rawDmg * critCoeff);
                 if (hitResult == SM_ATTACK.HitResult.Normal)
@@ -506,8 +506,12 @@ public sealed class NpcAiService : BackgroundService
                     skillTemplate.Effects?.MagicAccAddDelta    ?? 0,
                     skillTemplate.Effects?.ParryAddDelta       ?? 0,
                     skillTemplate.Effects?.BlockAddDelta       ?? 0,
-                    skillTemplate.Effects?.PhysCritAddDelta    ?? 0,
-                    skillTemplate.Effects?.MagicCritAddDelta   ?? 0,
+                    skillTemplate.Effects?.PhysCritAddDelta         ?? 0,
+                    skillTemplate.Effects?.MagicCritAddDelta        ?? 0,
+                    skillTemplate.Effects?.PhysCritResistAddDelta   ?? 0,
+                    skillTemplate.Effects?.MagicCritResistAddDelta  ?? 0,
+                    skillTemplate.Effects?.StrikeFortitudeAddDelta  ?? 0,
+                    skillTemplate.Effects?.SpellFortitudeAddDelta   ?? 0,
                     now, worldId, ct);
                 break;
             default:
@@ -675,6 +679,10 @@ public sealed class NpcAiService : BackgroundService
         int blockDelta,
         int physCritDelta,
         int magicCritDelta,
+        int physCritResistDelta,
+        int magicCritResistDelta,
+        int strikeFortitudeDelta,
+        int spellFortitudeDelta,
         DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
@@ -690,7 +698,9 @@ public sealed class NpcAiService : BackgroundService
             MaxHpDelta = maxHpDelta, MagicAtkDelta = magicAtkDelta, AtkSpeedDelta = atkSpdDelta,
             MaxMpDelta = maxMpDelta, MagicBoostDeltaVal = mBoostDebuffDelta, PhysAccDeltaVal = physAccDelta,
             MagicAccDeltaVal = magicAccDelta, ParryDeltaVal = parryDelta, BlockDeltaVal = blockDelta,
-            PhysCritDeltaVal = physCritDelta, MagicCritDeltaVal = magicCritDelta };
+            PhysCritDeltaVal = physCritDelta, MagicCritDeltaVal = magicCritDelta,
+            PhysCritResistDeltaVal = physCritResistDelta, MagicCritResistDeltaVal = magicCritResistDelta,
+            StrikeFortitudeDeltaVal = strikeFortitudeDelta, SpellFortitudeDeltaVal = spellFortitudeDelta };
         target.AddEffect(effect);
 
         // Snare: reduce movement speed; Slow: increase attack speed (higher = slower attacks)
@@ -738,9 +748,13 @@ public sealed class NpcAiService : BackgroundService
         if (magicAccDelta     != 0) target.MagicAccDelta   += magicAccDelta;
         if (parryDelta        != 0) target.ParryDelta      += parryDelta;
         if (blockDelta        != 0) target.BlockDelta      += blockDelta;
-        if (physCritDelta     != 0) target.PhysCritDelta   += physCritDelta;
-        if (magicCritDelta    != 0) target.MagicCritDelta  += magicCritDelta;
-        if (pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0)
+        if (physCritDelta        != 0) target.PhysCritDelta        += physCritDelta;
+        if (magicCritDelta       != 0) target.MagicCritDelta       += magicCritDelta;
+        if (physCritResistDelta  != 0) target.PhysCritResistDelta  += physCritResistDelta;
+        if (magicCritResistDelta != 0) target.MagicCritResistDelta += magicCritResistDelta;
+        if (strikeFortitudeDelta != 0) target.StrikeFortitudeDelta += strikeFortitudeDelta;
+        if (spellFortitudeDelta  != 0) target.SpellFortitudeDelta  += spellFortitudeDelta;
+        if (pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 || strikeFortitudeDelta != 0 || spellFortitudeDelta != 0)
         {
             var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
             var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
@@ -799,9 +813,13 @@ public sealed class NpcAiService : BackgroundService
             if (expEffect.MagicAccDeltaVal   != 0) target.MagicAccDelta   -= expEffect.MagicAccDeltaVal;
             if (expEffect.ParryDeltaVal      != 0) target.ParryDelta      -= expEffect.ParryDeltaVal;
             if (expEffect.BlockDeltaVal      != 0) target.BlockDelta      -= expEffect.BlockDeltaVal;
-            if (expEffect.PhysCritDeltaVal   != 0) target.PhysCritDelta   -= expEffect.PhysCritDeltaVal;
-            if (expEffect.MagicCritDeltaVal  != 0) target.MagicCritDelta  -= expEffect.MagicCritDeltaVal;
-            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 || expEffect.MagicCritDeltaVal != 0)
+            if (expEffect.PhysCritDeltaVal        != 0) target.PhysCritDelta        -= expEffect.PhysCritDeltaVal;
+            if (expEffect.MagicCritDeltaVal       != 0) target.MagicCritDelta       -= expEffect.MagicCritDeltaVal;
+            if (expEffect.PhysCritResistDeltaVal  != 0) target.PhysCritResistDelta  -= expEffect.PhysCritResistDeltaVal;
+            if (expEffect.MagicCritResistDeltaVal != 0) target.MagicCritResistDelta -= expEffect.MagicCritResistDeltaVal;
+            if (expEffect.StrikeFortitudeDeltaVal != 0) target.StrikeFortitudeDelta -= expEffect.StrikeFortitudeDeltaVal;
+            if (expEffect.SpellFortitudeDeltaVal  != 0) target.SpellFortitudeDelta  -= expEffect.SpellFortitudeDeltaVal;
+            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0 || expEffect.MagicAccDeltaVal != 0 || expEffect.ParryDeltaVal != 0 || expEffect.BlockDeltaVal != 0 || expEffect.PhysCritDeltaVal != 0 || expEffect.MagicCritDeltaVal != 0 || expEffect.PhysCritResistDeltaVal != 0 || expEffect.MagicCritResistDeltaVal != 0 || expEffect.StrikeFortitudeDeltaVal != 0 || expEffect.SpellFortitudeDeltaVal != 0)
             {
                 var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
                 var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);

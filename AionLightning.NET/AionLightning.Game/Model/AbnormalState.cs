@@ -52,9 +52,17 @@ public sealed class AbnormalState
     // Non-zero when this effect changes BLOCK (negative = debuff, positive = buff/statup)
     public int   BlockDeltaVal      { get; init; }
     // Non-zero when this effect changes PHYSICAL_CRITICAL (negative = debuff, positive = buff/statup)
-    public int   PhysCritDeltaVal   { get; init; }
+    public int   PhysCritDeltaVal         { get; init; }
     // Non-zero when this effect changes MAGICAL_CRITICAL (negative = debuff, positive = buff/statup)
-    public int   MagicCritDeltaVal  { get; init; }
+    public int   MagicCritDeltaVal        { get; init; }
+    // Non-zero when this buff increases PHYSICAL_CRITICAL_RESIST (positive = more P-crit resist)
+    public int   PhysCritResistDeltaVal   { get; init; }
+    // Non-zero when this buff increases MAGICAL_CRITICAL_RESIST (positive = more M-crit resist)
+    public int   MagicCritResistDeltaVal  { get; init; }
+    // Non-zero when this buff increases PHYSICAL_CRITICAL_DAMAGE_REDUCE (strike fortitude)
+    public int   StrikeFortitudeDeltaVal  { get; init; }
+    // Non-zero when this buff increases MAGICAL_CRITICAL_DAMAGE_REDUCE (spell fortitude)
+    public int   SpellFortitudeDeltaVal   { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
