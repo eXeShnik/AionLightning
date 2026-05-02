@@ -64,6 +64,8 @@ public abstract class Creature : VisibleObject
     public int StrikeFortitudeDelta { get; set; }
     // Cumulative MAGICAL_CRITICAL_DAMAGE_REDUCE (spell fortitude) delta (positive from statup)
     public int SpellFortitudeDelta  { get; set; }
+    // Cumulative BOOST_CASTING_TIME delta (positive from statup = faster casting; negative from statdown = slower)
+    public int CastTimeDelta        { get; set; }
     // Cumulative CONCENTRATION delta (negative from statdown = lower magic accuracy; positive from statup)
     public int ConcentrationDelta   { get; set; }
     // Cumulative MAGIC_SKILL_BOOST_RESIST (magic suppression) delta (positive from statup = reduced incoming M-boost)

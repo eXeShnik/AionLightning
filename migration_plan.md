@@ -2219,6 +2219,17 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+220. [✓] StatDown/StatUp BOOST_CASTING_TIME — cast speed debuff/buff; CastTimeDelta scales both SM_STATS_INFO display and actual server-side castDelay (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `CastTimeAddDelta` (statdown) and `CastTimeStatUpDelta` (statup) for stat=BOOST_CASTING_TIME
+    - [✓] `Model/Creature.cs` — added `int CastTimeDelta { get; set; }` (positive = faster, negative = slower)
+    - [✓] `Model/AbnormalState.cs` — added `int CastTimeDeltaVal { get; init; }`
+    - [✓] `SM_STATS_INFO.cs` — cast speed field now `(1000 - p.WeaponCastTimeBonus - p.CastTimeDelta) / 1000f`
+    - [✓] `CM_CASTSPELL.cs` — `castDelay` multiplied by `(1000 - WeaponCastTimeBonus - CastTimeDelta) / 1000f`; full debuff/buff apply+restore chain
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — 1 new param; apply/restore chain
+    - Java source: BOOST_CASTING_TIME is a ReverseStat written as `(1000 - bonus)/1000`; debuffs use negative ADD values; the server-side delay scales the same way
+    - Previously: cast speed debuffs showed the icon but `castDelay` was always the raw template Duration; SM_STATS_INFO cast speed ignored all buff/debuff effects
+    - Build: 0 warnings, 0 errors
+
 219. [✓] StatDown/StatUp CONCENTRATION + MAGIC_SKILL_BOOST_RESIST — concentration feeds into magic accuracy; suppression reduces incoming magic boost (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `ConcentrationAddDelta/StatUpDelta` (stat=CONCENTRATION), `MagicSuppressionAddDelta/StatUpDelta` (stat=MAGIC_SKILL_BOOST_RESIST)
     - [✓] `Model/Creature.cs` — added `ConcentrationDelta`, `MagicSuppressionDelta`
