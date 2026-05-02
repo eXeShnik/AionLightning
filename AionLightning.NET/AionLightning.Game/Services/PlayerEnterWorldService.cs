@@ -221,11 +221,8 @@ public sealed class PlayerEnterWorldService
         player.BonusSpellFortitude         = equipStats.SpellFortitude;
         player.BonusMovementSpeedPct       = equipStats.MovementSpeedBonus;
         player.BonusFlySpeedPct            = equipStats.FlySpeedBonus;
-        if (player.BonusAttackSpeedPct > 0)
-            player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
-        if (player.BonusMovementSpeedPct > 0)
-            player.MovementSpeed = (tpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct) / 1000f;
 
+        // Apply title stat bonuses on top of equipment bonuses (all combat stats + speed rates)
         if (player.TitleId > 0)
         {
             var titleTpl = _dataManager.Titles.GetTemplate(player.TitleId);
@@ -233,8 +230,15 @@ public sealed class PlayerEnterWorldService
             {
                 player.TitleBonusMaxHp = titleTpl.GetAddStat("MAXHP");
                 player.TitleBonusMaxMp = titleTpl.GetAddStat("MAXMP");
+                TitleStatsApplicator.Apply(player, titleTpl);
             }
         }
+
+        // Compute derived stats after equipment + title bonuses are fully applied
+        player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
+            ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
+            : player.BaseAttackSpeed;
+        player.MovementSpeed = (tpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct) / 1000f;
 
         float ssMult  = player.SoulSicknessMultiplier;
         player.MaxHp  = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);

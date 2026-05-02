@@ -215,6 +215,14 @@ public sealed class CM_MANASTONE : AionClientPacket
         player.BonusSpellFortitude         = equipStats.SpellFortitude;
         player.BonusMovementSpeedPct       = equipStats.MovementSpeedBonus;
         player.BonusFlySpeedPct            = equipStats.FlySpeedBonus;
+
+        if (player.TitleId > 0)
+        {
+            var titleTpl = _dataManager.Titles.GetTemplate(player.TitleId);
+            if (titleTpl is not null)
+                TitleStatsApplicator.Apply(player, titleTpl);
+        }
+
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;

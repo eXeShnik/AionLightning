@@ -1847,6 +1847,17 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+183. [✓] Title stats applied in all stat-recalc paths (session 2026-05-02)
+    - Root cause: title stat bonuses (PHYSICAL_ATTACK, SPEED, ATTACK_SPEED, etc.) were computed only in `PlayerEnterWorldService`; equipping/unequipping gear or socketing manastones cleared them
+    - [✓] `TitleStatsApplicator` — new static service: `Apply(Player, PlayerTitleTemplate)` adds 20 `<add>` stats and 4 `<rate>` stats on top of EquipStats values
+    - [✓] `PlayerTitleTemplate.GetRateStat(string)` — new method mirroring `GetAddStat`
+    - [✓] `PlayerEnterWorldService` — calls `TitleStatsApplicator.Apply` after EquipStats block, before `CurrentAttackSpeed`/`MovementSpeed` derivation
+    - [✓] `CM_EQUIP_ITEM` — same call inserted after EquipStats assignment block
+    - [✓] `CM_MANASTONE.RecomputeAndSendStatsAsync` — same call inserted after EquipStats assignment block
+    - Rate stats covered: SPEED→BonusMovementSpeedPct, ATTACK_SPEED→BonusAttackSpeedPct, FLY_SPEED→BonusFlySpeedPct, BOOST_CASTING_TIME→WeaponCastTimeBonus
+    - MAXHP/MAXMP intentionally kept in TitleBonusMaxHp/TitleBonusMaxMp (separate fields, added after base + equipment bonus)
+    - Build: 0 warnings, 0 errors
+
 182. [✓] Fix item stat getter bug — GetAllStat covers both flat and bonus <add> entries (session 2026-05-02)
     - Root cause: Aion 4.6 item XML marks equipment stat bonuses with `bonus="true"` on `<add>` elements; `GetStat` only read `bonus=false` entries and returned 0 for the vast majority of items
     - Stats affected (all-bonus=true → GetStat returned 0): MAXHP (~27k items), MAXMP (15k), PHYSICAL_ATTACK (6k), MAGICAL_ATTACK (974), PHYSICAL_CRITICAL (4.9k), MAGICAL_CRITICAL (2.7k), MAGICAL_CRITICAL_RESIST (863), CONCENTRATION (10k), BOOST_MAGICAL_SKILL (11.8k), HEAL_BOOST (1.3k)

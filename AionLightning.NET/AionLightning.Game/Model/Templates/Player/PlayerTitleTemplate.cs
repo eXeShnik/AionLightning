@@ -14,6 +14,9 @@ public sealed class PlayerTitleTemplate
 
     public int GetAddStat(string name)
         => Modifiers?.Add.Where(m => m.Name == name).Sum(m => m.Value) ?? 0;
+
+    public int GetRateStat(string name)
+        => Modifiers?.Rate.Where(m => m.Name == name).Sum(m => m.Value) ?? 0;
 }
 
 public sealed class TitleModifiers
