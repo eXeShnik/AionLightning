@@ -84,7 +84,9 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             var weaponTpl = _dataManager.Items.GetTemplate(mainHandItem.ItemId);
             if (weaponTpl?.WeaponStats is { } ws)
             {
-                player.CurrentAttackSpeed = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+                int baseSpd = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+                player.BaseAttackSpeed    = baseSpd;
+                player.CurrentAttackSpeed = baseSpd;
                 if (weaponTpl.IsMagicalWeapon)
                 {
                     player.MainHandMagicalAtk = (ws.MinDamage + ws.MaxDamage) / 2;
@@ -105,6 +107,7 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             player.MainHandMinDmg     = 0;
             player.MainHandMaxDmg     = 0;
             player.MainHandMagicalAtk = 0;
+            player.BaseAttackSpeed    = 1500;
             player.CurrentAttackSpeed = 1500;
         }
 
@@ -123,6 +126,10 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         player.BonusMagicalAccuracy        = equipStats.MagicalAccuracy;
         player.BonusMagicalCritical        = equipStats.MagicalCritical;
         player.BonusMagicalCriticalResist  = equipStats.MagicalCriticalResist;
+        player.BonusAttackSpeedPct         = equipStats.AttackSpeedBonus;
+        player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
+            ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
+            : player.BaseAttackSpeed;
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;

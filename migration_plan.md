@@ -1847,6 +1847,18 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+171. [✓] ATTACK_SPEED percentage bonus from equipment accessories (session 2026-05-02)
+    - [✓] `ItemModifiers.GetBonusStat(string name)` — new method summing `bonus="true"` XML entries; complements existing `GetStat` (flat values)
+    - [✓] `ItemTemplate.AttackSpeedBonusPct` — computed property returning `Modifiers?.GetBonusStat("ATTACK_SPEED") ?? 0`
+    - [✓] `Player.BaseAttackSpeed` / `Player.BonusAttackSpeedPct` — new properties; `BaseAttackSpeed` is the raw weapon speed (default 1500), `BonusAttackSpeedPct` is sum from accessories
+    - [✓] `EquipStats` record — added `AttackSpeedBonus` field (15th field)
+    - [✓] `EquipStatsCalculator.AccumulateTemplate` / `Accumulate` — added `ref int atkSpd` parameter; accumulates `tpl.AttackSpeedBonusPct`
+    - [✓] `PlayerEnterWorldService` — saves `BaseAttackSpeed` from weapon template; applies `CurrentAttackSpeed = BaseAttackSpeed * 1000 / (1000 + BonusAttackSpeedPct)` after EquipStats
+    - [✓] `CM_EQUIP_ITEM` — both weapon-equipped and weapon-unequipped branches save `BaseAttackSpeed`; formula applied after EquipStats
+    - [✓] `CM_MANASTONE.RecomputeAndSendStatsAsync` — same formula applied so socketing an accessory with ATTACK_SPEED recalculates speed
+    - Java formula: `(int)(baseSpeed * 1000 / (1000 + bonus))` where bonus=100 means ~9.1% faster (mirrors Java StatCapFunction)
+    - Build: 0 warnings, 0 errors
+
 170. [✓] Magic resist + magical crit in AoE damage paths (session 2026-05-02)
     - [✓] `CM_CASTSPELL` ground AoE loop — inside `foreach (var target in targets)`: after `rawSpellDmg` roll, added magic resist check (`resistRate = max(1, targetMR - totalMagicAccuracy)` out of 1000; on resist: broadcasts 0-damage SM_ATTACK_STATUS and `continue`s to next target) and magical crit check (same piecewise formula as single-target path; 1.5× on crit); target MR resolves to Player.BonusMagicResist or NPC MResist from template
     - [✓] `CM_CASTSPELL` caster/target AoE splash loop — inside `foreach (var splash in splashNpcs)`: same two checks added after `splashRaw` roll; splash targets are NPCs only so crit resist is not applied (NPC crit resist not tracked)

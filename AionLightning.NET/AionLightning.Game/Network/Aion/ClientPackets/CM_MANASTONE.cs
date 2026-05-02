@@ -204,6 +204,10 @@ public sealed class CM_MANASTONE : AionClientPacket
         player.BonusMagicalAccuracy        = equipStats.MagicalAccuracy;
         player.BonusMagicalCritical        = equipStats.MagicalCritical;
         player.BonusMagicalCriticalResist  = equipStats.MagicalCriticalResist;
+        player.BonusAttackSpeedPct         = equipStats.AttackSpeedBonus;
+        player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
+            ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
+            : player.BaseAttackSpeed;
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;

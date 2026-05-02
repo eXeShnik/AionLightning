@@ -85,6 +85,12 @@ public sealed class Player : Creature
     // Base physical attack from class/level stat template (updated on login and level-up)
     public int BasePhysicalAttack { get; set; }
 
+    // Base attack speed from the equipped weapon template (unmodified by accessories); 1500 when no weapon
+    public int BaseAttackSpeed { get; set; } = 1500;
+
+    // Sum of ATTACK_SPEED percentage bonuses from all equipped accessories (bonus="true" in XML)
+    public int BonusAttackSpeedPct { get; set; }
+
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
     public int MainHandMinDmg { get; set; }
     public int MainHandMaxDmg { get; set; }

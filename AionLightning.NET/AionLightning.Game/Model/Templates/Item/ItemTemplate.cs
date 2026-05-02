@@ -66,6 +66,8 @@ public sealed class ItemTemplate
     public int MagicalAccuracyBonus        => Modifiers?.GetStat("MAGICAL_ACCURACY")          ?? 0;
     public int MagicalCriticalBonus        => Modifiers?.GetStat("MAGICAL_CRITICAL")          ?? 0;
     public int MagicalCriticalResistBonus  => Modifiers?.GetStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
+    // ATTACK_SPEED modifier in XML is percentage-based (bonus="true"); value 100 = ~10% faster.
+    public int AttackSpeedBonusPct         => Modifiers?.GetBonusStat("ATTACK_SPEED")          ?? 0;
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;
@@ -84,6 +86,10 @@ public sealed class ItemModifiers
     // Returns sum of all non-percentage (flat) values for the given stat name.
     public int GetStat(string name) =>
         Add.Where(m => m.Name == name && !m.Bonus).Sum(m => m.Value);
+
+    // Returns sum of all percentage-bonus values for the given stat name (bonus="true" in XML).
+    public int GetBonusStat(string name) =>
+        Add.Where(m => m.Name == name && m.Bonus).Sum(m => m.Value);
 }
 
 public sealed class ItemModifier

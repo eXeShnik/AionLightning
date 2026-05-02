@@ -174,7 +174,9 @@ public sealed class PlayerEnterWorldService
             var wpnTpl = _dataManager.Items.GetTemplate(equippedMainHand.ItemId);
             if (wpnTpl?.WeaponStats is { } ws)
             {
-                player.CurrentAttackSpeed = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+                int baseSpd = ws.AttackSpeed > 0 ? ws.AttackSpeed : 1500;
+                player.BaseAttackSpeed    = baseSpd;
+                player.CurrentAttackSpeed = baseSpd;
                 if (wpnTpl.IsMagicalWeapon)
                 {
                     player.MainHandMagicalAtk = (ws.MinDamage + ws.MaxDamage) / 2;
@@ -205,6 +207,9 @@ public sealed class PlayerEnterWorldService
         player.BonusMagicalAccuracy        = equipStats.MagicalAccuracy;
         player.BonusMagicalCritical        = equipStats.MagicalCritical;
         player.BonusMagicalCriticalResist  = equipStats.MagicalCriticalResist;
+        player.BonusAttackSpeedPct         = equipStats.AttackSpeedBonus;
+        if (player.BonusAttackSpeedPct > 0)
+            player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
 
         if (player.TitleId > 0)
         {
