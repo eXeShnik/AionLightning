@@ -219,8 +219,11 @@ public sealed class PlayerEnterWorldService
         player.BonusBlock                  = equipStats.Block;
         player.BonusStrikeFortitude        = equipStats.StrikeFortitude;
         player.BonusSpellFortitude         = equipStats.SpellFortitude;
+        player.BonusMovementSpeedPct       = equipStats.MovementSpeedBonus;
         if (player.BonusAttackSpeedPct > 0)
             player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
+        if (player.BonusMovementSpeedPct > 0)
+            player.MovementSpeed = (tpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct) / 1000f;
 
         if (player.TitleId > 0)
         {

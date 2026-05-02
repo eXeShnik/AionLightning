@@ -213,11 +213,13 @@ public sealed class CM_MANASTONE : AionClientPacket
         player.BonusBlock                  = equipStats.Block;
         player.BonusStrikeFortitude        = equipStats.StrikeFortitude;
         player.BonusSpellFortitude         = equipStats.SpellFortitude;
+        player.BonusMovementSpeedPct       = equipStats.MovementSpeedBonus;
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        player.MovementSpeed = (statTpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct) / 1000f;
         player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
         player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
         await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);

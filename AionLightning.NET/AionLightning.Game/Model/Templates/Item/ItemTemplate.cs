@@ -66,10 +66,11 @@ public sealed class ItemTemplate
     public int MagicalAccuracyBonus        => Modifiers?.GetStat("MAGICAL_ACCURACY")          ?? 0;
     public int MagicalCriticalBonus        => Modifiers?.GetStat("MAGICAL_CRITICAL")          ?? 0;
     public int MagicalCriticalResistBonus  => Modifiers?.GetStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
-    // ATTACK_SPEED modifier in XML is percentage-based (bonus="true"); value 100 = ~10% faster.
-    public int AttackSpeedBonusPct         => Modifiers?.GetBonusStat("ATTACK_SPEED")          ?? 0;
-    // BOOST_CASTING_TIME on weapons only (DuplicateStatFunction — max from main/off hand); bonus="true" value 7-9 typical.
-    public int CastTimeBonusPct            => Modifiers?.GetBonusStat("BOOST_CASTING_TIME")     ?? 0;
+    // ATTACK_SPEED and BOOST_CASTING_TIME use <rate> elements in item XML (not <add>).
+    public int AttackSpeedBonusPct         => Modifiers?.GetRateStat("ATTACK_SPEED")            ?? 0;
+    public int CastTimeBonusPct            => Modifiers?.GetRateStat("BOOST_CASTING_TIME")      ?? 0;
+    // SPEED uses <rate> elements; values are per-1000 (22 = +2.2% movement speed).
+    public int SpeedBonusPct               => Modifiers?.GetRateStat("SPEED")                   ?? 0;
     // PARRY/BLOCK are percentage-bonus modifiers on equipment (bonus="true")
     public int ParryBonus                  => Modifiers?.GetBonusStat("PARRY")                   ?? 0;
     public int BlockBonus                  => Modifiers?.GetBonusStat("BLOCK")                   ?? 0;
@@ -93,15 +94,20 @@ public sealed class ItemTemplate
 
 public sealed class ItemModifiers
 {
-    [XmlElement("add")] public List<ItemModifier> Add { get; set; } = new();
+    [XmlElement("add")]  public List<ItemModifier> Add  { get; set; } = new();
+    [XmlElement("rate")] public List<ItemModifier> Rate { get; set; } = new();
 
-    // Returns sum of all non-percentage (flat) values for the given stat name.
+    // Sum of flat <add> values for a stat (bonus="false" or absent).
     public int GetStat(string name) =>
         Add.Where(m => m.Name == name && !m.Bonus).Sum(m => m.Value);
 
-    // Returns sum of all percentage-bonus values for the given stat name (bonus="true" in XML).
+    // Sum of bonus <add> values (bonus="true") for a stat.
     public int GetBonusStat(string name) =>
         Add.Where(m => m.Name == name && m.Bonus).Sum(m => m.Value);
+
+    // Sum of <rate> values for a stat — used for percentage-type stats (SPEED, ATTACK_SPEED, BOOST_CASTING_TIME).
+    public int GetRateStat(string name) =>
+        Rate.Where(m => m.Name == name).Sum(m => m.Value);
 }
 
 public sealed class ItemModifier

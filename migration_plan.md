@@ -1847,6 +1847,19 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+181. [✓] SPEED movement bonus from equipment + fix <rate> element parsing (session 2026-05-02)
+    - [✓] `ItemModifiers` — added `Rate` list (`[XmlElement("rate")]`) and `GetRateStat(name)` method; previously only `<add>` elements were parsed; `<rate>` elements (SPEED, ATTACK_SPEED, BOOST_CASTING_TIME) were silently ignored
+    - [✓] `ItemTemplate.AttackSpeedBonusPct` — changed from `GetBonusStat` to `GetRateStat("ATTACK_SPEED")` (bug fix: ATTACK_SPEED uses `<rate>` not `<add>` in item XML)
+    - [✓] `ItemTemplate.CastTimeBonusPct` — changed from `GetBonusStat` to `GetRateStat("BOOST_CASTING_TIME")` (same bug fix)
+    - [✓] `ItemTemplate.SpeedBonusPct` — new property: `GetRateStat("SPEED")` (11,119 items have this stat)
+    - [✓] `Player.BonusMovementSpeedPct` — new field
+    - [✓] `EquipStats` record — added `MovementSpeedBonus` (24th field)
+    - [✓] `EquipStatsCalculator.AccumulateTemplate` / `Accumulate` — added `ref int speed`; accumulates `tpl.SpeedBonusPct`
+    - [✓] `PlayerEnterWorldService`, `CM_EQUIP_ITEM`, `CM_MANASTONE.RecomputeAndSendStatsAsync` — apply `BonusMovementSpeedPct`; `MovementSpeed = baseRunSpeed * (1000 + BonusMovementSpeedPct) / 1000f`
+    - Impact of ATTACK_SPEED fix: accessories with ATTACK_SPEED rate modifiers now actually affect combat speed (was always 0 before)
+    - Java formula: SPEED rate values per-1000 of base run speed (22 = +2.2% movement speed)
+    - Build: 0 warnings, 0 errors
+
 180. [✓] HEAL_BOOST applied to healing spells (session 2026-05-02)
     - [✓] `CM_CASTSPELL` heal path — `heal *= (1 + BonusHealBoost/1000f)` (Java AbstractHealEffect adds HEAL_BOOST additively at 1000=+100%; simplified to multiplicative factor)
     - Previously: heal boost gear had no effect on the actual HP restored by healing spells
