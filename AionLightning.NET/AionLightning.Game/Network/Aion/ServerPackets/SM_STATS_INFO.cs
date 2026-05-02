@@ -62,15 +62,15 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // fly state
 
         int weaponAtkBonus = (p.MainHandMinDmg + p.MainHandMaxDmg) / 2;
-        int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus);
+        int totalAtk = Math.Max(1, (t?.MainHandAttack ?? 0) + weaponAtkBonus + p.BonusPhysicalAtk);
         w.WriteH((short)totalAtk); w.WriteH(0); // main/off-hand P-attack
         w.WriteH(0);                   // unk 3.0
         int pdef = Math.Max(100, p.PhysicalDefense);
         w.WriteD(pdef);                // P-def
-        w.WriteH((short)(100 + p.MainHandMagicalAtk)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon bonus)
+        w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon + accessories)
         int mdef = Math.Max(100, p.MagicDefense);
         w.WriteD(mdef);                // M-def
-        w.WriteH(0); w.WriteH(0);      // M-resist, unk 3.0
+        w.WriteH((short)p.BonusMagicResist); w.WriteH(0); // M-resist, unk 3.0
         w.WriteF(5.0f);                // attack range
         w.WriteH((short)p.CurrentAttackSpeed); // attack speed
         w.WriteH((short)(t?.Evasion ?? 100)); // evasion
@@ -111,9 +111,9 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(maxHp); w.WriteD(maxMp);
         w.WriteD(6000); w.WriteD(p.MaxFp); // base DP cap, base fly time
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
-        w.WriteD(100); w.WriteD(pdef); // base M-attack, base P-def
+        w.WriteD(100 + p.MainHandMagicalAtk + p.BonusMagicAtk); w.WriteD(pdef); // base M-attack, base P-def
         w.WriteD(mdef);                // base M-def
-        w.WriteH(0); w.WriteF(5.0f);   // base M-resist, attack range
+        w.WriteH((short)p.BonusMagicResist); w.WriteF(5.0f); // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
         w.WriteH((short)(t?.Evasion ?? 100)); // base evasion
         w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // base parry, block

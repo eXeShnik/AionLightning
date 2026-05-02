@@ -102,6 +102,11 @@ public sealed class Player : Creature
     public int BonusMaxHp { get; set; }
     public int BonusMaxMp { get; set; }
 
+    // Equipment stat bonuses (sum of PHYSICAL_ATTACK, MAGICAL_RESIST, MAGICAL_ATTACK from all equipped items)
+    public int BonusPhysicalAtk { get; set; }
+    public int BonusMagicResist { get; set; }
+    public int BonusMagicAtk    { get; set; }
+
     // Flat HP/MP bonus from the active title (from player_titles.xml <add> modifiers)
     public int TitleBonusMaxHp { get; set; }
     public int TitleBonusMaxMp { get; set; }

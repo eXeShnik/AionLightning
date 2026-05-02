@@ -197,6 +197,15 @@ public sealed class PlayerEnterWorldService
         player.BonusMaxMp = storedItems
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
+        player.BonusPhysicalAtk = storedItems
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalAttackBonus ?? 0);
+        player.BonusMagicResist = storedItems
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicResistBonus ?? 0);
+        player.BonusMagicAtk = storedItems
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicAttackBonus ?? 0);
 
         if (player.TitleId > 0)
         {

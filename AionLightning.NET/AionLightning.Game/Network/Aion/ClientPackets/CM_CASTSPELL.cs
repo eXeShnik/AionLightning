@@ -192,6 +192,172 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
             await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
         }
+        else if (isDamageSkill && _targetType is 1 or 2 && template?.IsGroundAoe == true)
+        {
+            // Ground-targeted AoE (first_target=POINT, target_type=AREA): damage all enemies near the cast point
+            var spellId  = _spellId;
+            var world    = _world;
+            var registry = _connRegistry;
+            var conn     = _conn;
+            float px = _x, py = _y, pz = _z;
+            float aoeR    = Math.Max(1f, template.EffectiveRange);
+            float aoeAlt  = Math.Max(1f, template.EffectiveAltitude);
+            int   maxHits = template.TargetMaxCount;
+            bool  hitsEnemies = !string.Equals(template.TargetRelation, "FRIEND", StringComparison.OrdinalIgnoreCase);
+
+            _ = Task.Run(async () =>
+            {
+                if (castDelay > 0)
+                    await Task.Delay(castDelay);
+
+                if (player.IsAlreadyDead) return;
+
+                int castWorldId = player.Position.WorldId;
+                var activation  = new SM_SKILL_ACTIVATION(spellId);
+                foreach (var c in registry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                        try { await c.SendAsync(activation); } catch { }
+
+                // Collect targets within the AoE cylinder (horizontal dist + altitude filter)
+                var targets = new List<Creature>();
+                if (hitsEnemies)
+                {
+                    foreach (var npc in world.GetAllNpcs())
+                    {
+                        if (npc.IsAlreadyDead) continue;
+                        if (npc.Position.WorldId != castWorldId) continue;
+                        float dx = npc.Position.X - px, dy = npc.Position.Y - py, dz = npc.Position.Z - pz;
+                        if (dx * dx + dy * dy > aoeR * aoeR) continue;
+                        if (Math.Abs(dz) > aoeAlt) continue;
+                        targets.Add(npc);
+                        if (targets.Count >= maxHits) break;
+                    }
+                    // Also hit players from opposing faction (PvP zones) within AoE
+                    foreach (var other in world.GetAll())
+                    {
+                        if (other.IsAlreadyDead || other.ObjectId == player.ObjectId) continue;
+                        if (other.Race == player.Race) continue;
+                        if (other.Position.WorldId != castWorldId) continue;
+                        float dx = other.Position.X - px, dy = other.Position.Y - py, dz = other.Position.Z - pz;
+                        if (dx * dx + dy * dy > aoeR * aoeR) continue;
+                        if (Math.Abs(dz) > aoeAlt) continue;
+                        targets.Add(other);
+                        if (targets.Count >= maxHits) break;
+                    }
+                }
+                else
+                {
+                    // FRIEND relation: heal/buff allies in area (resolve as heal at group-heal formula)
+                    foreach (var ally in world.GetAll())
+                    {
+                        if (ally.IsAlreadyDead) continue;
+                        if (ally.Race != player.Race && ally.ObjectId != player.ObjectId) continue;
+                        if (ally.Position.WorldId != castWorldId) continue;
+                        float dx = ally.Position.X - px, dy = ally.Position.Y - py, dz = ally.Position.Z - pz;
+                        if (dx * dx + dy * dy > aoeR * aoeR) continue;
+                        if (Math.Abs(dz) > aoeAlt) continue;
+                        targets.Add(ally);
+                        if (targets.Count >= maxHits) break;
+                    }
+                }
+
+                bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
+                int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
+                int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
+
+                foreach (var target in targets)
+                {
+                    int rawSpellDmg = spellIsMagical
+                        ? mAtk + player.Level * 6 + Random.Shared.Next(10, 40)
+                        : pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
+
+                    int spellDef = target is Player pvpSpellTarget
+                                 ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
+                                 : target is Npc npcSpellTarget
+                                 ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MResist ?? 0)
+                                                   : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
+                                 : 0;
+                    int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
+                    target.CurrentHp      = Math.Max(0, target.CurrentHp - damage);
+                    target.LastCombatTime = DateTime.UtcNow;
+                    player.LastCombatTime = DateTime.UtcNow;
+
+                    if (target is Npc hitNpc && target.CurrentHp > 0)
+                        _npcAi.ForceEngage(hitNpc, player);
+
+                    var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, SM_ATTACK_STATUS.LogId.SpellAtk);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(statusPkt); } catch { }
+                }
+
+                // DP gain for successful AoE cast
+                if (targets.Count > 0 && player.Dp < 6000)
+                {
+                    player.Dp = Math.Min(6000, player.Dp + 150);
+                    try { await conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp)); } catch { }
+                }
+
+                // Handle killed NPCs: broadcast death, generate drops, award XP/AP
+                foreach (var killed in targets.OfType<Npc>().Where(t => t.CurrentHp <= 0))
+                {
+                    killed.State |= CreatureState.Dead;
+                    int npcWorldId = killed.Position.WorldId;
+                    var die = new SM_EMOTION(killed, EmotionType.DIE);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == npcWorldId)
+                            try { await c.SendAsync(die); } catch { }
+
+                    var diedShout = _dataManager.NpcShouts.GetRandomShout(
+                        killed.Template.NpcId, NpcShoutData.ShoutEventType.DIED, npcWorldId);
+                    if (diedShout.HasValue)
+                    {
+                        var shoutPkt = SM_SYSTEM_MESSAGE.NpcShout(killed.ObjectId, diedShout.Value.StringId);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == npcWorldId)
+                                try { await c.SendAsync(shoutPkt); } catch { }
+                    }
+
+                    world.Remove(killed);
+                    _lootService.GenerateDrops(killed, player);
+                    await _questService.HandleNpcKillAsync(player, killed, conn, CancellationToken.None);
+
+                    long xpBase = killed.Template.Stats?.MaxXp > 0 ? killed.Template.Stats.MaxXp : killed.Level * 50L;
+                    await _expService.AddGroupExpAsync(player, xpBase, killed.Level, CancellationToken.None);
+
+                    if (killed.Position.WorldId == AbyssRankService.AbyssWorldId
+                        || killed.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int ap = AbyssRankService.CalculateNpcApReward(killed.Level);
+                        bool aoeNpcRankUp = AbyssRankService.AddAp(player, ap);
+                        if (player.AbyssRank > player.AbyssMaxRank) player.AbyssMaxRank = player.AbyssRank;
+                        try { await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), CancellationToken.None); } catch { }
+                        if (aoeNpcRankUp)
+                        {
+                            var rankPkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(rankPkt); } catch { }
+                        }
+                        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
+                        await AwardLegionContributionAsync(player, ap, registry, _legionDao, CancellationToken.None);
+                    }
+
+                    var killedNpc = killed;
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(3000);
+                        var del = new SM_DELETE(killedNpc.ObjectId);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == killedNpc.Position.WorldId)
+                                try { await c.SendAsync(del); } catch { }
+                        _spawnService.ScheduleRespawn(killedNpc);
+                        await Task.Delay(57_000);
+                        _lootService.ClearLoot(killedNpc.ObjectId);
+                    });
+                }
+            });
+        }
         else if (isDamageSkill && _targetType is 0 or 3 or 4 && _targetObjectId != 0)
         {
             var spellId    = _spellId;
@@ -227,9 +393,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (target.Position.WorldId != castWorldId) return;
                 if (castRange > 0f && player.Position.DistanceTo(target.Position) > castRange) return;
 
-                int mAtk = 100 + player.MainHandMagicalAtk;
-                int rawSpellDmg = mAtk + player.Level * 6 + Random.Shared.Next(10, 40);
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
+                int rawSpellDmg;
+                if (spellIsMagical)
+                {
+                    int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk;
+                    rawSpellDmg = mAtk + player.Level * 6 + Random.Shared.Next(10, 40);
+                }
+                else
+                {
+                    int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk;
+                    rawSpellDmg = pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
+                }
                 int spellDef = target is Player pvpSpellTarget
                              ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                              : target is Npc npcSpellTarget

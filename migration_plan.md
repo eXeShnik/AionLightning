@@ -1781,3 +1781,23 @@
     - Java source: `StatEnchantFunction.getWeaponModifiers` shows BOOST_MAGICAL_SKILL for MACE_1H/STAFF_2H/ORB_2H/BOOK_2H/HARP_2H/GUN_1H/CANNON_2H/KEYBLADE_2H; `PlayerGameStats.getMainHandMagicalAttack()` sums BASE_MAGICAL_ATTACK (100) + equipment MAGICAL_ATTACK modifiers
     - Previously: all weapons set only physical attack fields (`MainHandMinDmg`/`MaxDmg`); `SM_STATS_INFO` always sent M-attack = 100 regardless of equipped weapon; spell damage ignored the equipped weapon entirely — a sorcerer with a legendary staff hit identically to one with no weapon
     - Build: 0 warnings, 0 errors
+
+162. [✓] Equipment stat bonuses — PHYSICAL_ATTACK, MAGICAL_RESIST, MAGICAL_ATTACK from item modifiers tracked on Player and sent in SM_STATS_INFO (session 2026-05-02)
+    - [✓] `ItemTemplate` — added `PhysicalAttackBonus` (`PHYSICAL_ATTACK` modifier, 6007 items in data), `MagicResistBonus` (`MAGICAL_RESIST`, 41003 items), `MagicAttackBonus` (`MAGICAL_ATTACK`, 974 items) shortcut properties
+    - [✓] `Player` — added `BonusPhysicalAtk`, `BonusMagicResist`, `BonusMagicAtk` properties (sum of respective modifiers from all equipped items)
+    - [✓] `PlayerEnterWorldService` — computes the three new bonuses from `storedItems` alongside existing `BonusMaxHp`/`BonusMaxMp`
+    - [✓] `CM_EQUIP_ITEM` — recomputes the three bonuses after every equip/unequip alongside existing stat recalculation block
+    - [✓] `SM_STATS_INFO` — P-attack: `totalAtk` now includes `+ p.BonusPhysicalAtk`; M-attack: `100 + MainHandMagicalAtk + BonusMagicAtk`; M-resist field: changed from hardcoded `0` to `(short)p.BonusMagicResist`; same values mirrored in base stats section
+    - Key distinction: `MAGICAL_RESIST` (armor magic resistance displayed in stats panel) vs `MAGICAL_DEFEND` (mitigation on damage — only 51 items, and commented out in Java StatFunctions.java damage path); `MagicDefense` field remains mapped to `MAGICAL_DEFEND` (near-zero in practice)
+    - Previously: `SM_STATS_INFO` sent P-attack without accessory bonuses; M-attack ignored `MAGICAL_ATTACK` accessories (rings/necklaces); M-resist was always 0 even for players with resist-stacked gear
+    - Also updated: `CM_CASTSPELL` spell damage formula now includes `+ p.BonusMagicAtk` (magical) and `+ p.BonusPhysicalAtk` (physical); `CM_ATTACK` melee damage now includes `+ p.BonusPhysicalAtk`
+    - Build: 0 warnings, 0 errors
+
+163. [✓] Ground-targeted AoE spell damage — skills with first_target=POINT target_type=AREA (session 2026-05-02)
+    - [✓] `SkillProperties` — added `FirstTarget`, `TargetType`, `TargetRelation`, `EffectiveRange`, `EffectiveAltitude`, `TargetMaxCount` from skill XML attributes
+    - [✓] `SkillTemplate` — added shortcut properties `TargetType`, `TargetRelation`, `EffectiveRange`, `EffectiveAltitude`, `TargetMaxCount`; `IsGroundAoe` flag: true when `first_target=POINT` AND `target_type=AREA`
+    - [✓] `CM_CASTSPELL` — new branch for `isDamageSkill && _targetType is 1 or 2 && template.IsGroundAoe`: after cast delay, finds all NPCs and enemy players within `effective_range` cylinder (horizontal radius + altitude filter), caps at `target_maxcount`, applies damage formula per target, broadcasts `SM_ATTACK_STATUS` for each hit, awards 150 DP for the cast, calls `ForceEngage` on surviving hit NPCs; FRIEND-relation variant heals allies
+    - Key: Java skill XML uses `first_target="POINT" target_type="AREA"` for ground-targeted AoE; non-ground AoE (target=AREA around self/target) handled in a later milestone
+    - NPC death in AoE: full death sequence per killed NPC — die emotion, DIED shout, world.Remove, GenerateDrops, HandleNpcKillAsync, AddGroupExpAsync, Abyss AP, SM_DELETE after 3s, ScheduleRespawn, ClearLoot after 60s
+    - Previously: targetType 1/2 spells broadcast the cast animation but applied zero damage — mages could cast cyclone/sleep spells visually but they had no effect; AoE-killed NPCs never dropped loot or awarded XP
+    - Build: 0 warnings, 0 errors

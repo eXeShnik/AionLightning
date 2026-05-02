@@ -56,6 +56,9 @@ public sealed class ItemTemplate
     public int MagicDefense        => Modifiers?.GetStat("MAGICAL_DEFEND")   ?? 0;
     public int MaxHpBonus          => Modifiers?.GetStat("MAXHP")            ?? 0;
     public int MaxMpBonus          => Modifiers?.GetStat("MAXMP")            ?? 0;
+    public int PhysicalAttackBonus => Modifiers?.GetStat("PHYSICAL_ATTACK")  ?? 0;
+    public int MagicResistBonus    => Modifiers?.GetStat("MAGICAL_RESIST")   ?? 0;
+    public int MagicAttackBonus    => Modifiers?.GetStat("MAGICAL_ATTACK")   ?? 0;
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;

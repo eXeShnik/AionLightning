@@ -124,6 +124,15 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         player.BonusMaxMp = player.Inventory.All
             .Where(i => i.IsEquipped)
             .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MaxMpBonus ?? 0);
+        player.BonusPhysicalAtk = player.Inventory.All
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.PhysicalAttackBonus ?? 0);
+        player.BonusMagicResist = player.Inventory.All
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicResistBonus ?? 0);
+        player.BonusMagicAtk = player.Inventory.All
+            .Where(i => i.IsEquipped)
+            .Sum(i => _dataManager.Items.GetTemplate(i.ItemId)?.MagicAttackBonus ?? 0);
         player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
         player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
 
