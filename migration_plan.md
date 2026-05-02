@@ -1847,6 +1847,18 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+176. [✓] Strike/spell fortitude — PHYSICAL/MAGICAL_CRITICAL_DAMAGE_REDUCE (session 2026-05-02)
+    - [✓] `ItemTemplate` — added `StrikeFortitudeBonus` (`GetBonusStat("PHYSICAL_CRITICAL_DAMAGE_REDUCE")`) and `SpellFortitudeBonus` (`GetBonusStat("MAGICAL_CRITICAL_DAMAGE_REDUCE")`)
+    - [✓] `Player` — added `BonusStrikeFortitude`, `BonusSpellFortitude`
+    - [✓] `EquipStats` record — added `StrikeFortitude` and `SpellFortitude` (21st/22nd fields)
+    - [✓] `EquipStatsCalculator.AccumulateTemplate` / `Accumulate` — added `ref int sF, ref int spF`; accumulates from `tpl.StrikeFortitudeBonus` / `tpl.SpellFortitudeBonus`
+    - [✓] `PlayerEnterWorldService`, `CM_EQUIP_ITEM`, `CM_MANASTONE.RecomputeAndSendStatsAsync` — apply both fortitude fields from EquipStats
+    - [✓] `SM_STATS_INFO` — writes `BonusStrikeFortitude` / `BonusSpellFortitude` for both current and base sections (previously zeros)
+    - [✓] `CM_ATTACK` — crit multiplier formula: `critCoeff = max(1.0, 1.5 - round(sFortitude/1000.0))` (Java `StatCapFunction`); `sFortitude = pvpTarget.BonusStrikeFortitude`, 0 for NPC targets
+    - [✓] `CM_CASTSPELL` — same formula applied to single-target and ground AoE magical crit paths; splash AoE targets are NPC-only so plain 1.5× still applies
+    - Java stat name: PHYSICAL_CRITICAL_DAMAGE_REDUCE (fortitude vs physical crits), MAGICAL_CRITICAL_DAMAGE_REDUCE (fortitude vs magical crits); both expressed as flat integers ÷1000 reduces crit multiplier from 1.5 toward 1.0
+    - Build: 0 warnings, 0 errors
+
 175. [✓] Physical parry and block — CM_ATTACK + SM_ATTACK HitResult enum (session 2026-05-02)
     - [✓] `SM_ATTACK` — replaced `bool isCrit` with `HitResult` enum (Normal=10, Critical=202, Dodge=0, Parry=2, CritParry=194, Block=4, CritBlock=196); `CounterFlag()` helper maps HitResult to Java counter-skill flag bits (32=block, 64=parry, 128=dodge)
     - [✓] `NpcAiService` — updated SM_ATTACK construction to pass `HitResult.Critical`/`HitResult.Normal`

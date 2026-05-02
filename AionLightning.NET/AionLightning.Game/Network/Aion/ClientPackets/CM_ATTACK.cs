@@ -157,7 +157,13 @@ public sealed class CM_ATTACK : AionClientPacket
                         : critRating <= 600 ? 44.0 + (critRating - 440) * 0.05
                         : 52.0 + (critRating - 600) * 0.02;
         bool isCrit = Random.Shared.Next(1000) < (int)critRate;
-        if (isCrit) rawDmg = (int)(rawDmg * 1.5f);
+        if (isCrit)
+        {
+            // Java calculateWeaponCritical: coeff = 1.5f - Math.Round(strikeFortitude / 1000f), min 1.0
+            int sFortitude = target is Player pvpSF ? pvpSF.BonusStrikeFortitude : 0;
+            float critCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortitude / 1000.0));
+            rawDmg = (int)(rawDmg * critCoeff);
+        }
 
         // Apply physical defense mitigation from the target's armor
         int pdef = target is Player pvpTarget ? pvpTarget.PhysicalDefense

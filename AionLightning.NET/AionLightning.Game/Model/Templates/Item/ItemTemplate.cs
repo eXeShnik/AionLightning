@@ -73,6 +73,9 @@ public sealed class ItemTemplate
     // PARRY/BLOCK are percentage-bonus modifiers on equipment (bonus="true")
     public int ParryBonus                  => Modifiers?.GetBonusStat("PARRY")                   ?? 0;
     public int BlockBonus                  => Modifiers?.GetBonusStat("BLOCK")                   ?? 0;
+    // Strike/spell fortitude — reduce crit multiplier; Java formula: coeff -= Math.round(fortitude/1000f)
+    public int StrikeFortitudeBonus        => Modifiers?.GetBonusStat("PHYSICAL_CRITICAL_DAMAGE_REDUCE") ?? 0;
+    public int SpellFortitudeBonus         => Modifiers?.GetBonusStat("MAGICAL_CRITICAL_DAMAGE_REDUCE")  ?? 0;
     public int ConcentrationBonus          => Modifiers?.GetStat("CONCENTRATION")               ?? 0;
     public int MagicBoostBonus             => Modifiers?.GetStat("BOOST_MAGICAL_SKILL")         ?? 0;
     public int MagicSuppressionBonus       => Modifiers?.GetStat("MAGIC_SKILL_BOOST_RESIST")    ?? 0;

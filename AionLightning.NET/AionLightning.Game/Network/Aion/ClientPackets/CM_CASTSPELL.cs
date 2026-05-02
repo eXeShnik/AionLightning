@@ -299,7 +299,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                          : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                          : 52.0 + (mCritRating - 600) * 0.02;
                         if (Random.Shared.Next(1000) < (int)mCritRate)
-                            rawSpellDmg = (int)(rawSpellDmg * 1.5f);
+                        {
+                            int spF = target is Player pvpSpF ? pvpSpF.BonusSpellFortitude : 0;
+                            float mCritCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(spF / 1000.0));
+                            rawSpellDmg = (int)(rawSpellDmg * mCritCoeff);
+                        }
                     }
 
                     int spellDef = target is Player pvpSpellTarget
@@ -468,7 +472,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                      : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                      : 52.0 + (mCritRating - 600) * 0.02;
                     if (Random.Shared.Next(1000) < (int)mCritRate)
-                        rawSpellDmg = (int)(rawSpellDmg * 1.5f);
+                    {
+                        int spFt = target is Player pvpSpFt ? pvpSpFt.BonusSpellFortitude : 0;
+                        float mCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(spFt / 1000.0));
+                        rawSpellDmg = (int)(rawSpellDmg * mCritCoeffG);
+                    }
                 }
 
                 int spellDef = target is Player pvpSpellTarget

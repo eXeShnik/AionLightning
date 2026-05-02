@@ -146,6 +146,10 @@ public sealed class Player : Creature
     public int BonusParry { get; set; }
     public int BonusBlock { get; set; }
 
+    // Strike/spell fortitude — sum of PHYSICAL/MAGICAL_CRITICAL_DAMAGE_REDUCE from all equipped items
+    public int BonusStrikeFortitude { get; set; }
+    public int BonusSpellFortitude  { get; set; }
+
     // Flat HP/MP bonus from the active title (from player_titles.xml <add> modifiers)
     public int TitleBonusMaxHp { get; set; }
     public int TitleBonusMaxMp { get; set; }

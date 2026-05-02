@@ -217,6 +217,8 @@ public sealed class PlayerEnterWorldService
         player.BonusHealBoost              = equipStats.HealBoost;
         player.BonusParry                  = equipStats.Parry;
         player.BonusBlock                  = equipStats.Block;
+        player.BonusStrikeFortitude        = equipStats.StrikeFortitude;
+        player.BonusSpellFortitude         = equipStats.SpellFortitude;
         if (player.BonusAttackSpeedPct > 0)
             player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
 

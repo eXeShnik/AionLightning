@@ -211,6 +211,8 @@ public sealed class CM_MANASTONE : AionClientPacket
         player.BonusHealBoost              = equipStats.HealBoost;
         player.BonusParry                  = equipStats.Parry;
         player.BonusBlock                  = equipStats.Block;
+        player.BonusStrikeFortitude        = equipStats.StrikeFortitude;
+        player.BonusSpellFortitude         = equipStats.SpellFortitude;
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;

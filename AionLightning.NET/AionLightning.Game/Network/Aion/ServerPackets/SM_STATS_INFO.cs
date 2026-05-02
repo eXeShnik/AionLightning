@@ -87,7 +87,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)p.BonusMagicBoost); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress
         w.WriteH((short)p.BonusHealBoost);              // heal boost
         w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // P-crit resist, M-crit resist
-        w.WriteH(0); w.WriteH(0);      // P-crit fortitude, M-crit fortitude
+        w.WriteH((short)p.BonusStrikeFortitude); w.WriteH((short)p.BonusSpellFortitude); // P-crit fortitude, M-crit fortitude
         w.WriteH(0);                   // unk 3.5
         w.WriteD(p.Inventory.Capacity); w.WriteD(p.Inventory.BagSlotUsed); // inventory limit, current size
         w.WriteD(0); w.WriteD(0);      // unk
@@ -127,5 +127,6 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)p.BonusMagicBoost); w.WriteH((short)p.BonusMagicSuppression); // base M-boost, suppress
         w.WriteH((short)p.BonusHealBoost);              // base heal boost
         w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // base P/M-crit resist
+        w.WriteH((short)p.BonusStrikeFortitude); w.WriteH((short)p.BonusSpellFortitude); // base P/M-crit fortitude
     }
 }
