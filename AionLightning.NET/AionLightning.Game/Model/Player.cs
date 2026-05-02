@@ -101,8 +101,10 @@ public sealed class Player : Creature
     public int BonusFlySpeedPct { get; set; }
 
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
-    public int MainHandMinDmg { get; set; }
-    public int MainHandMaxDmg { get; set; }
+    public int MainHandMinDmg   { get; set; }
+    public int MainHandMaxDmg   { get; set; }
+    // Max hit count from weapon_stats hit_count attribute; Rnd.get(1, hitCount) per attack (Java AttackUtil line 78)
+    public int MainHandHitCount { get; set; } = 1;
 
     // Magical attack bonus from equipped magical weapon (staff/orb/mace/etc.); average of min/max weapon damage
     public int MainHandMagicalAtk { get; set; }

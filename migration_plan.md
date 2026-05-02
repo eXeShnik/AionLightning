@@ -2045,6 +2045,16 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+183. [✓] Player weapon multi-hit using weapon_stats hit_count (session 2026-05-02)
+    - [✓] `ItemTemplate.cs` / `WeaponStats` — added `[XmlAttribute("hit_count")] public int HitCount { get; set; } = 1`; XML field already present in item_templates.xml (e.g. daggers have hit_count="4", swords hit_count="2")
+    - [✓] `Player.cs` — added `public int MainHandHitCount { get; set; } = 1`; set alongside `MainHandMinDmg/MaxDmg`
+    - [✓] `CM_EQUIP_ITEM.cs` — set `player.MainHandHitCount = ws.HitCount > 0 ? ws.HitCount : 1` on equip; reset to 1 on unequip
+    - [✓] `PlayerEnterWorldService.cs` — same assignment on enter-world weapon resolution
+    - [✓] `CM_ATTACK.cs` main path — after pdef mitigation: `hitCount = Rnd.get(1, MainHandHitCount)`; split via Java formula; sends `SM_ATTACK` with `HitEntry[]`; parry/block paths retain single-hit (PvP-only, less common)
+    - Java source: `AttackUtil.calculateMainHandResult` line 78: `mainHandHits = Rnd.get(1, mainHandWeapon.getItemTemplate().getWeaponStats().getHitCount())`; same split formula as NPC (first=damage*(1-0.1*(n-1)), rest=damage*0.1)
+    - Previously: player always dealt a single hit regardless of weapon; dagger (4-hit max) and sword (2-hit max) dealt the same number of hits as a staff
+    - Build: 0 warnings, 0 errors
+
 182. [✓] NPC multi-hit physical attacks and crit multiplier correction (session 2026-05-02)
     - [✓] `SM_ATTACK.cs` — extended to support a variable-length hit list: added `HitEntry` record, multi-hit constructor accepting `HitEntry[]`; `Write` loops all entries; single-hit constructor remains for compatibility
     - [✓] `NpcAiService.cs` melee attack — after pdef mitigation, roll `hitCount = Random.Shared.Next(1, 4)` (1–3); first hit = `damage*(1-0.1*(n-1))`, subsequent hits = `damage*0.1`; total HP loss = sum; SM_ATTACK now carries the full hit list

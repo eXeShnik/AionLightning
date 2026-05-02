@@ -185,15 +185,26 @@ public sealed class CM_ATTACK : AionClientPacket
                  : target is Npc npcTarget    ? (npcTarget.Template.Stats?.PDef ?? 0)
                  : 0;
         int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
-        target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
+
+        // Multi-hit split — Java AttackUtil: player hitCount = Rnd.get(1, weapon.hit_count); split formula same as NPC
+        var hitResult = isCrit ? SM_ATTACK.HitResult.Critical : SM_ATTACK.HitResult.Normal;
+        int maxHits   = player.MainHandHitCount > 1 ? player.MainHandHitCount : 1;
+        int hitCount  = maxHits > 1 ? Random.Shared.Next(1, maxHits + 1) : 1;
+        var hits      = new SM_ATTACK.HitEntry[hitCount];
+        hits[0] = new(Math.Max(1, (int)(damage * (1f - 0.1f * (hitCount - 1)))), hitResult);
+        int otherHit = hitCount > 1 ? Math.Max(1, (int)(damage * 0.1f)) : 0;
+        for (int hi = 1; hi < hitCount; hi++)
+            hits[hi] = new(otherHit, hitResult);
+        int totalDamage = hits.Sum(h => h.Damage);
+
+        target.CurrentHp = Math.Max(0, target.CurrentHp - totalDamage);
 
         // Both attacker and target enter combat — suppresses regen for both
         player.LastCombatTime = target.LastCombatTime = now;
 
         // Broadcast attack animation then damage report
-        await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, damage,
-            isCrit ? SM_ATTACK.HitResult.Critical : SM_ATTACK.HitResult.Normal), ct);
-        await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage), ct);
+        await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, hits), ct);
+        await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, totalDamage), ct);
 
         afterAttack:
         // DP gain on successful physical hit (100 DP per attack, capped at 6000)

@@ -129,6 +129,7 @@ public sealed class WeaponStats
     [XmlAttribute("min_damage")]   public int MinDamage   { get; set; }
     [XmlAttribute("max_damage")]   public int MaxDamage   { get; set; }
     [XmlAttribute("attack_speed")] public int AttackSpeed { get; set; }
+    [XmlAttribute("hit_count")]    public int HitCount    { get; set; } = 1;
 }
 
 public sealed class ItemActions

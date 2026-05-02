@@ -192,6 +192,7 @@ public sealed class PlayerEnterWorldService
                     player.MainHandMaxDmg     = ws.MaxDamage;
                     player.MainHandMagicalAtk = 0;
                 }
+                player.MainHandHitCount = ws.HitCount > 0 ? ws.HitCount : 1;
             }
         }
 
