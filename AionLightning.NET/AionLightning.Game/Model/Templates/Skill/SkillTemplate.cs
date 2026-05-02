@@ -68,6 +68,15 @@ public readonly record struct SkillHealInfo(
     string HealType    // "hp" or "mp"
 );
 
+/// <summary>Per-tick HoT descriptor parsed from &lt;heal&gt; and &lt;mpheal&gt; effect elements.</summary>
+public readonly record struct SkillHotInfo(
+    int    CheckTimeMs,
+    int    BaseValue,
+    int    Delta,
+    int    Duration2Ms,
+    string HealType    // "hp" or "mp"
+);
+
 /// <summary>Per-tick DoT descriptor parsed from &lt;bleed&gt;, &lt;poison&gt;, &lt;disease&gt; effect elements.</summary>
 public readonly record struct SkillDotInfo(
     int    CheckTimeMs,   // tick interval in ms
@@ -89,6 +98,7 @@ public sealed class SkillEffects
         ?? AbnormalCcFlags.None;
 
     private static readonly HashSet<string> HealInstantNames = ["healinstant", "mphealinstant"];
+    private static readonly HashSet<string> HotNames         = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames         = ["bleed", "poison", "disease"];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
@@ -105,6 +115,26 @@ public sealed class SkillEffects
                 bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
                 string ht = e.LocalName == "healinstant" ? "hp" : "mp";
                 list.Add(new(val, dlt, pct, ht));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillHotInfo> HotEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillHotInfo>();
+            foreach (var e in Elements)
+            {
+                if (!HotNames.Contains(e.LocalName)) continue;
+                if (!int.TryParse(e.GetAttribute("checktime"), out int check) || check <= 0) continue;
+                if (!int.TryParse(e.GetAttribute("duration2"), out int dur)   || dur   <= 0) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                string ht = e.LocalName == "heal" ? "hp" : "mp";
+                list.Add(new(check, val, dlt, dur, ht));
             }
             return list;
         }

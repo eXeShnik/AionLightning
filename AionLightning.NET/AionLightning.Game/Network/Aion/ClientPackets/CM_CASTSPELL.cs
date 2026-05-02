@@ -167,17 +167,89 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
                 else
                 {
-                    // Fallback for HEAL-subtype skills with no parseable healinstant element
-                    int heal = (int)((player.Level * 6 + Random.Shared.Next(15, 40)) * healBoostMult);
-                    heal = Math.Min(heal, healTarget.MaxHp - healTarget.CurrentHp);
-                    if (heal > 0)
+                    var hotEffects = template?.Effects?.HotEffects;
+                    if (hotEffects is { Count: > 0 })
                     {
-                        healTarget.CurrentHp += heal;
-                        var healStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
-                            _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                        // HoT — add buff icon and spawn periodic heal ticks (mirrors DoT tick loop)
+                        int hotDurationMs = hotEffects.Max(h => h.Duration2Ms);
+                        var hotEffect = new AbnormalState
+                        {
+                            SkillId    = _spellId,
+                            SkillLevel = skillLv,
+                            EffectorId = player.ObjectId,
+                            Expiry     = DateTime.UtcNow.AddMilliseconds(hotDurationMs),
+                        };
+                        healTarget.AddEffect(hotEffect);
+                        bool hotTargetIsPlayer = healTarget is Player;
+                        var hotAbnormal = new SM_ABNORMAL_EFFECT(healTarget.ObjectId, hotTargetIsPlayer,
+                                              healTarget.GetActiveEffects());
                         foreach (var c in _connRegistry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == healWorldId)
-                                try { await c.SendAsync(healStatus, ct); } catch { }
+                                try { await c.SendAsync(hotAbnormal, ct); } catch { }
+
+                        foreach (var hot in hotEffects)
+                        {
+                            int healPerTick = Math.Max(1, hot.BaseValue + hot.Delta * skillLv);
+                            var tickTarget  = healTarget;
+                            var tickEffect  = hotEffect;
+                            var tickSpellId = _spellId;
+                            var registry    = _connRegistry;
+                            _ = Task.Run(async () =>
+                            {
+                                while (!tickTarget.IsAlreadyDead && DateTime.UtcNow < tickEffect.Expiry)
+                                {
+                                    await Task.Delay(hot.CheckTimeMs);
+                                    if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
+
+                                    int actual = hot.HealType == "hp"
+                                        ? Math.Min(healPerTick, tickTarget.MaxHp - tickTarget.CurrentHp)
+                                        : Math.Min(healPerTick, tickTarget.MaxMp - tickTarget.CurrentMp);
+                                    if (actual > 0)
+                                    {
+                                        if (hot.HealType == "hp")
+                                        {
+                                            tickTarget.CurrentHp += actual;
+                                            var pkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.NaturalHp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.Heal);
+                                            int w = tickTarget.Position.WorldId;
+                                            foreach (var c in registry.GetAll())
+                                                if (c.ActivePlayer?.Position.WorldId == w)
+                                                    try { await c.SendAsync(pkt); } catch { }
+                                        }
+                                        else
+                                        {
+                                            tickTarget.CurrentMp += actual;
+                                            var pkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.NaturalMp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.MpHeal);
+                                            int w = tickTarget.Position.WorldId;
+                                            foreach (var c in registry.GetAll())
+                                                if (c.ActivePlayer?.Position.WorldId == w)
+                                                    try { await c.SendAsync(pkt); } catch { }
+                                        }
+                                    }
+                                }
+                                tickTarget.RemoveEffect(tickEffect.SkillId, tickEffect.Expiry);
+                                var expired = new SM_ABNORMAL_EFFECT(tickTarget.ObjectId, hotTargetIsPlayer,
+                                                  tickTarget.GetActiveEffects());
+                                int expW = tickTarget.Position.WorldId;
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == expW)
+                                        try { await c.SendAsync(expired); } catch { }
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // Fallback for HEAL-subtype skills with no parseable healinstant/heal element
+                        int heal = (int)((player.Level * 6 + Random.Shared.Next(15, 40)) * healBoostMult);
+                        heal = Math.Min(heal, healTarget.MaxHp - healTarget.CurrentHp);
+                        if (heal > 0)
+                        {
+                            healTarget.CurrentHp += heal;
+                            var healStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
+                                _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == healWorldId)
+                                    try { await c.SendAsync(healStatus, ct); } catch { }
+                        }
                     }
                 }
 

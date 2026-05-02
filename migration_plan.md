@@ -2072,6 +2072,13 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+193. [✓] Heal-over-time (HoT) effects — heal / mpheal periodic ticks (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillHotInfo` readonly record struct (CheckTimeMs, BaseValue, Delta, Duration2Ms, HealType); added `HotEffects` property to `SkillEffects` parsing `<heal>` (hp) and `<mpheal>` (mp) elements using same checktime/value/delta/duration2 attribute pattern as DoT
+    - [✓] `CM_CASTSPELL.cs` — in the HEAL subtype branch, when no `HealEffects` are found, check `HotEffects`: adds `AbnormalState` to target, broadcasts `SM_ABNORMAL_EFFECT` buff icon; spawns `Task.Run` tick loop per effect entry: waits `CheckTimeMs`, heals `BaseValue+Delta*level` capped at headroom, sends `SM_ATTACK_STATUS(NaturalHp/NaturalMp)` each tick; removes effect and clears buff icon on expiry; fallback to level-based instant heal only when both HealEffects and HotEffects are empty
+    - Java source: `HealEffect.java` extends `HealOverTimeEffect.onPeriodicAction(HP)`: same `checktime`/`duration2` from XML as DoT; ticks via `EffectController.schedulePeriodicAction`; `increaseHp(TYPE.HP, heal, 0, LOG.HEAL)`
+    - Previously: HoT skills (Stamina Recovery, Regenerate Body etc.) applied no heal at all — only a visual buff icon with no effect
+    - Build: 0 warnings, 0 errors
+
 192. [✓] Heal skill values from skill template — healinstant / mphealinstant (session 2026-05-02)
     - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillHealInfo` readonly record struct (BaseValue, Delta, IsPercent, HealType); added `HealEffects` property to `SkillEffects` parsing `<healinstant>` (hp) and `<mphealinstant>` (mp) elements
     - [✓] `CM_CASTSPELL.cs` — heal path now reads `template.Effects.HealEffects`; for each entry: `heal = (BaseValue + Delta*level) * healBoostMult` (or `maxStat * value / 100` when percent=true); HP heals use `AttackType.NaturalHp + LogId.Heal`, MP heals use `AttackType.NaturalMp + LogId.MpHeal`; caps at available headroom; retains level-based fallback for HEAL-subtype skills with no parseable element
