@@ -1692,3 +1692,10 @@
     - [✓] `SM_STATS_INFO` (base section) — `w.WriteD(60)` for base fly time replaced with `p.MaxFp`
     - Previously: on zone entry or level-up, the stat panel showed DP=0 even if the player had accumulated DP mid-session; the XP bar's grey "recoverable" portion was always 0; fly meter showed hardcoded 60 instead of player's actual FP pool
     - Build: 0 warnings, 0 errors
+
+151. [✓] NPC ATTACKMODE/NEUTRALMODE emotions — combat stance transitions broadcast (session 2026-05-02)
+    - [✓] `NpcAiService` (aggro scan) — when a new target is found via the scan loop, broadcasts `SM_EMOTION(npc, ATTACKMODE)` to all zone clients before the SEE shout
+    - [✓] `NpcAiService` (target lost / leash) — when locked target is invalid and NPC returns home, broadcasts `SM_EMOTION(npc, NEUTRALMODE)` after BroadcastAttackEndShout
+    - [✓] `NpcAiService.ForceEngage` — new target addition via ForceEngage (player hits NPC or NPC retaliates from spell) fires a fire-and-forget Task.Run to broadcast `SM_EMOTION(npc, ATTACKMODE)` since ForceEngage is synchronous
+    - Previously: NPCs never sent ATTACKMODE or NEUTRALMODE; clients always displayed NPCs in their spawn-default visual stance even while they were actively attacking; the combat-mode stance change animation (weapon raised, posture shift) never played
+    - Build: 0 warnings, 0 errors

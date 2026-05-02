@@ -148,6 +148,13 @@ public sealed class NpcAiService : BackgroundService
                         _attackBegunNpcs.Remove(npc.ObjectId);
                         npc.Target = null;
                         await BroadcastAttackEndShoutAsync(npc, ct);
+
+                        // Transition back to idle stance
+                        int leashWorld  = npc.Position.WorldId;
+                        var neutralMode = new SM_EMOTION(npc, EmotionType.NEUTRALMODE);
+                        foreach (var conn in _connRegistry.GetAll())
+                            if (conn.ActivePlayer?.Position.WorldId == leashWorld)
+                                try { await conn.SendAsync(neutralMode, ct); } catch { }
                     }
                 }
 
@@ -173,6 +180,13 @@ public sealed class NpcAiService : BackgroundService
                         _npcTargets[npc.ObjectId] = target.ObjectId;
                         npc.Target = target;
                         AlertNearbyAllies(npc, target);
+
+                        // Transition to combat stance
+                        int engageWorld = npc.Position.WorldId;
+                        var attackMode  = new SM_EMOTION(npc, EmotionType.ATTACKMODE);
+                        foreach (var conn in _connRegistry.GetAll())
+                            if (conn.ActivePlayer?.Position.WorldId == engageWorld)
+                                try { await conn.SendAsync(attackMode, ct); } catch { }
 
                         // SEE shout — NPC has just spotted a player
                         var shout = _dataManager.NpcShouts.GetRandomShout(
@@ -660,6 +674,16 @@ public sealed class NpcAiService : BackgroundService
         {
             npc.Target         = player;
             npc.LastCombatTime = DateTime.UtcNow;
+
+            // Broadcast combat stance — fire-and-forget since ForceEngage is sync
+            int engageWorld = npc.Position.WorldId;
+            var attackMode  = new SM_EMOTION(npc, EmotionType.ATTACKMODE);
+            _ = Task.Run(async () =>
+            {
+                foreach (var conn in _connRegistry.GetAll())
+                    if (conn.ActivePlayer?.Position.WorldId == engageWorld)
+                        try { await conn.SendAsync(attackMode); } catch { }
+            });
         }
     }
 
