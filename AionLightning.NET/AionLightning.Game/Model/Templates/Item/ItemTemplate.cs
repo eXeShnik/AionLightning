@@ -68,6 +68,10 @@ public sealed class ItemTemplate
     public int MagicalCriticalResistBonus  => Modifiers?.GetStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
     // ATTACK_SPEED modifier in XML is percentage-based (bonus="true"); value 100 = ~10% faster.
     public int AttackSpeedBonusPct         => Modifiers?.GetBonusStat("ATTACK_SPEED")          ?? 0;
+    public int ConcentrationBonus          => Modifiers?.GetStat("CONCENTRATION")               ?? 0;
+    public int MagicBoostBonus             => Modifiers?.GetStat("BOOST_MAGICAL_SKILL")         ?? 0;
+    public int MagicSuppressionBonus       => Modifiers?.GetStat("MAGIC_SKILL_BOOST_RESIST")    ?? 0;
+    public int HealBoostBonus              => Modifiers?.GetStat("HEAL_BOOST")                  ?? 0;
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;

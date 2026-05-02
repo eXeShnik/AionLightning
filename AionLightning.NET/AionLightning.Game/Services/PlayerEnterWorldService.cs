@@ -208,6 +208,10 @@ public sealed class PlayerEnterWorldService
         player.BonusMagicalCritical        = equipStats.MagicalCritical;
         player.BonusMagicalCriticalResist  = equipStats.MagicalCriticalResist;
         player.BonusAttackSpeedPct         = equipStats.AttackSpeedBonus;
+        player.BonusConcentration          = equipStats.Concentration;
+        player.BonusMagicBoost             = equipStats.MagicBoost;
+        player.BonusMagicSuppression       = equipStats.MagicSuppression;
+        player.BonusHealBoost              = equipStats.HealBoost;
         if (player.BonusAttackSpeedPct > 0)
             player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
 

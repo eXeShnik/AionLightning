@@ -124,6 +124,12 @@ public sealed class Player : Creature
     public int BonusMagicalCritical       { get; set; }
     public int BonusMagicalCriticalResist { get; set; }
 
+    // Equipment stat bonuses (CONCENTRATION, BOOST_MAGICAL_SKILL, MAGIC_SKILL_BOOST_RESIST, HEAL_BOOST)
+    public int BonusConcentration    { get; set; }
+    public int BonusMagicBoost       { get; set; }
+    public int BonusMagicSuppression { get; set; }
+    public int BonusHealBoost        { get; set; }
+
     // Base combat stats from class stat template (set at login, constant until level-up)
     public int BasePhysicalAccuracy { get; set; }
     public int BaseCritRating       { get; set; }

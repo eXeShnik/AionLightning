@@ -127,6 +127,10 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         player.BonusMagicalCritical        = equipStats.MagicalCritical;
         player.BonusMagicalCriticalResist  = equipStats.MagicalCriticalResist;
         player.BonusAttackSpeedPct         = equipStats.AttackSpeedBonus;
+        player.BonusConcentration          = equipStats.Concentration;
+        player.BonusMagicBoost             = equipStats.MagicBoost;
+        player.BonusMagicSuppression       = equipStats.MagicSuppression;
+        player.BonusHealBoost              = equipStats.HealBoost;
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;

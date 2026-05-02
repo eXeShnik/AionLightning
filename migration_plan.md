@@ -1847,6 +1847,16 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+172. [✓] CONCENTRATION, BOOST_MAGICAL_SKILL, MAGIC_SKILL_BOOST_RESIST, HEAL_BOOST from equipment (session 2026-05-02)
+    - [✓] `ItemTemplate` — added `ConcentrationBonus`, `MagicBoostBonus`, `MagicSuppressionBonus`, `HealBoostBonus` computed properties (all flat `GetStat` variants)
+    - [✓] `Player` — added `BonusConcentration`, `BonusMagicBoost`, `BonusMagicSuppression`, `BonusHealBoost`
+    - [✓] `EquipStats` record — extended with 4 new fields (Concentration, MagicBoost, MagicSuppression, HealBoost)
+    - [✓] `EquipStatsCalculator.AccumulateTemplate` / `Accumulate` — added 4 new ref params; accumulates all 4 stats from each item template and socketed manastones
+    - [✓] `PlayerEnterWorldService`, `CM_EQUIP_ITEM`, `CM_MANASTONE.RecomputeAndSendStatsAsync` — apply all 4 new fields from EquipStats
+    - [✓] `SM_STATS_INFO` — writes actual `p.BonusConcentration`, `p.BonusMagicBoost`, `p.BonusMagicSuppression`, `p.BonusHealBoost` (both current and base sections) instead of zeros
+    - Java stat names: CONCENTRATION(41), BOOST_MAGICAL_SKILL(104), MAGIC_SKILL_BOOST_RESIST(126), HEAL_BOOST(110) — all flat (no percentage variant)
+    - Build: 0 warnings, 0 errors
+
 171. [✓] ATTACK_SPEED percentage bonus from equipment accessories (session 2026-05-02)
     - [✓] `ItemModifiers.GetBonusStat(string name)` — new method summing `bonus="true"` XML entries; complements existing `GetStat` (flat values)
     - [✓] `ItemTemplate.AttackSpeedBonusPct` — computed property returning `Modifiers?.GetBonusStat("ATTACK_SPEED") ?? 0`

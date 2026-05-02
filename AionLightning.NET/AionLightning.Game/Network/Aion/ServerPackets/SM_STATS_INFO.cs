@@ -83,9 +83,9 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // unk
         w.WriteF(1.0f);                // cast speed
         w.WriteH(0);                   // unk 3.5
-        w.WriteH(0);                   // concentration
-        w.WriteH(0); w.WriteH(0);      // M-boost, M-suppress
-        w.WriteH(0);                   // heal boost
+        w.WriteH((short)p.BonusConcentration);           // concentration
+        w.WriteH((short)p.BonusMagicBoost); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress
+        w.WriteH((short)p.BonusHealBoost);              // heal boost
         w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // P-crit resist, M-crit resist
         w.WriteH(0); w.WriteH(0);      // P-crit fortitude, M-crit fortitude
         w.WriteH(0);                   // unk 3.5
@@ -123,9 +123,9 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // unk
         w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // base main/off-hand P-accuracy
         w.WriteH(0); w.WriteH((short)((t?.MagicAccuracy ?? 0) + p.BonusMagicalAccuracy)); // off-hand M-accuracy, base M-accuracy
-        w.WriteH(0);                   // base concentration
-        w.WriteH(0); w.WriteH(0);      // base M-boost, suppress
-        w.WriteH(0);                   // base heal boost
+        w.WriteH((short)p.BonusConcentration);           // base concentration
+        w.WriteH((short)p.BonusMagicBoost); w.WriteH((short)p.BonusMagicSuppression); // base M-boost, suppress
+        w.WriteH((short)p.BonusHealBoost);              // base heal boost
         w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // base P/M-crit resist
     }
 }
