@@ -494,6 +494,7 @@ public sealed class NpcAiService : BackgroundService
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
+        await BroadcastGroupHpAsync(target, ct);
 
         // Caster-centered AoE splash: hit additional players near the NPC
         if (skillTemplate?.IsCasterAoe == true && skillTemplate.EffectiveRange > 0)
@@ -526,6 +527,8 @@ public sealed class NpcAiService : BackgroundService
                 foreach (var conn in _connRegistry.GetAll())
                     if (conn.ActivePlayer?.Position.WorldId == worldId)
                         try { await conn.SendAsync(splashPkt, ct); } catch { }
+                if (other is Player splashPlayer)
+                    await BroadcastGroupHpAsync(splashPlayer, ct);
             }
         }
     }

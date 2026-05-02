@@ -1847,6 +1847,12 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+187. [✓] Group HP update after NPC spell damage (session 2026-05-02)
+    - Previous: `CastNpcDamageAsync` sent `SM_ATTACK_STATUS` but never called `BroadcastGroupHpAsync`; group members saw HP frozen after NPC spell hits
+    - [✓] `NpcAiService.CastNpcDamageAsync` — added `BroadcastGroupHpAsync(target, ct)` after primary SM_ATTACK_STATUS broadcast
+    - [✓] `NpcAiService.CastNpcDamageAsync` AoE splash loop — added `if (other is Player p) BroadcastGroupHpAsync(p, ct)` for each splash hit
+    - Build: 0 warnings, 0 errors
+
 186. [✓] NPC combat idle timeout — disengage after 20s with no activity (session 2026-05-02)
     - Java: `AttackManager.checkOwner` third condition — give up if `lastAttackTimeDelta > 20s AND lastAttackedTimeDelta > 20s`
     - [✓] `NpcAiService.ForceEngage` — `npc.LastCombatTime` now refreshed on EVERY player hit (was only set on initial target registration); prevents timeout reset from being skipped when NPC already has a target
