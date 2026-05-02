@@ -151,12 +151,14 @@ public sealed class NpcAiService : BackgroundService
             Player? target = null;
             if (!isDummy && npc.Template.AggroRange > 0)
             {
-                // Validate locked target — clear if dead, wrong world, out of chase range, or NPC too far from home
+                // Validate locked target — clear if dead, wrong world, out of chase range, NPC too far from home, or idle timeout
                 if (_npcTargets.TryGetValue(npc.ObjectId, out int lockedId))
                 {
                     var locked = players.FirstOrDefault(p => p.ObjectId == lockedId);
+                    bool idleTimeout = (DateTime.UtcNow - npc.LastCombatTime).TotalSeconds > 20;
                     if (locked is not null
                         && !locked.IsAlreadyDead
+                        && !idleTimeout
                         && locked.Position.WorldId == npc.HomePosition.WorldId
                         && npc.Position.DistanceTo(locked.Position) <= ChaseTargetRange
                         && npc.HomePosition.DistanceTo(npc.Position) <= ChaseHomeRange)
@@ -794,10 +796,10 @@ public sealed class NpcAiService : BackgroundService
     public void ForceEngage(Npc npc, Player player)
     {
         if (npc.IsAlreadyDead) return;
+        npc.LastCombatTime = DateTime.UtcNow; // refresh on every hit so idle timeout resets
         if (_npcTargets.TryAdd(npc.ObjectId, player.ObjectId))
         {
-            npc.Target         = player;
-            npc.LastCombatTime = DateTime.UtcNow;
+            npc.Target = player;
 
             // Broadcast combat stance — fire-and-forget since ForceEngage is sync
             int engageWorld = npc.Position.WorldId;

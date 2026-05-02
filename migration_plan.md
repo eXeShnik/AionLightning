@@ -1847,6 +1847,14 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+186. [✓] NPC combat idle timeout — disengage after 20s with no activity (session 2026-05-02)
+    - Java: `AttackManager.checkOwner` third condition — give up if `lastAttackTimeDelta > 20s AND lastAttackedTimeDelta > 20s`
+    - [✓] `NpcAiService.ForceEngage` — `npc.LastCombatTime` now refreshed on EVERY player hit (was only set on initial target registration); prevents timeout reset from being skipped when NPC already has a target
+    - [✓] Leash validation loop — added `idleTimeout = (now - npc.LastCombatTime).TotalSeconds > 20`; NPC drops target if idle for 20s
+    - `LastCombatTime` is updated by: ForceEngage (player hits NPC), NpcAiService melee/spell attacks (NPC hits player)
+    - Covers the Java third condition with a single "last-any-combat-activity" timestamp instead of separate attack/attacked deltas
+    - Build: 0 warnings, 0 errors
+
 185. [✓] NPC leash logic matches Java AiInfo defaults (session 2026-05-02)
     - Previous: leash distance = `AggroRange * 1.5f` measured from HOME to PLAYER; a 30-aggro NPC would leash at 45m from spawn
     - Java: two separate limits from `AiInfo` defaults — `chase_target=50` (NPC→player) and `chase_home=200` (NPC→spawn)
