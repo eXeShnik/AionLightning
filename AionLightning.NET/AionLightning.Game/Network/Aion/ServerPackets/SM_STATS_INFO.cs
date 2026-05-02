@@ -73,10 +73,10 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)p.BonusMagicResist); w.WriteH(0); // M-resist, unk 3.0
         w.WriteF(5.0f);                // attack range
         w.WriteH((short)p.CurrentAttackSpeed); // attack speed
-        w.WriteH((short)(t?.Evasion ?? 100)); // evasion
+        w.WriteH((short)((t?.Evasion ?? 100) + p.BonusEvasion)); // evasion
         w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // parry, block
-        w.WriteH((short)(t?.MainHandCritRate ?? 0)); w.WriteH(0); // main/off-hand P-crit
-        w.WriteH((short)(t?.MainHandAccuracy ?? 0)); w.WriteH(0); // main/off-hand P-accuracy
+        w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // main/off-hand P-crit
+        w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // main/off-hand P-accuracy
         w.WriteH(1);                   // unk
         w.WriteH(0); w.WriteH(0);      // M-accuracy, M-crit
         w.WriteH(0);                   // unk
@@ -85,7 +85,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // concentration
         w.WriteH(0); w.WriteH(0);      // M-boost, M-suppress
         w.WriteH(0);                   // heal boost
-        w.WriteH(0); w.WriteH(0);      // P-crit resist, M-crit resist
+        w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // P-crit resist, M-crit resist
         w.WriteH(0); w.WriteH(0);      // P-crit fortitude, M-crit fortitude
         w.WriteH(0);                   // unk 3.5
         w.WriteD(p.Inventory.Capacity); w.WriteD(p.Inventory.BagSlotUsed); // inventory limit, current size
@@ -115,16 +115,16 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(mdef);                // base M-def
         w.WriteH((short)p.BonusMagicResist); w.WriteF(5.0f); // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5
-        w.WriteH((short)(t?.Evasion ?? 100)); // base evasion
+        w.WriteH((short)((t?.Evasion ?? 100) + p.BonusEvasion)); // base evasion
         w.WriteH((short)(t?.Parry ?? 0)); w.WriteH((short)(t?.Block ?? 0)); // base parry, block
-        w.WriteH((short)(t?.MainHandCritRate ?? 0)); w.WriteH(0); // base main/off-hand P-crit
+        w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // base main/off-hand P-crit
         w.WriteH(0);                   // base M-crit
         w.WriteH(0);                   // unk
-        w.WriteH((short)(t?.MainHandAccuracy ?? 0)); w.WriteH(0); // base main/off-hand P-accuracy
+        w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // base main/off-hand P-accuracy
         w.WriteH(0); w.WriteH((short)(t?.MagicAccuracy ?? 0)); // off-hand M-accuracy, base M-accuracy
         w.WriteH(0);                   // base concentration
         w.WriteH(0); w.WriteH(0);      // base M-boost, suppress
         w.WriteH(0);                   // base heal boost
-        w.WriteH(0); w.WriteH(0);      // base P/M-crit resist
+        w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // base P/M-crit resist
     }
 }

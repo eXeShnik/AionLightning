@@ -94,7 +94,10 @@ public sealed class PlayerEnterWorldService
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
 
-        player.BasePhysicalAttack = tpl?.MainHandAttack ?? 0;
+        player.BasePhysicalAttack   = tpl?.MainHandAttack    ?? 0;
+        player.BasePhysicalAccuracy = tpl?.MainHandAccuracy ?? 200;
+        player.BaseCritRating       = tpl?.MainHandCritRate  ?? 100;
+        player.BaseEvasion          = tpl?.Evasion           ?? 200;
         player.Appearance  = appearance;
         conn.ActivePlayer  = player;
         conn.State         = GsClientConnection.AionState.IN_GAME;
@@ -186,13 +189,17 @@ public sealed class PlayerEnterWorldService
         }
 
         var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
-        player.PhysicalDefense  = equipStats.PhysicalDefense;
-        player.MagicDefense     = equipStats.MagicDefense;
-        player.BonusMaxHp       = equipStats.BonusMaxHp;
-        player.BonusMaxMp       = equipStats.BonusMaxMp;
-        player.BonusPhysicalAtk = equipStats.PhysicalAttackBonus;
-        player.BonusMagicResist = equipStats.MagicResistBonus;
-        player.BonusMagicAtk    = equipStats.MagicAttackBonus;
+        player.PhysicalDefense              = equipStats.PhysicalDefense;
+        player.MagicDefense                 = equipStats.MagicDefense;
+        player.BonusMaxHp                   = equipStats.BonusMaxHp;
+        player.BonusMaxMp                   = equipStats.BonusMaxMp;
+        player.BonusPhysicalAtk             = equipStats.PhysicalAttackBonus;
+        player.BonusMagicResist             = equipStats.MagicResistBonus;
+        player.BonusMagicAtk                = equipStats.MagicAttackBonus;
+        player.BonusEvasion                 = equipStats.Evasion;
+        player.BonusPhysicalAccuracy        = equipStats.PhysicalAccuracy;
+        player.BonusPhysicalCritical        = equipStats.PhysicalCritical;
+        player.BonusPhysicalCriticalResist  = equipStats.PhysicalCriticalResist;
 
         if (player.TitleId > 0)
         {

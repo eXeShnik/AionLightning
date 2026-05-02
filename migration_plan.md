@@ -1833,3 +1833,16 @@
     - Slot bitmasks from Java ItemSlot enum: TORSO=8, GLOVES=16, BOOTS=32, SHOULDER=2048, PANTS=4096 (HELMET=4 and WAIST=65536 had no case in Java, so no enchant bonus)
     - Previously: enchant levels were stored and enchanting worked visually, but enchanting a +15 sword gave zero combat benefit — damage and defense were identical to +0
     - Build: 0 warnings, 0 errors
+
+168. [✓] EVASION/ACCURACY hit-miss check and dynamic physical crit rate (session 2026-05-02)
+    - [✓] `ItemTemplate` — added 4 new shortcut properties: `EvasionBonus`, `PhysicalAccuracyBonus`, `PhysicalCriticalBonus`, `PhysicalCriticalResistBonus` (from item XML modifiers EVASION/PHYSICAL_ACCURACY/PHYSICAL_CRITICAL/PHYSICAL_CRITICAL_RESIST)
+    - [✓] `EquipStats` record — extended with `Evasion`, `PhysicalAccuracy`, `PhysicalCritical`, `PhysicalCriticalResist` fields
+    - [✓] `EquipStatsCalculator` — `AccumulateTemplate` and `Accumulate` updated to accumulate all 4 new stats; `AccumulateEnchant` updated to also add `mDef` and `pCritRes` from armor enchant (Java StatEnchantFunction.getArmorModifiers MAGICAL_DEFEND and PHYSICAL_CRITICAL_RESIST cases)
+    - [✓] `Player` model — added `BonusEvasion`, `BonusPhysicalAccuracy`, `BonusPhysicalCritical`, `BonusPhysicalCriticalResist` (equipment bonus), and `BasePhysicalAccuracy`, `BaseCritRating`, `BaseEvasion` (class stat template base)
+    - [✓] `PlayerEnterWorldService` — sets `BasePhysicalAccuracy`, `BaseCritRating`, `BaseEvasion` from stat template at login; assigns all 4 new equipment bonuses from `EquipStats`
+    - [✓] `CM_EQUIP_ITEM`, `CM_MANASTONE.RecomputeAndSendStatsAsync` — updated to assign all 4 new bonuses
+    - [✓] `SM_STATS_INFO` — evasion, P-crit, P-accuracy, P-crit-resist now include equipment bonus (both current-stats and base-stats sections)
+    - [✓] `CM_ATTACK` — hit/miss check before damage: `dodgeRate = clamp((targetEvasion - totalAccuracy) * 0.6 + 50, 0, 300)` out of 1000; NPC evasion approximated as `level * 5`; on evade: broadcasts SM_ATTACK(damage=0) and returns; crit rate: Java piecewise formula (≤440: rate×0.1, ≤600: 44+(r-440)×0.05, else: 52+(r-600)×0.02) out of 1000, reduced by target's PhysicalCriticalResist
+    - Key stat frequencies in item XML: EVASION=34,454 items, PHYSICAL_ACCURACY=4,910, PHYSICAL_CRITICAL=4,939, PHYSICAL_CRITICAL_RESIST=2,693 — virtually all armor contributes evasion
+    - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
+    - Build: 0 warnings, 0 errors

@@ -52,13 +52,17 @@ public sealed class ItemTemplate
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
         "ORB_2H", "HARP_2H", "BOOK_2H", "BOW", "CANNON_2H", "KEYBLADE_2H"];
     public bool IsTwoHandWeapon => TwoHandTypes.Contains(WeaponTypeName);
-    public int PhysicalDefense     => Modifiers?.GetStat("PHYSICAL_DEFENSE") ?? 0;
-    public int MagicDefense        => Modifiers?.GetStat("MAGICAL_DEFEND")   ?? 0;
-    public int MaxHpBonus          => Modifiers?.GetStat("MAXHP")            ?? 0;
-    public int MaxMpBonus          => Modifiers?.GetStat("MAXMP")            ?? 0;
-    public int PhysicalAttackBonus => Modifiers?.GetStat("PHYSICAL_ATTACK")  ?? 0;
-    public int MagicResistBonus    => Modifiers?.GetStat("MAGICAL_RESIST")   ?? 0;
-    public int MagicAttackBonus    => Modifiers?.GetStat("MAGICAL_ATTACK")   ?? 0;
+    public int PhysicalDefense            => Modifiers?.GetStat("PHYSICAL_DEFENSE")         ?? 0;
+    public int MagicDefense               => Modifiers?.GetStat("MAGICAL_DEFEND")            ?? 0;
+    public int MaxHpBonus                 => Modifiers?.GetStat("MAXHP")                     ?? 0;
+    public int MaxMpBonus                 => Modifiers?.GetStat("MAXMP")                     ?? 0;
+    public int PhysicalAttackBonus        => Modifiers?.GetStat("PHYSICAL_ATTACK")           ?? 0;
+    public int MagicResistBonus           => Modifiers?.GetStat("MAGICAL_RESIST")            ?? 0;
+    public int MagicAttackBonus           => Modifiers?.GetStat("MAGICAL_ATTACK")            ?? 0;
+    public int EvasionBonus               => Modifiers?.GetStat("EVASION")                   ?? 0;
+    public int PhysicalAccuracyBonus      => Modifiers?.GetStat("PHYSICAL_ACCURACY")         ?? 0;
+    public int PhysicalCriticalBonus      => Modifiers?.GetStat("PHYSICAL_CRITICAL")         ?? 0;
+    public int PhysicalCriticalResistBonus => Modifiers?.GetStat("PHYSICAL_CRITICAL_RESIST") ?? 0;
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;

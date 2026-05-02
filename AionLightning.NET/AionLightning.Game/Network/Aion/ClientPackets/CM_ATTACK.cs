@@ -79,14 +79,33 @@ public sealed class CM_ATTACK : AionClientPacket
         if (target.Position.WorldId != player.Position.WorldId) return;
         if (player.Position.DistanceTo(target.Position) > MaxMeleeRange) return;
 
+        // Hit/miss check — Java calculatePhysicalEvasion: diff = (evasion-accuracy)*0.6+50, out of 1000 (max 300)
+        int totalAccuracy = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy;
+        int targetEvasion = target is Player pvpEvade  ? pvpEvade.BaseEvasion + pvpEvade.BonusEvasion
+                          : target is Npc npcEvade     ? npcEvade.Level * 5
+                          : 0;
+        float dodgeRate = Math.Clamp((targetEvasion - totalAccuracy) * 0.6f + 50f, 0f, 300f);
+        if (Random.Shared.Next(1000) < (int)dodgeRate)
+        {
+            // Attack evaded — broadcast miss animation (0 damage) then return
+            await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, 0, false), ct);
+            return;
+        }
+
         // Physical damage: weapon + base stat + accessory P-attack bonus, or stat-based fallback
         int baseAtk = (player.BasePhysicalAttack > 0 ? player.BasePhysicalAttack : player.Level * 6) + player.BonusPhysicalAtk;
         int rawDmg = player.MainHandMinDmg > 0
             ? Random.Shared.Next(player.MainHandMinDmg, Math.Max(player.MainHandMinDmg + 1, player.MainHandMaxDmg + 1)) + baseAtk
             : baseAtk + Random.Shared.Next(10, 40);
 
-        // Critical hit — base 10% chance, 1.5× multiplier (Java base ~10% for unarmed)
-        bool isCrit = Random.Shared.Next(100) < 10;
+        // Critical hit — Java calculatePhysicalCriticalRate piecewise: <=440: rate*0.1, <=600: 44+(r-440)*0.05, else +0.02
+        int critRating = player.BaseCritRating + player.BonusPhysicalCritical;
+        int critResist = target is Player pvpCritTarget ? pvpCritTarget.BonusPhysicalCriticalResist : 0;
+        critRating = Math.Max(0, critRating - critResist);
+        double critRate = critRating <= 440 ? critRating * 0.1
+                        : critRating <= 600 ? 44.0 + (critRating - 440) * 0.05
+                        : 52.0 + (critRating - 600) * 0.02;
+        bool isCrit = Random.Shared.Next(1000) < (int)critRate;
         if (isCrit) rawDmg = (int)(rawDmg * 1.5f);
 
         // Apply physical defense mitigation from the target's armor

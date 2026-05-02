@@ -190,13 +190,17 @@ public sealed class CM_MANASTONE : AionClientPacket
     private async ValueTask RecomputeAndSendStatsAsync(Model.Player player, CancellationToken ct)
     {
         var equipStats = EquipStatsCalculator.Compute(player.Inventory.All.Where(i => i.IsEquipped), _dataManager);
-        player.PhysicalDefense  = equipStats.PhysicalDefense;
-        player.MagicDefense     = equipStats.MagicDefense;
-        player.BonusMaxHp       = equipStats.BonusMaxHp;
-        player.BonusMaxMp       = equipStats.BonusMaxMp;
-        player.BonusPhysicalAtk = equipStats.PhysicalAttackBonus;
-        player.BonusMagicResist = equipStats.MagicResistBonus;
-        player.BonusMagicAtk    = equipStats.MagicAttackBonus;
+        player.PhysicalDefense             = equipStats.PhysicalDefense;
+        player.MagicDefense                = equipStats.MagicDefense;
+        player.BonusMaxHp                  = equipStats.BonusMaxHp;
+        player.BonusMaxMp                  = equipStats.BonusMaxMp;
+        player.BonusPhysicalAtk            = equipStats.PhysicalAttackBonus;
+        player.BonusMagicResist            = equipStats.MagicResistBonus;
+        player.BonusMagicAtk               = equipStats.MagicAttackBonus;
+        player.BonusEvasion                = equipStats.Evasion;
+        player.BonusPhysicalAccuracy       = equipStats.PhysicalAccuracy;
+        player.BonusPhysicalCritical       = equipStats.PhysicalCritical;
+        player.BonusPhysicalCriticalResist = equipStats.PhysicalCriticalResist;
 
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         player.MaxHp = (statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp;
