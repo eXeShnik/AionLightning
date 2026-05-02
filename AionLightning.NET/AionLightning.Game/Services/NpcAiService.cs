@@ -24,8 +24,9 @@ public sealed class NpcAiService : BackgroundService
     private static readonly TimeSpan DefaultAttackCooldown = TimeSpan.FromMilliseconds(1500);
     private static readonly TimeSpan WanderCooldown        = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan IdleShoutCooldown     = TimeSpan.FromSeconds(30);
-    private const float LeashMultiplier   = 1.5f;
-    private const float WanderRadius      = 5.0f;
+    private const float ChaseTargetRange  = 50f;   // Java AiInfo default chase_target
+    private const float ChaseHomeRange   = 200f;  // Java AiInfo default chase_home
+    private const float WanderRadius     = 5.0f;
     private const float WanderSpeed       = 1.5f;
     private const float ChaseSpeed        = 6.0f;
     private const float MeleeRange        = 2.5f;
@@ -150,16 +151,15 @@ public sealed class NpcAiService : BackgroundService
             Player? target = null;
             if (!isDummy && npc.Template.AggroRange > 0)
             {
-                float leashRange = npc.Template.AggroRange * LeashMultiplier;
-
-                // Validate locked target — clear if dead, wrong world, or out of leash range
+                // Validate locked target — clear if dead, wrong world, out of chase range, or NPC too far from home
                 if (_npcTargets.TryGetValue(npc.ObjectId, out int lockedId))
                 {
                     var locked = players.FirstOrDefault(p => p.ObjectId == lockedId);
                     if (locked is not null
                         && !locked.IsAlreadyDead
                         && locked.Position.WorldId == npc.HomePosition.WorldId
-                        && npc.HomePosition.DistanceTo(locked.Position) <= leashRange)
+                        && npc.Position.DistanceTo(locked.Position) <= ChaseTargetRange
+                        && npc.HomePosition.DistanceTo(npc.Position) <= ChaseHomeRange)
                     {
                         target = locked;
                     }

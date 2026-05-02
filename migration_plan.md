@@ -1847,6 +1847,15 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+185. [✓] NPC leash logic matches Java AiInfo defaults (session 2026-05-02)
+    - Previous: leash distance = `AggroRange * 1.5f` measured from HOME to PLAYER; a 30-aggro NPC would leash at 45m from spawn
+    - Java: two separate limits from `AiInfo` defaults — `chase_target=50` (NPC→player) and `chase_home=200` (NPC→spawn)
+    - [✓] `NpcAiService` — replaced `LeashMultiplier = 1.5f` with `ChaseTargetRange = 50f` and `ChaseHomeRange = 200f`
+    - [✓] Leash condition changed from `HomePosition.DistanceTo(player) <= AggroRange*1.5` to `npc.Position.DistanceTo(player) <= 50 && HomePosition.DistanceTo(npc.Position) <= 200`
+    - Impact: NPCs now chase players further (50m from NPC, not 45m from spawn) and tolerate kiting up to 200m from home before disengaging
+    - Java class: `com.aionemu.gameserver.ai2.manager.AttackManager.checkOwner()` and `AiInfo` defaults
+    - Build: 0 warnings, 0 errors
+
 184. [✓] NPC body decay timing mirrors Java RespawnService (session 2026-05-02)
     - Java: 5s (no drop entry), 90s (empty drop list), 300s (non-empty drops); previously hardcoded 3s in all paths
     - [✓] `CM_ATTACK` NPC death path — replaced `Task.Delay(3000)` + separate loot-clear delay with `decayMs` computed from `GetLoot(npcObjectId)` result
