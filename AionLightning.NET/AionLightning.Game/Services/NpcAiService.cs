@@ -484,7 +484,8 @@ public sealed class NpcAiService : BackgroundService
                 await CastNpcBuffAsync(npc, entry.SkillId, entry.SkillLevel, skillTemplate.Duration, now, worldId, ct);
                 break;
             case SkillSubType.DEBUFF:
-                await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, skillTemplate.Duration, now, worldId, ct);
+                await CastNpcDebuffAsync(npc, target, entry.SkillId, entry.SkillLevel, skillTemplate.Duration,
+                    skillTemplate.CcFlags, now, worldId, ct);
                 break;
             default:
                 await CastNpcDamageAsync(npc, target, entry.SkillId, skillTemplate, now, worldId, ct);
@@ -638,20 +639,31 @@ public sealed class NpcAiService : BackgroundService
         });
     }
 
-    private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs, DateTime now, int worldId, CancellationToken ct)
+    private async Task CastNpcDebuffAsync(Npc npc, Player target, int skillId, int skillLevel, int durationMs,
+        AbnormalCcFlags ccFlags, DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
         target.LastCombatTime = now;
         npc.LastCombatTime    = now;
 
         var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
-            EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs) };
+            EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs),
+            CcFlags = ccFlags };
         target.AddEffect(effect);
 
         var abnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(abnormal, ct); } catch { }
+
+        // Java RootEffect/StunEffect: broadcast SM_TARGET_IMMOBILIZE to freeze the player's position on all clients
+        if ((ccFlags & AbnormalCcFlags.CantMove) != 0)
+        {
+            var immobilize = new SM_TARGET_IMMOBILIZE(target);
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    try { await conn.SendAsync(immobilize, ct); } catch { }
+        }
 
         var expEffect = effect;
         _ = Task.Run(async () =>

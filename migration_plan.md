@@ -2045,6 +2045,13 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+190. [✓] NPC debuff skills apply CC flags + SM_TARGET_IMMOBILIZE on movement-blocking CC (session 2026-05-02)
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `AbnormalCcFlags ccFlags` parameter; sets `CcFlags = ccFlags` on the created `AbnormalState`; if `(ccFlags & CantMove) != 0`, broadcasts `SM_TARGET_IMMOBILIZE` to all world observers after SM_ABNORMAL_EFFECT
+    - [✓] `NpcAiService.TryCastNpcSkillAsync` — updated DEBUFF call site to pass `skillTemplate.CcFlags`
+    - Java source: `RootEffect.java`/`StunEffect.java`/`ParalyzeEffect.java` all set the effected creature's abnormal state ID and broadcast SM_TARGET_IMMOBILIZE; NPC skills go through the same effect pipeline
+    - Previously: NPC stun/root/sleep/paralyze debuff skills set no CC flags on the AbnormalState — player `ActiveCcFlags` remained None, so stunned players could still attack/move freely; no position-freeze visual was broadcast
+    - Build: 0 warnings, 0 errors
+
 189. [✓] Dual-wield off-hand physical attacks (session 2026-05-02)
     - [✓] `SM_ATTACK.cs` — expanded `HitResult` enum with off-hand values: OffHandNormal=11, OffHandCritical=219, OffHandDodge=1, OffHandParry=3, OffHandBlock=5 (Java AttackStatus.java)
     - [✓] `Player.cs` — added `OffHandMinDmg`, `OffHandMaxDmg`, `OffHandHitCount`, `OffHandWeaponType` to track sub-hand weapon stats
