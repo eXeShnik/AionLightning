@@ -353,7 +353,23 @@ public sealed class NpcAiService : BackgroundService
 
             var targetConn = _connRegistry.Get(target.ObjectId);
             if (targetConn is not null)
+            {
                 try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { /* ignore */ }
+                try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(npc.Template.Name), ct); } catch { }
+            }
+
+            // Group members see "[player] has died."
+            var group = target.Group;
+            if (group is not null)
+            {
+                var groupDied = SM_SYSTEM_MESSAGE.GroupMemberDied(target.Name);
+                foreach (var m in group.Members)
+                {
+                    if (m.ObjectId == target.ObjectId) continue;
+                    var mc = _connRegistry.Get(m.ObjectId);
+                    if (mc is not null) try { await mc.SendAsync(groupDied, ct); } catch { }
+                }
+            }
 
             // Death XP loss — 0.25% of expNeeded for level 50+ (mirrors Java XPLossEnum)
             if (targetConn is not null)

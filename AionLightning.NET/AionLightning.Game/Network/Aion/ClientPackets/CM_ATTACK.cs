@@ -178,7 +178,23 @@ public sealed class CM_ATTACK : AionClientPacket
 
             var targetConn = _connRegistry.Get(deadPlayer.ObjectId);
             if (targetConn is not null)
+            {
                 try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { }
+                try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(player.Name), ct); } catch { }
+            }
+
+            // Group members see "[player] has died."
+            var deadGroup = deadPlayer.Group;
+            if (deadGroup is not null)
+            {
+                var groupDied = SM_SYSTEM_MESSAGE.GroupMemberDied(deadPlayer.Name);
+                foreach (var m in deadGroup.Members)
+                {
+                    if (m.ObjectId == deadPlayer.ObjectId) continue;
+                    var mc = _connRegistry.Get(m.ObjectId);
+                    if (mc is not null) try { await mc.SendAsync(groupDied, ct); } catch { }
+                }
+            }
 
             // PvP AP exchange — only in Abyss/Balaurea maps AND opposing factions
             if (AbyssRankService.IsPvPMap(player.Position.WorldId) && player.Race != deadPlayer.Race)

@@ -106,6 +106,15 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_SUCCESS_RECOVER_EXPERIENCE — "You have been cured of Soul Sickness." (msg code 1300674)
     public static SM_SYSTEM_MESSAGE SoulSicknessCleared() => new(1300674);
 
+    // STR_DEATH_MESSAGE_ME — "You have died." (msg code 1300737)
+    public static SM_SYSTEM_MESSAGE YouDied() => new(1300737);
+
+    // STR_MSG_COMBAT_MY_DEATH_TO_B — "You were killed by %0's attack." (msg code 1340002)
+    public static SM_SYSTEM_MESSAGE YouWereKilledBy(string killerName) => new(1340002, killerName);
+
+    // STR_MSG_COMBAT_FRIENDLY_DEATH — "%0 has died." (msg code 1350000)
+    public static SM_SYSTEM_MESSAGE GroupMemberDied(string playerName) => new(1350000, playerName);
+
     // STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM — "Item tuning complete." (msg code 1401626)
     public static SM_SYSTEM_MESSAGE TuningComplete() => new(1401626);
 

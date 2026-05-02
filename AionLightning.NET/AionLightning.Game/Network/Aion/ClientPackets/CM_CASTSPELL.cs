@@ -336,7 +336,24 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             try { await c.SendAsync(clearEffect); } catch { }
                         }
                     var targetConn = registry.Get(deadPlayer.ObjectId);
-                    if (targetConn is not null) try { await targetConn.SendAsync(new SM_DIE()); } catch { }
+                    if (targetConn is not null)
+                    {
+                        try { await targetConn.SendAsync(new SM_DIE()); } catch { }
+                        try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(player.Name)); } catch { }
+                    }
+
+                    // Group members see "[player] has died."
+                    var deadGroup = deadPlayer.Group;
+                    if (deadGroup is not null)
+                    {
+                        var groupDied = SM_SYSTEM_MESSAGE.GroupMemberDied(deadPlayer.Name);
+                        foreach (var m in deadGroup.Members)
+                        {
+                            if (m.ObjectId == deadPlayer.ObjectId) continue;
+                            var mc = registry.Get(m.ObjectId);
+                            if (mc is not null) try { await mc.SendAsync(groupDied); } catch { }
+                        }
+                    }
 
                     // PvP AP exchange — only in Abyss/Balaurea maps AND opposing factions
                     if (AbyssRankService.IsPvPMap(castWorldId) && player.Race != deadPlayer.Race)

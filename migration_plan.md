@@ -1723,3 +1723,12 @@
     - Java source: `PlayerController.addDeathPenalty` uses `skillId=8291` with `deathCount` as skill level via `SkillEngine.getSkill(player, skillId, deathCount, player).useSkill()`
     - Previously: SoulSicknessCount was tracked, HP/MP multiplier applied, but the skull icon never appeared on the player's portrait; players had no visual indication of how many stacks they carried
     - Build: 0 warnings, 0 errors
+
+155. [✓] Death system messages — "You were killed by X" and group notifications (session 2026-05-02)
+    - [✓] `SM_SYSTEM_MESSAGE` — added `YouDied()` (1300737), `YouWereKilledBy(string)` (1340002), `GroupMemberDied(string)` (1350000)
+    - [✓] `NpcAiService` (NPC kills player) — after SM_DIE: sends `YouWereKilledBy(npc.Template.Name)` to dying player; sends `GroupMemberDied(target.Name)` to all group members
+    - [✓] `CM_ATTACK` (melee PvP kill) — same pattern: `YouWereKilledBy(player.Name)` to victim, `GroupMemberDied` to victim's group
+    - [✓] `CM_CASTSPELL` (spell PvP kill) — same pattern
+    - Java source: `STR_DEATH_MESSAGE_ME` 1300737, `STR_MSG_COMBAT_MY_DEATH_TO_B` 1340002, `STR_MSG_COMBAT_FRIENDLY_DEATH` 1350000
+    - Previously: players received SM_DIE (revive dialog) but no text notification of who killed them; group members saw no death notification at all
+    - Build: 0 warnings, 0 errors
