@@ -52,35 +52,35 @@ public sealed class ItemTemplate
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
         "ORB_2H", "HARP_2H", "BOOK_2H", "BOW", "CANNON_2H", "KEYBLADE_2H"];
     public bool IsTwoHandWeapon => TwoHandTypes.Contains(WeaponTypeName);
-    public int PhysicalDefense            => Modifiers?.GetStat("PHYSICAL_DEFENSE")         ?? 0;
-    public int MagicDefense               => Modifiers?.GetStat("MAGICAL_DEFEND")            ?? 0;
-    public int MaxHpBonus                 => Modifiers?.GetStat("MAXHP")                     ?? 0;
-    public int MaxMpBonus                 => Modifiers?.GetStat("MAXMP")                     ?? 0;
-    public int PhysicalAttackBonus        => Modifiers?.GetStat("PHYSICAL_ATTACK")           ?? 0;
-    public int MagicResistBonus           => Modifiers?.GetStat("MAGICAL_RESIST")            ?? 0;
-    public int MagicAttackBonus           => Modifiers?.GetStat("MAGICAL_ATTACK")            ?? 0;
-    public int EvasionBonus                => Modifiers?.GetStat("EVASION")                   ?? 0;
-    public int PhysicalAccuracyBonus       => Modifiers?.GetStat("PHYSICAL_ACCURACY")         ?? 0;
-    public int PhysicalCriticalBonus       => Modifiers?.GetStat("PHYSICAL_CRITICAL")         ?? 0;
-    public int PhysicalCriticalResistBonus => Modifiers?.GetStat("PHYSICAL_CRITICAL_RESIST")  ?? 0;
-    public int MagicalAccuracyBonus        => Modifiers?.GetStat("MAGICAL_ACCURACY")          ?? 0;
-    public int MagicalCriticalBonus        => Modifiers?.GetStat("MAGICAL_CRITICAL")          ?? 0;
-    public int MagicalCriticalResistBonus  => Modifiers?.GetStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
+    public int PhysicalDefense            => Modifiers?.GetAllStat("PHYSICAL_DEFENSE")         ?? 0;
+    public int MagicDefense               => Modifiers?.GetAllStat("MAGICAL_DEFEND")            ?? 0;
+    public int MaxHpBonus                 => Modifiers?.GetAllStat("MAXHP")                     ?? 0;
+    public int MaxMpBonus                 => Modifiers?.GetAllStat("MAXMP")                     ?? 0;
+    public int PhysicalAttackBonus        => Modifiers?.GetAllStat("PHYSICAL_ATTACK")           ?? 0;
+    public int MagicResistBonus           => Modifiers?.GetAllStat("MAGICAL_RESIST")            ?? 0;
+    public int MagicAttackBonus           => Modifiers?.GetAllStat("MAGICAL_ATTACK")            ?? 0;
+    public int EvasionBonus                => Modifiers?.GetAllStat("EVASION")                   ?? 0;
+    public int PhysicalAccuracyBonus       => Modifiers?.GetAllStat("PHYSICAL_ACCURACY")         ?? 0;
+    public int PhysicalCriticalBonus       => Modifiers?.GetAllStat("PHYSICAL_CRITICAL")         ?? 0;
+    public int PhysicalCriticalResistBonus => Modifiers?.GetAllStat("PHYSICAL_CRITICAL_RESIST")  ?? 0;
+    public int MagicalAccuracyBonus        => Modifiers?.GetAllStat("MAGICAL_ACCURACY")          ?? 0;
+    public int MagicalCriticalBonus        => Modifiers?.GetAllStat("MAGICAL_CRITICAL")          ?? 0;
+    public int MagicalCriticalResistBonus  => Modifiers?.GetAllStat("MAGICAL_CRITICAL_RESIST")   ?? 0;
     // ATTACK_SPEED and BOOST_CASTING_TIME use <rate> elements in item XML (not <add>).
     public int AttackSpeedBonusPct         => Modifiers?.GetRateStat("ATTACK_SPEED")            ?? 0;
     public int CastTimeBonusPct            => Modifiers?.GetRateStat("BOOST_CASTING_TIME")      ?? 0;
     // SPEED uses <rate> elements; values are per-1000 (22 = +2.2% movement speed).
     public int SpeedBonusPct               => Modifiers?.GetRateStat("SPEED")                   ?? 0;
-    // PARRY/BLOCK are percentage-bonus modifiers on equipment (bonus="true")
-    public int ParryBonus                  => Modifiers?.GetBonusStat("PARRY")                   ?? 0;
-    public int BlockBonus                  => Modifiers?.GetBonusStat("BLOCK")                   ?? 0;
+    public int ParryBonus                  => Modifiers?.GetAllStat("PARRY")                      ?? 0;
+    public int BlockBonus                  => Modifiers?.GetAllStat("BLOCK")                      ?? 0;
     // Strike/spell fortitude — reduce crit multiplier; Java formula: coeff -= Math.round(fortitude/1000f)
     public int StrikeFortitudeBonus        => Modifiers?.GetBonusStat("PHYSICAL_CRITICAL_DAMAGE_REDUCE") ?? 0;
     public int SpellFortitudeBonus         => Modifiers?.GetBonusStat("MAGICAL_CRITICAL_DAMAGE_REDUCE")  ?? 0;
-    public int ConcentrationBonus          => Modifiers?.GetStat("CONCENTRATION")               ?? 0;
-    public int MagicBoostBonus             => Modifiers?.GetStat("BOOST_MAGICAL_SKILL")         ?? 0;
-    public int MagicSuppressionBonus       => Modifiers?.GetStat("MAGIC_SKILL_BOOST_RESIST")    ?? 0;
-    public int HealBoostBonus              => Modifiers?.GetStat("HEAL_BOOST")                  ?? 0;
+    public int ConcentrationBonus          => Modifiers?.GetAllStat("CONCENTRATION")               ?? 0;
+    public int MagicBoostBonus             => Modifiers?.GetAllStat("BOOST_MAGICAL_SKILL")         ?? 0;
+    public int MagicSuppressionBonus       => Modifiers?.GetAllStat("MAGIC_SKILL_BOOST_RESIST")    ?? 0;
+    public int HealBoostBonus              => Modifiers?.GetAllStat("HEAL_BOOST")                  ?? 0;
+    public int FlySpeedBonusPct            => Modifiers?.GetRateStat("FLY_SPEED")                  ?? 0;
 
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;
@@ -97,11 +97,18 @@ public sealed class ItemModifiers
     [XmlElement("add")]  public List<ItemModifier> Add  { get; set; } = new();
     [XmlElement("rate")] public List<ItemModifier> Rate { get; set; } = new();
 
-    // Sum of flat <add> values for a stat (bonus="false" or absent).
+    // Sum ALL <add> entries for a stat regardless of bonus flag.
+    // Java sums all AddModifiers for a stat — bonus="true" in item XML marks equipment bonuses,
+    // both flat and bonus variants contribute to the same stat pool.
+    public int GetAllStat(string name) =>
+        Add.Where(m => m.Name == name).Sum(m => m.Value);
+
+    // Sum of flat <add> values only (bonus=false). Use when the flat and bonus variants must be
+    // distinguished (e.g. enchant calculations that reference only base armor values).
     public int GetStat(string name) =>
         Add.Where(m => m.Name == name && !m.Bonus).Sum(m => m.Value);
 
-    // Sum of bonus <add> values (bonus="true") for a stat.
+    // Sum of bonus <add> values only (bonus=true). Kept for stats known to only ever have bonus entries.
     public int GetBonusStat(string name) =>
         Add.Where(m => m.Name == name && m.Bonus).Sum(m => m.Value);
 

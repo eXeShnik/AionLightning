@@ -220,6 +220,7 @@ public sealed class PlayerEnterWorldService
         player.BonusStrikeFortitude        = equipStats.StrikeFortitude;
         player.BonusSpellFortitude         = equipStats.SpellFortitude;
         player.BonusMovementSpeedPct       = equipStats.MovementSpeedBonus;
+        player.BonusFlySpeedPct            = equipStats.FlySpeedBonus;
         if (player.BonusAttackSpeedPct > 0)
             player.CurrentAttackSpeed = player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct);
         if (player.BonusMovementSpeedPct > 0)

@@ -1847,6 +1847,20 @@
     - Previously: every physical attack hit unconditionally (0% miss chance regardless of evasion gear); crit rate was hardcoded 10% regardless of critical rating gear
     - Build: 0 warnings, 0 errors
 
+182. [✓] Fix item stat getter bug — GetAllStat covers both flat and bonus <add> entries (session 2026-05-02)
+    - Root cause: Aion 4.6 item XML marks equipment stat bonuses with `bonus="true"` on `<add>` elements; `GetStat` only read `bonus=false` entries and returned 0 for the vast majority of items
+    - Stats affected (all-bonus=true → GetStat returned 0): MAXHP (~27k items), MAXMP (15k), PHYSICAL_ATTACK (6k), MAGICAL_ATTACK (974), PHYSICAL_CRITICAL (4.9k), MAGICAL_CRITICAL (2.7k), MAGICAL_CRITICAL_RESIST (863), CONCENTRATION (10k), BOOST_MAGICAL_SKILL (11.8k), HEAL_BOOST (1.3k)
+    - Stats affected (mixed flat/bonus — GetStat partially worked): PHYSICAL_DEFENSE (+9.4k bonus missed), MAGICAL_RESIST (+9.7k bonus missed), MAGICAL_DEFEND (+9 bonus missed), EVASION (+6.4k bonus missed), PHYSICAL_ACCURACY (+4.7k bonus missed), PHYSICAL_CRITICAL_RESIST (+1.6k bonus missed), MAGICAL_ACCURACY (+5.6k bonus missed), MAGIC_SKILL_BOOST_RESIST (+4.2k bonus missed), PARRY (+4.6k bonus missed), BLOCK (+2.3k bonus missed)
+    - [✓] `ItemModifiers.GetAllStat(string name)` — new method summing ALL `<add>` entries (ignores bonus flag); mirrors Java AddModifier which sums all regardless of bonus attribute
+    - [✓] All 18 affected `ItemTemplate` stat properties switched from `GetStat`/`GetBonusStat` to `GetAllStat`
+    - [✓] `ItemTemplate.FlySpeedBonusPct` — new property: `GetRateStat("FLY_SPEED")` (3,755 items)
+    - [✓] `Player.BonusFlySpeedPct` — new field; accumulated by EquipStatsCalculator and stored; not yet applied to a fly speed output field
+    - [✓] `EquipStats` record — added `FlySpeedBonus` (25th field)
+    - [✓] `EquipStatsCalculator.AccumulateTemplate/Accumulate` — added `ref int flySpd`; accumulates `tpl.FlySpeedBonusPct`
+    - [✓] `PlayerEnterWorldService`, `CM_EQUIP_ITEM`, `CM_MANASTONE` — assign `BonusFlySpeedPct` from EquipStats
+    - Impact: HP/MP bonuses, P-attack, physical crit, concentration, magic boost, heal boost from gear now actually apply to player stats for the first time
+    - Build: 0 warnings, 0 errors
+
 181. [✓] SPEED movement bonus from equipment + fix <rate> element parsing (session 2026-05-02)
     - [✓] `ItemModifiers` — added `Rate` list (`[XmlElement("rate")]`) and `GetRateStat(name)` method; previously only `<add>` elements were parsed; `<rate>` elements (SPEED, ATTACK_SPEED, BOOST_CASTING_TIME) were silently ignored
     - [✓] `ItemTemplate.AttackSpeedBonusPct` — changed from `GetBonusStat` to `GetRateStat("ATTACK_SPEED")` (bug fix: ATTACK_SPEED uses `<rate>` not `<add>` in item XML)

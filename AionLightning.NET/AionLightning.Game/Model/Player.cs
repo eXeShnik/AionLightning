@@ -97,6 +97,9 @@ public sealed class Player : Creature
     // Sum of SPEED percentage bonuses from equipped items (rate stat; 1000 = +100% base speed)
     public int BonusMovementSpeedPct { get; set; }
 
+    // Sum of FLY_SPEED percentage bonuses from equipped items (rate stat; same scale as SPEED)
+    public int BonusFlySpeedPct { get; set; }
+
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
     public int MainHandMinDmg { get; set; }
     public int MainHandMaxDmg { get; set; }
