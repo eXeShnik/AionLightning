@@ -1713,3 +1713,13 @@
     - Java source: `PlayerLifeStats` HP regen = `(level+3) * healthStat / 100`; MP regen = `(level+8) * willStat / 100`; both on 6s interval after 1.7s out-of-combat delay
     - Previously: player regen used a flat 2% of max HP/MP per tick, ignoring level and stats — low-level players regenerated proportionally too fast, high-level players too slow relative to their stat investment
     - Build: 0 warnings, 0 errors
+
+154. [✓] Soul sickness debuff broadcast — skull icon visible on revive/login/cure (session 2026-05-02)
+    - [✓] `AbnormalState.RemainingMs` — fixed overflow: `(int)Math.Min(...TotalMilliseconds, int.MaxValue)` so `DateTime.MaxValue` expiry (persistent effects) doesn't cast a huge double to a negative int
+    - [✓] `PlayerEnterWorldService` — after MaxHp/MaxMp recompute: if SoulSicknessCount > 0, calls `player.AddEffect(AbnormalState{SkillId=8291, SkillLevel=count, Expiry=DateTime.MaxValue})`; CM_LEVEL_READY then includes it in the SM_ABNORMAL_EFFECT broadcast on zone entry
+    - [✓] `CM_REVIVE` — after MaxHp/MaxMp recompute: adds AbnormalState(8291) if SoulSicknessCount > 0; in same-zone branch (after stand emotion): broadcasts `SM_ABNORMAL_EFFECT` with active effects to all zone clients so skull icon appears immediately without needing a zone reload
+    - [✓] `CM_DIALOG_SELECT.HandleSoulSicknessRecoveryAsync` — after zeroing SoulSicknessCount: calls `RemoveEffectBySkillId(8291)` and broadcasts `SM_ABNORMAL_EFFECT(updatedEffects)` to zone so skull icon disappears on cure
+    - [✓] `CM_GM_COMMAND_SEND.HandleSoulSicknessClear` — same removal + broadcast pattern as healer cure
+    - Java source: `PlayerController.addDeathPenalty` uses `skillId=8291` with `deathCount` as skill level via `SkillEngine.getSkill(player, skillId, deathCount, player).useSkill()`
+    - Previously: SoulSicknessCount was tracked, HP/MP multiplier applied, but the skull icon never appeared on the player's portrait; players had no visual indication of how many stacks they carried
+    - Build: 0 warnings, 0 errors

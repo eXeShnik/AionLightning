@@ -9,5 +9,5 @@ public sealed class AbnormalState
     public DateTime Expiry     { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
-    public int  RemainingMs => IsExpired ? 0 : (int)(Expiry - DateTime.UtcNow).TotalMilliseconds;
+    public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
 }

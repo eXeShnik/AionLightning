@@ -199,6 +199,16 @@ public sealed class PlayerEnterWorldService
         float ssMult  = player.SoulSicknessMultiplier;
         player.MaxHp  = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
         player.MaxMp  = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
+
+        // Re-apply soul sickness debuff so skull icon appears on login (Java skill 8291, level = stack count)
+        if (player.SoulSicknessCount > 0)
+            player.AddEffect(new AbnormalState
+            {
+                SkillId    = 8291,
+                SkillLevel = player.SoulSicknessCount,
+                EffectorId = player.ObjectId,
+                Expiry     = DateTime.MaxValue
+            });
         player.CurrentHp = player.CurrentHp > 0 ? Math.Min(player.CurrentHp, player.MaxHp) : player.MaxHp;
         player.CurrentMp = player.CurrentMp > 0 ? Math.Min(player.CurrentMp, player.MaxMp) : player.MaxMp;
         player.CurrentFp = player.CurrentFp > 0 ? Math.Min(player.CurrentFp, player.MaxFp) : player.MaxFp;

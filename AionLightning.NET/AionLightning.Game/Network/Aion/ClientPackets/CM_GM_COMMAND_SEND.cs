@@ -352,6 +352,14 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         player.MaxMp = (statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp;
         player.CurrentHp = Math.Min(player.CurrentHp, player.MaxHp);
         player.CurrentMp = Math.Min(player.CurrentMp, player.MaxMp);
+
+        player.RemoveEffectBySkillId(8291);
+        int ssWorld  = player.Position.WorldId;
+        var ssEffect = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
+        foreach (var c in _connRegistry.GetAll())
+            if (c.ActivePlayer?.Position.WorldId == ssWorld)
+                try { await c.SendAsync(ssEffect, ct); } catch { }
+
         await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
     }
 

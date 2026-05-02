@@ -752,6 +752,14 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             player.MaxMp = statTpl.MaxMp + player.BonusMaxMp + player.TitleBonusMaxMp;
         }
 
+        // Remove soul sickness skull icon from client
+        player.RemoveEffectBySkillId(8291);
+        int ssWorld  = player.Position.WorldId;
+        var ssEffect = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
+        foreach (var c in _connRegistry.GetAll())
+            if (c.ActivePlayer?.Position.WorldId == ssWorld)
+                try { await c.SendAsync(ssEffect, ct); } catch { }
+
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
         await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);

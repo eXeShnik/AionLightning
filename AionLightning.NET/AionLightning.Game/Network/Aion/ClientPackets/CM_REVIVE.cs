@@ -42,6 +42,16 @@ public sealed class CM_REVIVE : AionClientPacket
         player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.TitleBonusMaxHp) * ssMult);
         player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.TitleBonusMaxMp) * ssMult);
 
+        // Apply soul sickness debuff effect — skull icon (Java skill 8291, level = stack count)
+        if (player.SoulSicknessCount > 0)
+            player.AddEffect(new AbnormalState
+            {
+                SkillId    = 8291,
+                SkillLevel = player.SoulSicknessCount,
+                EffectorId = player.ObjectId,
+                Expiry     = DateTime.MaxValue
+            });
+
         // Restore to 25 % HP / MP; drain DP to 0 (mirrors Java PlayerReviveService.revive)
         player.CurrentHp = Math.Max(1, player.MaxHp / 4);
         player.CurrentMp = Math.Max(1, player.MaxMp / 4);
@@ -101,6 +111,13 @@ public sealed class CM_REVIVE : AionClientPacket
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                 if (other.ActivePlayer?.Position.WorldId == worldId)
                     try { await other.SendAsync(standEmotion, ct); } catch { }
+
+            // Broadcast soul sickness debuff icon to all zone clients after same-zone revive
+            var ssAbnormal = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
+            try { await _conn.SendAsync(ssAbnormal, ct); } catch { }
+            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+                if (other.ActivePlayer?.Position.WorldId == worldId)
+                    try { await other.SendAsync(ssAbnormal, ct); } catch { }
         }
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
