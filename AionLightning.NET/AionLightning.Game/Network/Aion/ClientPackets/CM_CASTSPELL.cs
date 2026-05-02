@@ -327,10 +327,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     else if (target is Player)
                         rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
 
+                    // MResist = resist-chance only; NPC MAGICAL_DEFEND base = 0; use MBResist (magic fortitude) for mitigation
                     int spellDef = target is Player pvpSpellTarget
                                  ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                                  : target is Npc npcSpellTarget
-                                 ? (spellIsMagical ? NpcMagicResist(npcSpellTarget)
+                                 ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MBResist ?? 0)
                                                    : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
                                  : 0;
                     int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
@@ -516,10 +517,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 else if (target is Player)
                     rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
 
+                // Java: MResist is resist-chance only; MAGICAL_DEFEND (=0 for NPCs) is separate damage mitigation
                 int spellDef = target is Player pvpSpellTarget
                              ? (spellIsMagical ? pvpSpellTarget.MagicDefense : pvpSpellTarget.PhysicalDefense)
                              : target is Npc npcSpellTarget
-                             ? (spellIsMagical ? NpcMagicResist(npcSpellTarget)
+                             ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MBResist ?? 0)
                                                : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
                              : 0;
                 int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
@@ -622,7 +624,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 splashRaw = (int)(splashRaw * 1.5f);
                         }
 
-                        int splashDef = spellIsMagical ? NpcMagicResist(splash)
+                        int splashDef = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0)
                                                        : (splash.Template.Stats?.PDef    ?? 0);
                         int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
                         splash.CurrentHp      = Math.Max(0, splash.CurrentHp - splashDmg);

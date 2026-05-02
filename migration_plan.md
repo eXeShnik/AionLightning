@@ -2045,6 +2045,14 @@
     - Both changes use `> 0` guard so NPCs with missing/zero stat data fall back gracefully
     - Build: 0 warnings, 0 errors
 
+181. [✓] Separate MResist (resist chance) from MDef (damage mitigation) for NPC spell targets (session 2026-05-02)
+    - [✓] `CM_CASTSPELL.cs` single-target — `spellDef` for NPC magical spells changed from `NpcMagicResist(npc)` to `npc.Template.Stats?.MBResist ?? 0`
+    - [✓] `CM_CASTSPELL.cs` ground AoE loop — same fix for NPC magical spell defense
+    - [✓] `CM_CASTSPELL.cs` AoE splash — `splashDef` for magical changed from `NpcMagicResist(splash)` to `Template.Stats?.MBResist ?? 0`
+    - Java: `NpcGameStats.getMResist()` is the MAGICAL_RESIST stat used ONLY for resist-chance check; `getMDef()` = `getStat(StatEnum.MAGICAL_DEFEND, 0)` returns 0 base for NPCs, used for damage mitigation; these are completely separate paths
+    - Previously: `NpcMagicResist` (up to 950+ for high-level NPCs) was used as BOTH the resist-chance divisor AND the damage mitigation, causing magic spells that DID hit to still have 95%+ damage reduction; spell damage was effectively halved twice against high-level NPCs
+    - Build: 0 warnings, 0 errors
+
 180. [✓] PvP 50% physical and spell damage reduction for player-vs-player combat (session 2026-05-02)
     - [✓] `CM_ATTACK.cs` main damage path — `rawDmg = rawDmg / 2` when `target is Player`; applied after crit and NPC level-diff (no PvP paths there), before pdef mitigation
     - [✓] `CM_ATTACK.cs` parry branch — `rawDmgPr / 2` applied before pdef and 0.6f parry factor
