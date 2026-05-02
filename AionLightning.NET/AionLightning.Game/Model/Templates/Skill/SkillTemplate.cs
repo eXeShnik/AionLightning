@@ -248,6 +248,213 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>Sum of all ADD MAXHP changes from statdown effects (negative = reduced max HP).</summary>
+    public int MaxHpAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAXHP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD ATTACK_SPEED changes from statdown effects (positive ADD = slower attacks because higher ms value).</summary>
+    public int AtkSpeedAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "ATTACK_SPEED", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",          StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAXMP changes from statdown effects (negative = reduced max MP).</summary>
+    public int MaxMpAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAXMP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD BOOST_MAGICAL_SKILL changes from statup effects (positive = increased M-boost).</summary>
+    public int MagicBoostStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_MAGICAL_SKILL", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",                 StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD HEAL_BOOST changes from statup effects (positive = increased heal power).</summary>
+    public int HealBoostStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "HEAL_BOOST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",        StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD BOOST_MAGICAL_SKILL changes from statdown effects (negative = reduced M-boost).</summary>
+    public int MagicBoostAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_MAGICAL_SKILL", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",                 StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAXMP changes from statup effects (positive = increased max MP).</summary>
+    public int MaxMpStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAXMP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAGICAL_ATTACK changes from statdown effects (negative = reduced M-attack).</summary>
+    public int MagicAtkAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAGICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>Sum of all ADD MAXHP changes from statup effects (positive = increased max HP).</summary>
+    public int MaxHpStatUpDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAXHP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];

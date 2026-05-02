@@ -32,6 +32,18 @@ public abstract class Creature : VisibleObject
     public int PatkDebuffDelta    { get; set; }
     // Cumulative EVASION debuff delta (negative = reduced evasion from statdown effects)
     public int EvasionDebuffDelta { get; set; }
+    // Cumulative MAXHP delta — positive from statup buffs, negative from statdown debuffs
+    public int MaxHpBonusDelta    { get; set; }
+    // Cumulative MAGICAL_ATTACK debuff delta (negative = reduced M-attack from statdown effects)
+    public int MagicAtkDebuffDelta { get; set; }
+    // Cumulative ATTACK_SPEED ADD debuff delta from statdown (positive = slower attacks, adds ms to attack speed)
+    public int AtkSpeedDebuffDelta { get; set; }
+    // Cumulative MAXMP delta — positive from statup buffs, negative from statdown debuffs
+    public int MaxMpBonusDelta     { get; set; }
+    // Cumulative BOOST_MAGICAL_SKILL delta — positive from statup buffs, negative from statdown debuffs
+    public int MagicBoostDelta     { get; set; }
+    // Cumulative HEAL_BOOST delta from statup buffs (adds to BonusHealBoost for heal formula)
+    public int HealBoostDelta      { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();

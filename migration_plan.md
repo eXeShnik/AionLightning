@@ -2219,6 +2219,75 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+210. [✓] StatUp HEAL_BOOST — HealBoostDelta amplifies heals for buff duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int HealBoostDelta { get; set; }` (positive from statup buffs)
+    - [✓] `Model/AbnormalState.cs` — added `int HealBoostDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `HealBoostStatUpDelta` to `SkillEffects` (parses `<statup>/<change stat="HEAL_BOOST" func="ADD">`)
+    - [✓] `SM_STATS_INFO.cs` — heal boost field now `p.BonusHealBoost + p.HealBoostDelta` in both current and base sections
+    - [✓] `CM_CASTSPELL.cs` — both `healBoostMult` (single-target heal) and `aoeBoostMult` (AoE heal) now include `+ player.HealBoostDelta` in the divisor; buff block applies and expiry restores `HealBoostDelta`
+    - Java source: `StatUpEffect` applies `StatAddFunction` to `HEAL_BOOST`; `PlayerGameStats.getHealBoost()` sums modifiers; heal skills call `calculateSkillBoostRate` using effective value
+    - Previously: Chanter Protective Ward / Healing Grace chains and Cleric Splendor of Recovery showed HEAL_BOOST icon but caster's heal output was unchanged; heals could not be amplified by mantras
+    - Build: 0 warnings, 0 errors
+
+209. [✓] StatUp/StatDown BOOST_MAGICAL_SKILL — MagicBoostDelta applied to spell power multiplier for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MagicBoostDelta { get; set; }` (positive = buff, negative = debuff)
+    - [✓] `Model/AbnormalState.cs` — added `int MagicBoostDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MagicBoostStatUpDelta` (statup, positive) and `MagicBoostAddDelta` (statdown, negative) to `SkillEffects`
+    - [✓] `SM_STATS_INFO.cs` — M-boost field now `p.BonusMagicBoost + p.MagicBoostDelta` in both current and base sections
+    - [✓] `CM_CASTSPELL.cs` — all three spell-damage boost multipliers now use `player.BonusMagicBoost + player.MagicBoostDelta - suppress`; buff block applies and expiry restores `MagicBoostDelta`; debuff block same for statdown M-boost reduction
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int mBoostDebuffDelta` param; same apply/restore pattern; `TryCastNpcSkillAsync` passes `Effects?.MagicBoostAddDelta ?? 0`
+    - Java source: `StatUpEffect` / `StatDownEffect` apply `StatAddFunction` to `BOOST_MAGICAL_SKILL`; `PlayerGameStats.getMagicalSkillBoostResist()` sums modifiers; `calculateMagicalSkillBoostRate` uses effective value; all spell skills use the modifier in damage formula
+    - Previously: statup BOOST_MAGICAL_SKILL buffs (Chanter Mantra of Victory, Cleric Blessing of Rock, Sorcerer Focus buffs) showed icons but caster's spell damage multiplier was unchanged
+    - Build: 0 warnings, 0 errors
+
+208. [✓] StatDown/StatUp MAXMP — accumulated MaxMpBonusDelta for MP reduction debuffs and MP-boost buffs (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MaxMpBonusDelta { get; set; }` (negative from statdown debuffs, positive from statup buffs)
+    - [✓] `Model/AbnormalState.cs` — added `int MaxMpDelta { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MaxMpAddDelta` (statdown: `<statdown>/<change stat="MAXMP">`) and `MaxMpStatUpDelta` (statup: `<statup>/<change stat="MAXMP">`) to `SkillEffects`
+    - [✓] `SM_STATS_INFO.cs` — `maxMp = Math.Max(1, (p.MaxMp > 0 ? p.MaxMp : 500) + p.MaxMpBonusDelta)`; `curMp = Math.Min(curMp, maxMp)` — stat panel reflects both MP reduction and MP buff
+    - [✓] CM_CASTSPELL debuff block — applies `MaxMpBonusDelta += maxMpDelta` and clamps `CurrentMp`; expiry restores delta; NpcAiService follows the same pattern with new `maxMpDelta` param
+    - [✓] CM_CASTSPELL buff block — applies `MaxMpBonusDelta += maxMpStatUpDelta`; expiry restores and clamps; both MAXHP and MAXMP statup now handled in a single `buffStatChanged` guard
+    - Java source: `StatUpEffect` / `StatDownEffect` apply `StatAddFunction` to `MAXMP`; `PlayerGameStats.getMaxMp()` sums base + all modifiers; MP clamped in `endEffect`
+    - Previously: statdown MAXMP debuffs (Sorcerer series) and statup MAXMP buffs (Chanter MP-pool mantras) showed icons but left effective MaxMp unchanged
+    - Build: 0 warnings, 0 errors
+
+207. [✓] StatDown ATTACK_SPEED (ADD via statdown) — accumulated AtkSpeedDebuffDelta adds ms to attack cooldown (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int AtkSpeedDebuffDelta { get; set; }` (positive = slower attacks, adds ms)
+    - [✓] `Model/AbnormalState.cs` — added `int AtkSpeedDelta { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `AtkSpeedAddDelta` property to `SkillEffects`: sums all `<statdown>/<change stat="ATTACK_SPEED" func="ADD">` values
+    - [✓] `SM_STATS_INFO.cs` — attack speed field now `Math.Max(500, p.CurrentAttackSpeed + p.AtkSpeedDebuffDelta)` to show increased cooldown
+    - [✓] `CM_ATTACK.cs` — cooldown check uses `effectiveAtkSpd = Math.Max(500, player.CurrentAttackSpeed + player.AtkSpeedDebuffDelta)` so debuffed players attack less frequently
+    - [✓] CM_CASTSPELL debuff apply — accumulates `target.AtkSpeedDebuffDelta += atkSpdDelta` and broadcasts `SM_EMOTION(START_EMOTE2)` to update clients; expiry restores delta and re-broadcasts
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int atkSpdDelta` parameter; same apply/restore/broadcast pattern; `TryCastNpcSkillAsync` passes `Effects?.AtkSpeedAddDelta ?? 0`
+    - Java source: `StatDownEffect` applies `StatAddFunction` to `ATTACK_SPEED` (distinct from `SlowEffect` which uses PERCENT); higher ATTACK_SPEED ms value = slower; `PlayerGameStats.getAttackSpeed()` sums base + all modifiers
+    - Note: `<slow>/<change stat="ATTACK_SPEED" func="PERCENT">` (M200) and `<statdown>/<change stat="ATTACK_SPEED" func="ADD">` (M207) are two separate XML patterns; both are now handled
+    - Previously: 23 statdown ATTACK_SPEED skills that use ADD (not PERCENT) left player attack cooldown unchanged despite showing the debuff icon
+    - Build: 0 warnings, 0 errors
+
+206. [✓] StatDown MAGICAL_ATTACK (ADD) — accumulated MagicAtkDebuffDelta reduces caster spell output, restored on expiry (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MagicAtkDebuffDelta { get; set; }` (negative = reduced M-attack from statdown)
+    - [✓] `Model/AbnormalState.cs` — added `int MagicAtkDelta { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MagicAtkAddDelta` property to `SkillEffects`: sums all `<statdown>/<change stat="MAGICAL_ATTACK" func="ADD">` values
+    - [✓] `SM_STATS_INFO.cs` — M-attack field now includes `+ p.MagicAtkDebuffDelta` in both current and base sections; stat panel reflects debuffed spell power
+    - [✓] `CM_CASTSPELL.cs` — `mAtk` base, ground AoE `mAtkG`, and splash formula all include `+ player.MagicAtkDebuffDelta`; debuffed players deal proportionally less magical damage
+    - [✓] CM_CASTSPELL debuff apply/restore chain extended with `magicAtkDelta`
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int magicAtkDelta` parameter; same accumulate/restore/stats-update pattern; `TryCastNpcSkillAsync` passes `Effects?.MagicAtkAddDelta ?? 0`
+    - Java source: `StatDownEffect` applies `StatAddFunction` to `MAGICAL_ATTACK`; `PlayerGameStats.getMainHandMAttack()` returns base + all modifiers; NPC spell damage path uses same stat
+    - Previously: 31 MAGICAL_ATTACK statdown skills (Spiritmaster Curse of Fire series, Sorcerer Erosive Flame etc.) showed the debuff icon but left caster M-attack unchanged; debuffed players dealt full spell damage
+    - Build: 0 warnings, 0 errors
+
+205. [✓] StatDown/StatUp MAXHP — accumulated MaxHpBonusDelta for HP reduction debuffs and HP-boost buffs (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int MaxHpBonusDelta { get; set; }` (negative from statdown debuffs, positive from statup buffs)
+    - [✓] `Model/AbnormalState.cs` — added `int MaxHpDelta { get; init; }` (shared field for both directions)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MaxHpAddDelta` to `SkillEffects` (statdown: sums `<statdown>/<change stat="MAXHP" func="ADD">`) and `MaxHpStatUpDelta` (statup: sums `<statup>/<change stat="MAXHP" func="ADD">`)
+    - [✓] `SM_STATS_INFO.cs` — `maxHp = Math.Max(1, (p.MaxHp > 0 ? p.MaxHp : 1000) + p.MaxHpBonusDelta)`; `curHp = Math.Min(curHp, maxHp)` — stat panel reflects both HP reduction and HP buff
+    - [✓] `CM_CASTSPELL.cs` debuff block — reads `maxHpDelta = MaxHpAddDelta`; applies `target.MaxHpBonusDelta += maxHpDelta`; clamps `CurrentHp` if it exceeds new effective max; sends `SM_STATS_INFO` when any stat delta non-zero; expiry restores `MaxHpBonusDelta -= MaxHpDelta`
+    - [✓] `CM_CASTSPELL.cs` buff block — reads `maxHpStatUpDelta = MaxHpStatUpDelta`; stores in `AbnormalState { MaxHpDelta }`; applies `buffTarget.MaxHpBonusDelta += maxHpStatUpDelta`; sends `SM_STATS_INFO` to player; expiry restores delta and clamps `CurrentHp` if MaxHp shrank below current
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int maxHpDelta` parameter; same accumulate/clamp/restore pattern; `TryCastNpcSkillAsync` passes `Effects?.MaxHpAddDelta ?? 0`
+    - Java source: `StatUpEffect` / `StatDownEffect` apply `StatAddFunction` to `MAXHP`; `PlayerGameStats.getMaxHp()` sums base + template + all modifiers; HP clamped to new max in `endEffect`
+    - Previously: 47 statdown skills (Gladiator Exhausting Blow chain) reduced MAXHP icon but left effective maxHp unchanged; 404 statup skills (Chanter Invigorating Chant, Protective Ward chains) showed buff icons but maxHp was never increased
+    - Build: 0 warnings, 0 errors
+
 204. [✓] StatDown EVASION (ADD) — accumulated evasion delta in dodge rate, restored on expiry (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int EvasionDebuffDelta { get; set; }` (negative = reduced evasion from statdown)
     - [✓] `Model/AbnormalState.cs` — added `int EvasionDelta { get; init; }`

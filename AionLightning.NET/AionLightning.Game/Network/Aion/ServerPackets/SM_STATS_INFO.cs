@@ -50,10 +50,10 @@ public sealed class SM_STATS_INFO : AionServerPacket
 
         w.WriteD(0); // unk
 
-        int maxHp = p.MaxHp > 0 ? p.MaxHp : 1000;
-        int curHp = p.CurrentHp > 0 ? p.CurrentHp : maxHp;
-        int maxMp = p.MaxMp > 0 ? p.MaxMp : 500;
-        int curMp = p.CurrentMp > 0 ? p.CurrentMp : maxMp;
+        int maxHp = Math.Max(1, (p.MaxHp > 0 ? p.MaxHp : 1000) + p.MaxHpBonusDelta);
+        int curHp = Math.Min(p.CurrentHp > 0 ? p.CurrentHp : maxHp, maxHp);
+        int maxMp = Math.Max(1, (p.MaxMp > 0 ? p.MaxMp : 500) + p.MaxMpBonusDelta);
+        int curMp = Math.Min(p.CurrentMp > 0 ? p.CurrentMp : maxMp, maxMp);
 
         w.WriteD(maxHp); w.WriteD(curHp);
         w.WriteD(maxMp); w.WriteD(curMp);
@@ -67,12 +67,12 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH(0);                   // unk 3.0
         int pdef = Math.Max(0, p.PhysicalDefense + p.PdefDebuffDelta);
         w.WriteD(pdef);                // P-def
-        w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon + accessories)
+        w.WriteH((short)(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta)); w.WriteH(0); // main/off-hand M-attack (100 base + weapon + accessories + debuff)
         int mdef = Math.Max(100, p.MagicDefense);
         w.WriteD(mdef);                // M-def
         w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta)); w.WriteH(0); // M-resist, unk 3.0
         w.WriteF(5.0f);                // attack range
-        w.WriteH((short)p.CurrentAttackSpeed); // attack speed
+        w.WriteH((short)Math.Max(500, p.CurrentAttackSpeed + p.AtkSpeedDebuffDelta)); // attack speed
         w.WriteH((short)Math.Max(0, (t?.Evasion ?? 100) + p.BonusEvasion + p.EvasionDebuffDelta)); // evasion
         w.WriteH((short)(p.BaseParry + p.BonusParry)); w.WriteH((short)(p.BaseBlock + p.BonusBlock)); // parry, block
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // main/off-hand P-crit
@@ -84,8 +84,8 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteF(Math.Max(0f, (1000 - p.WeaponCastTimeBonus) / 1000f)); // cast speed (ReverseStat: lower = faster)
         w.WriteH(0);                   // unk 3.5
         w.WriteH((short)p.BonusConcentration);           // concentration
-        w.WriteH((short)p.BonusMagicBoost); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress
-        w.WriteH((short)p.BonusHealBoost);              // heal boost
+        w.WriteH((short)(p.BonusMagicBoost + p.MagicBoostDelta)); w.WriteH((short)p.BonusMagicSuppression); // M-boost, M-suppress
+        w.WriteH((short)(p.BonusHealBoost + p.HealBoostDelta)); // heal boost
         w.WriteH((short)p.BonusPhysicalCriticalResist); w.WriteH(0); // P-crit resist, M-crit resist
         w.WriteH((short)p.BonusStrikeFortitude); w.WriteH((short)p.BonusSpellFortitude); // P-crit fortitude, M-crit fortitude
         w.WriteH(0);                   // unk 3.5
@@ -112,7 +112,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteD(maxHp); w.WriteD(maxMp);
         w.WriteD(6000); w.WriteD(p.MaxFp); // base DP cap, base fly time
         w.WriteH((short)totalAtk); w.WriteH(0); // base main/off-hand P-attack
-        w.WriteD(100 + p.MainHandMagicalAtk + p.BonusMagicAtk); w.WriteD(pdef); // base M-attack, base P-def
+        w.WriteD(100 + p.MainHandMagicalAtk + p.BonusMagicAtk + p.MagicAtkDebuffDelta); w.WriteD(pdef); // base M-attack, base P-def
         w.WriteD(mdef);                // base M-def
         w.WriteH((short)Math.Max(0, p.BonusMagicResist + p.MResistDebuffDelta)); w.WriteF(5.0f); // base M-resist, attack range
         w.WriteH(0);                   // unk 3.5

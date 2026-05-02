@@ -31,6 +31,18 @@ public sealed class AbnormalState
     public int   PatkDelta          { get; init; }
     // Non-zero when this debuff reduces EVASION
     public int   EvasionDelta       { get; init; }
+    // Non-zero when this effect changes MAXHP (negative = debuff, positive = buff)
+    public int   MaxHpDelta         { get; init; }
+    // Non-zero when this debuff reduces MAGICAL_ATTACK
+    public int   MagicAtkDelta      { get; init; }
+    // Non-zero when this debuff increases ATTACK_SPEED ms via statdown ADD (positive = slower)
+    public int   AtkSpeedDelta      { get; init; }
+    // Non-zero when this effect changes MAXMP (negative = debuff, positive = buff)
+    public int   MaxMpDelta         { get; init; }
+    // Non-zero when this effect changes BOOST_MAGICAL_SKILL (positive = buff, negative = debuff)
+    public int   MagicBoostDeltaVal { get; init; }
+    // Non-zero when this buff increases HEAL_BOOST (positive = heals stronger)
+    public int   HealBoostDeltaVal  { get; init; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
