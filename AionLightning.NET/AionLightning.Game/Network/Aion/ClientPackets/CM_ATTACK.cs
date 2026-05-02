@@ -108,6 +108,28 @@ public sealed class CM_ATTACK : AionClientPacket
             try { await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct); } catch { }
         }
 
+        // Godstone proc: main-hand weapon may trigger a secondary skill effect on hit
+        // Probability is out of 1000; mirrors Java GodStone.onEquip ActionObserver
+        if (target.CurrentHp > 0)
+        {
+            var mainHand = player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.Slot == 1);
+            if (mainHand is { GodStoneItemId: > 0 })
+            {
+                var godTpl = _dataManager.Items.GetTemplate(mainHand.GodStoneItemId);
+                if (godTpl?.Godstone is { } god && god.Probability > 0
+                    && Random.Shared.Next(1000) < god.Probability)
+                {
+                    int procDmg = god.SkillLvl * 20 + Random.Shared.Next(10, 30);
+                    target.CurrentHp = Math.Max(0, target.CurrentHp - procDmg);
+                    int procTargetType = target is Npc ? 3 : 0;
+                    await BroadcastAsync(new SM_CASTSPELL(player.ObjectId, god.SkillId, god.SkillLvl,
+                        procTargetType, target.ObjectId, duration: 0), ct);
+                    await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage,
+                        god.SkillId, procDmg), ct);
+                }
+            }
+        }
+
         // NPC retaliation: force non-aggressive NPCs to engage the player when hit
         if (target is Npc attackedNpc && target.CurrentHp > 0)
             _npcAi.ForceEngage(attackedNpc, player);

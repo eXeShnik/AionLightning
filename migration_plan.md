@@ -1482,6 +1482,11 @@
     - Portal locations: `portal_loc.xml` uses `world_id` attribute (distinct from `teleport_location.xml` which uses `mapid`); all instance portal loc_ids (e.g. Dredgion 3002100–3002103) resolve via `portal_loc.xml` only
     - Build: 0 warnings, 0 errors
 
+138. [✓] Godstone proc on melee attack (session 2026-05-02)
+    - [✓] `CM_ATTACK` — after main-hit broadcast, checks player's equipped main-hand weapon for a socketed godstone (`GodStoneItemId > 0`); looks up godstone item template's `GodstoneInfo`; rolls `Random.Next(1000) < god.Probability` (probability out of 1000, mirrors Java GodStone.onEquip ActionObserver); on proc: applies `skillLvl×20 + Random(10,30)` secondary damage, broadcasts `SM_CASTSPELL(godSkillId, godSkillLvl, targetType, target)` + `SM_ATTACK_STATUS`; proc only fires when target is still alive after main hit
+    - Proc kill edge case (proc reduces HP to 0) is deferred: NPC cleanup handled by next NpcAiService tick; player kills from proc are not yet credited
+    - Build: 0 warnings, 0 errors
+
 137. [✓] Stigma socketing — parse `<stigma>` XML, shard consumption, skill grant/removal on equip/unequip, re-apply on login (session 2026-05-02)
     - [✓] `ItemTemplate` — added `[XmlElement("stigma")] public StigmaTemplate? Stigma { get; set; }` and `IsStigmaItem` computed property
     - [✓] `StigmaTemplate` (NEW) — maps `<stigma shard="N" skill="level:skillId ..."/>`; `GetSkills()` parses space-separated "level:id" pairs; mirrors Java Stigma.java
