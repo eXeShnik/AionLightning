@@ -1825,3 +1825,11 @@
     - Key: previously manastones were stored in the DB and hydrated into `item.ManaStones` on login, but their stat contributions were never summed — socketing a HP+100 manastone had zero visible effect on the stats panel or combat
     - Previously: stat computation iterated only equipped items, not their manastones; `CM_MANASTONE` had a comment "no stat bonus in this implementation"
     - Build: 0 warnings, 0 errors
+
+167. [✓] Enchant-level combat stat bonuses — weapons and armor scale with enchant level (session 2026-05-02)
+    - [✓] `EquipStatsCalculator` — refactored: extracted `AccumulateTemplate(ItemTemplate, ...)` from `Accumulate` to avoid double `GetTemplate` lookup; main item loop now calls `AccumulateTemplate` then `AccumulateEnchant` (if EnchantLevel > 0); manastones still use `Accumulate(itemId, dm, ...)`
+    - [✓] `AccumulateEnchant(int enchantLvl, int slot, ItemTemplate, ...)` — mirrors Java `StatEnchantFunction.getEnchantAdditionModifier`: weapons (off-hand slots 2/262144 skipped): SWORD_1H/DAGGER_1H +2×enchant pAtk, POLEARM_2H/SWORD_2H/BOW +4×enchant pAtk, MACE_1H/STAFF_2H +3×enchant pAtk, BOOK_2H/ORB_2H +3×enchant mAtk, HARP_2H/CANNON_2H/KEYBLADE_2H +4×enchant mAtk, GUN_1H +2×enchant mAtk; armor (slot groups 16/32/2048=small, 4096=medium, 8=large): ROBE +enchant/+2/+3 pDef + 10/12/14×enchant hp; LEATHER +2/+3/+4 pDef + 8/10/12×enchant hp; CHAIN +3/+4/+5 pDef + 6/8/10×enchant hp; PLATE +4/+5/+6 pDef + 4/6/8×enchant hp
+    - Key: Java `BOOST_MAGICAL_SKILL` enchant (20×enchantLvl for MACE/STAFF/ORB/etc.) is a separate stat not tracked in our simplified system — MACE/STAFF enchant maps to pAtk (their physical white-hit bonus); ORB/BOOK/etc. map to mAtk
+    - Slot bitmasks from Java ItemSlot enum: TORSO=8, GLOVES=16, BOOTS=32, SHOULDER=2048, PANTS=4096 (HELMET=4 and WAIST=65536 had no case in Java, so no enchant bonus)
+    - Previously: enchant levels were stored and enchanting worked visually, but enchanting a +15 sword gave zero combat benefit — damage and defense were identical to +0
+    - Build: 0 warnings, 0 errors
