@@ -76,7 +76,7 @@ public sealed class SM_STATS_INFO : AionServerPacket
         w.WriteH((short)Math.Max(0, (t?.Evasion ?? 100) + p.BonusEvasion + p.EvasionDebuffDelta)); // evasion
         w.WriteH((short)(p.BaseParry + p.BonusParry)); w.WriteH((short)(p.BaseBlock + p.BonusBlock)); // parry, block
         w.WriteH((short)((t?.MainHandCritRate ?? 0) + p.BonusPhysicalCritical)); w.WriteH(0); // main/off-hand P-crit
-        w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy)); w.WriteH(0); // main/off-hand P-accuracy
+        w.WriteH((short)((t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy + p.PhysAccDelta)); w.WriteH(0); // main/off-hand P-accuracy
         w.WriteH(1);                   // unk
         w.WriteH((short)((t?.MagicAccuracy ?? 0) + p.BonusMagicalAccuracy));
         w.WriteH((short)(p.BaseMagicCritRating + p.BonusMagicalCritical)); // M-accuracy, M-crit

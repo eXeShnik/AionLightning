@@ -2219,6 +2219,18 @@
     - Previously: NPC dodge/accuracy used `level*5` (flat) which was far too low for high-level NPCs; NPC magic resist was 0 when XML field absent so spells always hit
     - Build: 0 warnings, 0 errors
 
+211. [✓] StatDown/StatUp PHYSICAL_ACCURACY (ADD) — PhysAccDelta affects hit rate for duration (session 2026-05-02)
+    - [✓] `Model/Creature.cs` — added `int PhysAccDelta { get; set; }` (negative = debuff, positive = buff)
+    - [✓] `Model/AbnormalState.cs` — added `int PhysAccDeltaVal { get; init; }`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `PhysAccAddDelta` (statdown) and `PhysAccStatUpDelta` (statup) to `SkillEffects`
+    - [✓] `SM_STATS_INFO.cs` — P-accuracy field now `(t?.MainHandAccuracy ?? 0) + p.BonusPhysicalAccuracy + p.PhysAccDelta` in both current and base sections
+    - [✓] `CM_ATTACK.cs` — `totalAccuracy` now includes `+ player.PhysAccDelta` in hit rate formula
+    - [✓] `CM_CASTSPELL.cs` — debuff block: applies `target.PhysAccDelta += physAccDelta`, stored in `AbnormalState.PhysAccDeltaVal`, restored on expiry and included in stats broadcast condition; buff block: applies and restores `PhysAccDeltaVal`
+    - [✓] `NpcAiService.CastNpcDebuffAsync` — added `int physAccDelta` parameter; apply/restore/broadcast same pattern as other stat deltas; `TryCastNpcSkillAsync` passes `Effects?.PhysAccAddDelta ?? 0`
+    - Java source: `StatDownEffect`/`StatUpEffect` apply `StatAddFunction` to `PHYSICAL_ACCURACY`; `PlayerGameStats.getMainHandPAccuracy()` sums base + all modifiers; `calculatePhysicalResistRate` uses effective accuracy for dodge/parry/block checks
+    - Previously: Gladiator/Templar PHYSICAL_ACCURACY debuffs (e.g. Blinding Blow chains) showed icon but left hit-rate formula unchanged; Cleric PHYSICAL_ACCURACY statup buffs had no effect
+    - Build: 0 warnings, 0 errors
+
 210. [✓] StatUp HEAL_BOOST — HealBoostDelta amplifies heals for buff duration (session 2026-05-02)
     - [✓] `Model/Creature.cs` — added `int HealBoostDelta { get; set; }` (positive from statup buffs)
     - [✓] `Model/AbnormalState.cs` — added `int HealBoostDeltaVal { get; init; }`

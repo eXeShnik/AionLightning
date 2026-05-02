@@ -502,6 +502,7 @@ public sealed class NpcAiService : BackgroundService
                     skillTemplate.Effects?.AtkSpeedAddDelta    ?? 0,
                     skillTemplate.Effects?.MaxMpAddDelta       ?? 0,
                     skillTemplate.Effects?.MagicBoostAddDelta  ?? 0,
+                    skillTemplate.Effects?.PhysAccAddDelta     ?? 0,
                     now, worldId, ct);
                 break;
             default:
@@ -663,6 +664,7 @@ public sealed class NpcAiService : BackgroundService
         int atkSpdDelta,
         int maxMpDelta,
         int mBoostDebuffDelta,
+        int physAccDelta,
         DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
@@ -676,7 +678,7 @@ public sealed class NpcAiService : BackgroundService
             AttackSpeedPct = slowAtkPct, PreDebuffAtkSpeed = target.CurrentAttackSpeed,
             PdefDelta = pdefDelta, MResistDelta = mresistDelta, PatkDelta = patkDelta, EvasionDelta = evasionDelta,
             MaxHpDelta = maxHpDelta, MagicAtkDelta = magicAtkDelta, AtkSpeedDelta = atkSpdDelta,
-            MaxMpDelta = maxMpDelta, MagicBoostDeltaVal = mBoostDebuffDelta };
+            MaxMpDelta = maxMpDelta, MagicBoostDeltaVal = mBoostDebuffDelta, PhysAccDeltaVal = physAccDelta };
         target.AddEffect(effect);
 
         // Snare: reduce movement speed; Slow: increase attack speed (higher = slower attacks)
@@ -720,7 +722,8 @@ public sealed class NpcAiService : BackgroundService
             if (target.CurrentMp > effectiveMaxMp) target.CurrentMp = effectiveMaxMp;
         }
         if (mBoostDebuffDelta != 0) target.MagicBoostDelta += mBoostDebuffDelta;
-        if (pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0)
+        if (physAccDelta      != 0) target.PhysAccDelta    += physAccDelta;
+        if (pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0)
         {
             var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
             var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
@@ -775,7 +778,8 @@ public sealed class NpcAiService : BackgroundService
             }
             if (expEffect.MaxMpDelta        != 0) target.MaxMpBonusDelta  -= expEffect.MaxMpDelta;
             if (expEffect.MagicBoostDeltaVal != 0) target.MagicBoostDelta -= expEffect.MagicBoostDeltaVal;
-            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0)
+            if (expEffect.PhysAccDeltaVal    != 0) target.PhysAccDelta    -= expEffect.PhysAccDeltaVal;
+            if (expEffect.PdefDelta != 0 || expEffect.MResistDelta != 0 || expEffect.PatkDelta != 0 || expEffect.EvasionDelta != 0 || expEffect.MaxHpDelta != 0 || expEffect.MagicAtkDelta != 0 || expEffect.AtkSpeedDelta != 0 || expEffect.MaxMpDelta != 0 || expEffect.MagicBoostDeltaVal != 0 || expEffect.PhysAccDeltaVal != 0)
             {
                 var statsInfo = new SM_STATS_INFO(target, _dataManager.PlayerStats.GetTemplate(target.PlayerClass, target.Level));
                 var dc = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == target);
