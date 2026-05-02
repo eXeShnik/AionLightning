@@ -2072,6 +2072,13 @@
     - Previously: rooted/stunned/sleeping players could still move; movement-blocking CC had no client-side freeze visual
     - Build: 0 warnings, 0 errors
 
+192. [✓] Heal skill values from skill template — healinstant / mphealinstant (session 2026-05-02)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillHealInfo` readonly record struct (BaseValue, Delta, IsPercent, HealType); added `HealEffects` property to `SkillEffects` parsing `<healinstant>` (hp) and `<mphealinstant>` (mp) elements
+    - [✓] `CM_CASTSPELL.cs` — heal path now reads `template.Effects.HealEffects`; for each entry: `heal = (BaseValue + Delta*level) * healBoostMult` (or `maxStat * value / 100` when percent=true); HP heals use `AttackType.NaturalHp + LogId.Heal`, MP heals use `AttackType.NaturalMp + LogId.MpHeal`; caps at available headroom; retains level-based fallback for HEAL-subtype skills with no parseable element
+    - Java source: `AbstractHealEffect.calculate` — `value + delta*skillLevel`; `percent` flag divides by 100 of maxStat; `HealBoost` stat multiplies; clamps to available room; `HealInstantEffect.applyEffect` calls `increaseHp(TYPE.REGULAR, heal, 0, LOG.REGULAR)`; `MPHealInstantEffect` uses `TYPE.MP / LOG.REGULAR`
+    - Previously: all heal skills used `player.Level*6 + rand[15,40]` regardless of skill; a level-1 Cleric heal and a level-50 heal had the same scaling — template delta values were ignored entirely
+    - Build: 0 warnings, 0 errors
+
 191. [✓] Dual-wield attack speed adjustment (session 2026-05-02)
     - [✓] `CM_EQUIP_ITEM.cs` — in the off-hand weapon block (slot 2, IsWeapon==true): after setting OffHand stats, adds `sws2.AttackSpeed / 4` to `player.BaseAttackSpeed` if AttackSpeed > 0; the existing final recalculation applies BonusAttackSpeedPct on the updated base
     - [✓] `PlayerEnterWorldService.cs` — same adjustment in the off-hand block on world entry

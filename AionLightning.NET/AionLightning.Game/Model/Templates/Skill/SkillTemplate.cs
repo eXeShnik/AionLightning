@@ -60,6 +60,14 @@ public sealed class SkillProperties
     [XmlAttribute("target_maxcount")]    public int    TargetMaxCount  { get; set; }
 }
 
+/// <summary>Instant heal descriptor parsed from &lt;healinstant&gt; and &lt;mphealinstant&gt; effect elements.</summary>
+public readonly record struct SkillHealInfo(
+    int    BaseValue,  // flat heal value (or percent of max if IsPercent)
+    int    Delta,      // per-level increase
+    bool   IsPercent,  // value is % of max HP/MP
+    string HealType    // "hp" or "mp"
+);
+
 /// <summary>Per-tick DoT descriptor parsed from &lt;bleed&gt;, &lt;poison&gt;, &lt;disease&gt; effect elements.</summary>
 public readonly record struct SkillDotInfo(
     int    CheckTimeMs,   // tick interval in ms
@@ -80,7 +88,27 @@ public sealed class SkillEffects
         Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
         ?? AbnormalCcFlags.None;
 
-    private static readonly HashSet<string> DotNames = ["bleed", "poison", "disease"];
+    private static readonly HashSet<string> HealInstantNames = ["healinstant", "mphealinstant"];
+    private static readonly HashSet<string> DotNames         = ["bleed", "poison", "disease"];
+
+    public IReadOnlyList<SkillHealInfo> HealEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillHealInfo>();
+            foreach (var e in Elements)
+            {
+                if (!HealInstantNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                string ht = e.LocalName == "healinstant" ? "hp" : "mp";
+                list.Add(new(val, dlt, pct, ht));
+            }
+            return list;
+        }
+    }
 
     public IReadOnlyList<SkillDotInfo> DotEffects
     {

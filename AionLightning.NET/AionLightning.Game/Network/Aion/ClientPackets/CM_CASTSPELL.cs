@@ -125,15 +125,61 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 : (Creature?)_world.GetPlayerByObjectId(_targetObjectId);
             if (healTarget is not null && !healTarget.IsAlreadyDead)
             {
-                // Java AbstractHealEffect: healBoost adds additively (1000 = +100%); simplified to multiplicative factor
-                int heal = (int)((player.Level * 6 + Random.Shared.Next(15, 40)) * (1.0f + player.BonusHealBoost / 1000f));
-                healTarget.CurrentHp = Math.Min(healTarget.MaxHp, healTarget.CurrentHp + heal);
-                var healStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
-                    _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                int skillLv = _level;
+                float healBoostMult = 1.0f + player.BonusHealBoost / 1000f;
                 int healWorldId = player.Position.WorldId;
-                foreach (var c in _connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == healWorldId)
-                        try { await c.SendAsync(healStatus, ct); } catch { }
+                var healEffects = template?.Effects?.HealEffects;
+
+                if (healEffects is { Count: > 0 })
+                {
+                    // Java AbstractHealEffect.calculate: value + delta*level; percent applies to max stat
+                    foreach (var he in healEffects)
+                    {
+                        int valueWithDelta = he.BaseValue + he.Delta * skillLv;
+                        int heal = he.IsPercent
+                            ? (he.HealType == "hp" ? healTarget.MaxHp : healTarget.MaxMp) * valueWithDelta / 100
+                            : valueWithDelta;
+                        heal = (int)(heal * healBoostMult);
+
+                        if (he.HealType == "hp")
+                        {
+                            heal = Math.Min(heal, healTarget.MaxHp - healTarget.CurrentHp);
+                            if (heal <= 0) continue;
+                            healTarget.CurrentHp += heal;
+                            var hpStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
+                                _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == healWorldId)
+                                    try { await c.SendAsync(hpStatus, ct); } catch { }
+                        }
+                        else
+                        {
+                            heal = Math.Min(heal, healTarget.MaxMp - healTarget.CurrentMp);
+                            if (heal <= 0) continue;
+                            healTarget.CurrentMp += heal;
+                            var mpStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalMp,
+                                _spellId, heal, SM_ATTACK_STATUS.LogId.MpHeal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == healWorldId)
+                                    try { await c.SendAsync(mpStatus, ct); } catch { }
+                        }
+                    }
+                }
+                else
+                {
+                    // Fallback for HEAL-subtype skills with no parseable healinstant element
+                    int heal = (int)((player.Level * 6 + Random.Shared.Next(15, 40)) * healBoostMult);
+                    heal = Math.Min(heal, healTarget.MaxHp - healTarget.CurrentHp);
+                    if (heal > 0)
+                    {
+                        healTarget.CurrentHp += heal;
+                        var healStatus = new SM_ATTACK_STATUS(healTarget, SM_ATTACK_STATUS.AttackType.NaturalHp,
+                            _spellId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                        foreach (var c in _connRegistry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == healWorldId)
+                                try { await c.SendAsync(healStatus, ct); } catch { }
+                    }
+                }
 
                 // Update group HP display for healed player
                 if (healTarget is Player healedPlayer)
