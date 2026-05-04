@@ -165,9 +165,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var he in healEffects)
                     {
                         int valueWithDelta = he.BaseValue + he.Delta * skillLv;
-                        int heal = he.IsPercent
-                            ? (he.HealType == "hp" ? healTarget.MaxHp : healTarget.MaxMp) * valueWithDelta / 100
-                            : valueWithDelta;
+                        int healMaxStat = he.HealType switch
+                        {
+                            "hp" => healTarget.MaxHp,
+                            "mp" => healTarget.MaxMp,
+                            "fp" => healTarget is Player fpHtMax ? fpHtMax.MaxFp : 0,
+                            _    => 0,
+                        };
+                        int heal = he.IsPercent ? healMaxStat * valueWithDelta / 100 : valueWithDelta;
                         heal = (int)(heal * healBoostMult);
 
                         if (he.HealType == "hp")
@@ -180,6 +185,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             foreach (var c in _connRegistry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == healWorldId)
                                     try { await c.SendAsync(hpStatus, ct); } catch { }
+                        }
+                        else if (he.HealType == "fp" && healTarget is Player fpHt)
+                        {
+                            // M248: fphealinstant — flight points heal (Player only)
+                            heal = Math.Min(heal, fpHt.MaxFp - fpHt.CurrentFp);
+                            if (heal <= 0) continue;
+                            fpHt.CurrentFp += heal;
+                            var fpStatus = new SM_ATTACK_STATUS(fpHt, SM_ATTACK_STATUS.AttackType.NaturalFp,
+                                _spellId, heal, SM_ATTACK_STATUS.LogId.FpHeal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == healWorldId)
+                                    try { await c.SendAsync(fpStatus, ct); } catch { }
                         }
                         else
                         {
@@ -325,9 +342,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var he in aoeHealEffects)
                     {
                         int vd = he.BaseValue + he.Delta * aoeSkillLv;
-                        int h  = he.IsPercent
-                            ? (he.HealType == "hp" ? ally.MaxHp : ally.MaxMp) * vd / 100
-                            : vd;
+                        int aoeMaxStat = he.HealType switch
+                        {
+                            "hp" => ally.MaxHp,
+                            "mp" => ally.MaxMp,
+                            "fp" => ally is Player fpAllyMax ? fpAllyMax.MaxFp : 0,
+                            _    => 0,
+                        };
+                        int h  = he.IsPercent ? aoeMaxStat * vd / 100 : vd;
                         h = (int)(h * aoeBoostMult);
 
                         if (he.HealType == "hp")
@@ -336,6 +358,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             if (h <= 0) continue;
                             ally.CurrentHp += h;
                             var pkt = new SM_ATTACK_STATUS(ally, SM_ATTACK_STATUS.AttackType.NaturalHp, _spellId, h, SM_ATTACK_STATUS.LogId.Heal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == aoeWorldId)
+                                    try { await c.SendAsync(pkt, ct); } catch { }
+                        }
+                        else if (he.HealType == "fp" && ally is Player fpAlly)
+                        {
+                            // M248: AoE FP heal — Player allies only
+                            h = Math.Min(h, fpAlly.MaxFp - fpAlly.CurrentFp);
+                            if (h <= 0) continue;
+                            fpAlly.CurrentFp += h;
+                            var pkt = new SM_ATTACK_STATUS(fpAlly, SM_ATTACK_STATUS.AttackType.NaturalFp, _spellId, h, SM_ATTACK_STATUS.LogId.FpHeal);
                             foreach (var c in _connRegistry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == aoeWorldId)
                                     try { await c.SendAsync(pkt, ct); } catch { }
