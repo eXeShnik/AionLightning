@@ -2763,3 +2763,13 @@
     - Java analogy: Java `ItemUseAction.activate` calls `SkillEngine.useSkill(player, useSkillId)` which dispatches to `HealInstantEffect`/`MPHealInstantEffect`/`FPHealInstantEffect` etc. Our simplified port fast-paths the common single-target self-heal case directly; complex item-skill chains (heals with embedded buffs, AoE party heal items) still need the full skill engine but those are rare for consumables
     - Previously: 166 heal-skill XML templates with `skill_id >= 9000` (item-driven heals — Bottomless Bucket 70%/70%, Greater Healing Potion variants, recovery scrolls) silently fell through. Of those only 14 specific HP/MP elixirs (skill IDs 10202-10208, 10262-10268) were hardcoded; the other 150+ items consumed their charge and showed the use animation but applied no actual HP/MP/FP restore
     - Build: 0 warnings, 0 errors
+
+252. [✓] DP heal — `<dphealinstant>`, `<procdphealinstant>`, `<dpheal>` HoT use existing `Player.Dp` field (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `dphealinstant`/`procdphealinstant` to `HealInstantNames`; added `dpheal` to `HotNames`; HealEffects + HotEffects ternaries now route the new names to `dp` HealType
+    - [✓] `CM_CASTSPELL.cs` — single-target heal: `dp` branch reads/writes `Player.Dp` clamped at 6000 (the cap used elsewhere by `CM_ATTACK`/`CM_CASTSPELL` DP gain); broadcasts `SM_DP_INFO` to the heal target's connection (DP is private — no zone broadcast needed)
+    - [✓] `CM_CASTSPELL.cs` — AoE ally heal: same pattern with `ally is Player dpAlly` Player cast
+    - [✓] `CM_CASTSPELL.cs` — HoT tick: switch handles `dp` Player-cast clamp + per-tick SM_DP_INFO broadcast
+    - [✓] `CM_USE_ITEM.cs` — `HandleItemHealAsync`: `dp` branch with 6000 cap; sends SM_DP_INFO to the using player's connection
+    - Java analogy: `DPHealInstantEffect` and `DPHealEffect` extend `AbstractHealEffect` with `HealType.DP`, reading `getCommonData().getDp()` and `getGameStats().getMaxDp().getCurrent()`. Our .NET port hardcodes 6000 as the cap (no MaxDp template/stat infrastructure yet) — matches DP gain behavior in `CM_ATTACK.cs:255-257` and `CM_CASTSPELL.cs:909-912`
+    - Previously: 6 dphealinstant + 9 dpheal + 11 procdphealinstant = 26 skill XML entries (DP packs, post-PvP DP recovery scrolls, several Cleric DP buffs that include DP-restore alongside heal) silently dropped; players had no way to receive DP outside attack/kill rewards
+    - Build: 0 warnings, 0 errors

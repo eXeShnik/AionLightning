@@ -1292,8 +1292,8 @@ public sealed class SkillEffects
         }
     }
 
-    private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant", "fphealinstant", "procfphealinstant"];
-    private static readonly HashSet<string> HotNames          = ["heal", "mpheal", "fpheal"];
+    private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant", "fphealinstant", "procfphealinstant", "dphealinstant", "procdphealinstant"];
+    private static readonly HashSet<string> HotNames          = ["heal", "mpheal", "fpheal", "dpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease", "spellatk", "spellatkdrain"];
     private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
@@ -1319,6 +1319,8 @@ public sealed class SkillEffects
                     "prochealinstant"    => "hp",
                     "fphealinstant"      => "fp",
                     "procfphealinstant"  => "fp",
+                    "dphealinstant"      => "dp",
+                    "procdphealinstant"  => "dp",
                     _                    => "mp", // mphealinstant, procmphealinstant
                 };
                 list.Add(new(val, dlt, pct, ht));
@@ -1364,6 +1366,7 @@ public sealed class SkillEffects
                 {
                     "heal"   => "hp",
                     "fpheal" => "fp",
+                    "dpheal" => "dp",
                     _        => "mp",
                 };
                 list.Add(new(check, val, dlt, dur, ht));

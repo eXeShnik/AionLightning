@@ -170,6 +170,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             "hp" => healTarget.MaxHp,
                             "mp" => healTarget.MaxMp,
                             "fp" => healTarget is Player fpHtMax ? fpHtMax.MaxFp : 0,
+                            "dp" => 6000, // DP cap (no MaxDp field, mirrors CM_ATTACK / CM_CASTSPELL DP gain caps)
                             _    => 0,
                         };
                         int heal = he.IsPercent ? healMaxStat * valueWithDelta / 100 : valueWithDelta;
@@ -197,6 +198,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             foreach (var c in _connRegistry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == healWorldId)
                                     try { await c.SendAsync(fpStatus, ct); } catch { }
+                        }
+                        else if (he.HealType == "dp" && healTarget is Player dpHt)
+                        {
+                            // M252: dphealinstant — divine power heal (Player only, capped at 6000)
+                            heal = Math.Min(heal, 6000 - dpHt.Dp);
+                            if (heal <= 0) continue;
+                            dpHt.Dp += heal;
+                            var dpInfo = new SM_DP_INFO(dpHt.ObjectId, dpHt.Dp);
+                            var dpConn = _connRegistry.Get(dpHt.ObjectId);
+                            if (dpConn is not null)
+                                try { await dpConn.SendAsync(dpInfo, ct); } catch { }
                         }
                         else
                         {
@@ -252,6 +264,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                         "hp"                                            => Math.Min(healPerTick, tickTarget.MaxHp - tickTarget.CurrentHp),
                                         "fp" when tickTarget is Player fpHotTickT       => Math.Min(healPerTick, fpHotTickT.MaxFp - fpHotTickT.CurrentFp),
                                         "fp"                                            => 0,
+                                        "dp" when tickTarget is Player dpHotTickT       => Math.Min(healPerTick, 6000 - dpHotTickT.Dp),
+                                        "dp"                                            => 0,
                                         _                                               => Math.Min(healPerTick, tickTarget.MaxMp - tickTarget.CurrentMp),
                                     };
                                     if (actual > 0)
@@ -274,6 +288,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                             foreach (var c in registry.GetAll())
                                                 if (c.ActivePlayer?.Position.WorldId == w)
                                                     try { await c.SendAsync(pkt); } catch { }
+                                        }
+                                        else if (hot.HealType == "dp" && tickTarget is Player dpHotTickApp)
+                                        {
+                                            // M252: DP HoT tick — capped at 6000, broadcast SM_DP_INFO to caster's own connection
+                                            dpHotTickApp.Dp += actual;
+                                            var dpHotConn = registry.Get(dpHotTickApp.ObjectId);
+                                            if (dpHotConn is not null)
+                                                try { await dpHotConn.SendAsync(new SM_DP_INFO(dpHotTickApp.ObjectId, dpHotTickApp.Dp)); } catch { }
                                         }
                                         else
                                         {
@@ -361,6 +383,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             "hp" => ally.MaxHp,
                             "mp" => ally.MaxMp,
                             "fp" => ally is Player fpAllyMax ? fpAllyMax.MaxFp : 0,
+                            "dp" => 6000,
                             _    => 0,
                         };
                         int h  = he.IsPercent ? aoeMaxStat * vd / 100 : vd;
@@ -386,6 +409,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             foreach (var c in _connRegistry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == aoeWorldId)
                                     try { await c.SendAsync(pkt, ct); } catch { }
+                        }
+                        else if (he.HealType == "dp" && ally is Player dpAlly)
+                        {
+                            // M252: AoE DP heal — Player allies only
+                            h = Math.Min(h, 6000 - dpAlly.Dp);
+                            if (h <= 0) continue;
+                            dpAlly.Dp += h;
+                            var dpAllyConn = _connRegistry.Get(dpAlly.ObjectId);
+                            if (dpAllyConn is not null)
+                                try { await dpAllyConn.SendAsync(new SM_DP_INFO(dpAlly.ObjectId, dpAlly.Dp), ct); } catch { }
                         }
                         else
                         {

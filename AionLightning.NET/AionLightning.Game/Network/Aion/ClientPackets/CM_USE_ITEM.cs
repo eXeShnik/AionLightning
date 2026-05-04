@@ -525,6 +525,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 "hp" => player.MaxHp,
                 "mp" => player.MaxMp,
                 "fp" => player.MaxFp,
+                "dp" => 6000,
                 _    => 0,
             };
             int heal = he.IsPercent ? maxStat * valueWithDelta / 100 : valueWithDelta;
@@ -552,6 +553,15 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
                     if (peer.ActivePlayer?.Position.WorldId == worldId)
                         try { await peer.SendAsync(pkt, ct); } catch { }
+                stateChanged = true;
+            }
+            else if (he.HealType == "dp")
+            {
+                // M252: item-driven DP restore (DP packs / dp scrolls)
+                heal = Math.Min(heal, 6000 - player.Dp);
+                if (heal <= 0) continue;
+                player.Dp += heal;
+                try { await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct); } catch { }
                 stateChanged = true;
             }
             else // mp
