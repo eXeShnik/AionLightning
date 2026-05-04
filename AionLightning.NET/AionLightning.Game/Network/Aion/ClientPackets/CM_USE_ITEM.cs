@@ -1,12 +1,17 @@
+using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
+using AionLightning.Game.Combat;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Skill;
 using AionLightning.Game.Model.Templates.Item;
 using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
+using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -40,6 +45,9 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ISkillDao                _skillDao;
     private readonly IPlayerTitleDao          _titleDao;
+    private readonly GameWorld                _world;
+    private readonly NpcAiService             _npcAi;
+    private readonly IEventBus                _eventBus;
 
     private int _uniqueItemId;
     private int _type;
@@ -47,7 +55,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
         IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, ISkillDao skillDao,
-        IPlayerTitleDao titleDao)
+        IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi, IEventBus eventBus)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -56,6 +64,9 @@ public sealed class CM_USE_ITEM : AionClientPacket
         _connRegistry = connRegistry;
         _skillDao     = skillDao;
         _titleDao     = titleDao;
+        _world        = world;
+        _npcAi        = npcAi;
+        _eventBus     = eventBus;
     }
 
     public override void Read(ref PacketReader r)
@@ -126,6 +137,15 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 if (skillTpl.Effects.HealEffects is { Count: > 0 } itemHealEffects)
                 {
                     await HandleItemHealAsync(player, item, template, skillId, itemHealEffects, ct);
+                    return;
+                }
+
+                // M273: item-damage — caster-AoE consumables (fire bombs, "Taloc's Tears" style)
+                if (skillTpl.Effects.DamageEffects is { Count: > 0 } itemDmgFx
+                    && string.Equals(skillTpl.TargetRelation, "ENEMY", StringComparison.OrdinalIgnoreCase)
+                    && skillTpl.IsCasterAoe)
+                {
+                    await HandleItemDamageAsync(player, item, template, skillId, skillTpl, itemDmgFx, ct);
                     return;
                 }
 
@@ -607,6 +627,75 @@ public sealed class CM_USE_ITEM : AionClientPacket
             player.SetItemCooldown(limits.DelayId, limits.DelayMs);
 
         // Consume one charge
+        item.Count--;
+        if (item.Count <= 0)
+        {
+            player.Inventory.Remove(item.UniqueId);
+            await _itemDao.DeleteAsync(item.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+        }
+        else
+        {
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
+        }
+    }
+
+    // M273: items with caster-AoE damage skills (target_relation=ENEMY, target_type=AREA, first_target=ME)
+    // Routes through ApplyDamageAndPublishAsync so observers (Shield/Reflector/etc.) plug in.
+    private async ValueTask HandleItemDamageAsync(Player player, Item item, ItemTemplate template,
+        int skillId, SkillTemplate skillTpl, IReadOnlyList<SkillDamageInfo> dmgFx, CancellationToken ct)
+    {
+        var limits = template.UseLimits;
+        if (limits is not null && limits.DelayId > 0 && player.IsItemOnCooldown(limits.DelayId))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime(), ct);
+            return;
+        }
+
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int worldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == worldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
+
+        // Compute base damage from first damage effect (item-skills are level 1, no delta scaling)
+        int baseDmg = dmgFx[0].BaseValue + dmgFx[0].Delta;
+        if (baseDmg <= 0) return;
+        bool isMagical = dmgFx[0].DamageType != "physical";
+        var kind = isMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
+
+        float aoeR = skillTpl.EffectiveRange;
+        if (aoeR <= 0f) aoeR = 12f; // sane default for caster-AoE consumables
+        float aoeAlt = Math.Max(1f, skillTpl.EffectiveAltitude);
+        int maxHits = skillTpl.TargetMaxCount;
+        int hits = 0;
+
+        foreach (var creature in _world.GetAllNpcs())
+        {
+            if (hits >= maxHits) break;
+            if (creature.IsAlreadyDead) continue;
+            if (creature.Position.WorldId != worldId) continue;
+            float dx = creature.Position.X - player.Position.X;
+            float dy = creature.Position.Y - player.Position.Y;
+            float dz = creature.Position.Z - player.Position.Z;
+            if (dx * dx + dy * dy > aoeR * aoeR) continue;
+            if (Math.Abs(dz) > aoeAlt) continue;
+
+            await ((Creature)creature).ApplyDamageAndPublishAsync(player, baseDmg, kind, skillId, _eventBus, ct);
+            _npcAi.ForceEngage(creature, player);
+
+            var statusPkt = new SM_ATTACK_STATUS(creature, SM_ATTACK_STATUS.AttackType.Damage, skillId, baseDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
+            foreach (var c in _connRegistry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == worldId)
+                    try { await c.SendAsync(statusPkt, ct); } catch { }
+            hits++;
+        }
+
+        if (limits is not null && limits.DelayId > 0 && limits.DelayMs > 0)
+            player.SetItemCooldown(limits.DelayId, limits.DelayMs);
+
         item.Count--;
         if (item.Count <= 0)
         {

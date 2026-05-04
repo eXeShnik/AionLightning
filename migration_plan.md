@@ -2946,3 +2946,12 @@
     - Java analogy: `VPHealInstantEffect` extends `AbstractHealEffect` with HealType.VP. We use the same 6000 cap as DP until proper Vp template/stat infra exists. Client-side display will lag without SM_VP_INFO; server VP arithmetic is correct
     - Previously: 16 VP heal skill XML entries (siege/PvP zone resource scrolls) silently dropped. Players had no way to gain VP outside zone-specific kill rewards
     - Build: 0 warnings, 0 errors
+
+273. [✓] Item-damage path — caster-AoE offensive consumables (session 2026-05-04)
+    - [✓] `CM_USE_ITEM.cs` — constructor accepts `GameWorld world, NpcAiService npcAi, IEventBus eventBus`; `GsPacketHandlerFactory.cs` 0xC7 dispatch updated
+    - [✓] `CM_USE_ITEM.cs` — main routing: when skill template has `DamageEffects` with `target_relation="ENEMY"` and `IsCasterAoe`, routes to new `HandleItemDamageAsync` BEFORE the buff/heal paths
+    - [✓] `CM_USE_ITEM.cs` — `HandleItemDamageAsync`: enforces UseLimits cooldown; broadcasts SM_ITEM_USAGE_ANIMATION; computes baseDmg from `dmgFx[0]` (item-skills are level 1); iterates `_world.GetAllNpcs()` within `EffectiveRange` (default 12m), filtered by altitude + max-hits cap; routes each hit through `ApplyDamageAndPublishAsync` (auto-plumbed into observer pattern); calls `_npcAi.ForceEngage` per hit; broadcasts SM_ATTACK_STATUS; sets cooldown; consumes one charge
+    - Coverage: caster-AoE damage consumables (target_type=AREA, first_target=ME) — items like Taloc's Tears (skill 10250) and similar fire-bomb/elemental-grenade items. Single-target offensive consumables (target_type=ONLYONE) are deferred — would need a target lookup not currently in the CM_USE_ITEM packet
+    - Architecture: routes through M260 `ApplyDamageAndPublishAsync` so all 6 damage observers (Sanctuary/Shield/Protect pre + HealCastorOnAttacked/MagicCounterAtk/Reflector/ConvertHeal post) automatically apply to item-cast damage — no special-casing required
+    - Previously: items pointing to caster-AoE damage skills consumed their charge and showed the use animation but applied no damage to nearby enemies
+    - Build: 0 warnings, 0 errors
