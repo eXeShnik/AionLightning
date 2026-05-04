@@ -1338,6 +1338,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int splashDef = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0)
                                                        : (splash.Template.Stats?.PDef    ?? 0);
                         int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
+                        // M253: noreducespellatk — defense-bypass damage applies to splash targets too
+                        if (stNoReduce is { Count: > 0 })
+                        {
+                            int splashNoReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
+                            splashDmg = stNoReduce[0].IsPercent ? Math.Max(1, splash.MaxHp * splashNoReduceVal / 100) : Math.Max(1, splashNoReduceVal);
+                        }
                         splash.CurrentHp      = Math.Max(0, splash.CurrentHp - splashDmg);
                         splash.LastCombatTime = DateTime.UtcNow;
 

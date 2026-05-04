@@ -546,6 +546,13 @@ public sealed class NpcAiService : BackgroundService
             ? Math.Max(0, target.PhysicalDefense + target.PdefDebuffDelta + target.PdefStatUpDelta)
             : Math.Max(0, target.MagicDefense    + target.MagicDefDelta);
         int spellDmg    = defense > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + defense)) : rawSpellDmg;
+        // M253: noreducespellatk — defense-bypass damage replaces regular formula for NPC casters
+        var npcNoReduce = skillTemplate?.Effects?.NoReduceEffects;
+        if (npcNoReduce is { Count: > 0 })
+        {
+            int noReduceVal = npcNoReduce[0].BaseValue + npcNoReduce[0].Delta * (skillLevel - 1);
+            spellDmg = npcNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
+        }
         target.CurrentHp      = Math.Max(0, target.CurrentHp - spellDmg);
         target.LastCombatTime = now;
         npc.LastCombatTime    = now;
@@ -661,6 +668,12 @@ public sealed class NpcAiService : BackgroundService
                     ? Math.Max(0, other.PhysicalDefense + other.PdefDebuffDelta + other.PdefStatUpDelta)
                     : Math.Max(0, other.MagicDefense    + other.MagicDefDelta);
                 int splashDmg  = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
+                // M253: noreducespellatk — defense-bypass damage on NPC splash
+                if (npcNoReduce is { Count: > 0 })
+                {
+                    int splNoReduceVal = npcNoReduce[0].BaseValue + npcNoReduce[0].Delta * (skillLevel - 1);
+                    splashDmg = npcNoReduce[0].IsPercent ? Math.Max(1, other.MaxHp * splNoReduceVal / 100) : Math.Max(1, splNoReduceVal);
+                }
                 other.CurrentHp      = Math.Max(0, other.CurrentHp - splashDmg);
                 other.LastCombatTime = now;
 

@@ -2773,3 +2773,10 @@
     - Java analogy: `DPHealInstantEffect` and `DPHealEffect` extend `AbstractHealEffect` with `HealType.DP`, reading `getCommonData().getDp()` and `getGameStats().getMaxDp().getCurrent()`. Our .NET port hardcodes 6000 as the cap (no MaxDp template/stat infrastructure yet) — matches DP gain behavior in `CM_ATTACK.cs:255-257` and `CM_CASTSPELL.cs:909-912`
     - Previously: 6 dphealinstant + 9 dpheal + 11 procdphealinstant = 26 skill XML entries (DP packs, post-PvP DP recovery scrolls, several Cleric DP buffs that include DP-restore alongside heal) silently dropped; players had no way to receive DP outside attack/kill rewards
     - Build: 0 warnings, 0 errors
+
+253. [✓] Defense-bypass coverage — extend `<noreducespellatk>` to splash + NPC casters (session 2026-05-04)
+    - [✓] `CM_CASTSPELL.cs` — splash damage path: between defense computation and HP application, override `splashDmg` when `stNoReduce.Count > 0`; uses `splash.MaxHp` for percent calc (matches single-target/ground-AoE pattern)
+    - [✓] `Services/NpcAiService.cs` — primary-target NPC damage path: same `npcNoReduce` lookup + override on `spellDmg` (uses `target.MaxHp` for percent calc); fixes inadvertent typo introduced in this session (had `(1000 + spellDef)` referencing nonexistent variable; restored to `(1000 + defense)`)
+    - [✓] `Services/NpcAiService.cs` — NPC splash damage path: splash override on `splashDmg` using `other.MaxHp`
+    - Closes the M247 coverage gap: 60 AREA-targeted noreducespellatk skills now apply correct defense-bypass damage on splash hits, not just on the primary target. ~6 NPC-cast noreducespellatk skills (boss execute mechanics) now bypass player defense as the Java NoReduceSpellATKInstantEffect does
+    - Build: 0 warnings, 0 errors
