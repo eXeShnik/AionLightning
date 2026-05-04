@@ -109,6 +109,14 @@ public readonly record struct SkillMpAttackInfo(
     string Element       // elemental flavor (reserved)
 );
 
+/// <summary>Defense-bypass damage parsed from &lt;noreducespellatk&gt; (Java NoReduceSpellATKInstantEffect).</summary>
+public readonly record struct SkillNoReduceInfo(
+    int    BaseValue,    // damage at skill level 1 (flat or % of target MaxHp when IsPercent)
+    int    Delta,        // per-level scaling
+    bool   IsPercent,    // true = value is percent of target MaxHp
+    string Element       // elemental flavor (reserved)
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1289,6 +1297,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease", "spellatk", "spellatkdrain"];
     private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
+    private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1403,6 +1412,25 @@ public sealed class SkillEffects
             foreach (var e in Elements)
             {
                 if (!MpAttackEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                string element = e.GetAttribute("element") ?? string.Empty;
+                list.Add(new(val, dlt, pct, element));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillNoReduceInfo> NoReduceEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillNoReduceInfo>();
+            foreach (var e in Elements)
+            {
+                if (!NoReduceEffectNames.Contains(e.LocalName)) continue;
                 int.TryParse(e.GetAttribute("value"), out int val);
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
                 bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);

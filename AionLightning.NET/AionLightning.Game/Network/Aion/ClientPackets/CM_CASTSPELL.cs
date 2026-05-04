@@ -727,6 +727,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                                    : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
                                  : 0;
                     int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
+                    // M247: noreducespellatk — defense-bypass damage replaces regular formula (per AoE target)
+                    var gAoeNoReduce = template?.Effects?.NoReduceEffects;
+                    if (gAoeNoReduce is { Count: > 0 })
+                    {
+                        int noReduceVal = gAoeNoReduce[0].BaseValue + gAoeNoReduce[0].Delta * (_level - 1);
+                        damage = gAoeNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
+                    }
                     target.CurrentHp      = Math.Max(0, target.CurrentHp - damage);
                     target.LastCombatTime = DateTime.UtcNow;
                     player.LastCombatTime = DateTime.UtcNow;
@@ -1067,6 +1074,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                                : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
                              : 0;
                 int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
+                // M247: noreducespellatk — defense-bypass damage replaces regular formula
+                var stNoReduce = template?.Effects?.NoReduceEffects;
+                if (stNoReduce is { Count: > 0 })
+                {
+                    int noReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
+                    damage = stNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
+                }
                 target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 
                 // M239: drain damage variants — caster restores HP/MP from dealt damage
