@@ -821,13 +821,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // M239: drain damage variants — caster restores HP/MP from each AoE-target damage
                     if (gAoeDmgFx is { Count: > 0 } && (gAoeDmgFx[0].HpPercent != 0 || gAoeDmgFx[0].MpPercent != 0))
                     {
+                        // M254: physical drain → SkillAtkDrainInstant (23), magical → SpellAtkDrainInstant (24)
+                        var gAoeDrainLog = gAoeDmgFx[0].DamageType == "physical"
+                            ? SM_ATTACK_STATUS.LogId.SkillAtkDrainInstant
+                            : SM_ATTACK_STATUS.LogId.SpellAtkDrainInstant;
                         if (gAoeDmgFx[0].HpPercent != 0)
                         {
                             int hpGain = Math.Min(damage * gAoeDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
                             if (hpGain > 0)
                             {
                                 player.CurrentHp += hpGain;
-                                var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, gAoeDrainLog);
                                 foreach (var c in registry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                         try { await c.SendAsync(drainHpPkt); } catch { }
@@ -839,7 +843,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             if (mpGain > 0)
                             {
                                 player.CurrentMp += mpGain;
-                                var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, gAoeDrainLog);
                                 foreach (var c in registry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                         try { await c.SendAsync(drainMpPkt); } catch { }
@@ -1166,13 +1170,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // M239: drain damage variants — caster restores HP/MP from dealt damage
                 if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
                 {
+                    // M254: physical drain → SkillAtkDrainInstant (23), magical → SpellAtkDrainInstant (24)
+                    var stDrainLog = stDmgFx[0].DamageType == "physical"
+                        ? SM_ATTACK_STATUS.LogId.SkillAtkDrainInstant
+                        : SM_ATTACK_STATUS.LogId.SpellAtkDrainInstant;
                     if (stDmgFx[0].HpPercent != 0)
                     {
                         int hpGain = Math.Min(damage * stDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
                         if (hpGain > 0)
                         {
                             player.CurrentHp += hpGain;
-                            var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                            var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, stDrainLog);
                             foreach (var c in registry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                     try { await c.SendAsync(drainHpPkt); } catch { }
@@ -1184,7 +1192,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (mpGain > 0)
                         {
                             player.CurrentMp += mpGain;
-                            var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                            var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, stDrainLog);
                             foreach (var c in registry.GetAll())
                                 if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                     try { await c.SendAsync(drainMpPkt); } catch { }
@@ -1350,13 +1358,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         // M239: drain damage variants — splash hit also restores HP/MP to caster
                         if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
                         {
+                            // M254: physical drain → SkillAtkDrainInstant (23), magical → SpellAtkDrainInstant (24)
+                            var splashDrainLog = stDmgFx[0].DamageType == "physical"
+                                ? SM_ATTACK_STATUS.LogId.SkillAtkDrainInstant
+                                : SM_ATTACK_STATUS.LogId.SpellAtkDrainInstant;
                             if (stDmgFx[0].HpPercent != 0)
                             {
                                 int hpGain = Math.Min(splashDmg * stDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
                                 if (hpGain > 0)
                                 {
                                     player.CurrentHp += hpGain;
-                                    var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                    var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, splashDrainLog);
                                     foreach (var c in registry.GetAll())
                                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                             try { await c.SendAsync(drainHpPkt); } catch { }
@@ -1368,7 +1380,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (mpGain > 0)
                                 {
                                     player.CurrentMp += mpGain;
-                                    var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                    var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, splashDrainLog);
                                     foreach (var c in registry.GetAll())
                                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                             try { await c.SendAsync(drainMpPkt); } catch { }

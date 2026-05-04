@@ -2780,3 +2780,12 @@
     - [✓] `Services/NpcAiService.cs` — NPC splash damage path: splash override on `splashDmg` using `other.MaxHp`
     - Closes the M247 coverage gap: 60 AREA-targeted noreducespellatk skills now apply correct defense-bypass damage on splash hits, not just on the primary target. ~6 NPC-cast noreducespellatk skills (boss execute mechanics) now bypass player defense as the Java NoReduceSpellATKInstantEffect does
     - Build: 0 warnings, 0 errors
+
+254. [✓] Drain LogId fidelity — distinguish physical (`SkillAtkDrainInstant`=23) from magical (`SpellAtkDrainInstant`=24) drain combat-log entries (session 2026-05-04)
+    - [✓] `Network/Aion/ServerPackets/SM_ATTACK_STATUS.cs` — added `SkillAtkDrainInstant = 23` and `SpellAtkDrainInstant = 24` to `LogId` enum (matches Java `LOG.SKILLLATKDRAININSTANT`/`SPELLATKDRAININSTANT` numeric values verbatim)
+    - [✓] `CM_CASTSPELL.cs` — single-target drain block (M239): pre-computes `stDrainLog = stDmgFx[0].DamageType == "physical" ? SkillAtkDrainInstant : SpellAtkDrainInstant` once and reuses for both HP/MP gain `SM_ATTACK_STATUS` packets
+    - [✓] `CM_CASTSPELL.cs` — ground AoE drain block: same pattern with `gAoeDrainLog`
+    - [✓] `CM_CASTSPELL.cs` — splash drain block: same pattern with `splashDrainLog`
+    - Java analogy: `SkillAtkDrainInstantEffect.applyEffect` calls `increaseHp(..., LOG.SKILLLATKDRAININSTANT)`; `SpellAtkDrainInstantEffect.applyEffect` calls `increaseHp(..., LOG.SPELLATKDRAININSTANT)`. Previously both used `LogId.SpellAtkDrain` (130, the DoT-drain code) which was wrong combat-log labelling — instant-drain should fire 23/24 not 130. DoT drain (M244 `<spellatkdrain>`) correctly continues to use `SpellAtkDrain = 130`
+    - Gameplay impact: 147 drain skill XML entries (Assassin Soul Slash physical drain, Sorcerer/Spiritmaster magical drain) now emit the right combat-log label — purely cosmetic to the client UI but matches Java fidelity
+    - Build: 0 warnings, 0 errors

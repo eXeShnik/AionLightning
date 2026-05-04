@@ -30,17 +30,19 @@ public sealed class SM_ATTACK_STATUS : AionServerPacket
 
     public enum LogId
     {
-        SpellAtk          = 1,
-        Heal              = 3,
-        MpHeal            = 4,
-        Poison            = 25,
-        Bleed             = 26,
-        ProcAtkInstant    = 92,
-        DelayedSpellAtk   = 95,
-        SpellAtkDrain     = 130,
-        FpHeal            = 133,
-        RegularHeal       = 170,
-        Regular           = 181,
+        SpellAtk               = 1,
+        Heal                   = 3,
+        MpHeal                 = 4,
+        SkillAtkDrainInstant   = 23,
+        SpellAtkDrainInstant   = 24,
+        Poison                 = 25,
+        Bleed                  = 26,
+        ProcAtkInstant         = 92,
+        DelayedSpellAtk        = 95,
+        SpellAtkDrain          = 130,
+        FpHeal                 = 133,
+        RegularHeal            = 170,
+        Regular                = 181,
     }
 
     private readonly int _objectId;
