@@ -353,7 +353,9 @@ public sealed class NpcAiService : BackgroundService
             }
 
             // Apply physical defense mitigation (diminishing returns: pdef / (pdef + 1000))
-            int pdef   = target is Player tp ? tp.PhysicalDefense : 0;
+            // M259: include target's PdefDebuffDelta + PdefStatUpDelta for parity with CM_CASTSPELL physical defense calc
+            int pdef   = target is Player tp ? tp.PhysicalDefense + tp.PdefDebuffDelta + tp.PdefStatUpDelta : 0;
+            pdef       = Math.Max(0, pdef);
             int damage = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
 
             // Multi-hit split — Java AttackUtil: NPC hits = Rnd.get(1,3); first = damage*(1-0.1*(n-1)), rest = damage*0.1

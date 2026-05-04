@@ -2820,3 +2820,10 @@
     - Java analogy: `EffectTemplate.calculate(effect, ...)` short-circuits the resist/dodge calc when `noresist=true` — our gating mirrors that intent at the resist/dodge call site
     - Gameplay impact: a subset of the 9122 noresist="true" XML hits (those on damage effects) — concrete examples include Aether Arrow (which had to land for the 75% MP burn to work), several boss execute mechanics tagged noresist, "guaranteed-hit" finisher skills. Previously these still rolled magic resist on PvP and could whiff
     - Build: 0 warnings, 0 errors
+
+259. [✓] NPC auto-attack defense — match CM_CASTSPELL delta inclusion (session 2026-05-04)
+    - [✓] `Services/NpcAiService.cs` — NPC auto-attack `pdef` calc at line 356: was `target.PhysicalDefense` only; now `target.PhysicalDefense + target.PdefDebuffDelta + target.PdefStatUpDelta` clamped at 0
+    - Java analogy: `StatFunctions.calculateBaseDamageToTarget` reads target's full effective PDEF including stat modifiers; we now mirror this on the NPC physical-attack path
+    - Gameplay impact: when a Player has an active physical-defense debuff (e.g. Sorcerer "Frigid Wrath" pdef debuff) or buff (Templar "Body Smash" defense), NPC auto-attack damage now factors those modifiers. Previously NPC ignored player defense deltas — players took identical hits regardless of buffs/debuffs in effect
+    - Note: NPC skill-cast damage paths (M239+) already use the full `PdefDebuffDelta + PdefStatUpDelta` formula at lines 546 + 669; this milestone closes the gap on the auto-attack path
+    - Build: 0 warnings, 0 errors
