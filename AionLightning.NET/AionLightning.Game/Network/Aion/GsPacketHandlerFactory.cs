@@ -58,6 +58,7 @@ public sealed class GsPacketHandlerFactory
     private readonly NpcAiService           _npcAi;
     private readonly PlayerEnterWorldService _enterWorldService;
     private readonly RepurchaseService       _repurchaseService;
+    private readonly AuraChildApplier        _auraApplier;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -101,7 +102,8 @@ public sealed class GsPacketHandlerFactory
         IPlayerTitleDao playerTitleDao,
         NpcAiService npcAi,
         PlayerEnterWorldService enterWorldService,
-        RepurchaseService repurchaseService)
+        RepurchaseService repurchaseService,
+        AuraChildApplier auraApplier)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -145,6 +147,7 @@ public sealed class GsPacketHandlerFactory
         _npcAi             = npcAi;
         _enterWorldService = enterWorldService;
         _repurchaseService = repurchaseService;
+        _auraApplier   = auraApplier;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -204,7 +207,7 @@ public sealed class GsPacketHandlerFactory
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn, _connRegistry),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(conn, _connRegistry),
                 0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus),
-                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus),
+                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus, _auraApplier),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry),

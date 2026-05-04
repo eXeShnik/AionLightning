@@ -101,6 +101,7 @@ builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NpcAiService>());
+builder.Services.AddSingleton<AuraChildApplier>();
 builder.Services.AddSingleton<PlayerEnterWorldService>();
 builder.Services.AddHostedService<AutoSaveService>();
 builder.Services.AddHostedService<AbyssResetService>();

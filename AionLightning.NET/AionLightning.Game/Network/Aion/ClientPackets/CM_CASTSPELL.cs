@@ -29,6 +29,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
     private readonly IEventBus _eventBus;
+    private readonly AuraChildApplier _auraApplier;
 
     private int _spellId;
     private int _level;
@@ -41,7 +42,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
         QuestService questService, DuelService duelService, NpcAiService npcAi,
-        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus)
+        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus,
+        AuraChildApplier auraApplier)
     {
         _conn         = conn;
         _world        = world;
@@ -57,6 +59,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _legionDao    = legionDao;
         _rates        = rates;
         _eventBus     = eventBus;
+        _auraApplier  = auraApplier;
     }
 
     public override void Read(ref PacketReader r)
@@ -594,6 +597,53 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             // TODO: when CurrentMp == 0, broadcast SM_TOGGLE_SKILL_DEACTIVATE to end the toggle (deferred)
                         }
                     });
+                }
+
+                // M286b: <aura> — periodic AoE on caster's group/self in range. Tick = 6500ms (Java AuraTask).
+                if (template?.Effects?.HasAura == true && buffTarget is Player auraCaster && template.Effects.AuraEffects is { Count: > 0 } auraList)
+                {
+                    foreach (var aura in auraList)
+                    {
+                        var childTpl = _dataManager.Skills.GetTemplate(aura.ChildSkillId);
+                        if (childTpl is null) continue;
+                        var auraSkillId = _spellId;
+                        var capCaster   = auraCaster;
+                        var capDistance = aura.Distance;
+                        var capDistZ    = aura.DistanceZ;
+                        var capChild    = childTpl;
+                        var capWorld    = _world;
+                        var capApplier  = _auraApplier;
+                        var capBus      = _eventBus;
+                        _ = Task.Run(async () =>
+                        {
+                            // Race-safe loop: re-check live effect list each iteration (analyst HIGH risk)
+                            while (!capCaster.IsAlreadyDead && capCaster.GetActiveEffects().Any(e => e.SkillId == auraSkillId))
+                            {
+                                await Task.Delay(6500);
+                                if (capCaster.IsAlreadyDead) break;
+                                if (!capCaster.GetActiveEffects().Any(e => e.SkillId == auraSkillId)) break;
+
+                                int wId = capCaster.Position.WorldId;
+                                float dSq = capDistance * capDistance;
+
+                                // Resolve scope: caster + group members (alliance deferred)
+                                var scope = capCaster.Group?.Members?.ToList() ?? new();
+                                if (!scope.Any(m => m.ObjectId == capCaster.ObjectId)) scope.Add(capCaster);
+
+                                foreach (var member in scope)
+                                {
+                                    if (member.IsAlreadyDead) continue;
+                                    if (member.Position.WorldId != wId) continue;
+                                    float dx = member.Position.X - capCaster.Position.X;
+                                    float dy = member.Position.Y - capCaster.Position.Y;
+                                    float dz = member.Position.Z - capCaster.Position.Z;
+                                    if (dx * dx + dy * dy > dSq) continue;
+                                    if (capDistZ > 0f && Math.Abs(dz) > capDistZ) continue;
+                                    try { await capApplier.ApplyAsync(capCaster, member, capChild, capBus); } catch { }
+                                }
+                            }
+                        });
+                    }
                 }
 
                 if (atkSpeedStatUpDelta != 0)

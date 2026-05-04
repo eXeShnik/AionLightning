@@ -212,6 +212,13 @@ public readonly record struct SkillStatChange(
     int    Delta          // per-level scaling (often 0 for buffs since skills have separate level-X templates)
 );
 
+/// <summary>M286a: aura buff descriptor — caster-anchored periodic AoE that ticks ChildSkillId on group members within Distance.</summary>
+public readonly record struct SkillAuraInfo(
+    int   ChildSkillId,  // skill_id of the per-tick child skill to apply
+    float Distance,      // 2D radius around caster
+    float DistanceZ      // vertical altitude limit (defaults to Distance/2 when XML missing)
+);
+
 /// <summary>M280: damage modifier parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; &lt;modifiers&gt; block.</summary>
 public readonly record struct SkillDamageModifier(
     string Kind,    // "targetrace" | "targetclass" | "abnormaldamage" | other
@@ -266,6 +273,32 @@ public sealed class SkillEffects
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
     /// <summary>M285: provoker buff — buffed NPC auto-targets last attacker (Java ProvokerEffect ATTACK observer).</summary>
     public bool HasProvoker     => Elements?.Any(e => e.LocalName == "provoker")     == true;
+
+    /// <summary>M286a: aura buff present (Java AuraEffect) — caster-anchored periodic AoE on group/self in range.</summary>
+    public bool HasAura         => Elements?.Any(e => e.LocalName == "aura")         == true;
+
+    /// <summary>M286a: parsed &lt;aura skill_id="X" distance="Y" distance_z="Z"/&gt;. distance_z defaults to distance/2 when missing.</summary>
+    public IReadOnlyList<SkillAuraInfo> AuraEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillAuraInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "aura") continue;
+                int.TryParse(e.GetAttribute("skill_id"), out int childId);
+                float distance = 0f;
+                float.TryParse(e.GetAttribute("distance"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out distance);
+                float distanceZ;
+                if (!float.TryParse(e.GetAttribute("distance_z"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out distanceZ))
+                    distanceZ = distance / 2f;
+                if (childId > 0 && distance > 0f)
+                    list.Add(new(childId, distance, distanceZ));
+            }
+            return list;
+        }
+    }
 
     /// <summary>M283: rebirth (self-rez on death) — Java RebirthEffect. (Has, ResurrectPercent, SkillId)</summary>
     public (bool Has, int ResurrectPercent, int SkillId) RebirthInfo

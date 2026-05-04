@@ -2981,3 +2981,19 @@
     - Java analogy: AlwaysResistEffect grants 100% magic resist while buff is active. Used in boss "Holy Fortitude"-style mechanics paired with M264 ConvertHeal (alwaysresist eats magic, convertheal converts physical to heal)
     - Gameplay impact: handful of buff XML entries (boss survivability mechanics, very high-tier defense buffs) now correctly resist all magical damage and DoT ticks
     - Build: 0 warnings, 0 errors
+
+286. [✓] Aura tick subsystem — caster-anchored periodic AoE child-skill ticks (session 2026-05-04)
+    - Architecture milestone built via analyst → planner → implementer pipeline. Java analog: `AuraEffect.java` (6500ms `AuraTask`).
+    - **M286a:** `Model/Templates/Skill/SkillTemplate.cs` — `SkillAuraInfo` record (ChildSkillId, Distance, DistanceZ); `HasAura` bool flag; `AuraEffects` getter parsing `<aura skill_id distance distance_z>` (DistanceZ defaults to Distance/2 when XML omits)
+    - **M286b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — buff-path scheduler after M274 mpuse: per aura entry resolves child template, captures locals, spawns `Task.Run` with 6500ms `Task.Delay` interval. **Race-safe loop condition** (analyst HIGH risk): `caster.GetActiveEffects().Any(e => e.SkillId == auraSkillId)` instead of stale `DateTime.UtcNow < effect.Expiry`. Resolves scope to caster + Player.Group.Members; filters by 3D distance (`dx²+dy² ≤ Distance²`, `|dz| ≤ DistanceZ`) + WorldId. Calls `_auraApplier.ApplyAsync` per ally
+    - **M286c:** `Services/AuraChildApplier.cs` — `IEventBus`-aware applier. **Recursion guard** (analyst HIGH risk): if child has `<aura>`, log debug + skip aura branch only (heal/damage still apply, no nested tick spawned). Branches: heal (HP/MP write + SM_ATTACK_STATUS broadcast), damage (routes through `ApplyDamageAndPublishAsync` so all observer handlers — Shield/Reflector/etc. — fire). Statup/CC explicitly out of scope to avoid every-tick re-application
+    - **DI:** registered `AuraChildApplier` as Singleton; CM_CASTSPELL ctor extended; `GsPacketHandlerFactory` plumbs through
+    - Out of scope (deferred to future milestones M286d/e):
+        - SM_MANTRA_EFFECT visual broadcast packet
+        - StatUp child skills (would require idempotent buff refresh)
+        - NPC casters of aura (Java casts effector to Player; we mirror with `is Player` guard)
+        - Alliance scope (currently Player.Group only; alliance support pending)
+        - CM_TOGGLE_SKILL_DEACTIVATE-driven toggle stop
+    - Gameplay impact: 52 aura skill XML entries (Cleric heal mantras, Spiritmaster damage auras, Songweaver buff auras, several boss-room mark-and-pulse mechanics) now tick child skills against in-range group members every 6.5s. Heal auras restore HP/MP, damage auras pass through observer chain (Shield/Reflector still apply on aura ticks)
+    - Risks resolved: tick-vs-expiry race avoided via live effect-list polling. Nested-aura recursion bounded at depth 1
+    - Build: 0 warnings, 0 errors
