@@ -6,7 +6,9 @@ using AionLightning.Commons.Network;
 using AionLightning.Commons.Scripting;
 using AionLightning.Commons.Services;
 using AionLightning.Game;
+using AionLightning.Game.Combat.Handlers;
 using AionLightning.Game.Configs.Options;
+using AionLightning.Game.Events;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion;
@@ -34,6 +36,9 @@ builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
 
 // Event bus
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
+
+// M260: damage observer handlers
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HealCastorOnAttackedHandler>();
 
 // World
 builder.Services.AddSingleton<GameWorld>();

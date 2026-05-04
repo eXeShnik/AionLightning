@@ -119,6 +119,15 @@ public readonly record struct SkillNoReduceInfo(
     string Element       // elemental flavor (reserved)
 );
 
+/// <summary>"Heal caster on attack" descriptor parsed from &lt;healcastoronatk&gt; (Java HealCastorOnAttackedEffect).
+/// When the buffed creature is attacked, the buff caster is healed by value+delta*level if within Range.</summary>
+public readonly record struct SkillHealCastorOnAtkInfo(
+    int    BaseValue,    // heal at skill level 1
+    int    Delta,        // per-level scaling
+    float  Range,        // max distance from buffed creature for heal to apply (0 = no range gate)
+    string HealType      // "hp" | "mp" — Java HealCastorOnAttackedEffect@type attribute
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1300,6 +1309,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
+    private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1435,6 +1445,26 @@ public sealed class SkillEffects
                 bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
                 string element = e.GetAttribute("element") ?? string.Empty;
                 list.Add(new(val, dlt, pct, element));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillHealCastorOnAtkInfo> HealCastorOnAtkEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillHealCastorOnAtkInfo>();
+            foreach (var e in Elements)
+            {
+                if (!HealCastorOnAtkEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                float range = 0f;
+                float.TryParse(e.GetAttribute("range"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out range);
+                string ht = (e.GetAttribute("type") ?? "HP").ToLowerInvariant() == "mp" ? "mp" : "hp";
+                list.Add(new(val, dlt, range, ht));
             }
             return list;
         }

@@ -1,7 +1,10 @@
+using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
+using AionLightning.Game.Combat;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
@@ -24,6 +27,7 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly IPlayerDao _playerDao;
     private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
+    private readonly IEventBus _eventBus;
 
     private int _targetObjectId;
     private int _time;
@@ -33,7 +37,7 @@ public sealed class CM_ATTACK : AionClientPacket
         ExperienceService expService,
         SpawnService spawnService, LootService lootService, QuestService questService,
         DuelService duelService, NpcAiService npcAi,
-        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
+        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus)
     {
         _conn         = conn;
         _world        = world;
@@ -48,6 +52,7 @@ public sealed class CM_ATTACK : AionClientPacket
         _playerDao    = playerDao;
         _legionDao    = legionDao;
         _rates        = rates;
+        _eventBus     = eventBus;
     }
 
     public override void Read(ref PacketReader r)
@@ -241,10 +246,8 @@ public sealed class CM_ATTACK : AionClientPacket
             totalDamage += ohHits.Sum(h => h.Damage);
         }
 
-        target.CurrentHp = Math.Max(0, target.CurrentHp - totalDamage);
-
-        // Both attacker and target enter combat — suppresses regen for both
-        player.LastCombatTime = target.LastCombatTime = now;
+        // M260c: route through ApplyDamageAndPublishAsync — applies HP, sets LastCombatTime, publishes DamageDealtEvent
+        await target.ApplyDamageAndPublishAsync(player, totalDamage, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
 
         // Broadcast attack animation then damage report
         await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, hits), ct);
