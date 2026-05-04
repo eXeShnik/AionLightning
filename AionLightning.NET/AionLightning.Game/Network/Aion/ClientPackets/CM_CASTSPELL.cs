@@ -122,6 +122,22 @@ public sealed class CM_CASTSPELL : AionClientPacket
         }
         float castRange = template?.CastRange ?? 0f;
 
+        // Resurrection skill — targets a dead ally player, sets pending revive, sends dialog
+        if (template?.Effects?.HasResurrectEffect == true && _targetType is 0 or 3 or 4)
+        {
+            var rezTarget = _world.GetPlayerByObjectId(_targetObjectId);
+            if (rezTarget is not null && rezTarget.IsAlreadyDead && rezTarget.ObjectId != player.ObjectId)
+            {
+                rezTarget.HasPendingRevive    = true;
+                rezTarget.ResurrectionSkillId = template.Effects.ResurrectSkillId;
+                var rezConn = _connRegistry.Get(rezTarget.ObjectId);
+                if (rezConn is not null)
+                    try { await rezConn.SendAsync(new SM_RESURRECT(player.Name, _spellId), ct); } catch { }
+                await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
+            }
+            return;
+        }
+
         if (isHealSkill && _targetType is 0 or 3 or 4)
         {
             // Heal target — self if targetObjectId == 0 or is the caster
@@ -593,6 +609,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
                 int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
                 int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
+                var gAoeDmgFx = template?.Effects?.DamageEffects;
+                int? gAoeSkillBase = gAoeDmgFx is { Count: > 0 }
+                    ? gAoeDmgFx[0].BaseValue + gAoeDmgFx[0].Delta * (_level - 1)
+                    : null;
 
                 foreach (var target in targets)
                 {
@@ -604,11 +624,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         : 0;
                     float magicBoostMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppress) / 1000f;
 
+                    int gAoeBase = gAoeSkillBase ?? (spellIsMagical ? player.Level * 6 : player.Level * 4) + Random.Shared.Next(10, 40);
                     int rawSpellDmg = spellIsMagical
-                        ? (int)((mAtk + player.Level * 6 + Random.Shared.Next(10, 40)) * magicBoostMult)
-                        : pAtk + player.Level * 4 + Random.Shared.Next(10, 40);
+                        ? (int)((mAtk + gAoeBase) * magicBoostMult)
+                        : pAtk + gAoeBase;
 
-                    // Magic resist check (Java calculateMagicalResistRate)
+                    // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
                     if (spellIsMagical)
                     {
                         int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta + player.ConcentrationDelta;
@@ -628,6 +649,25 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             continue;
                         }
                     }
+                    else // physical skill — dodge check (Java calculatePhysicalDodgeRate)
+                    {
+                        int physAccAoE = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy + player.PhysAccDelta;
+                        int evAoE = (target is Player pvpEvAoE ? pvpEvAoE.BaseEvasion + pvpEvAoE.BonusEvasion
+                                   : target is Npc npcEvAoE   ? NpcPhysicalAccuracy(npcEvAoE) + (npcEvAoE.Template.Stats?.Evasion ?? 0)
+                                   : 0) + target.EvasionDebuffDelta + target.EvasionStatUpDelta;
+                        float rawDodgeAoE = evAoE - physAccAoE;
+                        if (target is Npc npcDodgeAoE)
+                            rawDodgeAoE *= 1f + NpcLevelDiffMod(npcDodgeAoE.Level - player.Level);
+                        float dodgeRateAoE = Math.Clamp(rawDodgeAoE * 0.6f + 50f, 0f, 300f);
+                        if (Random.Shared.Next(1000) < (int)dodgeRateAoE)
+                        {
+                            var dodgePkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(dodgePkt); } catch { }
+                            continue;
+                        }
+                    }
 
                     // Magical crit check (same piecewise formula as physical crit)
                     if (spellIsMagical)
@@ -643,6 +683,21 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             int spF = target is Player pvpSpF ? pvpSpF.BonusSpellFortitude + pvpSpF.SpellFortitudeDelta : 0;
                             float mCritCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(spF / 1000.0));
                             rawSpellDmg = (int)(rawSpellDmg * mCritCoeff);
+                        }
+                    }
+                    else // physical skill crit (Java calculatePhysicalCriticalRate, coefficient 1.5 for skills)
+                    {
+                        int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
+                        int pCritResist = target is Player pvpPCG ? pvpPCG.BonusPhysicalCriticalResist + pvpPCG.PhysCritResistDelta : 0;
+                        pCritRating = Math.Max(0, pCritRating - pCritResist);
+                        double pCritRate = pCritRating <= 440 ? pCritRating * 0.1
+                                         : pCritRating <= 600 ? 44.0 + (pCritRating - 440) * 0.05
+                                         : 52.0 + (pCritRating - 600) * 0.02;
+                        if (Random.Shared.Next(100) < (int)pCritRate)
+                        {
+                            int sFortG = target is Player pvpSFG ? pvpSFG.BonusStrikeFortitude + pvpSFG.StrikeFortitudeDelta : 0;
+                            float pCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortG / 1000.0));
+                            rawSpellDmg = (int)(rawSpellDmg * pCritCoeffG);
                         }
                     }
 
@@ -684,6 +739,56 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(dp); } catch { }
+                    }
+
+                    // Apply DoT (bleed/poison/disease) to each AoE target
+                    if (target.CurrentHp > 0 && template?.Effects?.DotEffects is { Count: > 0 } aoeDotsG)
+                    {
+                        foreach (var dot in aoeDotsG)
+                        {
+                            int dotLvG     = _level;
+                            int dotTickDmg = Math.Max(1, dot.BaseValue + dot.Delta * dotLvG);
+                            var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
+                            var dotEffect  = new AbnormalState
+                            {
+                                SkillId    = spellId,
+                                SkillLevel = dotLvG,
+                                EffectorId = player.ObjectId,
+                                Expiry     = dotExpiry,
+                                DotInfo    = dot,
+                                IsDebuff   = true,
+                            };
+                            target.AddEffect(dotEffect);
+                            bool dotTargetIsPlayer = target is Player;
+                            var dotAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, dotTargetIsPlayer, target.GetActiveEffects());
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(dotAbnormal); } catch { }
+
+                            var dotTickTarget = target;
+                            var dotTickEffect = dotEffect;
+                            var dotTickLogId  = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                            _ = Task.Run(async () =>
+                            {
+                                while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
+                                {
+                                    await Task.Delay(dot.CheckTimeMs);
+                                    if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
+                                    dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                                    var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dotTickDmg, dotTickLogId);
+                                    int tw = dotTickTarget.Position.WorldId;
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == tw)
+                                            try { await c.SendAsync(tickPkt); } catch { }
+                                }
+                                dotTickTarget.RemoveEffect(dotTickEffect.SkillId, dotTickEffect.Expiry);
+                                var expiredDot = new SM_ABNORMAL_EFFECT(dotTickTarget.ObjectId, dotTargetIsPlayer, dotTickTarget.GetActiveEffects());
+                                int dw = dotTickTarget.Position.WorldId;
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == dw)
+                                        try { await c.SendAsync(expiredDot); } catch { }
+                            });
+                        }
                     }
                 }
 
@@ -792,8 +897,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
 
-                // Magic resist check (Java calculateMagicalResistRate):
-                // resistRate = max(1, target.MagicResist - player.MagicAccuracy) + level-diff bonus; out of 1000
+                // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
                 if (spellIsMagical)
                 {
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
@@ -806,7 +910,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (lvlDiffST > 0) resistRate += lvlDiffST * 100;
                     if (Random.Shared.Next(1000) < resistRate)
                     {
-                        // Spell resisted — send 0-damage status and return
                         var resistPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
@@ -814,6 +917,30 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         return;
                     }
                 }
+                else // physical skill — dodge check (Java calculatePhysicalDodgeRate)
+                {
+                    int physAccST = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy + player.PhysAccDelta;
+                    int evST = (target is Player pvpEvST ? pvpEvST.BaseEvasion + pvpEvST.BonusEvasion
+                              : target is Npc npcEvST   ? NpcPhysicalAccuracy(npcEvST) + (npcEvST.Template.Stats?.Evasion ?? 0)
+                              : 0) + target.EvasionDebuffDelta + target.EvasionStatUpDelta;
+                    float rawDodgeST = evST - physAccST;
+                    if (target is Npc npcDodgeST)
+                        rawDodgeST *= 1f + NpcLevelDiffMod(npcDodgeST.Level - player.Level);
+                    float dodgeRateST = Math.Clamp(rawDodgeST * 0.6f + 50f, 0f, 300f);
+                    if (Random.Shared.Next(1000) < (int)dodgeRateST)
+                    {
+                        var dodgePkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(dodgePkt); } catch { }
+                        return;
+                    }
+                }
+
+                var stDmgFx = template?.Effects?.DamageEffects;
+                int? stSkillBase = stDmgFx is { Count: > 0 }
+                    ? stDmgFx[0].BaseValue + stDmgFx[0].Delta * (_level - 1)
+                    : null;
 
                 int rawSpellDmg;
                 if (spellIsMagical)
@@ -822,12 +949,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int tMBSuppressG = target is Player pvpSuppG ? pvpSuppG.BonusMagicSuppression + pvpSuppG.MagicSuppressionDelta
                                      : target is Npc npcSuppG ? (npcSuppG.Template.Stats?.MBResist ?? 0) : 0;
                     float mbMultG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppressG) / 1000f;
-                    rawSpellDmg = (int)((mAtkG + player.Level * 6 + Random.Shared.Next(10, 40)) * mbMultG);
+                    int stMagicBase = stSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40);
+                    rawSpellDmg = (int)((mAtkG + stMagicBase) * mbMultG);
                 }
                 else
                 {
                     int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
-                    rawSpellDmg = pAtkG + player.Level * 4 + Random.Shared.Next(10, 40);
+                    rawSpellDmg = pAtkG + (stSkillBase ?? player.Level * 4 + Random.Shared.Next(10, 40));
                 }
 
                 // Magical crit check (Java calculateMagicalCriticalRate, same piecewise formula as physical)
@@ -844,6 +972,21 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int spFt = target is Player pvpSpFt ? pvpSpFt.BonusSpellFortitude + pvpSpFt.SpellFortitudeDelta : 0;
                         float mCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(spFt / 1000.0));
                         rawSpellDmg = (int)(rawSpellDmg * mCritCoeffG);
+                    }
+                }
+                else // physical skill crit (Java calculatePhysicalCriticalRate, coefficient 1.5 for skills)
+                {
+                    int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
+                    int pCritResist = target is Player pvpPCST ? pvpPCST.BonusPhysicalCriticalResist + pvpPCST.PhysCritResistDelta : 0;
+                    pCritRating = Math.Max(0, pCritRating - pCritResist);
+                    double pCritRate = pCritRating <= 440 ? pCritRating * 0.1
+                                     : pCritRating <= 600 ? 44.0 + (pCritRating - 440) * 0.05
+                                     : 52.0 + (pCritRating - 600) * 0.02;
+                    if (Random.Shared.Next(100) < (int)pCritRate)
+                    {
+                        int sFortST = target is Player pvpSFST ? pvpSFST.BonusStrikeFortitude + pvpSFST.StrikeFortitudeDelta : 0;
+                        float pCritCoeffST = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortST / 1000.0));
+                        rawSpellDmg = (int)(rawSpellDmg * pCritCoeffST);
                     }
                 }
 
@@ -942,11 +1085,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                         int splashMBSuppress = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0) : 0;
                         float splashMBMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - splashMBSuppress) / 1000f;
+                        int splashBase = stSkillBase ?? (spellIsMagical ? player.Level * 6 : player.Level * 4) + Random.Shared.Next(10, 40);
                         int splashRaw = spellIsMagical
-                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta) + player.Level * 6 + Random.Shared.Next(10, 40)) * splashMBMult)
-                            : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta) + player.Level * 4 + Random.Shared.Next(10, 40);
+                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta) + splashBase) * splashMBMult)
+                            : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta) + splashBase;
 
-                        // Magic resist check for AoE splash
+                        // Magic resist check for AoE splash / physical dodge check (splash targets are NPC-only)
                         if (spellIsMagical)
                         {
                             int totalMagicAccS = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
@@ -963,6 +1107,21 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 continue;
                             }
                         }
+                        else // physical splash — dodge check (NPC-only; no PvP evasion resist)
+                        {
+                            int physAccSpl = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy + player.PhysAccDelta;
+                            int evSpl = NpcPhysicalAccuracy(splash) + (splash.Template.Stats?.Evasion ?? 0);
+                            float rawDodgeSpl = (evSpl - physAccSpl) * (1f + NpcLevelDiffMod(splash.Level - player.Level));
+                            float dodgeRateSpl = Math.Clamp(rawDodgeSpl * 0.6f + 50f, 0f, 300f);
+                            if (Random.Shared.Next(1000) < (int)dodgeRateSpl)
+                            {
+                                var dodgePktS = new SM_ATTACK_STATUS(splash, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                        try { await c.SendAsync(dodgePktS); } catch { }
+                                continue;
+                            }
+                        }
 
                         // Magical crit check for AoE splash
                         if (spellIsMagical)
@@ -972,6 +1131,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                               : mCritRatingS <= 600 ? 44.0 + (mCritRatingS - 440) * 0.05
                                               : 52.0 + (mCritRatingS - 600) * 0.02;
                             if (Random.Shared.Next(100) < (int)mCritRateS)
+                                splashRaw = (int)(splashRaw * 1.5f);
+                        }
+                        else // physical skill crit for AoE splash (splash targets are NPCs, no PvP crit resist)
+                        {
+                            int pCritSpl = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
+                            double pCritRateSpl = pCritSpl <= 440 ? pCritSpl * 0.1
+                                                : pCritSpl <= 600 ? 44.0 + (pCritSpl - 440) * 0.05
+                                                : 52.0 + (pCritSpl - 600) * 0.02;
+                            if (Random.Shared.Next(100) < (int)pCritRateSpl)
                                 splashRaw = (int)(splashRaw * 1.5f);
                         }
 
@@ -1027,6 +1195,55 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 _lootService.ClearLoot(deadSplash.ObjectId);
                                 _spawnService.ScheduleRespawn(deadSplash);
                             });
+                        }
+
+                        // Apply DoT (bleed/poison/disease) to surviving AoE splash targets
+                        if (splash.CurrentHp > 0 && template?.Effects?.DotEffects is { Count: > 0 } splashDots)
+                        {
+                            foreach (var dot in splashDots)
+                            {
+                                int dotLvSpl    = _level;
+                                int dotTickDmg  = Math.Max(1, dot.BaseValue + dot.Delta * dotLvSpl);
+                                var dotExpiry   = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
+                                var dotEffect   = new AbnormalState
+                                {
+                                    SkillId    = spellId,
+                                    SkillLevel = dotLvSpl,
+                                    EffectorId = player.ObjectId,
+                                    Expiry     = dotExpiry,
+                                    DotInfo    = dot,
+                                    IsDebuff   = true,
+                                };
+                                splash.AddEffect(dotEffect);
+                                var dotAbnormal = new SM_ABNORMAL_EFFECT(splash.ObjectId, isPlayer: false, splash.GetActiveEffects());
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                        try { await c.SendAsync(dotAbnormal); } catch { }
+
+                                var dotTickTarget = splash;
+                                var dotTickEffect = dotEffect;
+                                var dotTickLogId  = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                                _ = Task.Run(async () =>
+                                {
+                                    while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
+                                    {
+                                        await Task.Delay(dot.CheckTimeMs);
+                                        if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
+                                        dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                                        var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dotTickDmg, dotTickLogId);
+                                        int tw = dotTickTarget.Position.WorldId;
+                                        foreach (var c in registry.GetAll())
+                                            if (c.ActivePlayer?.Position.WorldId == tw)
+                                                try { await c.SendAsync(tickPkt); } catch { }
+                                    }
+                                    dotTickTarget.RemoveEffect(dotTickEffect.SkillId, dotTickEffect.Expiry);
+                                    var expiredDot = new SM_ABNORMAL_EFFECT(dotTickTarget.ObjectId, isPlayer: false, dotTickTarget.GetActiveEffects());
+                                    int dw = dotTickTarget.Position.WorldId;
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == dw)
+                                            try { await c.SendAsync(expiredDot); } catch { }
+                                });
+                            }
                         }
                     }
                 }
@@ -1433,6 +1650,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
         int tpl   = npc.Template.Stats?.MResist ?? 0;
         return tpl > 0 ? tpl : @base;
     }
+
+    // Java NpcGameStats.calcStats(): level*(33.6-0.16*level)+5; base evasion and physical accuracy for NPCs
+    private static int NpcPhysicalAccuracy(Model.Npc npc) => (int)(npc.Level * (33.6f - 0.16f * npc.Level) + 5f);
 
     // Java StatFunctions.getNpcLevelDiffMod: multiplier for dodge and damage when NPC > player level
     private static float NpcLevelDiffMod(int levelDiff) => levelDiff switch

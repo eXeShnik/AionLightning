@@ -88,6 +88,15 @@ public readonly record struct SkillDotInfo(
     string Element        // "FIRE", "EARTH", etc. (reserved for future element resist)
 );
 
+/// <summary>Skill direct-damage descriptor parsed from &lt;skillatk&gt; (physical) and &lt;spellatkinstant&gt; (magical) effect elements.</summary>
+public readonly record struct SkillDamageInfo(
+    int    BaseValue,    // damage at skill level 1
+    int    Delta,        // per-level damage increase
+    string DamageType,   // "physical" | "magical"
+    string Element,      // elemental type (e.g. "FIRE", "EARTH") — reserved for future elemental resist
+    int    AccuracyMod   // accmod2 value (magic accuracy modifier, 0 = none)
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1265,6 +1274,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
+    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1343,6 +1353,54 @@ public sealed class SkillEffects
                 list.Add(new(check, val, dlt, dur, e.LocalName, e.GetAttribute("element") ?? string.Empty));
             }
             return list;
+        }
+    }
+
+    public IReadOnlyList<SkillDamageInfo> DamageEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillDamageInfo>();
+            foreach (var e in Elements)
+            {
+                if (!DamageEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                string dmgType = e.LocalName == "skillatk" ? "physical" : "magical";
+                string element = e.GetAttribute("element") ?? string.Empty;
+                int.TryParse(e.GetAttribute("accmod2"), out int accMod);
+                list.Add(new(val, dlt, dmgType, element, accMod));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>True when any effect element is a &lt;resurrect&gt; (Java ResurrectEffect).</summary>
+    public bool HasResurrectEffect
+    {
+        get
+        {
+            if (Elements is null) return false;
+            foreach (var e in Elements)
+                if (e.LocalName == "resurrect") return true;
+            return false;
+        }
+    }
+
+    /// <summary>The skill_id attribute of the first &lt;resurrect&gt; effect element, or 0 if absent.</summary>
+    public int ResurrectSkillId
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "resurrect")
+                {
+                    int.TryParse(e.GetAttribute("skill_id"), out int sid);
+                    return sid;
+                }
+            return 0;
         }
     }
 

@@ -5,6 +5,7 @@ using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Skill;
 using AionLightning.Game.Model.Templates.Item;
+using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion.ServerPackets;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -114,7 +115,24 @@ public sealed class CM_USE_ITEM : AionClientPacket
         }
 
         if (template.UseSkillId is not int skillId) return;
-        if (!SkillEffects.TryGetValue(skillId, out var effect)) return;
+
+        // Buff/food items whose skill isn't a hardcoded HP/MP potion — apply via skill template statup effects
+        if (!SkillEffects.TryGetValue(skillId, out var effect))
+        {
+            var skillTpl = _dataManager.Skills.GetTemplate(skillId);
+            if (skillTpl?.Effects is not null)
+            {
+                int buffDurationMs = skillTpl.Duration > 0
+                    ? skillTpl.Duration
+                    : skillTpl.Effects.EffectDuration;
+                if (buffDurationMs > 0)
+                {
+                    await HandleItemBuffAsync(player, item, template, skillId, skillTpl, buffDurationMs, ct);
+                    return;
+                }
+            }
+            return;
+        }
 
         // Enforce item use cooldown (delayId groups — e.g. all HP potions share delayId 11)
         var limits = template.UseLimits;
@@ -277,6 +295,198 @@ public sealed class CM_USE_ITEM : AionClientPacket
         player.Inventory.Remove(item.UniqueId);
         await _itemDao.DeleteAsync(item.UniqueId, ct);
         await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+    }
+
+    private async ValueTask HandleItemBuffAsync(Player player, Item item, ItemTemplate template,
+        int skillId, SkillTemplate skillTpl, int durationMs, CancellationToken ct)
+    {
+        var limits = template.UseLimits;
+        if (limits is not null && limits.DelayId > 0 && player.IsItemOnCooldown(limits.DelayId))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime(), ct);
+            return;
+        }
+
+        var fx = skillTpl.Effects!;
+        int maxHpDelta           = fx.MaxHpStatUpDelta;
+        int maxMpDelta           = fx.MaxMpStatUpDelta;
+        int mBoostDelta          = fx.MagicBoostStatUpDelta;
+        int healBoostDelta       = fx.HealBoostStatUpDelta;
+        int physAccDelta         = fx.PhysAccStatUpDelta;
+        int magicAccDelta        = fx.MagicAccStatUpDelta;
+        int parryDelta           = fx.ParryStatUpDelta;
+        int blockDelta           = fx.BlockStatUpDelta;
+        int physCritDelta        = fx.PhysCritStatUpDelta;
+        int magicCritDelta       = fx.MagicCritStatUpDelta;
+        int physCritResistDelta  = fx.PhysCritResistStatUpDelta;
+        int magicCritResistDelta = fx.MagicCritResistStatUpDelta;
+        int strikeFortDelta      = fx.StrikeFortitudeStatUpDelta;
+        int spellFortDelta       = fx.SpellFortitudeStatUpDelta;
+        int castTimeDelta        = fx.CastTimeStatUpDelta;
+        int concDelta            = fx.ConcentrationStatUpDelta;
+        int magicSuppDelta       = fx.MagicSuppressionStatUpDelta;
+        int pdefDelta            = fx.PdefStatUpDelta;
+        int magicDefDelta        = fx.MagicDefStatUpDelta;
+        int patkDelta            = fx.PhysAtkStatUpDelta;
+        int magicAtkDelta        = fx.MagicAtkStatUpDelta;
+        int evasionDelta         = fx.EvasionStatUpDelta;
+        int mresistDelta         = fx.MResistStatUpDelta;
+        int atkSpeedDelta        = fx.AtkSpeedStatUpDelta;
+        int speedPct             = fx.SpeedStatUpPct;
+
+        var effect = new AbnormalState
+        {
+            SkillId                 = skillId,
+            SkillLevel              = 1,
+            EffectorId              = player.ObjectId,
+            Expiry                  = DateTime.UtcNow.AddMilliseconds(durationMs),
+            MaxHpDelta              = maxHpDelta,
+            MaxMpDelta              = maxMpDelta,
+            MagicBoostDeltaVal      = mBoostDelta,
+            HealBoostDeltaVal       = healBoostDelta,
+            PhysAccDeltaVal         = physAccDelta,
+            MagicAccDeltaVal        = magicAccDelta,
+            ParryDeltaVal           = parryDelta,
+            BlockDeltaVal           = blockDelta,
+            PhysCritDeltaVal        = physCritDelta,
+            MagicCritDeltaVal       = magicCritDelta,
+            PhysCritResistDeltaVal  = physCritResistDelta,
+            MagicCritResistDeltaVal = magicCritResistDelta,
+            StrikeFortitudeDeltaVal = strikeFortDelta,
+            SpellFortitudeDeltaVal  = spellFortDelta,
+            CastTimeDeltaVal        = castTimeDelta,
+            ConcentrationDeltaVal   = concDelta,
+            MagicSuppressionDeltaVal = magicSuppDelta,
+            PdefStatUpDeltaVal      = pdefDelta,
+            MagicDefDeltaVal        = magicDefDelta,
+            PatkStatUpDeltaVal      = patkDelta,
+            MagicAtkStatUpDeltaVal  = magicAtkDelta,
+            EvasionStatUpDeltaVal   = evasionDelta,
+            MResistStatUpDeltaVal   = mresistDelta,
+            AtkSpeedStatUpDeltaVal  = atkSpeedDelta,
+            SpeedStatUpPct          = speedPct,
+            PreBuffMovSpeed         = player.MovementSpeed,
+        };
+        player.AddEffect(effect);
+
+        if (atkSpeedDelta != 0)
+        {
+            var emo = new SM_EMOTION(player, EmotionType.START_EMOTE2);
+            int emoWorld = player.Position.WorldId;
+            foreach (var c in _connRegistry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == emoWorld)
+                    try { await c.SendAsync(emo, ct); } catch { }
+        }
+        if (speedPct != 0)
+        {
+            player.MovementSpeed = Math.Min(12.0f, player.MovementSpeed * (100 + speedPct) / 100f);
+            var speedEmo = new SM_EMOTION(player, EmotionType.START_EMOTE2);
+            int speedWorld = player.Position.WorldId;
+            foreach (var c in _connRegistry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == speedWorld)
+                    try { await c.SendAsync(speedEmo, ct); } catch { }
+        }
+
+        bool anyStatChange = maxHpDelta != 0 || maxMpDelta != 0 || mBoostDelta != 0 || healBoostDelta != 0 ||
+            physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 ||
+            physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 ||
+            strikeFortDelta != 0 || spellFortDelta != 0 || castTimeDelta != 0 || concDelta != 0 ||
+            magicSuppDelta != 0 || pdefDelta != 0 || magicDefDelta != 0 || patkDelta != 0 ||
+            magicAtkDelta != 0 || evasionDelta != 0 || mresistDelta != 0 || atkSpeedDelta != 0;
+
+        if (anyStatChange)
+        {
+            var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+            await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+        }
+
+        int buffWorld = player.Position.WorldId;
+        var abnormal = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
+        foreach (var c in _connRegistry.GetAll())
+            if (c.ActivePlayer?.Position.WorldId == buffWorld)
+                try { await c.SendAsync(abnormal, ct); } catch { }
+
+        // Broadcast item use animation
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == buffWorld)
+                try { await peer.SendAsync(anim, ct); } catch { }
+
+        if (limits is not null && limits.DelayId > 0 && limits.DelayMs > 0)
+            player.SetItemCooldown(limits.DelayId, limits.DelayMs);
+
+        item.Count--;
+        if (item.Count <= 0)
+        {
+            player.Inventory.Remove(item.UniqueId);
+            await _itemDao.DeleteAsync(item.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+        }
+        else
+        {
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
+        }
+
+        // Schedule buff expiry
+        var expiryEffect = effect;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(durationMs);
+            bool statChanged = expiryEffect.MaxHpDelta != 0 || expiryEffect.MaxMpDelta != 0 ||
+                expiryEffect.MagicBoostDeltaVal != 0 || expiryEffect.HealBoostDeltaVal != 0 ||
+                expiryEffect.PhysAccDeltaVal != 0 || expiryEffect.MagicAccDeltaVal != 0 ||
+                expiryEffect.ParryDeltaVal != 0 || expiryEffect.BlockDeltaVal != 0 ||
+                expiryEffect.PhysCritDeltaVal != 0 || expiryEffect.MagicCritDeltaVal != 0 ||
+                expiryEffect.PhysCritResistDeltaVal != 0 || expiryEffect.MagicCritResistDeltaVal != 0 ||
+                expiryEffect.StrikeFortitudeDeltaVal != 0 || expiryEffect.SpellFortitudeDeltaVal != 0 ||
+                expiryEffect.CastTimeDeltaVal != 0 || expiryEffect.ConcentrationDeltaVal != 0 ||
+                expiryEffect.MagicSuppressionDeltaVal != 0 || expiryEffect.PdefStatUpDeltaVal != 0 ||
+                expiryEffect.MagicDefDeltaVal != 0 || expiryEffect.PatkStatUpDeltaVal != 0 ||
+                expiryEffect.MagicAtkStatUpDeltaVal != 0 || expiryEffect.EvasionStatUpDeltaVal != 0 ||
+                expiryEffect.MResistStatUpDeltaVal != 0 || expiryEffect.AtkSpeedStatUpDeltaVal != 0;
+
+            player.RemoveEffectBySkillId(expiryEffect.SkillId);
+
+            if (expiryEffect.MaxHpDelta != 0)
+            {
+                int newMaxHp = Math.Max(1, player.MaxHp + player.MaxHpBonusDelta);
+                if (player.CurrentHp > newMaxHp) player.CurrentHp = newMaxHp;
+            }
+            if (expiryEffect.MaxMpDelta != 0)
+            {
+                int newMaxMp = Math.Max(1, player.MaxMp + player.MaxMpBonusDelta);
+                if (player.CurrentMp > newMaxMp) player.CurrentMp = newMaxMp;
+            }
+            if (expiryEffect.AtkSpeedStatUpDeltaVal != 0)
+            {
+                var restoreEmo = new SM_EMOTION(player, EmotionType.START_EMOTE2);
+                int restoreWorld = player.Position.WorldId;
+                foreach (var c in _connRegistry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == restoreWorld)
+                        try { await c.SendAsync(restoreEmo); } catch { }
+            }
+            if (expiryEffect.SpeedStatUpPct != 0)
+            {
+                var restoreSpeedEmo = new SM_EMOTION(player, EmotionType.START_EMOTE2);
+                int restoreSpeedWorld = player.Position.WorldId;
+                foreach (var c in _connRegistry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == restoreSpeedWorld)
+                        try { await c.SendAsync(restoreSpeedEmo); } catch { }
+            }
+            if (statChanged)
+            {
+                var expiryStatTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+                var expiryConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == player);
+                if (expiryConn is not null) try { await expiryConn.SendAsync(new SM_STATS_INFO(player, expiryStatTpl, _dataManager.ExpTable)); } catch { }
+            }
+            var expired = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
+            int expiredWorld = player.Position.WorldId;
+            foreach (var c in _connRegistry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == expiredWorld)
+                    try { await c.SendAsync(expired); } catch { }
+        });
     }
 
     private async ValueTask HandleDyeAsync(Player player, Model.Item.Item dyeItem,

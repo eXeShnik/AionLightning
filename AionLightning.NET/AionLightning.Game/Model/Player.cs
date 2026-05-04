@@ -185,6 +185,18 @@ public sealed class Player : Creature
     /// <summary>Multiplier applied to base MaxHp/MaxMp per soul sickness stack (5% reduction each, min 0.5).</summary>
     public float SoulSicknessMultiplier => Math.Max(0.5f, 1f - SoulSicknessCount * 0.05f);
 
+    // Resurrection state — set by a resurrection skill cast on this player
+    public bool HasPendingRevive     { get; set; }
+    public int  ResurrectionSkillId  { get; set; }
+
+    // Rebirth effect — set when a rebirth AbnormalState (effectId=160) is applied
+    public bool CanRebirthRevive          { get; set; }
+    public int  RebirthResurrectPercent   { get; set; } = 5;
+    public int  RebirthSkillId            { get; set; }
+
+    // Instance resurrection point — stored when entering an instanced world
+    public Position? InstanceStartPosition { get; set; }
+
     // Inventory cube expansion — NPC-purchased expands; each adds 9 slots (Java CUBE_SPACE=9)
     public int NpcExpands   { get; set; }
     public int QuestExpands { get; set; }

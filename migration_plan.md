@@ -2588,3 +2588,68 @@
     - [✓] SM_CRAFT_UPDATE now receives `recipe.NameId` for correct item-name display in craft window
     - Java analogy: Java `CraftingTask.onInteractionStart` rolls crit before bars fill; `onFailureFinish` action=6; `checkCrit` delivers combo product; our single-tick simplification collapses multi-tick bar fill into one probability roll
     - Build: 0 warnings, 0 errors
+
+233. [✓] Per-skill damage values from XML templates — `<skillatk>` and `<spellatkinstant>` parsed and used in all damage paths (session 2026-05-03)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillDamageInfo` readonly record struct (`BaseValue`, `Delta`, `DamageType`, `Element`, `AccuracyMod`) after `SkillDotInfo`
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `DamageEffectNames` HashSet (`["skillatk", "spellatkinstant"]`) alongside the other effect-name sets
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `DamageEffects` property to `SkillEffects`: iterates `Elements`, parses `value`/`delta`/`element`/`accmod2` attributes; sets `DamageType` from element name; mirrors the `HealEffects`/`DotEffects` pattern
+    - [✓] `CM_CASTSPELL.cs` — ground AoE damage path: computes `gAoeSkillBase = dmgFx[0].BaseValue + dmgFx[0].Delta * (level-1)` when template has entries; falls back to `player.Level * 6/4 + rand` otherwise; replaces the inline `player.Level * 6 + rand` in both magical and physical branches
+    - [✓] `CM_CASTSPELL.cs` — single-target damage path: `stSkillBase` computed once before the if/else; reused in both magical branch (`int stMagicBase = stSkillBase ?? level*6+rand`) and physical branch (`stSkillBase ?? level*4+rand`)
+    - [✓] `CM_CASTSPELL.cs` — caster/target AoE splash path: `splashBase = stSkillBase ?? fallback`; replaces both magical and physical inline formulas in `splashRaw` computation; `stSkillBase` is in scope from the single-target block surrounding the splash loop
+    - Java analogy: `SkillAttackEffect` / `MagicSkillAttackInstantEffect` evaluated `getValue()` (= `value + delta*(level-1)`) then multiplied by `MagicBoostFunc` / weapon stats; we replicate that: template base replaces the `level*N` placeholder, multipliers unchanged
+    - Previously: ALL physical/magical skills dealt identical damage for the same SkillType — a level-1 basic attack spell dealt the same as a high-tier AoE nuke because both used `level * 6 + rand`; 3000+ skills in skill_templates.xml have `<skillatk>`/`<spellatkinstant>` elements that were silently ignored
+    - Build: 0 warnings, 0 errors
+
+234. [✓] Physical skill crit + AoE DoT application + NPC template-based skill damage (session 2026-05-03)
+    - [✓] `CM_CASTSPELL.cs` — ground AoE loop: added `else` branch after magical crit block for physical skill crit (`BaseCritRating + BonusPhysicalCritical + PhysCritDelta`, piecewise rate, `1.5 - strikeFortitude/1000` coefficient); PvP crit resist applied when target is Player
+    - [✓] `CM_CASTSPELL.cs` — single-target path: same physical crit `else` block added after magical crit check; strike fortitude reduction applied for PvP targets
+    - [✓] `CM_CASTSPELL.cs` — AoE splash loop: physical crit `else` block added; splash targets are NPC-only so no PvP crit resist/strike fortitude (simplified `1.5f` coefficient)
+    - [✓] `CM_CASTSPELL.cs` — ground AoE loop: DoT block (`if target.CurrentHp > 0 && DotEffects`) added per target inside the targets foreach; same tick/expiry Task.Run pattern as single-target; captures target instance per-loop-iteration via `dotTickTarget` to avoid closure aliasing
+    - [✓] `CM_CASTSPELL.cs` — AoE splash loop: DoT block added after kill handling (`if splash.CurrentHp > 0 && DotEffects`); splash targets are NPCs (`isPlayer: false` for SM_ABNORMAL_EFFECT)
+    - [✓] `NpcAiService.CastNpcDamageAsync` — added `int skillLevel` parameter; call site passes `entry.SkillLevel`
+    - [✓] `NpcAiService.CastNpcDamageAsync` — uses `DamageEffects[0].BaseValue + Delta * (level-1)` when template has damage entries; falls back to `npc.Level * 8 + rand`; mirrors M233 player-side formula
+    - [✓] `NpcAiService.CastNpcDamageAsync` — NPC skill defense now type-aware: `PHYSICAL` uses `target.PhysicalDefense + PdefDebuffDelta + PdefStatUpDelta`; all others use `target.MagicDefense + MagicDefDelta`
+    - [✓] `NpcAiService.CastNpcDamageAsync` — DoT block added for primary target: applies `DotEffects` from skill template; spawns tick Task.Run with same pattern; NPC is effector
+    - [✓] `NpcAiService.CastNpcDamageAsync` — AoE splash defense also type-aware (`isPhysical ? Physical : Magic`); splash raw damage uses `skillBase ± 10%` variance instead of a fresh level formula
+    - Java analogy: `SkillAttackEffect.calculateBaseDamage` used template values; `StatFunctions.calculateMagicalSkillDamage` applied MBMult; `StatFunctions.adjustDamages` applied level-diff reduction; physical crit from `calculatePhysicalCriticalRate` + `calculateWeaponCritical(1.5 default)`
+    - Previously: (a) PHYSICAL skills never critted in CM_CASTSPELL — ~1600 physical attack skills (Gladiator chains, Ranger shots, Assassin combos) had 0% crit regardless of gear; (b) DoT effects from AoE skills (ground AoE poison clouds, AoE bleed) were applied only to the primary single-target hit, not the AoE targets; (c) all NPC skills used magic defense regardless of skill type; (d) NPC skill damage ignored skill templates
+    - Build: 0 warnings, 0 errors
+
+235. [✓] Physical dodge check for skill damage (session 2026-05-03)
+    - [✓] `CM_CASTSPELL.cs` — added `NpcPhysicalAccuracy(Npc npc)` static helper: `(int)(npc.Level * (33.6f - 0.16f * npc.Level) + 5f)` — mirrors Java `StatFunctions.npcBaseAccuracy`
+    - [✓] `CM_CASTSPELL.cs` — ground AoE loop: added `else` block after magic resist check; computes `physAccAoE = BasePhysicalAccuracy + BonusPhysicalAccuracy + PhysAccDelta`; NPC evasion via helper + `EvasionDebuffDelta + EvasionStatUpDelta`; `rawDodge = (evasion - accuracy) * levelDiffMult`; clamped to [0, 300]; `continue` on miss
+    - [✓] `CM_CASTSPELL.cs` — single-target path: same pattern but `return` on miss; Player evasion uses `target.BaseEvasion + EvasionStatUpDelta + EvasionDebuffDelta`; NPC evasion via helper
+    - [✓] `CM_CASTSPELL.cs` — AoE splash loop: simplified NPC-only version; `continue` on miss
+    - Java analogy: `StatFunctions.calculatePhysicalDodgeRate` — `(evasion - accuracy) * levelMult`, then `clamp(rate * 0.6 + 50, 0, 300)`, miss if `rand(1000) < rate`
+    - Previously: physical skills (Gladiator, Ranger, Assassin attacks) always hit regardless of target evasion — 0% miss rate vs. up to 30% for magical resists
+    - Build: 0 warnings, 0 errors
+
+236. [✓] Consumable food/buff item skill application — data-driven via skill template (session 2026-05-03)
+    - [✓] `CM_USE_ITEM.cs` — added `using AionLightning.Game.Model.Templates.Skill;` import
+    - [✓] `CM_USE_ITEM.cs` — replaced hard `return` for unknown `UseSkillId` with skill-template lookup: `_dataManager.Skills.GetTemplate(skillId)`; if template has `Effects` and `buffDurationMs > 0` (from `template.Duration` or `Effects.EffectDuration`), routes to `HandleItemBuffAsync`
+    - [✓] `CM_USE_ITEM.cs` — added `HandleItemBuffAsync`: reads all 25 StatUp delta properties from `skillTpl.Effects`; builds `AbnormalState` with `SkillLevel = 1`, `Expiry = now + durationMs`; calls `player.AddEffect(effect)`; sends `SM_STATS_INFO`, `SM_ABNORMAL_EFFECT`, `SM_ITEM_USAGE_ANIMATION` to zone; handles cooldown; consumes item count; schedules `Task.Run` expiry with HP/MP clamping, stat re-send, and expired `SM_ABNORMAL_EFFECT` broadcast
+    - Java analogy: Java `FoodUseAction.activate` called `SkillEngine.getInstance().useSkill(player, skillId)` which triggered `StatUpEffect.applyEffect` for each statup child; our approach replicates the stat delta extraction without the full skill-engine dispatch
+    - Previously: all 908 food/buff items with `skillId >= 10300` (food, scrolls, battle supplies) fell through the `SkillEffects` dict lookup and were silently discarded — eating a 30-min food buff applied nothing
+    - Build: 0 warnings, 0 errors
+
+237. [✓] Additional revive types — skill, rebirth, item self-rez, instance (session 2026-05-03)
+    - [✓] `Player.cs` — added `HasPendingRevive`, `ResurrectionSkillId` (set by a resurrection skill cast on this player), `CanRebirthRevive`, `RebirthResurrectPercent` (default 5), `RebirthSkillId`, `InstanceStartPosition`
+    - [✓] `CM_REVIVE.cs` — extracted `ReviveCoreAsync(player, hpPct, mpPct, applySoulSickness, skillId, destination, ct)` shared helper; added `IItemDao` dependency; DI registration updated in `GsPacketHandlerFactory.cs`
+    - [✓] `CM_REVIVE.cs` — BIND_REVIVE (0) / OBELISK_REVIVE (8): existing bind-point teleport logic now in `HandleBindReviveAsync`, soul sickness applied
+    - [✓] `CM_REVIVE.cs` — SKILL_REVIVE (3): checks `player.HasPendingRevive`; revives in-place at 10% HP/MP, no soul sickness; clears `HasPendingRevive` and `ResurrectionSkillId`; if flag not set, returns (anti-hack guard mirrors Java `cancelRes`)
+    - [✓] `CM_REVIVE.cs` — REBIRTH_REVIVE (1): checks `player.CanRebirthRevive`; revives in-place at `RebirthResurrectPercent`; applies soul sickness; clears rebirth flags
+    - [✓] `CM_REVIVE.cs` — ITEM_SELF_REVIVE (2): searches inventory for self-rez stones in Java priority order (161001001, 161000003, 161000004, 161000001); consumes one charge; revives in-place at 15% HP/MP; applies soul sickness
+    - [✓] `CM_REVIVE.cs` — INSTANCE_REVIVE (6): revives at `player.InstanceStartPosition` if set, otherwise falls back to bind/default spawn; 25% HP/MP, soul sickness applied
+    - KISK_REVIVE (4) falls through to bind revive — Kisk entity support is a separate milestone
+    - Java analogy: `CM_REVIVE.runImpl` switched on `ReviveType.getReviveTypeById(reviveId)`; each revive delegated to `PlayerReviveService.*Revive`; our `ReviveCoreAsync` collapses the five repeated `revive(player, hpPct, mpPct, soulSickness, skillId)` call sites into a single parameterized helper
+    - Previously: ALL revive requests used bind-point teleport at 25% HP/MP regardless of revive type — skill res, item self-rez, and rebirth all triggered bind revive, making those mechanics non-functional
+    - Build: 0 warnings, 0 errors
+
+238. [✓] Resurrection skill effect — skill revive notification flow (session 2026-05-03)
+    - [✓] `SkillTemplate.cs` — added `HasResurrectEffect` bool property to `SkillEffects`: scans `Elements` for any `LocalName == "resurrect"`
+    - [✓] `SkillTemplate.cs` — added `ResurrectSkillId` int property to `SkillEffects`: returns `skill_id` attribute of first `<resurrect>` element (or 0)
+    - [✓] `SM_RESURRECT.cs` — new server packet (opcode 0xC2): writes `casterName` (string S), `skillId` (H), `0` (D); mirrors Java `SM_RESURRECT`; sent to dead target to show "accept resurrection?" dialog
+    - [✓] `CM_CASTSPELL.cs` — added resurrection routing block before heal/buff/damage branches: if `template.Effects.HasResurrectEffect && targetType is 0/3/4 && target is dead Player && target != caster`, sets `target.HasPendingRevive = true`, `target.ResurrectionSkillId = ResurrectSkillId`, sends `SM_RESURRECT(player.Name, spellId)` to target's connection
+    - Java analogy: `ResurrectEffect.applyEffect` set `player.setPlayerResActivate(true)`, `setResurrectionSkill(skillId)`, sent `SM_RESURRECT(effector, skillId)` — our routing block replicates exactly this; the target then clicks accept → CM_REVIVE type=3 → `HandleSkillReviveAsync` (M237) completes the revive
+    - Previously: all 24 resurrection skills (Cleric "Light of Resurrection", Chanter res, etc.) cast their animation but did nothing to the dead target; `HasPendingRevive` was always false so `HandleSkillReviveAsync` would immediately return
+    - Build: 0 warnings, 0 errors

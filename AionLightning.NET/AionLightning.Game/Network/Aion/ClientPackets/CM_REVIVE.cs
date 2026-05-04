@@ -8,41 +8,180 @@ namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 public sealed class CM_REVIVE : AionClientPacket
 {
+    // ReviveType IDs from Java ReviveType.java
+    private const int TypeBind     = 0;
+    private const int TypeRebirth  = 1;
+    private const int TypeItemSelf = 2;
+    private const int TypeSkill    = 3;
+    private const int TypeKisk     = 4;
+    private const int TypeInstance = 6;
+    private const int TypeObelisk  = 8;
+
+    // Self-resurrection stone item IDs (Java Player.getSelfRezStone priority order)
+    private static readonly int[] SelfRezStoneIds = [161001001, 161000003, 161000004, 161000001];
+
     private readonly GsClientConnection       _conn;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IDataManager             _dataManager;
     private readonly IPlayerDao               _playerDao;
+    private readonly IItemDao                 _itemDao;
+
+    private int _reviveId;
 
     public CM_REVIVE(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
-        IDataManager dataManager, IPlayerDao playerDao)
+        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao)
     {
         _conn         = conn;
         _connRegistry = connRegistry;
         _dataManager  = dataManager;
         _playerDao    = playerDao;
+        _itemDao      = itemDao;
     }
 
-    public override void Read(ref PacketReader r) => r.ReadC(); // reviveId (unused for basic bind revive)
+    public override void Read(ref PacketReader r) => _reviveId = r.ReadC();
 
     public override async ValueTask RunAsync(CancellationToken ct)
     {
         var player = _conn.ActivePlayer;
         if (player is null || !player.IsAlreadyDead) return;
 
-        // Apply soul sickness (bind revive increments death count, max 10) — mirrors Java PlayerReviveService.revive
-        if (player.SoulSicknessCount < 10)
+        switch (_reviveId)
+        {
+            case TypeBind:
+            case TypeObelisk:
+                await HandleBindReviveAsync(player, ct);
+                break;
+            case TypeSkill:
+                await HandleSkillReviveAsync(player, ct);
+                break;
+            case TypeRebirth:
+                await HandleRebirthReviveAsync(player, ct);
+                break;
+            case TypeItemSelf:
+                await HandleItemSelfReviveAsync(player, ct);
+                break;
+            case TypeInstance:
+                await HandleInstanceReviveAsync(player, ct);
+                break;
+            // TypeKisk requires Kisk entity support — fall through to bind revive
+            default:
+                await HandleBindReviveAsync(player, ct);
+                break;
+        }
+    }
+
+    private async ValueTask HandleBindReviveAsync(Player player, CancellationToken ct)
+    {
+        Position destination;
+        if (player.BindPosition.HasValue)
+            destination = player.BindPosition.Value;
+        else
+        {
+            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+            destination = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
+        }
+
+        await ReviveCoreAsync(player, hpPct: 25, mpPct: 25, applySoulSickness: true, skillId: 0,
+            destination: destination, ct: ct);
+    }
+
+    private async ValueTask HandleSkillReviveAsync(Player player, CancellationToken ct)
+    {
+        if (!player.HasPendingRevive) return;
+        player.HasPendingRevive    = false;
+        int skillId                = player.ResurrectionSkillId;
+        player.ResurrectionSkillId = 0;
+
+        await ReviveCoreAsync(player, hpPct: 10, mpPct: 10, applySoulSickness: false, skillId: skillId,
+            destination: null, ct: ct);
+    }
+
+    private async ValueTask HandleRebirthReviveAsync(Player player, CancellationToken ct)
+    {
+        if (!player.CanRebirthRevive) return;
+        int pct    = Math.Max(1, player.RebirthResurrectPercent);
+        int skillId = player.RebirthSkillId;
+        player.CanRebirthRevive        = false;
+        player.RebirthResurrectPercent = 5;
+        player.RebirthSkillId          = 0;
+
+        await ReviveCoreAsync(player, hpPct: pct, mpPct: pct, applySoulSickness: true, skillId: skillId,
+            destination: null, ct: ct);
+    }
+
+    private async ValueTask HandleItemSelfReviveAsync(Player player, CancellationToken ct)
+    {
+        // Find highest-priority self-rez stone in inventory
+        Model.Item.Item? stone = null;
+        foreach (int stoneId in SelfRezStoneIds)
+        {
+            stone = player.Inventory.All.FirstOrDefault(i => i.ItemId == stoneId && !i.IsEquipped);
+            if (stone is not null) break;
+        }
+        if (stone is null) return;
+
+        // Consume one charge
+        stone.Count--;
+        if (stone.Count <= 0)
+        {
+            player.Inventory.Remove(stone.UniqueId);
+            await _itemDao.DeleteAsync(stone.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(stone.UniqueId), ct);
+        }
+        else
+        {
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([stone]), ct);
+        }
+
+        // Broadcast item-use animation
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)stone.UniqueId, stone.ItemId);
+        int animWorld = player.Position.WorldId;
+        foreach (var c in _connRegistry.GetAll())
+            if (c.ActivePlayer?.Position.WorldId == animWorld)
+                try { await c.SendAsync(anim, ct); } catch { }
+
+        await ReviveCoreAsync(player, hpPct: 15, mpPct: 15, applySoulSickness: true, skillId: 0,
+            destination: null, ct: ct);
+    }
+
+    private async ValueTask HandleInstanceReviveAsync(Player player, CancellationToken ct)
+    {
+        Position destination;
+        if (player.InstanceStartPosition.HasValue)
+            destination = player.InstanceStartPosition.Value;
+        else if (player.BindPosition.HasValue)
+            destination = player.BindPosition.Value;
+        else
+        {
+            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+            destination = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
+        }
+
+        await ReviveCoreAsync(player, hpPct: 25, mpPct: 25, applySoulSickness: true, skillId: 0,
+            destination: destination, ct: ct);
+    }
+
+    /// <summary>
+    /// Core revive: applies soul sickness, restores HP/MP, clears Dead state, drains DP,
+    /// optionally teleports, broadcasts emotions and abnormal effects, updates stats.
+    /// <paramref name="destination"/> null means revive in-place (skill/rebirth/item self-rez).
+    /// </summary>
+    private async ValueTask ReviveCoreAsync(Player player, int hpPct, int mpPct,
+        bool applySoulSickness, int skillId, Position? destination, CancellationToken ct)
+    {
+        if (applySoulSickness && player.SoulSicknessCount < 10)
         {
             player.SoulSicknessCount++;
             await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, player.SoulSicknessCount, ct);
         }
 
-        // Recompute MaxHp/MaxMp with the updated soul sickness penalty before restoring HP/MP
+        // Recompute MaxHp/MaxMp with current soul sickness multiplier
         var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         float ssMult = player.SoulSicknessMultiplier;
         player.MaxHp = (int)(((statTpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult);
         player.MaxMp = (int)(((statTpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult);
 
-        // Apply soul sickness debuff effect — skull icon (Java skill 8291, level = stack count)
         if (player.SoulSicknessCount > 0)
             player.AddEffect(new AbnormalState
             {
@@ -52,10 +191,10 @@ public sealed class CM_REVIVE : AionClientPacket
                 Expiry     = DateTime.MaxValue
             });
 
-        // Restore to 25 % HP / MP; drain DP to 0 (mirrors Java PlayerReviveService.revive)
-        player.CurrentHp = Math.Max(1, player.MaxHp / 4);
-        player.CurrentMp = Math.Max(1, player.MaxMp / 4);
+        player.CurrentHp = Math.Max(1, player.MaxHp * hpPct / 100);
+        player.CurrentMp = Math.Max(1, player.MaxMp * mpPct / 100);
         player.State &= ~CreatureState.Dead;
+
         if (player.Dp > 0)
         {
             player.Dp = 0;
@@ -63,43 +202,30 @@ public sealed class CM_REVIVE : AionClientPacket
             await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, 0), ct);
         }
 
-        // Determine destination position
-        Position destination;
-        if (player.BindPosition.HasValue)
-        {
-            destination = player.BindPosition.Value;
-        }
-        else
-        {
-            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
-            destination = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
-        }
-
-        // Notify players in the old zone that this player is departing
         int oldWorldId = player.Position.WorldId;
-        if (oldWorldId != destination.WorldId)
+        bool crossZone = destination.HasValue && destination.Value.WorldId != oldWorldId;
+
+        if (destination.HasValue)
         {
-            var deletePacket = new SM_DELETE(player.ObjectId);
-            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
-                if (other.ActivePlayer?.Position.WorldId == oldWorldId)
-                    try { await other.SendAsync(deletePacket, ct); } catch { }
+            if (crossZone)
+            {
+                var deletePacket = new SM_DELETE(player.ObjectId);
+                foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
+                    if (other.ActivePlayer?.Position.WorldId == oldWorldId)
+                        try { await other.SendAsync(deletePacket, ct); } catch { }
+            }
+            player.Position = destination.Value;
+            await _conn.SendAsync(new SM_TELEPORT_LOC(destination.Value), ct);
         }
 
-        player.Position = destination;
-        await _conn.SendAsync(new SM_TELEPORT_LOC(destination), ct);
+        int worldId = player.Position.WorldId;
 
-        bool crossZone = oldWorldId != destination.WorldId;
         if (crossZone)
         {
-            // Cross-zone: new-zone peers have no entity for this player yet — skip emotion broadcast.
-            // Send self a zone-load signal after the animation (~2200ms); CM_LEVEL_READY from the client
-            // will then broadcast SM_PLAYER_INFO to new-zone peers once the map finishes loading.
             _ = SchedulePostReviveSpawnAsync(player, ct);
         }
         else
         {
-            // Same-zone: peers already have the entity — broadcast resurrection emotions.
-            int worldId = destination.WorldId;
             var resurrectEmotion = new SM_EMOTION(player, EmotionType.RESURRECT);
             try { await _conn.SendAsync(resurrectEmotion, ct); } catch { }
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
@@ -112,7 +238,6 @@ public sealed class CM_REVIVE : AionClientPacket
                 if (other.ActivePlayer?.Position.WorldId == worldId)
                     try { await other.SendAsync(standEmotion, ct); } catch { }
 
-            // Broadcast soul sickness debuff icon to all zone clients after same-zone revive
             var ssAbnormal = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
             try { await _conn.SendAsync(ssAbnormal, ct); } catch { }
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
@@ -122,11 +247,8 @@ public sealed class CM_REVIVE : AionClientPacket
 
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
         await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
-
-        // Notify self with "revived at bind point" system message
         await _conn.SendAsync(SM_SYSTEM_MESSAGE.Revived(), ct);
 
-        // Notify group members of the updated HP/MP
         var group = player.Group;
         if (group is not null)
         {

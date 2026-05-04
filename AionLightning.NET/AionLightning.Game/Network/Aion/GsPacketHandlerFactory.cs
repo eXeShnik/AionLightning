@@ -180,7 +180,7 @@ public sealed class GsPacketHandlerFactory
             GsClientConnection.AionState.IN_GAME => opcode switch
             {
                 0xA6  => new CM_MAY_QUIT(),
-                0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager, _playerDao),
+                0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager, _playerDao, _itemDao),
                 0xA8  => new CM_UI_SETTINGS(conn, _settingsDao),
                 0xA9  => new CM_OBJECT_SEARCH(conn, _dataManager),
                 0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus),

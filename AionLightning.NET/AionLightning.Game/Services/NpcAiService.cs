@@ -520,7 +520,7 @@ public sealed class NpcAiService : BackgroundService
                     now, worldId, ct);
                 break;
             default:
-                await CastNpcDamageAsync(npc, target, entry.SkillId, skillTemplate, now, worldId, ct);
+                await CastNpcDamageAsync(npc, target, entry.SkillId, entry.SkillLevel, skillTemplate, now, worldId, ct);
                 break;
         }
 
@@ -530,13 +530,22 @@ public sealed class NpcAiService : BackgroundService
                 try { await conn.SendAsync(activationPkt, ct); } catch { }
     }
 
-    private async Task CastNpcDamageAsync(Npc npc, Player target, int skillId,
+    private async Task CastNpcDamageAsync(Npc npc, Player target, int skillId, int skillLevel,
         SkillTemplate? skillTemplate, DateTime now, int worldId, CancellationToken ct)
     {
-        // Primary target hit
-        int rawSpellDmg = Math.Max(1, npc.Level * 8 + Random.Shared.Next(10, 40));
-        int mdef        = Math.Max(0, target.MagicDefense + target.MagicDefDelta);
-        int spellDmg    = mdef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + mdef)) : rawSpellDmg;
+        bool isPhysical = skillTemplate?.SkillType == SkillType.PHYSICAL;
+
+        // Use per-skill damage template when available; fall back to level-scaled estimate
+        var dmgFx = skillTemplate?.Effects?.DamageEffects;
+        int skillBase = dmgFx is { Count: > 0 }
+            ? dmgFx[0].BaseValue + dmgFx[0].Delta * (skillLevel - 1)
+            : npc.Level * 8 + Random.Shared.Next(10, 40);
+
+        int rawSpellDmg = Math.Max(1, skillBase);
+        int defense     = isPhysical
+            ? Math.Max(0, target.PhysicalDefense + target.PdefDebuffDelta + target.PdefStatUpDelta)
+            : Math.Max(0, target.MagicDefense    + target.MagicDefDelta);
+        int spellDmg    = defense > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + defense)) : rawSpellDmg;
         target.CurrentHp      = Math.Max(0, target.CurrentHp - spellDmg);
         target.LastCombatTime = now;
         npc.LastCombatTime    = now;
@@ -547,11 +556,59 @@ public sealed class NpcAiService : BackgroundService
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
         await BroadcastGroupHpAsync(target, ct);
 
+        // Apply DoT (bleed/poison/disease) effects from skill template
+        if (target.CurrentHp > 0 && skillTemplate?.Effects?.DotEffects is { Count: > 0 } npcDots)
+        {
+            foreach (var dot in npcDots)
+            {
+                int dotTickDmg = Math.Max(1, dot.BaseValue + dot.Delta * skillLevel);
+                var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
+                var dotEffect  = new AbnormalState
+                {
+                    SkillId    = skillId,
+                    SkillLevel = skillLevel,
+                    EffectorId = npc.ObjectId,
+                    Expiry     = dotExpiry,
+                    DotInfo    = dot,
+                    IsDebuff   = true,
+                };
+                target.AddEffect(dotEffect);
+                var dotAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
+                foreach (var conn in _connRegistry.GetAll())
+                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                        try { await conn.SendAsync(dotAbnormal, ct); } catch { }
+
+                var dotTickTarget = target;
+                var dotTickEffect = dotEffect;
+                var dotTickLogId  = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                _ = Task.Run(async () =>
+                {
+                    while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
+                    {
+                        await Task.Delay(dot.CheckTimeMs);
+                        if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
+                        dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                        var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, skillId, dotTickDmg, dotTickLogId);
+                        int tw = dotTickTarget.Position.WorldId;
+                        foreach (var conn in _connRegistry.GetAll())
+                            if (conn.ActivePlayer?.Position.WorldId == tw)
+                                try { await conn.SendAsync(tickPkt); } catch { }
+                    }
+                    dotTickTarget.RemoveEffect(dotTickEffect.SkillId, dotTickEffect.Expiry);
+                    var expiredDot = new SM_ABNORMAL_EFFECT(dotTickTarget.ObjectId, isPlayer: true, dotTickTarget.GetActiveEffects());
+                    int dw = dotTickTarget.Position.WorldId;
+                    foreach (var conn in _connRegistry.GetAll())
+                        if (conn.ActivePlayer?.Position.WorldId == dw)
+                            try { await conn.SendAsync(expiredDot); } catch { }
+                });
+            }
+        }
+
         // Caster-centered AoE splash: hit additional players near the NPC
         if (skillTemplate?.IsCasterAoe == true && skillTemplate.EffectiveRange > 0)
         {
-            float aoeR   = skillTemplate.EffectiveRange;
-            float aoeAlt = Math.Max(1f, skillTemplate.EffectiveAltitude);
+            float aoeR    = skillTemplate.EffectiveRange;
+            float aoeAlt  = Math.Max(1f, skillTemplate.EffectiveAltitude);
             int   maxHits = skillTemplate.TargetMaxCount;
             int   splashCount = 1; // primary target already counted
 
@@ -568,9 +625,11 @@ public sealed class NpcAiService : BackgroundService
                 if (Math.Abs(dz) > aoeAlt) continue;
 
                 splashCount++;
-                int splashRaw = Math.Max(1, npc.Level * 8 + Random.Shared.Next(10, 40));
-                int splashMdef = other.MagicDefense;
-                int splashDmg  = splashMdef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashMdef)) : splashRaw;
+                int splashRaw  = Math.Max(1, skillBase + Random.Shared.Next(0, Math.Max(1, skillBase / 10)));
+                int splashDef  = isPhysical
+                    ? Math.Max(0, other.PhysicalDefense + other.PdefDebuffDelta + other.PdefStatUpDelta)
+                    : Math.Max(0, other.MagicDefense    + other.MagicDefDelta);
+                int splashDmg  = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
                 other.CurrentHp      = Math.Max(0, other.CurrentHp - splashDmg);
                 other.LastCombatTime = now;
 
