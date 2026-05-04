@@ -203,6 +203,15 @@ public readonly record struct SkillProtectInfo(
     float Radius       // max distance from buffed creature for redirect to fire
 );
 
+/// <summary>M278: parsed &lt;change stat="X" func="Y" value="N" delta="M"/&gt; child of an effect element.</summary>
+public readonly record struct SkillStatChange(
+    string ParentEffect,  // local name of the parent effect (statup, statboost, boostheal, etc.)
+    string Stat,          // stat name e.g. "PHYSICAL_ATTACK", "HEAL_SKILL_BOOST", "MAGICAL_RESIST"
+    string Func,          // "ADD" | "PERCENT" | "REPLACE"
+    int    Value,         // base value at level 1
+    int    Delta          // per-level scaling (often 0 for buffs since skills have separate level-X templates)
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -245,6 +254,31 @@ public sealed class SkillEffects
 
     /// <summary>M276: alwaysresist — full magic-damage immunity while buff active (Java AlwaysResistEffect).</summary>
     public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
+
+    /// <summary>M278: all parsed &lt;change&gt; children across statup/statboost/boost*/deboost*/wpnmastery/armormastery/etc. Foundation for passive stat engine.</summary>
+    public IReadOnlyList<SkillStatChange> StatChanges
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillStatChange>();
+            foreach (var e in Elements)
+            {
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is not System.Xml.XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    string stat = ce.GetAttribute("stat") ?? string.Empty;
+                    if (stat.Length == 0) continue;
+                    string func = (ce.GetAttribute("func") ?? "ADD").ToUpperInvariant();
+                    int.TryParse(ce.GetAttribute("value"), out int val);
+                    int.TryParse(ce.GetAttribute("delta"), out int dlt);
+                    list.Add(new(e.LocalName, stat, func, val, dlt));
+                }
+            }
+            return list;
+        }
+    }
 
     /// <summary>M274: per-tick MP cost from &lt;periodicactions checktime="X"&gt;&lt;mpuse value="Y"/&gt;&lt;/periodicactions&gt;.
     /// (CheckTimeMs, MpPerTick) — both 0 when no periodic actions defined.</summary>
