@@ -262,6 +262,8 @@ public sealed class SkillEffects
 
     /// <summary>M276: alwaysresist — full magic-damage immunity while buff active (Java AlwaysResistEffect).</summary>
     public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
+    /// <summary>M282: flight-ban debuff — buffed creature loses fly capability (Java NoFlyEffect). Behavior needs flight-state subsystem.</summary>
+    public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
 
     /// <summary>M281: FP-damage value from &lt;fpatkinstant&gt;/&lt;delayedfpatk_instant&gt;. (Value, Delta, IsPercent) — IsPercent: drains pct of MaxFp.</summary>
     public (int Value, int Delta, bool IsPercent) FpAttackInfo
