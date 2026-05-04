@@ -2664,3 +2664,14 @@
     - Java analogy: `SkillAtkDrainInstantEffect.applyEffect` calls `effector.LifeStats.increaseHp/Mp(reserved1 * pct / 100)` after `super.applyEffect`; `SpellAtkDrainInstantEffect` does the same with magical damage type. We use `LogId.SpellAtkDrain` (130) for both since the .NET enum doesn't yet distinguish `SKILLLATKDRAININSTANT` vs `SPELLATKDRAININSTANT` — gameplay numbers identical; only combat-log label flavor differs
     - Previously: 147 drain skill XML entries (Assassin "Soul Slash" lifesteal, Sorcerer mana-drain spells, Spiritmaster drain line, many leveling skills) dealt correct damage but never restored HP/MP — sustain mechanic of these classes was non-functional
     - Build: 0 warnings, 0 errors
+
+240. [✓] Direct MP damage — `<mpattackinstant>` burns target MP (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `SkillMpAttackInfo` readonly record struct (`BaseValue`, `Delta`, `IsPercent`, `Element`)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MpAttackEffectNames` HashSet (`["mpattackinstant"]`)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `MpAttackEffects` getter; parses `value`, `delta`, `percent="true|false"`, `element`
+    - [✓] `CM_CASTSPELL.cs` — single-target damage path: after drain block, computes `mpBurn = (BaseValue + Delta*(level-1))`; if `IsPercent` multiplies by `target.MaxMp/100`; subtracts from `target.CurrentMp` clamped at 0
+    - [✓] `CM_CASTSPELL.cs` — ground AoE path: per-target MP burn (uses `gAoeMpFx[0]`)
+    - [✓] `CM_CASTSPELL.cs` — splash path: per-splash-target MP burn (uses `stMpFx[0]` from surrounding scope)
+    - Java analogy: `MpAttackInstantEffect.applyEffect` calls `effected.LifeStats.reduceMp(value)` (or `maxMp * value / 100` if `percent="true"`); we replicate the math but skip combat-log broadcast (Java doesn't emit one for this effect either)
+    - Previously: 97 mpattackinstant skill XML entries (Aether Arrow line at 75% target max-MP, Sorcerer mana-burn lines, several Spiritmaster/Templar utility) silently ignored — Sorcerers/Spiritmasters could be locked out of their entire kit by these skills in PvP per Java behavior, but we ignored them entirely
+    - Build: 0 warnings, 0 errors

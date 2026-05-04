@@ -752,6 +752,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         }
                     }
 
+                    // M240: mpattackinstant — burn target MP (per AoE target)
+                    var gAoeMpFx = template?.Effects?.MpAttackEffects;
+                    if (gAoeMpFx is { Count: > 0 })
+                    {
+                        int mpBurnVal = gAoeMpFx[0].BaseValue + gAoeMpFx[0].Delta * (_level - 1);
+                        int mpBurn = gAoeMpFx[0].IsPercent ? target.MaxMp * mpBurnVal / 100 : mpBurnVal;
+                        if (mpBurn > 0)
+                            target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
+                    }
+
                     if (target is Npc hitNpc && target.CurrentHp > 0)
                         _npcAi.ForceEngage(hitNpc, player);
 
@@ -1068,6 +1078,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
+                // M240: mpattackinstant — burn target MP (Java MpAttackInstantEffect.reduceMp)
+                var stMpFx = template?.Effects?.MpAttackEffects;
+                if (stMpFx is { Count: > 0 })
+                {
+                    int mpBurnVal = stMpFx[0].BaseValue + stMpFx[0].Delta * (_level - 1);
+                    int mpBurn = stMpFx[0].IsPercent ? target.MaxMp * mpBurnVal / 100 : mpBurnVal;
+                    if (mpBurn > 0)
+                        target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
+                }
+
                 // Both caster and target enter combat
                 var combatNow = DateTime.UtcNow;
                 player.LastCombatTime = combatNow;
@@ -1234,6 +1254,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                             try { await c.SendAsync(drainMpPkt); } catch { }
                                 }
                             }
+                        }
+
+                        // M240: mpattackinstant — burn splash target MP
+                        if (stMpFx is { Count: > 0 })
+                        {
+                            int mpBurnVal = stMpFx[0].BaseValue + stMpFx[0].Delta * (_level - 1);
+                            int mpBurn = stMpFx[0].IsPercent ? splash.MaxMp * mpBurnVal / 100 : mpBurnVal;
+                            if (mpBurn > 0)
+                                splash.CurrentMp = Math.Max(0, splash.CurrentMp - mpBurn);
                         }
 
                         if (splash.CurrentHp > 0)

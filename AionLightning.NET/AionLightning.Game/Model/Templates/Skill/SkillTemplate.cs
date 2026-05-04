@@ -99,6 +99,14 @@ public readonly record struct SkillDamageInfo(
     int    MpPercent     // drain MP gained: dealtDamage * MpPercent / 100 (0 = no MP drain)
 );
 
+/// <summary>Target-MP burn descriptor parsed from &lt;mpattackinstant&gt; (Java MpAttackInstantEffect).</summary>
+public readonly record struct SkillMpAttackInfo(
+    int    BaseValue,    // mp burn at skill level 1 (flat MP, or % of target MaxMp when IsPercent)
+    int    Delta,        // per-level scaling
+    bool   IsPercent,    // true = value is percent of target MaxMp
+    string Element       // elemental flavor (reserved)
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1277,6 +1285,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
     private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant"];
+    private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1375,6 +1384,25 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("hp_percent"), out int hpPct);
                 int.TryParse(e.GetAttribute("mp_percent"), out int mpPct);
                 list.Add(new(val, dlt, dmgType, element, accMod, hpPct, mpPct));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillMpAttackInfo> MpAttackEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillMpAttackInfo>();
+            foreach (var e in Elements)
+            {
+                if (!MpAttackEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                string element = e.GetAttribute("element") ?? string.Empty;
+                list.Add(new(val, dlt, pct, element));
             }
             return list;
         }
