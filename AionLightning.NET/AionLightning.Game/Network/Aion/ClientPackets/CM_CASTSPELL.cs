@@ -806,14 +806,26 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                             var dotTickTarget = target;
                             var dotTickEffect = dotEffect;
-                            var dotTickLogId  = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                            var dotTickCaster = player;
+                            var dotTickInfo   = dot;
+                            var dotTickLogId  = dot.DotType switch
+                            {
+                                "bleed"         => SM_ATTACK_STATUS.LogId.Bleed,
+                                "spellatk"      => SM_ATTACK_STATUS.LogId.SpellAtk,
+                                "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
+                                _               => SM_ATTACK_STATUS.LogId.Poison,
+                            };
                             _ = Task.Run(async () =>
                             {
                                 while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
                                 {
-                                    await Task.Delay(dot.CheckTimeMs);
+                                    await Task.Delay(dotTickInfo.CheckTimeMs);
                                     if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
                                     dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                                    if (dotTickInfo.HpPercent != 0)
+                                        dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
+                                    if (dotTickInfo.MpPercent != 0)
+                                        dotTickCaster.CurrentMp = Math.Min(dotTickCaster.MaxMp, dotTickCaster.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
                                     var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dotTickDmg, dotTickLogId);
                                     int tw = dotTickTarget.Position.WorldId;
                                     foreach (var c in registry.GetAll())
@@ -1338,14 +1350,26 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                                 var dotTickTarget = splash;
                                 var dotTickEffect = dotEffect;
-                                var dotTickLogId  = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                                var dotTickCaster = player;
+                                var dotTickInfo   = dot;
+                                var dotTickLogId  = dot.DotType switch
+                                {
+                                    "bleed"         => SM_ATTACK_STATUS.LogId.Bleed,
+                                    "spellatk"      => SM_ATTACK_STATUS.LogId.SpellAtk,
+                                    "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
+                                    _               => SM_ATTACK_STATUS.LogId.Poison,
+                                };
                                 _ = Task.Run(async () =>
                                 {
                                     while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
                                     {
-                                        await Task.Delay(dot.CheckTimeMs);
+                                        await Task.Delay(dotTickInfo.CheckTimeMs);
                                         if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
                                         dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                                        if (dotTickInfo.HpPercent != 0)
+                                            dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
+                                        if (dotTickInfo.MpPercent != 0)
+                                            dotTickCaster.CurrentMp = Math.Min(dotTickCaster.MaxMp, dotTickCaster.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
                                         var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dotTickDmg, dotTickLogId);
                                         int tw = dotTickTarget.Position.WorldId;
                                         foreach (var c in registry.GetAll())
@@ -1568,15 +1592,27 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         // Schedule periodic ticks then expiry removal
                         var tickTarget  = target;
                         var tickEffect  = dotEffect;
-                        var tickLogId   = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                        var tickCaster  = player;
+                        var tickInfo    = dot;
+                        var tickLogId   = dot.DotType switch
+                        {
+                            "bleed"         => SM_ATTACK_STATUS.LogId.Bleed,
+                            "spellatk"      => SM_ATTACK_STATUS.LogId.SpellAtk,
+                            "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
+                            _               => SM_ATTACK_STATUS.LogId.Poison,
+                        };
                         _ = Task.Run(async () =>
                         {
                             while (!tickTarget.IsAlreadyDead && DateTime.UtcNow < tickEffect.Expiry)
                             {
-                                await Task.Delay(dot.CheckTimeMs);
+                                await Task.Delay(tickInfo.CheckTimeMs);
                                 if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
 
                                 tickTarget.CurrentHp = Math.Max(0, tickTarget.CurrentHp - dmgPerTick);
+                                if (tickInfo.HpPercent != 0)
+                                    tickCaster.CurrentHp = Math.Min(tickCaster.MaxHp, tickCaster.CurrentHp + dmgPerTick * tickInfo.HpPercent / 100);
+                                if (tickInfo.MpPercent != 0)
+                                    tickCaster.CurrentMp = Math.Min(tickCaster.MaxMp, tickCaster.CurrentMp + dmgPerTick * tickInfo.MpPercent / 100);
                                 var tickPkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dmgPerTick, tickLogId);
                                 int tickWorld = tickTarget.Position.WorldId;
                                 foreach (var c in registry.GetAll())

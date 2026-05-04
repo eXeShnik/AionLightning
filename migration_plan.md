@@ -2697,3 +2697,13 @@
     - Java analogy: `ProcAtkInstantEffect` extends `DamageEffect` with `DamageType.MAGICAL`; only differs from `SpellAtkInstantEffect` by emitting an extra `SM_SYSTEM_MESSAGE 1301062` ("X procced!") and using `LOG.PROCATKINSTANT` (we already use `LogId.SpellAtk` for both — combat-log label flavor only)
     - Previously: 211 procatk_instant skill XML entries (proc-on-attack damage skills, several Sorcerer/Spiritmaster procs, weapon-enchant fire/water/wind retaliation procs) silently ignored — these damage numbers from elemental procs were not applied
     - Build: 0 warnings, 0 errors
+
+244. [✓] Magical DoT — `<spellatk>` (magical DoT) and `<spellatkdrain>` (DoT-drain) join DotEffects (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — extended `SkillDotInfo` record with `HpPercent`/`MpPercent` int fields (default 0 for plain DoTs)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"spellatk"` and `"spellatkdrain"` to `DotNames` HashSet
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `DotEffects` getter parses `hp_percent`/`mp_percent` attributes (TryParse, default 0)
+    - [✓] `CM_CASTSPELL.cs` — three DoT-tick loops (ground AoE primary, ground AoE splash, single-target) updated: ternary `DotType == "bleed"` replaced with switch covering `bleed`/`spellatk`/`spellatkdrain`/`poison` LogId mapping; closures capture `dotTickCaster`/`tickCaster` (= `player`) and `dotTickInfo`/`tickInfo` (= `dot`); per-tick drain block restores caster HP/MP via `Math.Min(MaxHp, CurrentHp + tickDmg * pct / 100)` when `HpPercent`/`MpPercent` non-zero
+    - [✓] `Services/NpcAiService.cs` — DoT-tick loop in `CastNpcDamageAsync`: same switch + drain pattern; caster is `npc` instead of `player`
+    - Java analogy: `SpellAttackEffect` (extends `AbstractOverTimeEffect`) ticks magical damage with `value + delta * skillLevel`; `SpellAtkDrainEffect` ticks the same plus `effector.LifeStats.increaseHp/Mp(damage * pct / 100)` per tick. We use simplified `value + delta * skillLevel` without the magical-attack scaling that Java's `calculateMagicalOverTimeSkillResult` applies — same approximation already used for our existing bleed/poison/disease ticks
+    - Previously: 491 spellatk + 113 spellatkdrain = 604 skill XML entries silently ignored — fire/earth/wind elemental DoTs from Sorcerer/Spiritmaster (e.g. Sandstorm DoT, Burning Spirit DoT) and DoT-drain skills delivered their `<spellatkinstant>` initial hit but skipped all subsequent tick damage
+    - Build: 0 warnings, 0 errors

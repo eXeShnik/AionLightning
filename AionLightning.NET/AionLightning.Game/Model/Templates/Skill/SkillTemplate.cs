@@ -78,14 +78,16 @@ public readonly record struct SkillHotInfo(
     string HealType    // "hp" or "mp"
 );
 
-/// <summary>Per-tick DoT descriptor parsed from &lt;bleed&gt;, &lt;poison&gt;, &lt;disease&gt; effect elements.</summary>
+/// <summary>Per-tick DoT descriptor parsed from &lt;bleed&gt;, &lt;poison&gt;, &lt;disease&gt;, &lt;spellatk&gt;, &lt;spellatkdrain&gt; effect elements.</summary>
 public readonly record struct SkillDotInfo(
     int    CheckTimeMs,   // tick interval in ms
     int    BaseValue,     // damage per tick at skill level 1 (value + delta * level applied at cast time)
     int    Delta,         // per-level damage increase
     int    Duration2Ms,   // total effect duration in ms
-    string DotType,       // "bleed" | "poison" | "disease"
-    string Element        // "FIRE", "EARTH", etc. (reserved for future element resist)
+    string DotType,       // "bleed" | "poison" | "disease" | "spellatk" | "spellatkdrain"
+    string Element,       // "FIRE", "EARTH", etc. (reserved for future element resist)
+    int    HpPercent,     // drain HP per tick: tickDamage * HpPercent / 100 (0 = no drain)
+    int    MpPercent      // drain MP per tick: tickDamage * MpPercent / 100 (0 = no drain)
 );
 
 /// <summary>Skill direct-damage descriptor parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; (regular) and &lt;skillatkdraininstant&gt;/&lt;spellatkdraininstant&gt; (drain).</summary>
@@ -1283,7 +1285,7 @@ public sealed class SkillEffects
 
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
-    private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
+    private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease", "spellatk", "spellatkdrain"];
     private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     // Elements that carry debuff durations via their duration2 attribute
@@ -1361,7 +1363,9 @@ public sealed class SkillEffects
                 if (!int.TryParse(e.GetAttribute("duration2"), out int dur)   || dur   <= 0) continue;
                 int.TryParse(e.GetAttribute("value"), out int val);
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
-                list.Add(new(check, val, dlt, dur, e.LocalName, e.GetAttribute("element") ?? string.Empty));
+                int.TryParse(e.GetAttribute("hp_percent"), out int hpPct);
+                int.TryParse(e.GetAttribute("mp_percent"), out int mpPct);
+                list.Add(new(check, val, dlt, dur, e.LocalName, e.GetAttribute("element") ?? string.Empty, hpPct, mpPct));
             }
             return list;
         }

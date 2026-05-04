@@ -599,14 +599,26 @@ public sealed class NpcAiService : BackgroundService
 
                 var dotTickTarget = target;
                 var dotTickEffect = dotEffect;
-                var dotTickLogId  = dot.DotType == "bleed" ? SM_ATTACK_STATUS.LogId.Bleed : SM_ATTACK_STATUS.LogId.Poison;
+                var dotTickCaster = npc;
+                var dotTickInfo   = dot;
+                var dotTickLogId  = dot.DotType switch
+                {
+                    "bleed"         => SM_ATTACK_STATUS.LogId.Bleed,
+                    "spellatk"      => SM_ATTACK_STATUS.LogId.SpellAtk,
+                    "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
+                    _               => SM_ATTACK_STATUS.LogId.Poison,
+                };
                 _ = Task.Run(async () =>
                 {
                     while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
                     {
-                        await Task.Delay(dot.CheckTimeMs);
+                        await Task.Delay(dotTickInfo.CheckTimeMs);
                         if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
                         dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                        if (dotTickInfo.HpPercent != 0)
+                            dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
+                        if (dotTickInfo.MpPercent != 0)
+                            dotTickCaster.CurrentMp = Math.Min(dotTickCaster.MaxMp, dotTickCaster.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
                         var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, skillId, dotTickDmg, dotTickLogId);
                         int tw = dotTickTarget.Position.WorldId;
                         foreach (var conn in _connRegistry.GetAll())
