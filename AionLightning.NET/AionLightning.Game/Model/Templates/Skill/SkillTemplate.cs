@@ -212,6 +212,14 @@ public readonly record struct SkillStatChange(
     int    Delta          // per-level scaling (often 0 for buffs since skills have separate level-X templates)
 );
 
+/// <summary>M280: damage modifier parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; &lt;modifiers&gt; block.</summary>
+public readonly record struct SkillDamageModifier(
+    string Kind,    // "targetrace" | "targetclass" | "abnormaldamage" | other
+    string Match,   // race name (PC_LIGHT_CASTLE_DOOR), class name, abnormal state name (STUMBLE/STUN)
+    int    Value,  // bonus damage at level 1
+    int    Delta   // per-level scaling
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -254,6 +262,37 @@ public sealed class SkillEffects
 
     /// <summary>M276: alwaysresist — full magic-damage immunity while buff active (Java AlwaysResistEffect).</summary>
     public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
+
+    /// <summary>M280: damage modifiers parsed from any damage-effect element's &lt;modifiers&gt; block. Bonus damage gated by target attribute.</summary>
+    public IReadOnlyList<SkillDamageModifier> DamageModifiers
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillDamageModifier>();
+            foreach (var e in Elements)
+            {
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is not System.Xml.XmlElement modWrap) continue;
+                    if (modWrap.LocalName != "modifiers") continue;
+                    foreach (System.Xml.XmlNode mNode in modWrap.ChildNodes)
+                    {
+                        if (mNode is not System.Xml.XmlElement m) continue;
+                        string kind = m.LocalName;
+                        string match = m.GetAttribute("race") is { Length: > 0 } r ? r
+                                     : m.GetAttribute("class") is { Length: > 0 } cl ? cl
+                                     : m.GetAttribute("state") is { Length: > 0 } st ? st
+                                     : string.Empty;
+                        int.TryParse(m.GetAttribute("value"), out int val);
+                        int.TryParse(m.GetAttribute("delta"), out int dlt);
+                        list.Add(new(kind, match, val, dlt));
+                    }
+                }
+            }
+            return list;
+        }
+    }
 
     /// <summary>M278: all parsed &lt;change&gt; children across statup/statboost/boost*/deboost*/wpnmastery/armormastery/etc. Foundation for passive stat engine.</summary>
     public IReadOnlyList<SkillStatChange> StatChanges
