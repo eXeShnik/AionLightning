@@ -37,8 +37,9 @@ builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
 // Event bus
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 
-// M260: damage observer handlers
+// M260+: damage observer handlers
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HealCastorOnAttackedHandler>();
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, MagicCounterAtkHandler>();
 
 // World
 builder.Services.AddSingleton<GameWorld>();

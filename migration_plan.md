@@ -2844,3 +2844,12 @@
     - Pattern unlocks future handlers: `MagicCounterAtkHandler` (counter-attack on magic skill received), `DispelBuffCounterAtkHandler` (dispel attacker buff on hit), and a future pre-damage `DamageReceivingEvent` extension for `<reflector>`/`<convertheal>` (require mutable damage payload — separate milestone)
     - Previously: 9 healcastoronatk skill XML entries (Templar "Healing Touch on Attack" line, Cleric defensive heals, several boss aura mechanics) buffed the target but the caster never received heal — Java's ATTACKED observer was unimplemented
     - Build: 0 warnings, 0 errors
+
+261. [✓] MagicCounterAtk handler — `<magiccounteratk>` self-damage on magical attack cast (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `SkillMagicCounterAtkInfo` record (Percent, MaxDmg); `MagicCounterAtkEffectNames` HashSet (`["magiccounteratk"]`); `MagicCounterAtkEffects` getter parses `value` (percent) + `maxdmg` (cap)
+    - [✓] `Game/Combat/Handlers/MagicCounterAtkHandler.cs` — `IEventHandler<DamageDealtEvent>`: gates on `Kind == MagicalSkill`, iterates attacker's `GetActiveEffects()`, computes `selfDmg = min(MaxDmg, attacker.MaxHp * Percent / 100)`, applies to attacker.CurrentHp, broadcasts `SM_ATTACK_STATUS(Damage, Regular)`
+    - [✓] `Program.cs` — registers `MagicCounterAtkHandler` as second `Transient<IEventHandler<DamageDealtEvent>>` alongside HealCastorOnAttackedHandler — InMemoryEventBus dispatches to all registered handlers per publish
+    - Java analogy: `MagicCounterAtkEffect.startEffect` attaches `ActionObserver(SKILLUSE)` to effected; on skilluse, schedules a 0ms task that filters `SkillType.MAGICAL && SkillSubType.ATTACK`, then calls `effected.onAttack(effector, dmg)` with `dmg = min(maxdmg, MaxHp * value / 100)`. We approximate via the post-damage event because our DamageDealtEvent already encodes "the buffed creature dealt damage with a magical skill"
+    - Pattern note: this handler does NOT use the helper to apply self-damage — it's a tertiary mutation outside the canonical attacker→target damage flow. Doing so would publish a recursive DamageDealtEvent and risk handler re-entry. Direct mutation matches Java's semantic ("blood-magic cost" applied silently) and keeps the event bus invariant: 1 publish = 1 logical attack
+    - Previously: 8 magiccounteratk skill XML entries (a Sorcerer/Spiritmaster "Blood Pact"-style buff line + several boss-encounter cost-magic mechanics) had no effect — buffed creatures cast magical attacks at no HP cost
+    - Build: 0 warnings, 0 errors

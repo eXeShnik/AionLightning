@@ -128,6 +128,13 @@ public readonly record struct SkillHealCastorOnAtkInfo(
     string HealType      // "hp" | "mp" — Java HealCastorOnAttackedEffect@type attribute
 );
 
+/// <summary>"Magic counter attack" descriptor parsed from &lt;magiccounteratk&gt; (Java MagicCounterAtkEffect).
+/// When the buffed creature casts a magical ATTACK skill, self-damage = min(MaxDmg, attacker.MaxHp * Percent / 100).</summary>
+public readonly record struct SkillMagicCounterAtkInfo(
+    int Percent,    // value attribute — percent of MaxHp consumed per magical attack
+    int MaxDmg      // maxdmg attribute — cap on self-damage per cast
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1310,6 +1317,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
+    private static readonly HashSet<string> MagicCounterAtkEffectNames = ["magiccounteratk"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1465,6 +1473,23 @@ public sealed class SkillEffects
                 float.TryParse(e.GetAttribute("range"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out range);
                 string ht = (e.GetAttribute("type") ?? "HP").ToLowerInvariant() == "mp" ? "mp" : "hp";
                 list.Add(new(val, dlt, range, ht));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillMagicCounterAtkInfo> MagicCounterAtkEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillMagicCounterAtkInfo>();
+            foreach (var e in Elements)
+            {
+                if (!MagicCounterAtkEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int pct);
+                int.TryParse(e.GetAttribute("maxdmg"), out int max);
+                list.Add(new(pct, max));
             }
             return list;
         }
