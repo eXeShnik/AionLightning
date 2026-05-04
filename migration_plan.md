@@ -2741,3 +2741,12 @@
     - Deferred: HoT site (`<fpheal>`, 6 entries) and group-heal flag updates not yet wired — would need a 3-way upgrade in the HoT loop and `SM_GROUP_MEMBER_INFO` FP fields. Low impact (6 skills) so not blocking
     - Previously: 17 fphealinstant + 13 procfphealinstant = 30 skill XML entries (FP recovery scrolls/items, Aether Wings type buffs, in-flight FP regen kits) silently fell through to the MP branch, which then would attempt to heal MP from a `0`-MaxStat percent calc — net result of dropping the heal entirely
     - Build: 0 warnings, 0 errors
+
+249. [✓] FP HoT — `<fpheal>` over-time flight-point regen (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"fpheal"` to `HotNames` HashSet
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `HotEffects` getter HealType selection upgraded to a 3-way switch (`hp`/`fp`/`mp`)
+    - [✓] `CM_CASTSPELL.cs` — single-target HoT tick loop: replaced ternary with `switch` on `hot.HealType`; `fp` branch uses `Player.MaxFp - Player.CurrentFp` clamp (with pattern-match `tickTarget is Player fpHotTickT`); `fp` fallthrough returns `0` for non-Player targets so they no-op cleanly
+    - [✓] `CM_CASTSPELL.cs` — application branch: added `else if (hot.HealType == "fp" && tickTarget is Player fpHotTickApp)` block; sends `SM_ATTACK_STATUS(NaturalFp, FpHeal)` per tick
+    - Java analogy: `FPHealEffect` extends `AbstractHealEffect` with `HealType.FP` and reads/writes `LifeStats.getCurrentFp/MaxFp`. Same shape as `HealEffect`/`MPHealEffect` HoT variants we already supported; the milestone is a pure HealType extension
+    - Previously: 6 fpheal HoT skill XML entries (Aether-related FP regen-over-time buffs, sustained-flight scroll items) silently dropped because the HoT tick branch hard-coded `hp`/`mp` only
+    - Build: 0 warnings, 0 errors

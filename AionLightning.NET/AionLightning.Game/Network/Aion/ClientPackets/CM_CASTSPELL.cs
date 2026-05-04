@@ -247,9 +247,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     await Task.Delay(hot.CheckTimeMs);
                                     if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
 
-                                    int actual = hot.HealType == "hp"
-                                        ? Math.Min(healPerTick, tickTarget.MaxHp - tickTarget.CurrentHp)
-                                        : Math.Min(healPerTick, tickTarget.MaxMp - tickTarget.CurrentMp);
+                                    int actual = hot.HealType switch
+                                    {
+                                        "hp"                                            => Math.Min(healPerTick, tickTarget.MaxHp - tickTarget.CurrentHp),
+                                        "fp" when tickTarget is Player fpHotTickT       => Math.Min(healPerTick, fpHotTickT.MaxFp - fpHotTickT.CurrentFp),
+                                        "fp"                                            => 0,
+                                        _                                               => Math.Min(healPerTick, tickTarget.MaxMp - tickTarget.CurrentMp),
+                                    };
                                     if (actual > 0)
                                     {
                                         if (hot.HealType == "hp")
@@ -257,6 +261,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                             tickTarget.CurrentHp += actual;
                                             var pkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.NaturalHp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.Heal);
                                             int w = tickTarget.Position.WorldId;
+                                            foreach (var c in registry.GetAll())
+                                                if (c.ActivePlayer?.Position.WorldId == w)
+                                                    try { await c.SendAsync(pkt); } catch { }
+                                        }
+                                        else if (hot.HealType == "fp" && tickTarget is Player fpHotTickApp)
+                                        {
+                                            // M249: FP HoT tick
+                                            fpHotTickApp.CurrentFp += actual;
+                                            var pkt = new SM_ATTACK_STATUS(fpHotTickApp, SM_ATTACK_STATUS.AttackType.NaturalFp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.FpHeal);
+                                            int w = fpHotTickApp.Position.WorldId;
                                             foreach (var c in registry.GetAll())
                                                 if (c.ActivePlayer?.Position.WorldId == w)
                                                     try { await c.SendAsync(pkt); } catch { }
