@@ -767,7 +767,7 @@ public sealed class NpcAiService : BackgroundService
             foreach (var he in healFx)
             {
                 if (he.HealType != "hp") continue; // NPC heal targets only HP
-                int valueWithDelta = he.BaseValue + he.Delta * Math.Max(1, skillLevel);
+                int valueWithDelta = he.BaseValue + he.Delta * skillLevel;
                 int part = he.IsPercent ? npc.MaxHp * valueWithDelta / 100 : valueWithDelta;
                 if (part > 0) healAmt += part;
             }
