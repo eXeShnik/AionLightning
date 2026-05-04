@@ -2898,3 +2898,10 @@
     - Handler ordering with Shield: both subscribe to DamageReceivingEvent. InMemoryEventBus dispatches sequentially per `sp.GetServices` order. Whichever fires first reduces cell.Value; the second sees the already-reduced value. For typical buffs that stack Shield + Protect (rare), the order is registration-deterministic — Shield runs first (registered first), Protect operates on the residual
     - Previously: 57 protect skill XML entries (Sorcerer "Stone Skin"-style aura redirects, several boss adds → boss redirect mechanics, summon-protect-master) cast their animation but redirected nothing
     - Build: 0 warnings, 0 errors
+
+267. [✓] Typed `<dispel>` — aliased to existing dispel-debuff handler (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `HasDispelDebuff` matcher extended with `dispel` (joins `dispeldebuff`, `dispeldebuffphysical`, `dispeldebuffmental`, `dispelnpcdebuff`)
+    - Java analogy: `DispelEffect.applyEffect` switches on `dispeltype` (EFFECTID/EFFECTIDRANGE/EFFECTTYPE/SLOTTYPE) and removes specific effects. We approximate with the existing `target.ClearDebuffs()` over-dispel — same simplification used by M246/M250
+    - Limitation: full typed-dispel needs `effectid` tracking on `AbnormalState` (currently only carries SkillId). The 60 EFFECTID + 53 EFFECTTYPE skill XML entries get an over-broad cleanse that may dispel more than Java intends. Acceptable as a placeholder; track for refinement if PvP balance shows issues
+    - Previously: 135 dispel skill XML entries (Cleric/Chanter typed-dispel skills, Songweaver cleanse line, Spiritmaster mass-dispel) silently ignored — typed dispel routed nowhere despite the existing dispel-debuff infrastructure
+    - Build: 0 warnings, 0 errors
