@@ -2931,3 +2931,9 @@
     - Gameplay impact: 746 chain-restricted skills (Templar/Gladiator/Assassin combo systems — e.g. "Wind Cut" → "Severe Wind Cut" → "Whirlwind") now correctly require predecessor cast within 4 seconds. Casting out-of-chain returns silently
     - Edge case: chain timeout is per-player not per-target — matches Java behavior where the chain is owned by the caster's combat state
     - Build: 0 warnings, 0 errors
+
+271. [✓] Signet damage alias — `<carvesignet>` + `<signetburst>` deal native value/delta damage (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"carvesignet"` and `"signetburst"` to `DamageEffectNames` HashSet (routes magical damage through existing damage path)
+    - Approximation: Java `CarveSignetEffect` places a typed stack on the target which `SignetBurstEffect` consumes for scaled damage. Our alias delivers the baseline `value + delta * level` damage of both effects without tracking signet stacks. The bonus burst-from-stacks scaling is deferred — needs `target.Signets` Dictionary<string, (Level, Caster)> + per-cast match logic
+    - Gameplay impact: 95 carvesignet + 58 signetburst = 153 skill XML entries (Sorcerer signet line — Signet of Wind, Signet of Stone, Signet Burst — and several boss-encounter mark mechanics) now deal their listed damage. Burst skills don't yet scale up from prior carvesignet stacks but they do hit
+    - Build: 0 warnings, 0 errors
