@@ -2683,3 +2683,10 @@
     - Java analogy: same as M239/M240 — mirrors player-side drain + MP burn for NPC casters; uses `npc.CurrentHp/Mp` as effector instead of `player.CurrentHp/Mp`
     - Previously: NPC bosses casting drain skills (e.g. dragon lifesteal abilities, Beritra-style mana drain) would deal damage but never restore their own HP/MP; NPC mana-burn skills against players also didn't drain target MP — only the player-side casters benefited from M239/M240
     - Build: 0 warnings, 0 errors
+
+242. [✓] ProcHeal/ProcMpHeal aliases — `<prochealinstant>` and `<procmphealinstant>` heal as `<healinstant>`/`<mphealinstant>` (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"prochealinstant"` and `"procmphealinstant"` to `HealInstantNames` HashSet
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `HealEffects` getter routes both new names: `prochealinstant` → `hp` heal type; `procmphealinstant` → `mp` heal type (existing `percent`/`value`/`delta` parsing already covers them since Java `ProcHealInstantEffect` extends `AbstractHealEffect` with no extra fields)
+    - Java analogy: `ProcHealInstantEffect` and `ProcMpHealInstantEffect` are identical to `HealInstantEffect`/`MpHealInstantEffect` (same `AbstractHealEffect` parent, same `applyEffect(effect, HealType.HP/MP)`); the "Proc" name prefix is misleading — they fire unconditionally as part of skill effect list, not on a chance/proc trigger
+    - Previously: 127 prochealinstant + 104 procmphealinstant = 231 skill XML entries (Recharge line, recovery potions, Crucible Recovery Potion, several Cleric/Spiritmaster/Songweaver heal-type skills) silently ignored — the heal/mp-heal numbers from these skills did nothing to target HP/MP
+    - Build: 0 warnings, 0 errors

@@ -1281,7 +1281,7 @@ public sealed class SkillEffects
         }
     }
 
-    private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
+    private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
     private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant"];
@@ -1301,7 +1301,7 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("value"), out int val);
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
                 bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
-                string ht = e.LocalName == "healinstant" ? "hp" : "mp";
+                string ht = e.LocalName is "healinstant" or "prochealinstant" ? "hp" : "mp";
                 list.Add(new(val, dlt, pct, ht));
             }
             return list;
