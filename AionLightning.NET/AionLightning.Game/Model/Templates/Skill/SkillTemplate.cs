@@ -143,6 +143,14 @@ public readonly record struct SkillReflectorInfo(
     float Radius      // max distance from buffed creature for reflect to fire (0 = no range gate)
 );
 
+/// <summary>"Convert damage to heal" descriptor parsed from &lt;convertheal&gt; (Java ConvertHealEffect).
+/// When the buffed creature is hit, restore Value+Delta*SkillLevel of HealType (HP|MP).</summary>
+public readonly record struct SkillConvertHealInfo(
+    int    BaseValue,    // base heal at level 1
+    int    Delta,        // per-level scaling
+    string HealType      // "hp" | "mp" — Java ConvertHealEffect@type attribute
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1327,6 +1335,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
     private static readonly HashSet<string> MagicCounterAtkEffectNames = ["magiccounteratk"];
     private static readonly HashSet<string> ReflectorEffectNames = ["reflector"];
+    private static readonly HashSet<string> ConvertHealEffectNames = ["convertheal"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1518,6 +1527,24 @@ public sealed class SkillEffects
                 float radius = 0f;
                 float.TryParse(e.GetAttribute("radius"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out radius);
                 list.Add(new(hit, hitDlt, radius));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillConvertHealInfo> ConvertHealEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillConvertHealInfo>();
+            foreach (var e in Elements)
+            {
+                if (!ConvertHealEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                string ht = (e.GetAttribute("type") ?? "HP").ToLowerInvariant() == "mp" ? "mp" : "hp";
+                list.Add(new(val, dlt, ht));
             }
             return list;
         }

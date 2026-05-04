@@ -41,6 +41,7 @@ builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HealCastorOnAttackedHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, MagicCounterAtkHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ReflectorHandler>();
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ConvertHealHandler>();
 
 // World
 builder.Services.AddSingleton<GameWorld>();

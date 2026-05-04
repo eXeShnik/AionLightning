@@ -2869,3 +2869,12 @@
     - Java analogy: `ReflectorEffect.startEffect` builds an `AttackShieldObserver(hit, value, percent, ...)` and attaches to effected via `addAttackCalcObserver`. Java intercepts BEFORE damage; we approximate AFTER — net gameplay equivalent for typical reflector skills (caster takes some HP back per hit). Skill types where Java's pre-damage shield would absorb instead of allowing damage to land (true shield) need a future `DamageReceivingEvent` with mutable damage payload
     - Previously: 95 reflector skill XML entries (Templar "Reflect Damage" line, Sorcerer/Spiritmaster magical reflect, several boss-encounter mechanics) cast their animation but never returned damage to attackers
     - Build: 0 warnings, 0 errors
+
+264. [✓] ConvertHeal handler — `<convertheal>` heals target on hit (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `SkillConvertHealInfo` record (BaseValue, Delta, HealType); `ConvertHealEffectNames` HashSet; `ConvertHealEffects` getter parses `value`, `delta`, `type` (HP|MP)
+    - [✓] `Game/Combat/Handlers/ConvertHealHandler.cs` — `IEventHandler<DamageDealtEvent>`: skips DoTTick, iterates target's convertheal buffs, computes `healAmt = BaseValue + Delta * SkillLevel`, applies to target HP/MP clamped at Max, broadcasts `SM_ATTACK_STATUS(NaturalHp/Mp, Heal/MpHeal)`
+    - [✓] `Program.cs` — fourth `Transient<IEventHandler<DamageDealtEvent>>` registration
+    - Java analogy: `ConvertHealEffect.startEffect` builds `AttackShieldObserver(hitvalue, value, percent, hitPercent, ..., type, 0)` and calls `setUnderShield(true)` on effected. The shield converts incoming damage to heal of `type`. Our simplified post-damage version applies an additive heal after the hit lands — net gameplay close to Java for typical convertheal skills (the buffed creature gains HP/MP per incoming hit) but doesn't preserve the shield-eats-damage semantics for skills like the 1000000-cap Inquinata's "Holy Fortitude" boss mechanic
+    - Closes the 5-effect M260 unlock pool: 9+8+18+95+4 = 134 skills now reach handlers via the damage observer pattern. Pre-damage shield semantics (true damage absorption, percent-based reduction) is the next architectural milestone — needs a `DamageReceivingEvent` with mutable damage payload, fired from inside `ApplyDamageAndPublishAsync` BEFORE the HP subtract
+    - Previously: 4 convertheal skill XML entries (Templar shields, boss survival mechanics) ignored — buffed creatures took full damage with no conversion to heal
+    - Build: 0 warnings, 0 errors
