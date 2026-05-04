@@ -2750,3 +2750,9 @@
     - Java analogy: `FPHealEffect` extends `AbstractHealEffect` with `HealType.FP` and reads/writes `LifeStats.getCurrentFp/MaxFp`. Same shape as `HealEffect`/`MPHealEffect` HoT variants we already supported; the milestone is a pure HealType extension
     - Previously: 6 fpheal HoT skill XML entries (Aether-related FP regen-over-time buffs, sustained-flight scroll items) silently dropped because the HoT tick branch hard-coded `hp`/`mp` only
     - Build: 0 warnings, 0 errors
+
+250. [✓] NPC dispel variants — `<dispelnpcbuff>` and `<dispelnpcdebuff>` aliased to existing dispel handlers (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `HasDispelBuff` now matches `dispelbuff` OR `dispelnpcbuff`; `HasDispelDebuff` now matches the four debuff variants from M246 plus `dispelnpcdebuff`
+    - Java analogy: `DispelNpcBuffEffect` and `DispelNpcDebuffEffect` extend `AbstractDispelEffect` with `friendlyTarget=NPC` constraint — they restrict dispel to NPC targets only. We don't enforce target-type at the dispel level (skill's own `target_relation` already restricts who's eligible), so the aliases are safe; ClearBuffs/ClearDebuffs run only when the resolved target is the intended type
+    - Previously: 13 dispelnpcbuff + 2 dispelnpcdebuff = 15 skill XML entries (Cleric/Spiritmaster NPC-specific cleanses, several boss-room mechanics) silently ignored
+    - Build: 0 warnings, 0 errors
