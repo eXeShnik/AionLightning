@@ -2922,3 +2922,12 @@
     - Gameplay impact: prevents class skills from being cast with the wrong weapon (e.g. casting Bow skill with a Staff equipped). Affects every class — most damage skills carry weapon restrictions in their `<startconditions>` block. The OffHand check matches Java's bow/dagger dual-handed cases where the secondary slot may carry the type
     - Edge case: skills with no `<weapon>` startcondition pass through (AllowedWeapons.Count == 0 → guard skipped)
     - Build: 0 warnings, 0 errors
+
+270. [✓] Chain-skill state machine — `<chain category="X">` startcondition (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `SkillChainCondition` class (`[XmlAttribute("category")] string Category`); `SkillStartConditions` extended with `[XmlElement("chain")]`; `ChainCategory` convenience property on SkillTemplate (empty = no chain restriction)
+    - [✓] `Model/Player.cs` — added `LastChainCategory` (string, set after each successful cast) + `LastChainExpiry` (DateTime, when current chain link goes stale) + `Player.ChainTimeoutMs = 4000` constant
+    - [✓] `CM_CASTSPELL.cs` — pre-cast guard: if `ChainCategory` non-empty, returns early unless `Player.LastChainCategory` matches AND `DateTime.UtcNow <= LastChainExpiry`. After guard passes, registers THIS cast: `LastChainCategory = template.ChainCategory`, `LastChainExpiry = now + 4000ms`. Skills without chain category set the player's category to empty (breaking the chain)
+    - Java analogy: Java `ChainCondition.verify(skill)` reads `effector.getController().getLastChainSkill()` and validates timestamp against `ChainConfig.CHAIN_TIMEOUT`. We mirror this with a per-Player state pair
+    - Gameplay impact: 746 chain-restricted skills (Templar/Gladiator/Assassin combo systems — e.g. "Wind Cut" → "Severe Wind Cut" → "Whirlwind") now correctly require predecessor cast within 4 seconds. Casting out-of-chain returns silently
+    - Edge case: chain timeout is per-player not per-target — matches Java behavior where the chain is owned by the caster's combat state
+    - Build: 0 warnings, 0 errors

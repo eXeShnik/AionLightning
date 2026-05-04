@@ -114,6 +114,12 @@ public sealed class Player : Creature
     public int    OffHandHitCount  { get; set; } = 1;
     public string OffHandWeaponType { get; set; } = string.Empty;
 
+    // M270: chain-skill state — set when last successful cast carried a chain category
+    public string LastChainCategory { get; set; } = string.Empty;
+    public DateTime LastChainExpiry { get; set; } = DateTime.MinValue;
+    // Chain link must be cast within this window after the previous link
+    public const int ChainTimeoutMs = 4000;
+
     // Magical attack bonus from equipped magical weapon (staff/orb/mace/etc.); average of min/max weapon damage
     public int MainHandMagicalAtk { get; set; }
 

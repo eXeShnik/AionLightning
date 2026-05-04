@@ -23,6 +23,9 @@ public sealed class SkillTemplate
     [XmlElement("startconditions")] public SkillStartConditions? StartConditions { get; set; }
     [XmlElement("effects")]         public SkillEffects?         Effects         { get; set; }
 
+    /// <summary>M270: chain category required for this skill to be a valid next-link cast (empty = no chain restriction).</summary>
+    public string ChainCategory => StartConditions?.Chain?.Category ?? string.Empty;
+
     /// <summary>M269: parsed allowed-weapon-types HashSet from &lt;startconditions&gt;&lt;weapon weapon="X Y Z"/&gt;. Empty = no restriction.</summary>
     public HashSet<string> AllowedWeapons
     {
@@ -65,16 +68,23 @@ public sealed class SkillTemplate
     public int EffectiveCooldownId => CooldownId > 0 ? CooldownId : SkillId;
 }
 
-/// <summary>M269: skill startconditions block — currently parses &lt;weapon&gt; restriction.</summary>
+/// <summary>M269+M270: skill startconditions block — &lt;weapon&gt;, &lt;chain&gt;.</summary>
 public sealed class SkillStartConditions
 {
     [XmlElement("weapon")] public SkillWeaponCondition? Weapon { get; set; }
+    [XmlElement("chain")]  public SkillChainCondition?  Chain  { get; set; }
 }
 
 public sealed class SkillWeaponCondition
 {
     /// <summary>Space-separated list of allowed weapon types (e.g. "SWORD_2H BOW MACE_1H").</summary>
     [XmlAttribute("weapon")] public string WeaponList { get; set; } = string.Empty;
+}
+
+/// <summary>M270: chain-skill startcondition — skill can only be cast as the next link of category X.</summary>
+public sealed class SkillChainCondition
+{
+    [XmlAttribute("category")] public string Category { get; set; } = string.Empty;
 }
 
 public sealed class SkillProperties

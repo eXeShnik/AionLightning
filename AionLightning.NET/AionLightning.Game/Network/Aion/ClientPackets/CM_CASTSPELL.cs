@@ -108,6 +108,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
             if (!allowed.Contains(equipped) && !allowed.Contains(equippedOff)) return;
         }
 
+        // M270: <chain category="X"> startcondition — chain link must follow same-category cast within timeout
+        if (template?.ChainCategory is { Length: > 0 } chainCat)
+        {
+            if (!string.Equals(player.LastChainCategory, chainCat, StringComparison.OrdinalIgnoreCase)) return;
+            if (DateTime.UtcNow > player.LastChainExpiry) return;
+        }
+
+        // M270: register THIS cast as the latest chain link so subsequent same-category skills can chain from it
+        player.LastChainCategory = template?.ChainCategory ?? string.Empty;
+        player.LastChainExpiry   = DateTime.UtcNow.AddMilliseconds(Player.ChainTimeoutMs);
+
         // Server-side cooldown enforcement keyed by CooldownId group (mirrors Java isSkillDisabled)
         if (template is not null && template.Cooldown > 0)
         {
