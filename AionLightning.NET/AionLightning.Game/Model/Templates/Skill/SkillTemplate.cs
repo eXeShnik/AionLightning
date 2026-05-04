@@ -218,6 +218,31 @@ public sealed class SkillEffects
     public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
     public bool HasSanctuary    => Elements?.Any(e => e.LocalName == "sanctuary")    == true;
 
+    /// <summary>M275: model-swap effect present (shapechange/polymorph/deform/form). Behavior needs SM_TRANSFORM packet.</summary>
+    public bool HasShapeChange  => Elements?.Any(e => e.LocalName is "shapechange" or "polymorph" or "deform" or "form") == true;
+
+    /// <summary>M275: model id from first shapechange-family element (0 = no transform parsed).</summary>
+    public int ShapeChangeModelId
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName is "shapechange" or "polymorph" or "deform" or "form")
+                {
+                    int.TryParse(e.GetAttribute("model"), out int m);
+                    return m;
+                }
+            return 0;
+        }
+    }
+
+    /// <summary>M275: stealth/hide effect present. Behavior needs per-creature visibility filter on packet broadcasts.</summary>
+    public bool HasHide         => Elements?.Any(e => e.LocalName == "hide")         == true;
+
+    /// <summary>M275: AbsoluteStatBuff present. Behavior needs external AbsoluteStatsData.xml loader keyed by statsetid.</summary>
+    public bool HasAbsStatBuff  => Elements?.Any(e => e.LocalName is "absstatbuff" or "absstatdebuff") == true;
+
     /// <summary>M274: per-tick MP cost from &lt;periodicactions checktime="X"&gt;&lt;mpuse value="Y"/&gt;&lt;/periodicactions&gt;.
     /// (CheckTimeMs, MpPerTick) — both 0 when no periodic actions defined.</summary>
     public (int CheckTimeMs, int MpPerTick) PeriodicMpUse

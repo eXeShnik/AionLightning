@@ -2963,3 +2963,13 @@
     - Limitations: when MP drains to 0, buff continues ticking on 0 MP (TODO comment marks the deactivation gap). Java would call `SM_TOGGLE_SKILL_DEACTIVATE` to end the toggle. Adding that needs the toggle-deactivation packet which doesn't yet exist
     - Gameplay impact: 38 periodicactions skill XML entries (Aether-fly toggles, Spiritmaster summon-maintenance auras, several Templar/Cleric stance toggles) now drain MP on the listed cadence. The toggle stays active even after MP runs out (deferred)
     - Build: 0 warnings, 0 errors
+
+275. [✓] Data flags exposed for transform / stealth / abs-stat-buff (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added properties `HasShapeChange` (matches shapechange/polymorph/deform/form, 672 skills), `ShapeChangeModelId` (parses model attr), `HasHide` (78 skills), `HasAbsStatBuff` (matches absstatbuff/absstatdebuff, 48 skills)
+    - Behavior intentionally NOT wired — each needs its own infrastructure milestone:
+        - Transform/Polymorph: SM_TRANSFORM packet + Player.CurrentModelId state field + broadcast-on-buff path
+        - Hide/Stealth: per-creature visibility filter at packet broadcast sites (CM_ATTACK SM_ATTACK target hidden? skip broadcast to non-stealth-detectors; hundreds of broadcast sites)
+        - AbsStatBuff: AbsoluteStatsData.xml DataHolder loader keyed by statsetid; resolves per-stat absolute overrides
+    - Purpose: data parsed and accessible so future implementations can detect the effect presence + read model id without re-touching the parser. Subsequent infrastructure milestones plug in by reading these flags
+    - Total skills covered (data-only): ~798 — full behavior remains deferred per the noted infrastructure dependencies
+    - Build: 0 warnings, 0 errors
