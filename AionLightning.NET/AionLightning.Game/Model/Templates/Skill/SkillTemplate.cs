@@ -264,6 +264,8 @@ public sealed class SkillEffects
     public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
     /// <summary>M282: flight-ban debuff — buffed creature loses fly capability (Java NoFlyEffect). Behavior needs flight-state subsystem.</summary>
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
+    /// <summary>M285: provoker buff — buffed NPC auto-targets last attacker (Java ProvokerEffect ATTACK observer).</summary>
+    public bool HasProvoker     => Elements?.Any(e => e.LocalName == "provoker")     == true;
 
     /// <summary>M283: rebirth (self-rez on death) — Java RebirthEffect. (Has, ResurrectPercent, SkillId)</summary>
     public (bool Has, int ResurrectPercent, int SkillId) RebirthInfo

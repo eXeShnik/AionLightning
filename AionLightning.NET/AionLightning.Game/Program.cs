@@ -42,6 +42,7 @@ builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HealCastorOnAttac
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, MagicCounterAtkHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ReflectorHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ConvertHealHandler>();
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ProvokerHandler>();
 // M265+: pre-damage handlers (mutate MutableDamage to absorb)
 builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, SanctuaryHandler>(); // sanctuary first — full immunity short-circuits everything else
 builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, AlwaysResistHandler>(); // M276 — magic-only immunity, runs before partial-absorb handlers
