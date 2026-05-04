@@ -243,6 +243,9 @@ public sealed class SkillEffects
     /// <summary>M275: AbsoluteStatBuff present. Behavior needs external AbsoluteStatsData.xml loader keyed by statsetid.</summary>
     public bool HasAbsStatBuff  => Elements?.Any(e => e.LocalName is "absstatbuff" or "absstatdebuff") == true;
 
+    /// <summary>M276: alwaysresist — full magic-damage immunity while buff active (Java AlwaysResistEffect).</summary>
+    public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
+
     /// <summary>M274: per-tick MP cost from &lt;periodicactions checktime="X"&gt;&lt;mpuse value="Y"/&gt;&lt;/periodicactions&gt;.
     /// (CheckTimeMs, MpPerTick) — both 0 when no periodic actions defined.</summary>
     public (int CheckTimeMs, int MpPerTick) PeriodicMpUse

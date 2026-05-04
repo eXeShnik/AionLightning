@@ -2973,3 +2973,11 @@
     - Purpose: data parsed and accessible so future implementations can detect the effect presence + read model id without re-touching the parser. Subsequent infrastructure milestones plug in by reading these flags
     - Total skills covered (data-only): ~798 — full behavior remains deferred per the noted infrastructure dependencies
     - Build: 0 warnings, 0 errors
+
+276. [✓] AlwaysResist handler — `<alwaysresist>` magic-damage immunity (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `HasAlwaysResist` bool flag
+    - [✓] `Game/Combat/Handlers/AlwaysResistHandler.cs` — `IEventHandler<DamageReceivingEvent>`: gates on Kind ∈ {MagicalSkill, DoTTick}, iterates target's active effects, returns after first alwaysresist match with `cell.Value = 0` and a 0-damage SM_ATTACK_STATUS broadcast (signals "resisted!")
+    - [✓] `Program.cs` — registered after Sanctuary (full immunity) and before Shield (partial absorb) so the magic-immunity short-circuit runs before partial absorbers
+    - Java analogy: AlwaysResistEffect grants 100% magic resist while buff is active. Used in boss "Holy Fortitude"-style mechanics paired with M264 ConvertHeal (alwaysresist eats magic, convertheal converts physical to heal)
+    - Gameplay impact: handful of buff XML entries (boss survivability mechanics, very high-tier defense buffs) now correctly resist all magical damage and DoT ticks
+    - Build: 0 warnings, 0 errors
