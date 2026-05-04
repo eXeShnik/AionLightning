@@ -1244,6 +1244,27 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int noReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
                     damage = stNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
                 }
+                // M284: <targetrace>/<targetclass>/<abnormaldamage> damage modifiers
+                if (template?.Effects?.DamageModifiers is { Count: > 0 } stMods)
+                {
+                    foreach (var mod in stMods)
+                    {
+                        if (mod.Kind == "targetrace" && target is Npc raceNpc
+                            && string.Equals(raceNpc.Template.NpcRace, mod.Match, StringComparison.OrdinalIgnoreCase))
+                            damage += mod.Value + mod.Delta * (_level - 1);
+                        else if (mod.Kind == "targetclass" && target is Player classTarget
+                                 && string.Equals(classTarget.PlayerClass.ToString(), mod.Match, StringComparison.OrdinalIgnoreCase))
+                            damage += mod.Value + mod.Delta * (_level - 1);
+                        else if (mod.Kind == "abnormaldamage")
+                        {
+                            // Match against AbnormalCcFlags name on target
+                            if (Enum.TryParse<AbnormalCcFlags>(mod.Match, ignoreCase: true, out var abFlag)
+                                && (target.ActiveCcFlags & abFlag) != 0)
+                                damage += mod.Value + mod.Delta * (_level - 1);
+                        }
+                    }
+                }
+
                 var stKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
                 await target.ApplyDamageAndPublishAsync(player, damage, stKind, spellId, _eventBus, ct);
 
