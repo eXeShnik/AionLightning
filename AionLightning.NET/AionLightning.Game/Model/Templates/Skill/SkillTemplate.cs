@@ -263,6 +263,24 @@ public sealed class SkillEffects
     /// <summary>M276: alwaysresist — full magic-damage immunity while buff active (Java AlwaysResistEffect).</summary>
     public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
 
+    /// <summary>M281: FP-damage value from &lt;fpatkinstant&gt;/&lt;delayedfpatk_instant&gt;. (Value, Delta, IsPercent) — IsPercent: drains pct of MaxFp.</summary>
+    public (int Value, int Delta, bool IsPercent) FpAttackInfo
+    {
+        get
+        {
+            if (Elements is null) return (0, 0, false);
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("fpatkinstant" or "delayedfpatk_instant")) continue;
+                int.TryParse(e.GetAttribute("value"), out int v);
+                int.TryParse(e.GetAttribute("delta"), out int d);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                return (v, d, pct);
+            }
+            return (0, 0, false);
+        }
+    }
+
     /// <summary>M280: damage modifiers parsed from any damage-effect element's &lt;modifiers&gt; block. Bonus damage gated by target attribute.</summary>
     public IReadOnlyList<SkillDamageModifier> DamageModifiers
     {

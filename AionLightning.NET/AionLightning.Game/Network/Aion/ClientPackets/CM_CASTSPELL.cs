@@ -1282,6 +1282,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
                 }
 
+                // M281: fpatkinstant / delayedfpatk_instant — burn target FP (Player only)
+                var stFpFx = template?.Effects?.FpAttackInfo;
+                if (stFpFx is { Value: > 0 } fpAtk && target is Player fpAtkTarget)
+                {
+                    int fpBurnVal = fpAtk.Value + fpAtk.Delta * (_level - 1);
+                    int fpBurn = fpAtk.IsPercent ? fpAtkTarget.MaxFp * fpBurnVal / 100 : fpBurnVal;
+                    if (fpBurn > 0)
+                        fpAtkTarget.CurrentFp = Math.Max(0, fpAtkTarget.CurrentFp - fpBurn);
+                }
+
                 // LastCombatTime now updated by ApplyDamageAndPublishAsync helper (M260)
 
                 // NPC retaliation: force NPC to engage the caster when hit by a spell
