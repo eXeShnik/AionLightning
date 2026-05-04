@@ -88,13 +88,15 @@ public readonly record struct SkillDotInfo(
     string Element        // "FIRE", "EARTH", etc. (reserved for future element resist)
 );
 
-/// <summary>Skill direct-damage descriptor parsed from &lt;skillatk&gt; (physical) and &lt;spellatkinstant&gt; (magical) effect elements.</summary>
+/// <summary>Skill direct-damage descriptor parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; (regular) and &lt;skillatkdraininstant&gt;/&lt;spellatkdraininstant&gt; (drain).</summary>
 public readonly record struct SkillDamageInfo(
     int    BaseValue,    // damage at skill level 1
     int    Delta,        // per-level damage increase
     string DamageType,   // "physical" | "magical"
     string Element,      // elemental type (e.g. "FIRE", "EARTH") — reserved for future elemental resist
-    int    AccuracyMod   // accmod2 value (magic accuracy modifier, 0 = none)
+    int    AccuracyMod,  // accmod2 value (magic accuracy modifier, 0 = none)
+    int    HpPercent,    // drain HP gained: dealtDamage * HpPercent / 100 (0 = no HP drain)
+    int    MpPercent     // drain MP gained: dealtDamage * MpPercent / 100 (0 = no MP drain)
 );
 
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
@@ -1274,7 +1276,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
-    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant"];
+    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1367,10 +1369,12 @@ public sealed class SkillEffects
                 if (!DamageEffectNames.Contains(e.LocalName)) continue;
                 int.TryParse(e.GetAttribute("value"), out int val);
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
-                string dmgType = e.LocalName == "skillatk" ? "physical" : "magical";
+                string dmgType = e.LocalName is "skillatk" or "skillatkdraininstant" ? "physical" : "magical";
                 string element = e.GetAttribute("element") ?? string.Empty;
                 int.TryParse(e.GetAttribute("accmod2"), out int accMod);
-                list.Add(new(val, dlt, dmgType, element, accMod));
+                int.TryParse(e.GetAttribute("hp_percent"), out int hpPct);
+                int.TryParse(e.GetAttribute("mp_percent"), out int mpPct);
+                list.Add(new(val, dlt, dmgType, element, accMod, hpPct, mpPct));
             }
             return list;
         }

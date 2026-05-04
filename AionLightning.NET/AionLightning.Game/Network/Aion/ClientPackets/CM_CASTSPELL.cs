@@ -723,6 +723,35 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     target.LastCombatTime = DateTime.UtcNow;
                     player.LastCombatTime = DateTime.UtcNow;
 
+                    // M239: drain damage variants — caster restores HP/MP from each AoE-target damage
+                    if (gAoeDmgFx is { Count: > 0 } && (gAoeDmgFx[0].HpPercent != 0 || gAoeDmgFx[0].MpPercent != 0))
+                    {
+                        if (gAoeDmgFx[0].HpPercent != 0)
+                        {
+                            int hpGain = Math.Min(damage * gAoeDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
+                            if (hpGain > 0)
+                            {
+                                player.CurrentHp += hpGain;
+                                var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                        try { await c.SendAsync(drainHpPkt); } catch { }
+                            }
+                        }
+                        if (gAoeDmgFx[0].MpPercent != 0)
+                        {
+                            int mpGain = Math.Min(damage * gAoeDmgFx[0].MpPercent / 100, player.MaxMp - player.CurrentMp);
+                            if (mpGain > 0)
+                            {
+                                player.CurrentMp += mpGain;
+                                var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                        try { await c.SendAsync(drainMpPkt); } catch { }
+                            }
+                        }
+                    }
+
                     if (target is Npc hitNpc && target.CurrentHp > 0)
                         _npcAi.ForceEngage(hitNpc, player);
 
@@ -1010,6 +1039,35 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
                 target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
 
+                // M239: drain damage variants — caster restores HP/MP from dealt damage
+                if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
+                {
+                    if (stDmgFx[0].HpPercent != 0)
+                    {
+                        int hpGain = Math.Min(damage * stDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
+                        if (hpGain > 0)
+                        {
+                            player.CurrentHp += hpGain;
+                            var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(drainHpPkt); } catch { }
+                        }
+                    }
+                    if (stDmgFx[0].MpPercent != 0)
+                    {
+                        int mpGain = Math.Min(damage * stDmgFx[0].MpPercent / 100, player.MaxMp - player.CurrentMp);
+                        if (mpGain > 0)
+                        {
+                            player.CurrentMp += mpGain;
+                            var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                    try { await c.SendAsync(drainMpPkt); } catch { }
+                        }
+                    }
+                }
+
                 // Both caster and target enter combat
                 var combatNow = DateTime.UtcNow;
                 player.LastCombatTime = combatNow;
@@ -1148,6 +1206,35 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
                         splash.CurrentHp      = Math.Max(0, splash.CurrentHp - splashDmg);
                         splash.LastCombatTime = DateTime.UtcNow;
+
+                        // M239: drain damage variants — splash hit also restores HP/MP to caster
+                        if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
+                        {
+                            if (stDmgFx[0].HpPercent != 0)
+                            {
+                                int hpGain = Math.Min(splashDmg * stDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
+                                if (hpGain > 0)
+                                {
+                                    player.CurrentHp += hpGain;
+                                    var drainHpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, spellId, hpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                            try { await c.SendAsync(drainHpPkt); } catch { }
+                                }
+                            }
+                            if (stDmgFx[0].MpPercent != 0)
+                            {
+                                int mpGain = Math.Min(splashDmg * stDmgFx[0].MpPercent / 100, player.MaxMp - player.CurrentMp);
+                                if (mpGain > 0)
+                                {
+                                    player.CurrentMp += mpGain;
+                                    var drainMpPkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, spellId, mpGain, SM_ATTACK_STATUS.LogId.SpellAtkDrain);
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                            try { await c.SendAsync(drainMpPkt); } catch { }
+                                }
+                            }
+                        }
 
                         if (splash.CurrentHp > 0)
                             npcAi.ForceEngage(splash, player);

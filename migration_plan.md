@@ -2653,3 +2653,14 @@
     - Java analogy: `ResurrectEffect.applyEffect` set `player.setPlayerResActivate(true)`, `setResurrectionSkill(skillId)`, sent `SM_RESURRECT(effector, skillId)` — our routing block replicates exactly this; the target then clicks accept → CM_REVIVE type=3 → `HandleSkillReviveAsync` (M237) completes the revive
     - Previously: all 24 resurrection skills (Cleric "Light of Resurrection", Chanter res, etc.) cast their animation but did nothing to the dead target; `HasPendingRevive` was always false so `HandleSkillReviveAsync` would immediately return
     - Build: 0 warnings, 0 errors
+
+239. [✓] Drain damage variants — `<skillatkdraininstant>` and `<spellatkdraininstant>` restore HP/MP to caster (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — extended `SkillDamageInfo` record with `HpPercent` and `MpPercent` int fields (default 0 for non-drain variants)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"skillatkdraininstant"` (physical drain) and `"spellatkdraininstant"` (magical drain) to `DamageEffectNames` HashSet
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `DamageEffects` getter parses `hp_percent`/`mp_percent` attributes (TryParse, default 0); `DamageType` is `physical` for `skillatk`/`skillatkdraininstant`, `magical` for the spell variants
+    - [✓] `CM_CASTSPELL.cs` — single-target damage path: after `target.CurrentHp -= damage`, drain block fires when `stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0`; computes `hpGain = damage * pct / 100` clamped to `MaxHp - CurrentHp`; sends `SM_ATTACK_STATUS(player, NaturalHp/NaturalMp, spellId, gain, SpellAtkDrain)` to all in-world clients
+    - [✓] `CM_CASTSPELL.cs` — ground AoE path: drain block uses `gAoeDmgFx[0]`; fires per-target inside the `foreach (var target in targets)` loop so multi-target AoE drains scale linearly
+    - [✓] `CM_CASTSPELL.cs` — splash path: drain block uses `stDmgFx[0]` (in scope from surrounding single-target block) with `splashDmg` instead of `damage`; splash targets are NPC-only
+    - Java analogy: `SkillAtkDrainInstantEffect.applyEffect` calls `effector.LifeStats.increaseHp/Mp(reserved1 * pct / 100)` after `super.applyEffect`; `SpellAtkDrainInstantEffect` does the same with magical damage type. We use `LogId.SpellAtkDrain` (130) for both since the .NET enum doesn't yet distinguish `SKILLLATKDRAININSTANT` vs `SPELLATKDRAININSTANT` — gameplay numbers identical; only combat-log label flavor differs
+    - Previously: 147 drain skill XML entries (Assassin "Soul Slash" lifesteal, Sorcerer mana-drain spells, Spiritmaster drain line, many leveling skills) dealt correct damage but never restored HP/MP — sustain mechanic of these classes was non-functional
+    - Build: 0 warnings, 0 errors
