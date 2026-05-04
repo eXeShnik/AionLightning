@@ -17,6 +17,29 @@ public sealed class Npc : Creature
     /// <summary>Route ID from npc_walker.xml. Empty string means random wander; set from spawn spot data.</summary>
     public string WalkerId { get; set; } = string.Empty;
 
+    /// <summary>M279: hate accumulator keyed by attacker objectId. Drives target selection priority — highest hate wins.</summary>
+    public Dictionary<int, int> HateList { get; } = new();
+
+    /// <summary>Adds hate from <paramref name="attackerObjectId"/>. Negative amounts subtract.</summary>
+    public void AddHate(int attackerObjectId, int amount)
+    {
+        if (attackerObjectId == 0 || amount == 0) return;
+        if (HateList.TryGetValue(attackerObjectId, out int cur))
+            HateList[attackerObjectId] = Math.Max(0, cur + amount);
+        else if (amount > 0)
+            HateList[attackerObjectId] = amount;
+    }
+
+    /// <summary>Returns the objectId with the highest hate, or 0 if list is empty.</summary>
+    public int TopHateObjectId()
+    {
+        if (HateList.Count == 0) return 0;
+        int top = 0, best = -1;
+        foreach (var kv in HateList)
+            if (kv.Value > best) { best = kv.Value; top = kv.Key; }
+        return top;
+    }
+
     public Npc(NpcTemplate template)
     {
         Template       = template;

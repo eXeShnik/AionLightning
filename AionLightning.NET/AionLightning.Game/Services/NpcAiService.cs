@@ -1192,6 +1192,7 @@ public sealed class NpcAiService : BackgroundService
     {
         if (npc.IsAlreadyDead) return;
         npc.LastCombatTime = DateTime.UtcNow; // refresh on every hit so idle timeout resets
+        npc.AddHate(player.ObjectId, 1); // M279: baseline hate per ForceEngage call (from damage hits)
         if (_npcTargets.TryAdd(npc.ObjectId, player.ObjectId))
         {
             npc.Target = player;

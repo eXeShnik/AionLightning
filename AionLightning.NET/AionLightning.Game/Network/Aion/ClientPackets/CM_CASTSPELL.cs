@@ -146,12 +146,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
         }
         float castRange = template?.CastRange ?? 0f;
 
-        // M245: hostileup — taunt skill forces NPC target to engage caster
+        // M245+M279: hostileup — taunt skill forces NPC target to engage caster + massive hate boost
         if (template?.Effects?.HasHostileUp == true && _targetType is 0)
         {
             var tauntNpc = _world.GetNpcByObjectId(_targetObjectId);
             if (tauntNpc is not null && !tauntNpc.IsAlreadyDead)
+            {
+                tauntNpc.AddHate(player.ObjectId, 10000); // taunt-priority hate — overrides typical damage hate
                 _npcAi.ForceEngage(tauntNpc, player);
+            }
         }
 
         // Resurrection skill — targets a dead ally player, sets pending revive, sends dialog
