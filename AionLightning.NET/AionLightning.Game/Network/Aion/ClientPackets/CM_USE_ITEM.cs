@@ -116,12 +116,19 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
         if (template.UseSkillId is not int skillId) return;
 
-        // Buff/food items whose skill isn't a hardcoded HP/MP potion — apply via skill template statup effects
+        // Buff/food/heal items whose skill isn't a hardcoded HP/MP potion — drive via skill template
         if (!SkillEffects.TryGetValue(skillId, out var effect))
         {
             var skillTpl = _dataManager.Skills.GetTemplate(skillId);
             if (skillTpl?.Effects is not null)
             {
+                // M251: item-heal — skills with <healinstant>/<mphealinstant>/<fphealinstant> apply HP/MP/FP restore
+                if (skillTpl.Effects.HealEffects is { Count: > 0 } itemHealEffects)
+                {
+                    await HandleItemHealAsync(player, item, template, skillId, itemHealEffects, ct);
+                    return;
+                }
+
                 int buffDurationMs = skillTpl.Duration > 0
                     ? skillTpl.Duration
                     : skillTpl.Effects.EffectDuration;
@@ -487,6 +494,112 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 if (c.ActivePlayer?.Position.WorldId == expiredWorld)
                     try { await c.SendAsync(expired); } catch { }
         });
+    }
+
+    // M251: items whose UseSkillId points to a heal skill (<healinstant>/<mphealinstant>/<fphealinstant>)
+    // apply HP/MP/FP restore using the same value/percent semantics as CM_CASTSPELL heal path.
+    private async ValueTask HandleItemHealAsync(Player player, Item item, ItemTemplate template,
+        int skillId, IReadOnlyList<SkillHealInfo> healEffects, CancellationToken ct)
+    {
+        var limits = template.UseLimits;
+        if (limits is not null && limits.DelayId > 0 && player.IsItemOnCooldown(limits.DelayId))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime(), ct);
+            return;
+        }
+
+        // Item use animation broadcast
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int worldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == worldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
+
+        bool stateChanged = false;
+        foreach (var he in healEffects)
+        {
+            int valueWithDelta = he.BaseValue + he.Delta * 1; // item-skills are level 1
+            int maxStat = he.HealType switch
+            {
+                "hp" => player.MaxHp,
+                "mp" => player.MaxMp,
+                "fp" => player.MaxFp,
+                _    => 0,
+            };
+            int heal = he.IsPercent ? maxStat * valueWithDelta / 100 : valueWithDelta;
+            if (heal <= 0) continue;
+
+            if (he.HealType == "hp")
+            {
+                heal = Math.Min(heal, player.MaxHp - player.CurrentHp);
+                if (heal <= 0) continue;
+                player.CurrentHp += heal;
+                var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, heal, SM_ATTACK_STATUS.LogId.Heal);
+                try { await _conn.SendAsync(pkt, ct); } catch { }
+                foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+                    if (peer.ActivePlayer?.Position.WorldId == worldId)
+                        try { await peer.SendAsync(pkt, ct); } catch { }
+                stateChanged = true;
+            }
+            else if (he.HealType == "fp")
+            {
+                heal = Math.Min(heal, player.MaxFp - player.CurrentFp);
+                if (heal <= 0) continue;
+                player.CurrentFp += heal;
+                var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalFp, skillId, heal, SM_ATTACK_STATUS.LogId.FpHeal);
+                try { await _conn.SendAsync(pkt, ct); } catch { }
+                foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+                    if (peer.ActivePlayer?.Position.WorldId == worldId)
+                        try { await peer.SendAsync(pkt, ct); } catch { }
+                stateChanged = true;
+            }
+            else // mp
+            {
+                heal = Math.Min(heal, player.MaxMp - player.CurrentMp);
+                if (heal <= 0) continue;
+                player.CurrentMp += heal;
+                var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, skillId, heal, SM_ATTACK_STATUS.LogId.MpHeal);
+                try { await _conn.SendAsync(pkt, ct); } catch { }
+                foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+                    if (peer.ActivePlayer?.Position.WorldId == worldId)
+                        try { await peer.SendAsync(pkt, ct); } catch { }
+                stateChanged = true;
+            }
+        }
+
+        // Group HP bar refresh
+        if (stateChanged && player.Group is { } grp)
+        {
+            var groupUpdate = new SM_GROUP_MEMBER_INFO(grp.GroupId, player, SM_GROUP_MEMBER_INFO.GroupEvent.Update);
+            foreach (var m in grp.Members)
+            {
+                if (m.ObjectId == player.ObjectId) continue;
+                var mc = _connRegistry.Get(m.ObjectId);
+                if (mc is not null) try { await mc.SendAsync(groupUpdate, ct); } catch { }
+            }
+        }
+
+        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
+        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
+
+        // Cooldown
+        if (limits is not null && limits.DelayId > 0 && limits.DelayMs > 0)
+            player.SetItemCooldown(limits.DelayId, limits.DelayMs);
+
+        // Consume one charge
+        item.Count--;
+        if (item.Count <= 0)
+        {
+            player.Inventory.Remove(item.UniqueId);
+            await _itemDao.DeleteAsync(item.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+        }
+        else
+        {
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
+        }
     }
 
     private async ValueTask HandleDyeAsync(Player player, Model.Item.Item dyeItem,
