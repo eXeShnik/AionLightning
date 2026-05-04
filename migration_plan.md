@@ -2796,3 +2796,11 @@
     - Java analogy: `ProcAtkInstantEffect.applyEffect` calls `effected.getController().onAttack(..., LOG.PROCATKINSTANT)` rather than the default `LOG.SPELLATK` from regular damage path — combat-log labels the proc differently in Java client UI; we now match
     - Gameplay impact: 211 procatk_instant XML entries (M243) emit the correct proc combat-log label rather than appearing as a regular spell hit. Purely cosmetic to client UI but completes the M243 fidelity story alongside M254's drain LogId fix
     - Build: 0 warnings, 0 errors
+
+256. [✓] NpcAiService LogId consistency — NPC skill broadcasts use SpellAtk / Heal (session 2026-05-04)
+    - [✓] `Services/NpcAiService.cs` — `CastNpcDamageAsync` primary-target broadcast: `SM_ATTACK_STATUS(target, Damage, skillId, spellDmg, LogId.SpellAtk)` instead of default `LogId.Regular` (181)
+    - [✓] `Services/NpcAiService.cs` — `CastNpcDamageAsync` splash branch: same `LogId.SpellAtk` override
+    - [✓] `Services/NpcAiService.cs` — NPC self-heal (HandleNpcSelfHeal): `LogId.Heal` (3) instead of default `Regular`
+    - Closes the LogId fidelity story for NPC casts: previously NPC skill damage and self-heal were tagged with `Regular = 181` (default constructor arg) which the client UI displays as a generic combat entry; now they emit the proper SpellAtk/Heal tags matching CM_CASTSPELL player-side and the Java `LOG.SPELLATK`/`LOG.HEAL` enum values
+    - Auto-attack (line 373) and HP regen (line 128) intentionally keep the default `Regular` since they're not skill-driven — matches Java behavior where `attack` packets use `LOG.REGULAR`
+    - Build: 0 warnings, 0 errors

@@ -576,7 +576,8 @@ public sealed class NpcAiService : BackgroundService
                 target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
         }
 
-        var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, spellDmg);
+        // M256: NPC skill damage uses LogId.SpellAtk (1) — matches CM_CASTSPELL player-side and Java SpellAtkInstantEffect
+        var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, spellDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
@@ -695,7 +696,8 @@ public sealed class NpcAiService : BackgroundService
                         other.CurrentMp = Math.Max(0, other.CurrentMp - splMpBurn);
                 }
 
-                var splashPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, splashDmg);
+                // M256: NPC splash damage uses LogId.SpellAtk
+                var splashPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, splashDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
                 foreach (var conn in _connRegistry.GetAll())
                     if (conn.ActivePlayer?.Position.WorldId == worldId)
                         try { await conn.SendAsync(splashPkt, ct); } catch { }
@@ -759,7 +761,8 @@ public sealed class NpcAiService : BackgroundService
         npc.CurrentHp    = Math.Min(npc.MaxHp, npc.CurrentHp + healAmt);
         npc.LastCombatTime = now;
 
-        var statusPkt = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, healAmt);
+        // M256: NPC self-heal uses LogId.Heal (3)
+        var statusPkt = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, healAmt, SM_ATTACK_STATUS.LogId.Heal);
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
