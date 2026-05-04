@@ -1743,16 +1743,16 @@ public sealed class SkillEffects
 
     private static AbnormalCcFlags ElementToCcFlag(string name) => name switch
     {
-        "stun" or "stunalways"          => AbnormalCcFlags.Stun,
-        "sleep"                         => AbnormalCcFlags.Sleep,
-        "root"                          => AbnormalCcFlags.Root,
-        "silence"                       => AbnormalCcFlags.Silence,
-        "bind"                          => AbnormalCcFlags.Sleep,  // BIND shares Sleep semantics for cant-attack
-        "paralyze"                      => AbnormalCcFlags.Paralyze,
-        "fear"                          => AbnormalCcFlags.Fear,
-        "stagger" or "staggeralways"    => AbnormalCcFlags.Stagger,
-        "stumble" or "stumblealways"    => AbnormalCcFlags.Stumble,
-        "spin"                          => AbnormalCcFlags.Spin,
-        _                               => AbnormalCcFlags.None
+        "stun" or "stunalways" or "buffstun"          => AbnormalCcFlags.Stun,
+        "sleep"                                       => AbnormalCcFlags.Sleep,
+        "root"                                        => AbnormalCcFlags.Root,
+        "silence" or "buffsilence"                    => AbnormalCcFlags.Silence,
+        "bind" or "buffbind"                          => AbnormalCcFlags.Sleep,  // BIND shares Sleep semantics for cant-attack
+        "paralyze"                                    => AbnormalCcFlags.Paralyze,
+        "fear"                                        => AbnormalCcFlags.Fear,
+        "stagger" or "staggeralways"                  => AbnormalCcFlags.Stagger,
+        "stumble" or "stumblealways"                  => AbnormalCcFlags.Stumble,
+        "spin"                                        => AbnormalCcFlags.Spin,
+        _                                             => AbnormalCcFlags.None
     };
 }
