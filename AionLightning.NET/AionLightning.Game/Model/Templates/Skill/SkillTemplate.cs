@@ -1284,7 +1284,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease"];
-    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant"];
+    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];

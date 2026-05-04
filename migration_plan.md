@@ -2690,3 +2690,10 @@
     - Java analogy: `ProcHealInstantEffect` and `ProcMpHealInstantEffect` are identical to `HealInstantEffect`/`MpHealInstantEffect` (same `AbstractHealEffect` parent, same `applyEffect(effect, HealType.HP/MP)`); the "Proc" name prefix is misleading — they fire unconditionally as part of skill effect list, not on a chance/proc trigger
     - Previously: 127 prochealinstant + 104 procmphealinstant = 231 skill XML entries (Recharge line, recovery potions, Crucible Recovery Potion, several Cleric/Spiritmaster/Songweaver heal-type skills) silently ignored — the heal/mp-heal numbers from these skills did nothing to target HP/MP
     - Build: 0 warnings, 0 errors
+
+243. [✓] ProcAtkInstant alias — `<procatk_instant>` deals magical damage as `<spellatkinstant>` (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"procatk_instant"` (note underscore) to `DamageEffectNames` HashSet
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `DamageEffects` getter falls through to `magical` for the new name (the type-detection ternary excludes only `skillatk`/`skillatkdraininstant` from physical, so `procatk_instant` is treated as magical — matches Java `super.calculate(effect, DamageType.MAGICAL)`)
+    - Java analogy: `ProcAtkInstantEffect` extends `DamageEffect` with `DamageType.MAGICAL`; only differs from `SpellAtkInstantEffect` by emitting an extra `SM_SYSTEM_MESSAGE 1301062` ("X procced!") and using `LOG.PROCATKINSTANT` (we already use `LogId.SpellAtk` for both — combat-log label flavor only)
+    - Previously: 211 procatk_instant skill XML entries (proc-on-attack damage skills, several Sorcerer/Spiritmaster procs, weapon-enchant fire/water/wind retaliation procs) silently ignored — these damage numbers from elemental procs were not applied
+    - Build: 0 warnings, 0 errors
