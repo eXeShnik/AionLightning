@@ -158,6 +158,14 @@ public readonly record struct SkillShieldInfo(
     int HitDelta     // per-level scaling
 );
 
+/// <summary>"Damage protect" descriptor parsed from &lt;protect&gt; (Java ProtectEffect, shieldType=8).
+/// Redirects HitValue (or HitValue% if IsPercent) of incoming damage to the buff caster.</summary>
+public readonly record struct SkillProtectInfo(
+    int   HitValue,    // amount or percent redirected per hit
+    bool  IsPercent,   // true = HitValue is percent of incoming damage
+    float Radius       // max distance from buffed creature for redirect to fire
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1344,6 +1352,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> ReflectorEffectNames = ["reflector"];
     private static readonly HashSet<string> ConvertHealEffectNames = ["convertheal"];
     private static readonly HashSet<string> ShieldEffectNames = ["shield"];
+    private static readonly HashSet<string> ProtectEffectNames = ["protect"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1570,6 +1579,25 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("hitvalue"), out int hit);
                 int.TryParse(e.GetAttribute("hitdelta"), out int hitDlt);
                 list.Add(new(hit, hitDlt));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillProtectInfo> ProtectEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillProtectInfo>();
+            foreach (var e in Elements)
+            {
+                if (!ProtectEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("hitvalue"), out int hit);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                float radius = 0f;
+                float.TryParse(e.GetAttribute("radius"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out radius);
+                list.Add(new(hit, pct, radius));
             }
             return list;
         }

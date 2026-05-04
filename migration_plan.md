@@ -2889,3 +2889,12 @@
     - Java analogy: `ShieldEffect.startEffect` builds `AttackShieldObserver(hitvalue, value, percent, ...)` and registers it on effected. The observer's `onAttack` reduces damage. Our port mirrors this with: Shield handler reduces `cell.Value`; full-absorb case skips both HP write and post-damage event (matches Java where shielded hits don't trigger ATTACKED observers)
     - Previously: 331 shield skill XML entries (Templar "Magic Shield"/"Body Smash", Cleric/Chanter defensive auras, Sorcerer/Spiritmaster magical shield line, hundreds of boss-encounter shields) cast their animation but absorbed nothing
     - Build: 0 warnings, 0 errors
+
+266. [✓] Protect handler — `<protect>` redirects damage to buff caster (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `SkillProtectInfo` record (HitValue, IsPercent, Radius); `ProtectEffectNames` HashSet; `ProtectEffects` getter parses `hitvalue`/`percent`/`radius`
+    - [✓] `Game/Combat/Handlers/ProtectHandler.cs` — `IEventHandler<DamageReceivingEvent>`: looks up caster (effector) via World, range-gates by Radius, computes redirect = `IsPercent ? cell.Value * HitValue / 100 : min(HitValue, cell.Value)`, mutates `cell.Value -= redirect`, applies `caster.CurrentHp -= casterDmg` directly (no event publish to avoid cascade), broadcasts `SM_ATTACK_STATUS(Damage, Regular)` on caster
+    - [✓] `Program.cs` — second `IEventHandler<DamageReceivingEvent>` registration after Shield
+    - Java analogy: `ProtectEffect.startEffect` builds `AttackShieldObserver` with `shieldType=8`. Java's observer chain redirects damage at the absorb stage. Our port: cell-based subtract from incoming + direct caster mutation. Damage flows: incoming → reduced (cell) → caster takes redirect (out-of-band)
+    - Handler ordering with Shield: both subscribe to DamageReceivingEvent. InMemoryEventBus dispatches sequentially per `sp.GetServices` order. Whichever fires first reduces cell.Value; the second sees the already-reduced value. For typical buffs that stack Shield + Protect (rare), the order is registration-deterministic — Shield runs first (registered first), Protect operates on the residual
+    - Previously: 57 protect skill XML entries (Sorcerer "Stone Skin"-style aura redirects, several boss adds → boss redirect mechanics, summon-protect-master) cast their animation but redirected nothing
+    - Build: 0 warnings, 0 errors
