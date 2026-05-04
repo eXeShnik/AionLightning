@@ -2827,3 +2827,20 @@
     - Gameplay impact: when a Player has an active physical-defense debuff (e.g. Sorcerer "Frigid Wrath" pdef debuff) or buff (Templar "Body Smash" defense), NPC auto-attack damage now factors those modifiers. Previously NPC ignored player defense deltas — players took identical hits regardless of buffs/debuffs in effect
     - Note: NPC skill-cast damage paths (M239+) already use the full `PdefDebuffDelta + PdefStatUpDelta` formula at lines 546 + 669; this milestone closes the gap on the auto-attack path
     - Build: 0 warnings, 0 errors
+
+260. [✓] Damage Observer Pattern via IEventBus + healcastoronatk handler (session 2026-05-04)
+    - Architecture milestone — establishes the foundation that subsequent skill-effect handlers (reflector, convertheal, magiccounteratk, etc.) can plug into without re-touching the damage paths.
+    - [✓] `Game/Events/DamageDealtEvent.cs` — new sealed record `(Creature Attacker, Creature Target, int DamageAmount, DamageKind Kind, int? SkillId)` + DamageKind enum (AutoAttack, PhysicalSkill, MagicalSkill, Splash, DoTTick)
+    - [✓] `Game/Combat/CreatureDamageExtensions.cs` — single canonical helper `target.ApplyDamageAndPublishAsync(attacker, damage, kind, skillId, bus, ct)`. Atomically: subtracts HP (clamped at 0), updates both `LastCombatTime`, publishes `DamageDealtEvent`. Replaces 14 inline damage sites with one method call each.
+    - [✓] `SkillTemplate.cs` — added `SkillHealCastorOnAtkInfo` record (BaseValue, Delta, Range, HealType); `HealCastorOnAtkEffectNames` HashSet (`["healcastoronatk"]`); `HealCastorOnAtkEffects` getter parsing `value`, `delta`, `range`, `type` attributes
+    - [✓] `Game/Combat/Handlers/HealCastorOnAttackedHandler.cs` — `IEventHandler<DamageDealtEvent>` implementation: iterates `target.GetActiveEffects()`, looks up the skill template per active buff, range-gates the buff caster against `target.Position`, heals caster HP/MP by `BaseValue + Delta * SkillLevel`, broadcasts `SM_ATTACK_STATUS` (NaturalHp/Mp + Heal/MpHeal LogId) to the caster's worldId
+    - [✓] `Program.cs` — registers `HealCastorOnAttackedHandler` as `Transient<IEventHandler<DamageDealtEvent>>` (matches InMemoryEventBus's `sp.GetServices` pattern at publish time)
+    - [✓] 14 damage sites wired through helper:
+        - `CM_ATTACK.cs`: line 244 (auto-attack), 124 (parry), 151 (block), 276 (godstone proc) — IEventBus injected via constructor + factory
+        - `CM_CASTSPELL.cs`: line 819 (ground-AoE primary), 929 (ground-AoE DoT tick), 1177 (single-target), 1370 (splash), 1505 (splash DoT tick), 1748 (chain DoT tick) — IEventBus injected via constructor + factory
+        - `Services/NpcAiService.cs`: line 375 (NPC auto-attack), 561 (NPC skill primary), 629 (NPC DoT tick), 682 (NPC splash) — IEventBus injected via DI
+    - [✓] DamageKind selection per site: AutoAttack for both CM_ATTACK and NpcAiService auto-attacks (and parry/block which are auto-attack outcomes); PhysicalSkill/MagicalSkill via `spellIsMagical` ternary or `isPhysical` flag; Splash for splash hits; DoTTick for all 3 player-side + 1 NPC-side DoT loops
+    - Java analogy: post-damage observer hook in HealCastorOnAttackedEffect.java (ActionObserver.ATTACKED) fires `effected.healHp/Mp` if effector within `radius` — our handler mirrors this scope. The `<healcastoronatk type="HP" range="5.0" value="23" duration2="10000">` Templar/Cleric defensive-aura skill (which buffs an ally and heals the caster on every hit landed on the ally) is the canonical use case
+    - Pattern unlocks future handlers: `MagicCounterAtkHandler` (counter-attack on magic skill received), `DispelBuffCounterAtkHandler` (dispel attacker buff on hit), and a future pre-damage `DamageReceivingEvent` extension for `<reflector>`/`<convertheal>` (require mutable damage payload — separate milestone)
+    - Previously: 9 healcastoronatk skill XML entries (Templar "Healing Touch on Attack" line, Cleric defensive heals, several boss aura mechanics) buffed the target but the caster never received heal — Java's ATTACKED observer was unimplemented
+    - Build: 0 warnings, 0 errors
