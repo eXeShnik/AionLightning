@@ -2853,3 +2853,11 @@
     - Pattern note: this handler does NOT use the helper to apply self-damage — it's a tertiary mutation outside the canonical attacker→target damage flow. Doing so would publish a recursive DamageDealtEvent and risk handler re-entry. Direct mutation matches Java's semantic ("blood-magic cost" applied silently) and keeps the event bus invariant: 1 publish = 1 logical attack
     - Previously: 8 magiccounteratk skill XML entries (a Sorcerer/Spiritmaster "Blood Pact"-style buff line + several boss-encounter cost-magic mechanics) had no effect — buffed creatures cast magical attacks at no HP cost
     - Build: 0 warnings, 0 errors
+
+262. [✓] DispelBuffCounterAtk — `<dispelbuffcounteratk>` aliased to existing damage + dispelbuff (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `"dispelbuffcounteratk"` to `DamageEffectNames` HashSet (routes the small `value` damage through magical-damage formula)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — extended `HasDispelBuff` matcher to include `dispelbuffcounteratk` so post-damage `ClearBuffs` fires
+    - Java analogy: `DispelBuffCounterAtkEffect` extends `DamageEffect` and additionally calls `effected.EffectController.dispelBuffCounterAtkEffect(i, dispelLevel, finalPower)`. The damage half is just inherited from the parent's `value + delta * level` formula. Our port runs both halves through existing pipelines: damage via `dmgFx[0]` and buff cleanup via `HasDispelBuff` flag fired at the existing CM_CASTSPELL dispel block (line 781 / 1141)
+    - Approximation: Java's `dispelLevel`/`power` parameters drive a probability/level-gated dispel; we run an unconditional `target.ClearBuffs()` (over-dispel). Acceptable for now — sub-categorized dispel needs a typed-dispel implementation alongside the M250 NPC-dispel infrastructure. Track for a future refinement
+    - Previously: 18 dispelbuffcounteratk skill XML entries (Templar/Gladiator dispel-on-hit moves like "Dispelling Cleave") silently ignored both the small damage hit AND the buff dispel
+    - Build: 0 warnings, 0 errors

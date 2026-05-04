@@ -146,7 +146,7 @@ public sealed class SkillEffects
         ?? AbnormalCcFlags.None;
 
     public bool HasDispelDebuff => Elements?.Any(e => e.LocalName is "dispeldebuff" or "dispeldebuffphysical" or "dispeldebuffmental" or "dispelnpcdebuff") == true;
-    public bool HasDispelBuff   => Elements?.Any(e => e.LocalName is "dispelbuff" or "dispelnpcbuff") == true;
+    public bool HasDispelBuff   => Elements?.Any(e => e.LocalName is "dispelbuff" or "dispelnpcbuff" or "dispelbuffcounteratk") == true;
     public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
 
     private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
@@ -1313,7 +1313,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant", "fphealinstant", "procfphealinstant", "dphealinstant", "procdphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal", "fpheal", "dpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease", "spellatk", "spellatkdrain"];
-    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant"];
+    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant", "dispelbuffcounteratk"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
