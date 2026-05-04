@@ -179,6 +179,7 @@ public sealed class SkillEffects
     public bool HasDispelDebuff => Elements?.Any(e => e.LocalName is "dispeldebuff" or "dispeldebuffphysical" or "dispeldebuffmental" or "dispelnpcdebuff" or "dispel") == true;
     public bool HasDispelBuff   => Elements?.Any(e => e.LocalName is "dispelbuff" or "dispelnpcbuff" or "dispelbuffcounteratk") == true;
     public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
+    public bool HasSanctuary    => Elements?.Any(e => e.LocalName == "sanctuary")    == true;
 
     private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
 

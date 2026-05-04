@@ -2905,3 +2905,11 @@
     - Limitation: full typed-dispel needs `effectid` tracking on `AbnormalState` (currently only carries SkillId). The 60 EFFECTID + 53 EFFECTTYPE skill XML entries get an over-broad cleanse that may dispel more than Java intends. Acceptable as a placeholder; track for refinement if PvP balance shows issues
     - Previously: 135 dispel skill XML entries (Cleric/Chanter typed-dispel skills, Songweaver cleanse line, Spiritmaster mass-dispel) silently ignored — typed dispel routed nowhere despite the existing dispel-debuff infrastructure
     - Build: 0 warnings, 0 errors
+
+268. [✓] Sanctuary handler — full damage immunity while sanctuary buff active (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `HasSanctuary` bool property to `SkillEffects` (mirrors HasResurrectEffect/HasHostileUp pattern)
+    - [✓] `Game/Combat/Handlers/SanctuaryHandler.cs` — `IEventHandler<DamageReceivingEvent>`: iterates target's active effects, returns early after the first sanctuary buff is found, zeroes `cell.Value`, broadcasts `SM_ATTACK_STATUS(ProtectDmg, Regular)` showing full absorb amount
+    - [✓] `Program.cs` — registered FIRST in DamageReceivingEvent handler chain so full-immunity short-circuits Shield + Protect (avoids redundant per-handler iteration when sanctuary already absorbed everything)
+    - Java analogy: `SanctuaryEffect` is a TODO stub in Java — `applyEffect`/`startEffect`/`endEffect` are all empty. Our implementation provides the sensible default that the buff name implies: while sanctuary is active, the creature is immune to damage. Used for safe-zone protections, mid-cast invulnerability frames, and several boss intermission mechanics
+    - Previously: 71 sanctuary skill XML entries (24-hour duration safe-zone protections, Songweaver/Cleric clutch invuln frames) had no effect
+    - Build: 0 warnings, 0 errors
