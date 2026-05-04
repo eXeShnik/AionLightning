@@ -1,7 +1,10 @@
+using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
+using AionLightning.Game.Combat;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -25,6 +28,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly IPlayerDao _playerDao;
     private readonly ILegionDao _legionDao;
     private readonly RateOptions _rates;
+    private readonly IEventBus _eventBus;
 
     private int _spellId;
     private int _level;
@@ -37,7 +41,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, SpawnService spawnService, LootService lootService,
         QuestService questService, DuelService duelService, NpcAiService npcAi,
-        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates)
+        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus)
     {
         _conn         = conn;
         _world        = world;
@@ -52,6 +56,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _playerDao    = playerDao;
         _legionDao    = legionDao;
         _rates        = rates;
+        _eventBus     = eventBus;
     }
 
     public override void Read(ref PacketReader r)
@@ -816,9 +821,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int noReduceVal = gAoeNoReduce[0].BaseValue + gAoeNoReduce[0].Delta * (_level - 1);
                         damage = gAoeNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
                     }
-                    target.CurrentHp      = Math.Max(0, target.CurrentHp - damage);
-                    target.LastCombatTime = DateTime.UtcNow;
-                    player.LastCombatTime = DateTime.UtcNow;
+                    var gAoeKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
+                    await target.ApplyDamageAndPublishAsync(player, damage, gAoeKind, spellId, _eventBus, ct);
 
                     // M239: drain damage variants — caster restores HP/MP from each AoE-target damage
                     if (gAoeDmgFx is { Count: > 0 } && (gAoeDmgFx[0].HpPercent != 0 || gAoeDmgFx[0].MpPercent != 0))
@@ -926,7 +930,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 {
                                     await Task.Delay(dotTickInfo.CheckTimeMs);
                                     if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
-                                    dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                                    await dotTickTarget.ApplyDamageAndPublishAsync(dotTickCaster, dotTickDmg, DamageKind.DoTTick, spellId, _eventBus);
                                     if (dotTickInfo.HpPercent != 0)
                                         dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
                                     if (dotTickInfo.MpPercent != 0)
@@ -1174,7 +1178,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int noReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
                     damage = stNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
                 }
-                target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
+                var stKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
+                await target.ApplyDamageAndPublishAsync(player, damage, stKind, spellId, _eventBus, ct);
 
                 // M239: drain damage variants — caster restores HP/MP from dealt damage
                 if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
@@ -1219,10 +1224,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
                 }
 
-                // Both caster and target enter combat
-                var combatNow = DateTime.UtcNow;
-                player.LastCombatTime = combatNow;
-                target.LastCombatTime = combatNow;
+                // LastCombatTime now updated by ApplyDamageAndPublishAsync helper (M260)
 
                 // NPC retaliation: force NPC to engage the caster when hit by a spell
                 if (target is Npc spellHitNpc && target.CurrentHp > 0)
@@ -1365,8 +1367,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             int splashNoReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
                             splashDmg = stNoReduce[0].IsPercent ? Math.Max(1, splash.MaxHp * splashNoReduceVal / 100) : Math.Max(1, splashNoReduceVal);
                         }
-                        splash.CurrentHp      = Math.Max(0, splash.CurrentHp - splashDmg);
-                        splash.LastCombatTime = DateTime.UtcNow;
+                        await splash.ApplyDamageAndPublishAsync(player, splashDmg, DamageKind.Splash, spellId, _eventBus, ct);
 
                         // M239: drain damage variants — splash hit also restores HP/MP to caster
                         if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
@@ -1502,7 +1503,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     {
                                         await Task.Delay(dotTickInfo.CheckTimeMs);
                                         if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
-                                        dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                                        await dotTickTarget.ApplyDamageAndPublishAsync(dotTickCaster, dotTickDmg, DamageKind.DoTTick, spellId, _eventBus);
                                         if (dotTickInfo.HpPercent != 0)
                                             dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
                                         if (dotTickInfo.MpPercent != 0)
@@ -1745,7 +1746,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 await Task.Delay(tickInfo.CheckTimeMs);
                                 if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
 
-                                tickTarget.CurrentHp = Math.Max(0, tickTarget.CurrentHp - dmgPerTick);
+                                await tickTarget.ApplyDamageAndPublishAsync(tickCaster, dmgPerTick, DamageKind.DoTTick, spellId, _eventBus);
                                 if (tickInfo.HpPercent != 0)
                                     tickCaster.CurrentHp = Math.Min(tickCaster.MaxHp, tickCaster.CurrentHp + dmgPerTick * tickInfo.HpPercent / 100);
                                 if (tickInfo.MpPercent != 0)

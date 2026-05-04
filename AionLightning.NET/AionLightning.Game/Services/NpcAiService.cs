@@ -1,6 +1,9 @@
 using System.Collections.Concurrent;
+using AionLightning.Commons.Events;
+using AionLightning.Game.Combat;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion;
@@ -42,6 +45,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly ExperienceService _expService;
     private readonly ILogger<NpcAiService> _log;
     private readonly RateOptions _rates;
+    private readonly IEventBus _eventBus;
     private readonly Dictionary<int, DateTime>    _lastAttackTime  = new();
     private readonly Dictionary<int, DateTime>    _lastSkillTime   = new();
     private readonly ConcurrentDictionary<int, int> _npcTargets    = new();
@@ -59,7 +63,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly Dictionary<int, DateTime>    _lastRegenTime      = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
-        ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates)
+        ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus)
     {
         _world        = world;
         _connRegistry = connRegistry;
@@ -67,6 +71,7 @@ public sealed class NpcAiService : BackgroundService
         _expService   = expService;
         _log          = log;
         _rates        = rates.Value;
+        _eventBus     = eventBus;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -367,9 +372,7 @@ public sealed class NpcAiService : BackgroundService
                 hits[hi] = new(otherHit, hitResult);
             int totalDamage = hits.Sum(h => h.Damage);
 
-            target.CurrentHp      = Math.Max(0, target.CurrentHp - totalDamage);
-            target.LastCombatTime = now;
-            npc.LastCombatTime    = now;
+            await target.ApplyDamageAndPublishAsync(npc, totalDamage, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
 
             var attackPkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, hits);
             var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, totalDamage);
@@ -555,9 +558,8 @@ public sealed class NpcAiService : BackgroundService
             int noReduceVal = npcNoReduce[0].BaseValue + npcNoReduce[0].Delta * (skillLevel - 1);
             spellDmg = npcNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
         }
-        target.CurrentHp      = Math.Max(0, target.CurrentHp - spellDmg);
-        target.LastCombatTime = now;
-        npc.LastCombatTime    = now;
+        var npcSkillKind = isPhysical ? DamageKind.PhysicalSkill : DamageKind.MagicalSkill;
+        await target.ApplyDamageAndPublishAsync(npc, spellDmg, npcSkillKind, skillId, _eventBus, ct);
 
         // M241: drain damage variants — NPC restores HP/MP from dealt damage
         if (dmgFx is { Count: > 0 } && (dmgFx[0].HpPercent != 0 || dmgFx[0].MpPercent != 0))
@@ -624,7 +626,7 @@ public sealed class NpcAiService : BackgroundService
                     {
                         await Task.Delay(dotTickInfo.CheckTimeMs);
                         if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
-                        dotTickTarget.CurrentHp = Math.Max(0, dotTickTarget.CurrentHp - dotTickDmg);
+                        await dotTickTarget.ApplyDamageAndPublishAsync(dotTickCaster, dotTickDmg, DamageKind.DoTTick, skillId, _eventBus);
                         if (dotTickInfo.HpPercent != 0)
                             dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
                         if (dotTickInfo.MpPercent != 0)
@@ -677,8 +679,7 @@ public sealed class NpcAiService : BackgroundService
                     int splNoReduceVal = npcNoReduce[0].BaseValue + npcNoReduce[0].Delta * (skillLevel - 1);
                     splashDmg = npcNoReduce[0].IsPercent ? Math.Max(1, other.MaxHp * splNoReduceVal / 100) : Math.Max(1, splNoReduceVal);
                 }
-                other.CurrentHp      = Math.Max(0, other.CurrentHp - splashDmg);
-                other.LastCombatTime = now;
+                await other.ApplyDamageAndPublishAsync(npc, splashDmg, DamageKind.Splash, skillId, _eventBus, ct);
 
                 // M241: drain on splash hits — NPC restores HP/MP per splash target
                 if (dmgFx is { Count: > 0 } && (dmgFx[0].HpPercent != 0 || dmgFx[0].MpPercent != 0))

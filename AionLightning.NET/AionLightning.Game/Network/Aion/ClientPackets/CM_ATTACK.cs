@@ -121,8 +121,7 @@ public sealed class CM_ATTACK : AionClientPacket
                     int pdefPr    = Math.Max(0, pvpParry.PhysicalDefense + pvpParry.PdefDebuffDelta + pvpParry.PdefStatUpDelta);
                     int dmgPr     = pdefPr > 0 ? Math.Max(1, rawDmgPr * 1000 / (1000 + pdefPr)) : rawDmgPr;
                     int parryDmg  = (int)(dmgPr * 0.6f);
-                    target.CurrentHp = Math.Max(0, target.CurrentHp - parryDmg);
-                    player.LastCombatTime = target.LastCombatTime = now;
+                    await target.ApplyDamageAndPublishAsync(player, parryDmg, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
                     await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, parryDmg, SM_ATTACK.HitResult.Parry), ct);
                     await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, parryDmg), ct);
                     goto afterAttack;
@@ -148,8 +147,7 @@ public sealed class CM_ATTACK : AionClientPacket
                     int pdefBl    = Math.Max(0, pvpBlock.PhysicalDefense + pvpBlock.PdefDebuffDelta + pvpBlock.PdefStatUpDelta);
                     int dmgBl     = pdefBl > 0 ? Math.Max(1, rawDmgBl * 1000 / (1000 + pdefBl)) : rawDmgBl;
                     int blockDmg  = dmgBl / 2;
-                    target.CurrentHp = Math.Max(0, target.CurrentHp - blockDmg);
-                    player.LastCombatTime = target.LastCombatTime = now;
+                    await target.ApplyDamageAndPublishAsync(player, blockDmg, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
                     await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, blockDmg, SM_ATTACK.HitResult.Block), ct);
                     await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, blockDmg), ct);
                     goto afterAttack;
@@ -273,7 +271,7 @@ public sealed class CM_ATTACK : AionClientPacket
                     && Random.Shared.Next(1000) < god.Probability)
                 {
                     int procDmg = god.SkillLvl * 20 + Random.Shared.Next(10, 30);
-                    target.CurrentHp = Math.Max(0, target.CurrentHp - procDmg);
+                    await target.ApplyDamageAndPublishAsync(player, procDmg, DamageKind.PhysicalSkill, god.SkillId, _eventBus, ct);
                     int procTargetType = target is Npc ? 3 : 0;
                     await BroadcastAsync(new SM_CASTSPELL(player.ObjectId, god.SkillId, god.SkillLvl,
                         procTargetType, target.ObjectId, duration: 0), ct);
