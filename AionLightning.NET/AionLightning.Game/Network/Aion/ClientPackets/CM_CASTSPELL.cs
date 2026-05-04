@@ -864,7 +864,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (target is Npc hitNpc && target.CurrentHp > 0)
                         _npcAi.ForceEngage(hitNpc, player);
 
-                    var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, SM_ATTACK_STATUS.LogId.SpellAtk);
+                    // M255: procatk_instant uses LogId.ProcAtkInstant (92) per Java; other variants use SpellAtk
+                    var gAoeStatusLog = (gAoeDmgFx is { Count: > 0 } && gAoeDmgFx[0].Variant == "procatk_instant")
+                        ? SM_ATTACK_STATUS.LogId.ProcAtkInstant
+                        : SM_ATTACK_STATUS.LogId.SpellAtk;
+                    var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, gAoeStatusLog);
                     foreach (var c in registry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == castWorldId)
                             try { await c.SendAsync(statusPkt); } catch { }
@@ -1234,7 +1238,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
-                var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, SM_ATTACK_STATUS.LogId.SpellAtk);
+                // M255: procatk_instant uses LogId.ProcAtkInstant (92) per Java; other variants use SpellAtk
+                var stStatusLog = (stDmgFx is { Count: > 0 } && stDmgFx[0].Variant == "procatk_instant")
+                    ? SM_ATTACK_STATUS.LogId.ProcAtkInstant
+                    : SM_ATTACK_STATUS.LogId.SpellAtk;
+                var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, stStatusLog);
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                         try { await c.SendAsync(statusPkt); } catch { }
@@ -1400,7 +1408,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (splash.CurrentHp > 0)
                             npcAi.ForceEngage(splash, player);
 
-                        var splashPkt = new SM_ATTACK_STATUS(splash, SM_ATTACK_STATUS.AttackType.Damage, spellId, splashDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        // M255: procatk_instant uses LogId.ProcAtkInstant (92) per Java; other variants use SpellAtk
+                        var splashStatusLog = (stDmgFx is { Count: > 0 } && stDmgFx[0].Variant == "procatk_instant")
+                            ? SM_ATTACK_STATUS.LogId.ProcAtkInstant
+                            : SM_ATTACK_STATUS.LogId.SpellAtk;
+                        var splashPkt = new SM_ATTACK_STATUS(splash, SM_ATTACK_STATUS.AttackType.Damage, spellId, splashDmg, splashStatusLog);
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(splashPkt); } catch { }

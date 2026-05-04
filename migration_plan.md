@@ -2789,3 +2789,10 @@
     - Java analogy: `SkillAtkDrainInstantEffect.applyEffect` calls `increaseHp(..., LOG.SKILLLATKDRAININSTANT)`; `SpellAtkDrainInstantEffect.applyEffect` calls `increaseHp(..., LOG.SPELLATKDRAININSTANT)`. Previously both used `LogId.SpellAtkDrain` (130, the DoT-drain code) which was wrong combat-log labelling — instant-drain should fire 23/24 not 130. DoT drain (M244 `<spellatkdrain>`) correctly continues to use `SpellAtkDrain = 130`
     - Gameplay impact: 147 drain skill XML entries (Assassin Soul Slash physical drain, Sorcerer/Spiritmaster magical drain) now emit the right combat-log label — purely cosmetic to the client UI but matches Java fidelity
     - Build: 0 warnings, 0 errors
+
+255. [✓] ProcAtkInstant LogId fidelity — `<procatk_instant>` damage broadcasts use LogId.ProcAtkInstant (92) (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — extended `SkillDamageInfo` record with `Variant` string field carrying the source effect element name (`skillatk`, `spellatkinstant`, `skillatkdraininstant`, `spellatkdraininstant`, `procatk_instant`); `DamageEffects` getter passes `e.LocalName` as the new field
+    - [✓] `CM_CASTSPELL.cs` — single-target `statusPkt`, ground-AoE `statusPkt`, splash `splashPkt`: pre-compute `LogId` from variant (`Variant == "procatk_instant"` → `LogId.ProcAtkInstant`, else `LogId.SpellAtk`)
+    - Java analogy: `ProcAtkInstantEffect.applyEffect` calls `effected.getController().onAttack(..., LOG.PROCATKINSTANT)` rather than the default `LOG.SPELLATK` from regular damage path — combat-log labels the proc differently in Java client UI; we now match
+    - Gameplay impact: 211 procatk_instant XML entries (M243) emit the correct proc combat-log label rather than appearing as a regular spell hit. Purely cosmetic to client UI but completes the M243 fidelity story alongside M254's drain LogId fix
+    - Build: 0 warnings, 0 errors

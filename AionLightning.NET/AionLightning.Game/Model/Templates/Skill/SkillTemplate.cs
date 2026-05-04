@@ -90,7 +90,7 @@ public readonly record struct SkillDotInfo(
     int    MpPercent      // drain MP per tick: tickDamage * MpPercent / 100 (0 = no drain)
 );
 
-/// <summary>Skill direct-damage descriptor parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; (regular) and &lt;skillatkdraininstant&gt;/&lt;spellatkdraininstant&gt; (drain).</summary>
+/// <summary>Skill direct-damage descriptor parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; (regular), &lt;skillatkdraininstant&gt;/&lt;spellatkdraininstant&gt; (drain), and &lt;procatk_instant&gt; (proc).</summary>
 public readonly record struct SkillDamageInfo(
     int    BaseValue,    // damage at skill level 1
     int    Delta,        // per-level damage increase
@@ -98,7 +98,8 @@ public readonly record struct SkillDamageInfo(
     string Element,      // elemental type (e.g. "FIRE", "EARTH") — reserved for future elemental resist
     int    AccuracyMod,  // accmod2 value (magic accuracy modifier, 0 = none)
     int    HpPercent,    // drain HP gained: dealtDamage * HpPercent / 100 (0 = no HP drain)
-    int    MpPercent     // drain MP gained: dealtDamage * MpPercent / 100 (0 = no MP drain)
+    int    MpPercent,    // drain MP gained: dealtDamage * MpPercent / 100 (0 = no MP drain)
+    string Variant       // raw effect element name (e.g. "skillatk", "procatk_instant") — used to pick combat-log LogId
 );
 
 /// <summary>Target-MP burn descriptor parsed from &lt;mpattackinstant&gt; (Java MpAttackInstantEffect).</summary>
@@ -1412,7 +1413,7 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("accmod2"), out int accMod);
                 int.TryParse(e.GetAttribute("hp_percent"), out int hpPct);
                 int.TryParse(e.GetAttribute("mp_percent"), out int mpPct);
-                list.Add(new(val, dlt, dmgType, element, accMod, hpPct, mpPct));
+                list.Add(new(val, dlt, dmgType, element, accMod, hpPct, mpPct, e.LocalName));
             }
             return list;
         }
