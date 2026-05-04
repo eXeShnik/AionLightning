@@ -119,7 +119,7 @@ public sealed class SkillEffects
         Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
         ?? AbnormalCcFlags.None;
 
-    public bool HasDispelDebuff => Elements?.Any(e => e.LocalName == "dispeldebuff") == true;
+    public bool HasDispelDebuff => Elements?.Any(e => e.LocalName is "dispeldebuff" or "dispeldebuffphysical" or "dispeldebuffmental") == true;
     public bool HasDispelBuff   => Elements?.Any(e => e.LocalName == "dispelbuff")   == true;
     public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
 
