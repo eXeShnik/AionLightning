@@ -218,6 +218,29 @@ public sealed class SkillEffects
     public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
     public bool HasSanctuary    => Elements?.Any(e => e.LocalName == "sanctuary")    == true;
 
+    /// <summary>M274: per-tick MP cost from &lt;periodicactions checktime="X"&gt;&lt;mpuse value="Y"/&gt;&lt;/periodicactions&gt;.
+    /// (CheckTimeMs, MpPerTick) — both 0 when no periodic actions defined.</summary>
+    public (int CheckTimeMs, int MpPerTick) PeriodicMpUse
+    {
+        get
+        {
+            if (Elements is null) return (0, 0);
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "periodicactions") continue;
+                int.TryParse(e.GetAttribute("checktime"), out int check);
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is not System.Xml.XmlElement ce) continue;
+                    if (ce.LocalName != "mpuse") continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v) && v > 0)
+                        return (check, v);
+                }
+            }
+            return (0, 0);
+        }
+    }
+
     private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
 
     /// <summary>

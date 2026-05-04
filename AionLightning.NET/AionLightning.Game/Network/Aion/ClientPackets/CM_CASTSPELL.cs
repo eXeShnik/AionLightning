@@ -565,6 +565,26 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 };
                 buffTarget.AddEffect(effect);
 
+                // M274: <periodicactions><mpuse> — periodic MP drain task while buff active
+                var (mpUseInterval, mpUsePerTick) = template?.Effects is null ? (0, 0) : template.Effects.PeriodicMpUse;
+                if (mpUsePerTick > 0 && mpUseInterval > 0 && buffTarget is Player drainTarget)
+                {
+                    var drainEffect = effect;
+                    var drainPlayer = drainTarget;
+                    var drainInterval = mpUseInterval;
+                    var drainPerTick  = mpUsePerTick;
+                    _ = Task.Run(async () =>
+                    {
+                        while (!drainPlayer.IsAlreadyDead && DateTime.UtcNow < drainEffect.Expiry)
+                        {
+                            await Task.Delay(drainInterval);
+                            if (drainPlayer.IsAlreadyDead || DateTime.UtcNow >= drainEffect.Expiry) break;
+                            drainPlayer.CurrentMp = Math.Max(0, drainPlayer.CurrentMp - drainPerTick);
+                            // TODO: when CurrentMp == 0, broadcast SM_TOGGLE_SKILL_DEACTIVATE to end the toggle (deferred)
+                        }
+                    });
+                }
+
                 if (atkSpeedStatUpDelta != 0)
                 {
                     var atkSpdEmo = new SM_EMOTION(buffTarget, EmotionType.START_EMOTE2);

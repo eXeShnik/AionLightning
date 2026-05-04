@@ -2955,3 +2955,11 @@
     - Architecture: routes through M260 `ApplyDamageAndPublishAsync` so all 6 damage observers (Sanctuary/Shield/Protect pre + HealCastorOnAttacked/MagicCounterAtk/Reflector/ConvertHeal post) automatically apply to item-cast damage — no special-casing required
     - Previously: items pointing to caster-AoE damage skills consumed their charge and showed the use animation but applied no damage to nearby enemies
     - Build: 0 warnings, 0 errors
+
+274. [✓] Periodic MP drain — `<periodicactions><mpuse>` ticks while buff active (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `PeriodicMpUse` getter scans `<periodicactions checktime="X">` for `<mpuse value="Y"/>` child; returns (CheckTimeMs, MpPerTick) tuple
+    - [✓] `CM_CASTSPELL.cs` — buff path post-AddEffect: when PeriodicMpUse non-zero and target is Player, spawns Task.Run that ticks `drainPlayer.CurrentMp -= drainPerTick` every drainInterval until buff expiry or player death
+    - Java analogy: Java `PeriodicActions` schedules ticks with `ThreadPoolManager`; on each tick, executes the action (mpuse). We mirror this for the mpuse subset
+    - Limitations: when MP drains to 0, buff continues ticking on 0 MP (TODO comment marks the deactivation gap). Java would call `SM_TOGGLE_SKILL_DEACTIVATE` to end the toggle. Adding that needs the toggle-deactivation packet which doesn't yet exist
+    - Gameplay impact: 38 periodicactions skill XML entries (Aether-fly toggles, Spiritmaster summon-maintenance auras, several Templar/Cleric stance toggles) now drain MP on the listed cadence. The toggle stays active even after MP runs out (deferred)
+    - Build: 0 warnings, 0 errors
