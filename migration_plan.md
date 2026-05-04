@@ -2675,3 +2675,11 @@
     - Java analogy: `MpAttackInstantEffect.applyEffect` calls `effected.LifeStats.reduceMp(value)` (or `maxMp * value / 100` if `percent="true"`); we replicate the math but skip combat-log broadcast (Java doesn't emit one for this effect either)
     - Previously: 97 mpattackinstant skill XML entries (Aether Arrow line at 75% target max-MP, Sorcerer mana-burn lines, several Spiritmaster/Templar utility) silently ignored — Sorcerers/Spiritmasters could be locked out of their entire kit by these skills in PvP per Java behavior, but we ignored them entirely
     - Build: 0 warnings, 0 errors
+
+241. [✓] NPC casters — drain damage + mpattackinstant support in NpcAiService (session 2026-05-04)
+    - [✓] `Services/NpcAiService.cs` — `CastNpcDamageAsync` primary-target block: after `target.CurrentHp -= spellDmg`, drain block reads `dmgFx[0].HpPercent`/`MpPercent` and credits NPC's own HP/MP via `Math.Min(MaxHp, CurrentHp + spellDmg * pct / 100)`
+    - [✓] `Services/NpcAiService.cs` — `CastNpcDamageAsync` primary-target block: mpattackinstant block reads `MpAttackEffects[0]`, computes `mpBurn = (BaseValue + Delta*(skillLevel-1))` (or `target.MaxMp * val / 100` if percent), subtracts from `target.CurrentMp` clamped at 0
+    - [✓] `Services/NpcAiService.cs` — splash AoE branch: drain credits NPC HP/MP per splash target; mpattackinstant burns each splash target's MP (independent `splMpFx` lookup since `npcMpFx` is scoped to primary block)
+    - Java analogy: same as M239/M240 — mirrors player-side drain + MP burn for NPC casters; uses `npc.CurrentHp/Mp` as effector instead of `player.CurrentHp/Mp`
+    - Previously: NPC bosses casting drain skills (e.g. dragon lifesteal abilities, Beritra-style mana drain) would deal damage but never restore their own HP/MP; NPC mana-burn skills against players also didn't drain target MP — only the player-side casters benefited from M239/M240
+    - Build: 0 warnings, 0 errors

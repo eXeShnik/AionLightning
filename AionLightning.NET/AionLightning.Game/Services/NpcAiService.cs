@@ -550,6 +550,25 @@ public sealed class NpcAiService : BackgroundService
         target.LastCombatTime = now;
         npc.LastCombatTime    = now;
 
+        // M241: drain damage variants — NPC restores HP/MP from dealt damage
+        if (dmgFx is { Count: > 0 } && (dmgFx[0].HpPercent != 0 || dmgFx[0].MpPercent != 0))
+        {
+            if (dmgFx[0].HpPercent != 0)
+                npc.CurrentHp = Math.Min(npc.MaxHp, npc.CurrentHp + spellDmg * dmgFx[0].HpPercent / 100);
+            if (dmgFx[0].MpPercent != 0)
+                npc.CurrentMp = Math.Min(npc.MaxMp, npc.CurrentMp + spellDmg * dmgFx[0].MpPercent / 100);
+        }
+
+        // M241: mpattackinstant — burn target MP
+        var npcMpFx = skillTemplate?.Effects?.MpAttackEffects;
+        if (npcMpFx is { Count: > 0 })
+        {
+            int mpBurnVal = npcMpFx[0].BaseValue + npcMpFx[0].Delta * (skillLevel - 1);
+            int mpBurn = npcMpFx[0].IsPercent ? target.MaxMp * mpBurnVal / 100 : mpBurnVal;
+            if (mpBurn > 0)
+                target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
+        }
+
         var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, spellDmg);
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
@@ -632,6 +651,24 @@ public sealed class NpcAiService : BackgroundService
                 int splashDmg  = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
                 other.CurrentHp      = Math.Max(0, other.CurrentHp - splashDmg);
                 other.LastCombatTime = now;
+
+                // M241: drain on splash hits — NPC restores HP/MP per splash target
+                if (dmgFx is { Count: > 0 } && (dmgFx[0].HpPercent != 0 || dmgFx[0].MpPercent != 0))
+                {
+                    if (dmgFx[0].HpPercent != 0)
+                        npc.CurrentHp = Math.Min(npc.MaxHp, npc.CurrentHp + splashDmg * dmgFx[0].HpPercent / 100);
+                    if (dmgFx[0].MpPercent != 0)
+                        npc.CurrentMp = Math.Min(npc.MaxMp, npc.CurrentMp + splashDmg * dmgFx[0].MpPercent / 100);
+                }
+                // M241: mpattackinstant on splash hits
+                var splMpFx = skillTemplate?.Effects?.MpAttackEffects;
+                if (splMpFx is { Count: > 0 })
+                {
+                    int splMpBurnVal = splMpFx[0].BaseValue + splMpFx[0].Delta * (skillLevel - 1);
+                    int splMpBurn = splMpFx[0].IsPercent ? other.MaxMp * splMpBurnVal / 100 : splMpBurnVal;
+                    if (splMpBurn > 0)
+                        other.CurrentMp = Math.Max(0, other.CurrentMp - splMpBurn);
+                }
 
                 var splashPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, splashDmg);
                 foreach (var conn in _connRegistry.GetAll())
