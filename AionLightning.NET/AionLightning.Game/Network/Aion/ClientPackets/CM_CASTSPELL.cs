@@ -568,6 +568,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 };
                 buffTarget.AddEffect(effect);
 
+                // M283: <rebirth> — sets self-rez flags on Player for the M237 REBIRTH_REVIVE flow
+                if (template?.Effects?.RebirthInfo is { Has: true } rb && buffTarget is Player rbTarget)
+                {
+                    rbTarget.CanRebirthRevive        = true;
+                    rbTarget.RebirthResurrectPercent = rb.ResurrectPercent;
+                    rbTarget.RebirthSkillId          = rb.SkillId;
+                }
+
                 // M274: <periodicactions><mpuse> — periodic MP drain task while buff active
                 var (mpUseInterval, mpUsePerTick) = template?.Effects is null ? (0, 0) : template.Effects.PeriodicMpUse;
                 if (mpUsePerTick > 0 && mpUseInterval > 0 && buffTarget is Player drainTarget)

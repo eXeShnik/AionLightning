@@ -265,6 +265,23 @@ public sealed class SkillEffects
     /// <summary>M282: flight-ban debuff — buffed creature loses fly capability (Java NoFlyEffect). Behavior needs flight-state subsystem.</summary>
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
 
+    /// <summary>M283: rebirth (self-rez on death) — Java RebirthEffect. (Has, ResurrectPercent, SkillId)</summary>
+    public (bool Has, int ResurrectPercent, int SkillId) RebirthInfo
+    {
+        get
+        {
+            if (Elements is null) return (false, 0, 0);
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "rebirth") continue;
+                int.TryParse(e.GetAttribute("resurrect_percent"), out int pct);
+                int.TryParse(e.GetAttribute("skill_id"), out int sid);
+                return (true, pct > 0 ? pct : 5, sid);
+            }
+            return (false, 0, 0);
+        }
+    }
+
     /// <summary>M281: FP-damage value from &lt;fpatkinstant&gt;/&lt;delayedfpatk_instant&gt;. (Value, Delta, IsPercent) — IsPercent: drains pct of MaxFp.</summary>
     public (int Value, int Delta, bool IsPercent) FpAttackInfo
     {
