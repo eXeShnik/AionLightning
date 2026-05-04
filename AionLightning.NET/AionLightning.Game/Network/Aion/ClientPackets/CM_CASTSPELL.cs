@@ -100,6 +100,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
         if (template?.SkillType == SkillType.MAGICAL
             && (player.ActiveCcFlags & AbnormalCcFlags.Silence) != 0) return;
 
+        // M269: <weapon> startcondition — skill requires a specific weapon class equipped
+        if (template?.AllowedWeapons is { Count: > 0 } allowed)
+        {
+            string equipped = player.MainHandWeaponType ?? string.Empty;
+            string equippedOff = player.OffHandWeaponType ?? string.Empty;
+            if (!allowed.Contains(equipped) && !allowed.Contains(equippedOff)) return;
+        }
+
         // Server-side cooldown enforcement keyed by CooldownId group (mirrors Java isSkillDisabled)
         if (template is not null && template.Cooldown > 0)
         {

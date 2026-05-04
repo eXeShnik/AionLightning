@@ -2913,3 +2913,12 @@
     - Java analogy: `SanctuaryEffect` is a TODO stub in Java — `applyEffect`/`startEffect`/`endEffect` are all empty. Our implementation provides the sensible default that the buff name implies: while sanctuary is active, the creature is immune to damage. Used for safe-zone protections, mid-cast invulnerability frames, and several boss intermission mechanics
     - Previously: 71 sanctuary skill XML entries (24-hour duration safe-zone protections, Songweaver/Cleric clutch invuln frames) had no effect
     - Build: 0 warnings, 0 errors
+
+269. [✓] Weapon-restriction validator — `<weapon>` startcondition enforced (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `[XmlElement("startconditions")] SkillStartConditions? StartConditions` slot; `SkillStartConditions` class with `[XmlElement("weapon")] SkillWeaponCondition? Weapon`; `SkillWeaponCondition.WeaponList` parses the `weapon=` attribute string
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `AllowedWeapons` HashSet getter splits the space-separated list into a case-insensitive set
+    - [✓] `CM_CASTSPELL.cs` — pre-cast guard: when `AllowedWeapons` is non-empty, returns early unless `MainHandWeaponType` or `OffHandWeaponType` matches one of the allowed types
+    - Java analogy: Java `WeaponCondition.verify(skill)` reads `effector.getEquipment().getMainHandWeaponType()`, returns false if not in allowed list, blocking the cast. We now mirror this server-side
+    - Gameplay impact: prevents class skills from being cast with the wrong weapon (e.g. casting Bow skill with a Staff equipped). Affects every class — most damage skills carry weapon restrictions in their `<startconditions>` block. The OffHand check matches Java's bow/dagger dual-handed cases where the secondary slot may carry the type
+    - Edge case: skills with no `<weapon>` startcondition pass through (AllowedWeapons.Count == 0 → guard skipped)
+    - Build: 0 warnings, 0 errors

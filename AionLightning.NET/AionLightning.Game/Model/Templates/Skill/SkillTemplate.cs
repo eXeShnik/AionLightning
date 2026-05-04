@@ -19,8 +19,23 @@ public sealed class SkillTemplate
     [XmlAttribute("duration")]   public int       Duration   { get; set; }
     [XmlAttribute("tslot")]      public string    TSlot      { get; set; } = "";
 
-    [XmlElement("properties")]   public SkillProperties? Properties { get; set; }
-    [XmlElement("effects")]      public SkillEffects?    Effects    { get; set; }
+    [XmlElement("properties")]      public SkillProperties?      Properties      { get; set; }
+    [XmlElement("startconditions")] public SkillStartConditions? StartConditions { get; set; }
+    [XmlElement("effects")]         public SkillEffects?         Effects         { get; set; }
+
+    /// <summary>M269: parsed allowed-weapon-types HashSet from &lt;startconditions&gt;&lt;weapon weapon="X Y Z"/&gt;. Empty = no restriction.</summary>
+    public HashSet<string> AllowedWeapons
+    {
+        get
+        {
+            var raw = StartConditions?.Weapon?.WeaponList;
+            if (string.IsNullOrWhiteSpace(raw)) return new();
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var w in raw.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                set.Add(w);
+            return set;
+        }
+    }
 
     public AbnormalCcFlags CcFlags => Effects?.CcFlags ?? AbnormalCcFlags.None;
 
@@ -48,6 +63,18 @@ public sealed class SkillTemplate
 
     // When cooldownId == 0 in XML, each skill acts as its own cooldown group (mirrors Java getCooldownId())
     public int EffectiveCooldownId => CooldownId > 0 ? CooldownId : SkillId;
+}
+
+/// <summary>M269: skill startconditions block — currently parses &lt;weapon&gt; restriction.</summary>
+public sealed class SkillStartConditions
+{
+    [XmlElement("weapon")] public SkillWeaponCondition? Weapon { get; set; }
+}
+
+public sealed class SkillWeaponCondition
+{
+    /// <summary>Space-separated list of allowed weapon types (e.g. "SWORD_2H BOW MACE_1H").</summary>
+    [XmlAttribute("weapon")] public string WeaponList { get; set; } = string.Empty;
 }
 
 public sealed class SkillProperties
