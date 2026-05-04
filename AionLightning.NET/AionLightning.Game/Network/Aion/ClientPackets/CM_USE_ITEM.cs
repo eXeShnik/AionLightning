@@ -526,6 +526,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 "mp" => player.MaxMp,
                 "fp" => player.MaxFp,
                 "dp" => 6000,
+                "vp" => 6000,
                 _    => 0,
             };
             int heal = he.IsPercent ? maxStat * valueWithDelta / 100 : valueWithDelta;
@@ -562,6 +563,14 @@ public sealed class CM_USE_ITEM : AionClientPacket
                 if (heal <= 0) continue;
                 player.Dp += heal;
                 try { await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct); } catch { }
+                stateChanged = true;
+            }
+            else if (he.HealType == "vp")
+            {
+                // M272: item-driven VP restore — server-side only (no SM_VP_INFO yet)
+                heal = Math.Min(heal, 6000 - player.Vp);
+                if (heal <= 0) continue;
+                player.Vp += heal;
                 stateChanged = true;
             }
             else // mp

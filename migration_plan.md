@@ -2937,3 +2937,12 @@
     - Approximation: Java `CarveSignetEffect` places a typed stack on the target which `SignetBurstEffect` consumes for scaled damage. Our alias delivers the baseline `value + delta * level` damage of both effects without tracking signet stacks. The bonus burst-from-stacks scaling is deferred — needs `target.Signets` Dictionary<string, (Level, Caster)> + per-cast match logic
     - Gameplay impact: 95 carvesignet + 58 signetburst = 153 skill XML entries (Sorcerer signet line — Signet of Wind, Signet of Stone, Signet Burst — and several boss-encounter mark mechanics) now deal their listed damage. Burst skills don't yet scale up from prior carvesignet stacks but they do hit
     - Build: 0 warnings, 0 errors
+
+272. [✓] VP heal subsystem — `<vphealinstant>` + `<procvphealinstant>` (session 2026-05-04)
+    - [✓] `Model/Player.cs` — added `Vp` int field (Valor Points alternate resource pool)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `vphealinstant`/`procvphealinstant` to HealInstantNames; HealEffects ternary routes to `vp` HealType
+    - [✓] `CM_CASTSPELL.cs` — single-target heal + AoE ally heal: `vp` branches mirror M252 DP pattern with 6000 cap; no SM_VP_INFO packet yet (server-side state only)
+    - [✓] `CM_USE_ITEM.cs` — `HandleItemHealAsync`: `vp` branch for VP-recovery items
+    - Java analogy: `VPHealInstantEffect` extends `AbstractHealEffect` with HealType.VP. We use the same 6000 cap as DP until proper Vp template/stat infra exists. Client-side display will lag without SM_VP_INFO; server VP arithmetic is correct
+    - Previously: 16 VP heal skill XML entries (siege/PvP zone resource scrolls) silently dropped. Players had no way to gain VP outside zone-specific kill rewards
+    - Build: 0 warnings, 0 errors

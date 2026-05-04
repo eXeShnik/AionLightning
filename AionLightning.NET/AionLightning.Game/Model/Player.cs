@@ -120,6 +120,9 @@ public sealed class Player : Creature
     // Chain link must be cast within this window after the previous link
     public const int ChainTimeoutMs = 4000;
 
+    // M272: Valor Points — alternate resource pool (siege/PvP zone). Cap mirrors Dp at 6000 until MaxVp template is wired
+    public int Vp { get; set; }
+
     // Magical attack bonus from equipped magical weapon (staff/orb/mace/etc.); average of min/max weapon damage
     public int MainHandMagicalAtk { get; set; }
 

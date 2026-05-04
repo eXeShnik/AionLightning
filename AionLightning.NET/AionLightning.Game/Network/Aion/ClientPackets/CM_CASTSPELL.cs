@@ -195,6 +195,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             "mp" => healTarget.MaxMp,
                             "fp" => healTarget is Player fpHtMax ? fpHtMax.MaxFp : 0,
                             "dp" => 6000, // DP cap (no MaxDp field, mirrors CM_ATTACK / CM_CASTSPELL DP gain caps)
+                            "vp" => 6000, // VP cap (M272 — mirrors DP)
                             _    => 0,
                         };
                         int heal = he.IsPercent ? healMaxStat * valueWithDelta / 100 : valueWithDelta;
@@ -233,6 +234,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             var dpConn = _connRegistry.Get(dpHt.ObjectId);
                             if (dpConn is not null)
                                 try { await dpConn.SendAsync(dpInfo, ct); } catch { }
+                        }
+                        else if (he.HealType == "vp" && healTarget is Player vpHt)
+                        {
+                            // M272: vphealinstant — valor points heal (Player only, capped at 6000); no client packet yet
+                            heal = Math.Min(heal, 6000 - vpHt.Vp);
+                            if (heal <= 0) continue;
+                            vpHt.Vp += heal;
                         }
                         else
                         {
@@ -408,6 +416,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             "mp" => ally.MaxMp,
                             "fp" => ally is Player fpAllyMax ? fpAllyMax.MaxFp : 0,
                             "dp" => 6000,
+                            "vp" => 6000,
                             _    => 0,
                         };
                         int h  = he.IsPercent ? aoeMaxStat * vd / 100 : vd;
@@ -443,6 +452,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             var dpAllyConn = _connRegistry.Get(dpAlly.ObjectId);
                             if (dpAllyConn is not null)
                                 try { await dpAllyConn.SendAsync(new SM_DP_INFO(dpAlly.ObjectId, dpAlly.Dp), ct); } catch { }
+                        }
+                        else if (he.HealType == "vp" && ally is Player vpAlly)
+                        {
+                            // M272: AoE VP heal — Player allies only; no client packet yet
+                            h = Math.Min(h, 6000 - vpAlly.Vp);
+                            if (h <= 0) continue;
+                            vpAlly.Vp += h;
                         }
                         else
                         {
