@@ -151,6 +151,13 @@ public readonly record struct SkillConvertHealInfo(
     string HealType      // "hp" | "mp" — Java ConvertHealEffect@type attribute
 );
 
+/// <summary>"Damage shield" descriptor parsed from &lt;shield&gt; (Java ShieldEffect).
+/// Absorbs HitValue + HitDelta * SkillLevel damage per incoming hit.</summary>
+public readonly record struct SkillShieldInfo(
+    int HitValue,    // damage absorbed per hit at level 1
+    int HitDelta     // per-level scaling
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1336,6 +1343,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> MagicCounterAtkEffectNames = ["magiccounteratk"];
     private static readonly HashSet<string> ReflectorEffectNames = ["reflector"];
     private static readonly HashSet<string> ConvertHealEffectNames = ["convertheal"];
+    private static readonly HashSet<string> ShieldEffectNames = ["shield"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1545,6 +1553,23 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
                 string ht = (e.GetAttribute("type") ?? "HP").ToLowerInvariant() == "mp" ? "mp" : "hp";
                 list.Add(new(val, dlt, ht));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillShieldInfo> ShieldEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillShieldInfo>();
+            foreach (var e in Elements)
+            {
+                if (!ShieldEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("hitvalue"), out int hit);
+                int.TryParse(e.GetAttribute("hitdelta"), out int hitDlt);
+                list.Add(new(hit, hitDlt));
             }
             return list;
         }

@@ -23,11 +23,17 @@ public static class CreatureDamageExtensions
     {
         if (damage <= 0) return;
 
-        target.CurrentHp        = Math.Max(0, target.CurrentHp - damage);
+        // M265: pre-damage event — handlers (Shield/Protect) may mutate the cell to reduce damage
+        var cell = new MutableDamage(damage);
+        await bus.PublishAsync(new DamageReceivingEvent(attacker, target, cell, kind, skillId), ct);
+        int finalDmg = Math.Max(0, cell.Value);
+        if (finalDmg <= 0) return; // fully absorbed — skip HP write + post-event entirely
+
+        target.CurrentHp        = Math.Max(0, target.CurrentHp - finalDmg);
         var now                 = DateTime.UtcNow;
         target.LastCombatTime   = now;
         attacker.LastCombatTime = now;
 
-        await bus.PublishAsync(new DamageDealtEvent(attacker, target, damage, kind, skillId), ct);
+        await bus.PublishAsync(new DamageDealtEvent(attacker, target, finalDmg, kind, skillId), ct);
     }
 }

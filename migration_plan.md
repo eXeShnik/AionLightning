@@ -2878,3 +2878,14 @@
     - Closes the 5-effect M260 unlock pool: 9+8+18+95+4 = 134 skills now reach handlers via the damage observer pattern. Pre-damage shield semantics (true damage absorption, percent-based reduction) is the next architectural milestone — needs a `DamageReceivingEvent` with mutable damage payload, fired from inside `ApplyDamageAndPublishAsync` BEFORE the HP subtract
     - Previously: 4 convertheal skill XML entries (Templar shields, boss survival mechanics) ignored — buffed creatures took full damage with no conversion to heal
     - Build: 0 warnings, 0 errors
+
+265. [✓] DamageReceivingEvent + Shield handler — pre-damage absorption infrastructure (session 2026-05-04)
+    - [✓] `Game/Events/DamageDealtEvent.cs` — added `MutableDamage` class wrapper + `DamageReceivingEvent` record (Attacker, Target, MutableDamage Damage, DamageKind, SkillId)
+    - [✓] `Game/Combat/CreatureDamageExtensions.cs` — `ApplyDamageAndPublishAsync` now publishes `DamageReceivingEvent` with a `MutableDamage(damage)` cell BEFORE HP write; reads `cell.Value` after handlers run; if cell zeroed, returns early skipping HP subtract + DamageDealtEvent (full absorption)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `SkillShieldInfo` record (HitValue, HitDelta); `ShieldEffectNames` HashSet; `ShieldEffects` getter parses `hitvalue`+`hitdelta`
+    - [✓] `Game/Combat/Handlers/ShieldHandler.cs` — `IEventHandler<DamageReceivingEvent>`: iterates target's shield buffs, computes per-buff absorb cap = HitValue + HitDelta * SkillLevel, mutates `e.Damage.Value -= absorbed`, broadcasts `SM_ATTACK_STATUS(ProtectDmg, Regular)` to in-world clients. Stops early when fully absorbed
+    - [✓] `Program.cs` — fifth handler registered: `Transient<IEventHandler<DamageReceivingEvent>>` for ShieldHandler (separate event type from the 4 DamageDealt handlers)
+    - Architecture milestone: completes the bidirectional damage observer model. Pre-damage handlers (Shield/Protect/etc.) intercept and mutate; post-damage handlers (HealCastorOnAttacked/MagicCounterAtk/Reflector/ConvertHeal) react after the hit lands. The MutableDamage cell decouples handler chains — Shield can run alongside Reflector without semantic conflict
+    - Java analogy: `ShieldEffect.startEffect` builds `AttackShieldObserver(hitvalue, value, percent, ...)` and registers it on effected. The observer's `onAttack` reduces damage. Our port mirrors this with: Shield handler reduces `cell.Value`; full-absorb case skips both HP write and post-damage event (matches Java where shielded hits don't trigger ATTACKED observers)
+    - Previously: 331 shield skill XML entries (Templar "Magic Shield"/"Body Smash", Cleric/Chanter defensive auras, Sorcerer/Spiritmaster magical shield line, hundreds of boss-encounter shields) cast their animation but absorbed nothing
+    - Build: 0 warnings, 0 errors

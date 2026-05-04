@@ -42,6 +42,8 @@ builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HealCastorOnAttac
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, MagicCounterAtkHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ReflectorHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ConvertHealHandler>();
+// M265+: pre-damage handlers (mutate MutableDamage to absorb)
+builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, ShieldHandler>();
 
 // World
 builder.Services.AddSingleton<GameWorld>();

@@ -28,3 +28,26 @@ public sealed record DamageDealtEvent(
     DamageKind Kind,
     int?     SkillId
 ) : IGameEvent;
+
+/// <summary>
+/// M265: Mutable damage cell so DamageReceivingEvent handlers (Shield, ProtectEffect, etc.)
+/// can reduce or zero the incoming damage BEFORE it's applied to target.CurrentHp.
+/// </summary>
+public sealed class MutableDamage
+{
+    public int Value { get; set; }
+    public MutableDamage(int initial) => Value = initial;
+}
+
+/// <summary>
+/// Published BEFORE a Creature.CurrentHp mutation. Handlers may mutate <see cref="MutableDamage.Value"/>
+/// to reduce/absorb the incoming damage. Handlers that absorb should also broadcast their own
+/// shield-status packet (the canonical damage broadcast happens later from the caller).
+/// </summary>
+public sealed record DamageReceivingEvent(
+    Creature      Attacker,
+    Creature      Target,
+    MutableDamage Damage,
+    DamageKind    Kind,
+    int?          SkillId
+) : IGameEvent;
