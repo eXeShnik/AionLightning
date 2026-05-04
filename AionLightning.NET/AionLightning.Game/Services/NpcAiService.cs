@@ -483,7 +483,7 @@ public sealed class NpcAiService : BackgroundService
         switch (skillTemplate?.SubType)
         {
             case SkillSubType.HEAL:
-                await CastNpcHealAsync(npc, entry.SkillId, now, worldId, ct);
+                await CastNpcHealAsync(npc, entry.SkillId, entry.SkillLevel, skillTemplate, now, worldId, ct);
                 break;
             case SkillSubType.BUFF or SkillSubType.CHANT:
                 await CastNpcBuffAsync(npc, entry.SkillId, entry.SkillLevel, effectiveDuration, skillTemplate.Effects, now, worldId, ct);
@@ -755,10 +755,32 @@ public sealed class NpcAiService : BackgroundService
         }
     }
 
-    private async Task CastNpcHealAsync(Npc npc, int skillId, DateTime now, int worldId, CancellationToken ct)
+    private async Task CastNpcHealAsync(Npc npc, int skillId, int skillLevel, SkillTemplate? skillTemplate, DateTime now, int worldId, CancellationToken ct)
     {
-        int healAmt      = Math.Max(1, npc.MaxHp / 6);
-        npc.CurrentHp    = Math.Min(npc.MaxHp, npc.CurrentHp + healAmt);
+        // M257: NPC heal skills use template HealEffects (HP only — NPCs don't have MP/FP/DP)
+        // Fallback for skills without parsed HealEffects: MaxHp/6 (legacy behaviour)
+        int healAmt;
+        var healFx = skillTemplate?.Effects?.HealEffects;
+        if (healFx is { Count: > 0 })
+        {
+            healAmt = 0;
+            foreach (var he in healFx)
+            {
+                if (he.HealType != "hp") continue; // NPC heal targets only HP
+                int valueWithDelta = he.BaseValue + he.Delta * Math.Max(1, skillLevel);
+                int part = he.IsPercent ? npc.MaxHp * valueWithDelta / 100 : valueWithDelta;
+                if (part > 0) healAmt += part;
+            }
+            if (healAmt <= 0) healAmt = Math.Max(1, npc.MaxHp / 6); // safety fallback
+        }
+        else
+        {
+            healAmt = Math.Max(1, npc.MaxHp / 6);
+        }
+        healAmt = Math.Min(healAmt, npc.MaxHp - npc.CurrentHp);
+        if (healAmt <= 0) return;
+
+        npc.CurrentHp      = npc.CurrentHp + healAmt;
         npc.LastCombatTime = now;
 
         // M256: NPC self-heal uses LogId.Heal (3)

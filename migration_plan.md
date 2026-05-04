@@ -2804,3 +2804,11 @@
     - Closes the LogId fidelity story for NPC casts: previously NPC skill damage and self-heal were tagged with `Regular = 181` (default constructor arg) which the client UI displays as a generic combat entry; now they emit the proper SpellAtk/Heal tags matching CM_CASTSPELL player-side and the Java `LOG.SPELLATK`/`LOG.HEAL` enum values
     - Auto-attack (line 373) and HP regen (line 128) intentionally keep the default `Regular` since they're not skill-driven — matches Java behavior where `attack` packets use `LOG.REGULAR`
     - Build: 0 warnings, 0 errors
+
+257. [✓] NPC self-heal uses skill template — `CastNpcHealAsync` reads HealEffects instead of MaxHp/6 fallback (session 2026-05-04)
+    - [✓] `Services/NpcAiService.cs` — `CastNpcHealAsync` signature extended with `skillLevel` + `SkillTemplate? skillTemplate` parameters; call site at line 486 passes them through
+    - [✓] `Services/NpcAiService.cs` — body computes `healAmt` from `skillTemplate.Effects.HealEffects` when present: iterates each HP-type heal entry, applies `BaseValue + Delta * skillLevel` with optional `IsPercent` of `npc.MaxHp`; falls back to legacy `MaxHp/6` when no HealEffects parsed (or when only MP/FP/DP entries which NPCs can't consume)
+    - [✓] `Services/NpcAiService.cs` — applies `healAmt` clamped to `MaxHp - CurrentHp`, returns early on no-op
+    - Java analogy: `HealInstantEffect.applyEffect` reads `value + delta * skillLevel` and applies via `LifeStats.increaseHp`. Our NPC port uses the same formula scaled by skill level instead of the previous flat-1/6th-of-MaxHp approximation
+    - Previously: ~30 NPC heal-type skill templates (boss self-heal, mob recovery skills like "Massive Recovery") all healed for the same 1/6 of MaxHp regardless of skill template values. Bosses with low-tier heals over-healed; bosses with high-tier heals under-healed
+    - Build: 0 warnings, 0 errors
