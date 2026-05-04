@@ -121,6 +121,7 @@ public sealed class SkillEffects
 
     public bool HasDispelDebuff => Elements?.Any(e => e.LocalName == "dispeldebuff") == true;
     public bool HasDispelBuff   => Elements?.Any(e => e.LocalName == "dispelbuff")   == true;
+    public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
 
     private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
 

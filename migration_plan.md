@@ -2707,3 +2707,11 @@
     - Java analogy: `SpellAttackEffect` (extends `AbstractOverTimeEffect`) ticks magical damage with `value + delta * skillLevel`; `SpellAtkDrainEffect` ticks the same plus `effector.LifeStats.increaseHp/Mp(damage * pct / 100)` per tick. We use simplified `value + delta * skillLevel` without the magical-attack scaling that Java's `calculateMagicalOverTimeSkillResult` applies — same approximation already used for our existing bleed/poison/disease ticks
     - Previously: 491 spellatk + 113 spellatkdrain = 604 skill XML entries silently ignored — fire/earth/wind elemental DoTs from Sorcerer/Spiritmaster (e.g. Sandstorm DoT, Burning Spirit DoT) and DoT-drain skills delivered their `<spellatkinstant>` initial hit but skipped all subsequent tick damage
     - Build: 0 warnings, 0 errors
+
+245. [✓] Hostileup — `<hostileup>` taunt skills force NPC target to engage caster (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — added `HasHostileUp` bool property to `SkillEffects`: scans `Elements` for any `LocalName == "hostileup"`
+    - [✓] `CM_CASTSPELL.cs` — added taunt routing block right before resurrection block: if `HasHostileUp && _targetType == 0`, looks up `tauntNpc` via `_world.GetNpcByObjectId`; if alive, calls `_npcAi.ForceEngage(tauntNpc, player)` to make the NPC switch its current target/aggro to the caster
+    - Block placement is non-exclusive (no `return`) so a skill that combines `<hostileup>` with damage/buff effects still routes those effects normally; the ForceEngage is a side-effect on top
+    - Java analogy: `HostileUpEffect.applyEffect` calls `((Npc) effected).getAggroList().addHate(effector, tauntHate)` where `tauntHate = value + delta * skillLevel`. We don't yet model a numeric hate list — instead we approximate the "this skill should make the NPC fight you" outcome by forcing target switch via `ForceEngage`. Hate-quantum nuances (e.g. multi-target taunt-priority) remain a future milestone if a hate list is added.
+    - Previously: 144 standalone taunt skill XML entries (Templar/Gladiator provoke skills, several boss-room threat skills) cast their animation but did nothing — NPCs ignored taunts unless the same skill also dealt damage (which already triggers `ForceEngage` post-damage)
+    - Build: 0 warnings, 0 errors

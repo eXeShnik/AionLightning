@@ -122,6 +122,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
         }
         float castRange = template?.CastRange ?? 0f;
 
+        // M245: hostileup — taunt skill forces NPC target to engage caster
+        if (template?.Effects?.HasHostileUp == true && _targetType is 0)
+        {
+            var tauntNpc = _world.GetNpcByObjectId(_targetObjectId);
+            if (tauntNpc is not null && !tauntNpc.IsAlreadyDead)
+                _npcAi.ForceEngage(tauntNpc, player);
+        }
+
         // Resurrection skill — targets a dead ally player, sets pending revive, sends dialog
         if (template?.Effects?.HasResurrectEffect == true && _targetType is 0 or 3 or 4)
         {
