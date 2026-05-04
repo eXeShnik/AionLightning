@@ -121,7 +121,8 @@ public sealed class CM_ATTACK : AionClientPacket
                     int pdefPr    = Math.Max(0, pvpParry.PhysicalDefense + pvpParry.PdefDebuffDelta + pvpParry.PdefStatUpDelta);
                     int dmgPr     = pdefPr > 0 ? Math.Max(1, rawDmgPr * 1000 / (1000 + pdefPr)) : rawDmgPr;
                     int parryDmg  = (int)(dmgPr * 0.6f);
-                    await target.ApplyDamageAndPublishAsync(player, parryDmg, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
+                    bool parrySuppress = target is Player parryPvp && _duelService.GetOpponent(player.ObjectId) == parryPvp.ObjectId;
+                    await target.ApplyDamageAndPublishAsync(player, parryDmg, DamageKind.AutoAttack, skillId: null, _eventBus, ct, suppressDeathEvent: parrySuppress);
                     await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, parryDmg, SM_ATTACK.HitResult.Parry), ct);
                     await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, parryDmg), ct);
                     goto afterAttack;
@@ -147,7 +148,8 @@ public sealed class CM_ATTACK : AionClientPacket
                     int pdefBl    = Math.Max(0, pvpBlock.PhysicalDefense + pvpBlock.PdefDebuffDelta + pvpBlock.PdefStatUpDelta);
                     int dmgBl     = pdefBl > 0 ? Math.Max(1, rawDmgBl * 1000 / (1000 + pdefBl)) : rawDmgBl;
                     int blockDmg  = dmgBl / 2;
-                    await target.ApplyDamageAndPublishAsync(player, blockDmg, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
+                    bool blockSuppress = target is Player blockPvp && _duelService.GetOpponent(player.ObjectId) == blockPvp.ObjectId;
+                    await target.ApplyDamageAndPublishAsync(player, blockDmg, DamageKind.AutoAttack, skillId: null, _eventBus, ct, suppressDeathEvent: blockSuppress);
                     await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, blockDmg, SM_ATTACK.HitResult.Block), ct);
                     await BroadcastAsync(new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, blockDmg), ct);
                     goto afterAttack;
@@ -245,7 +247,9 @@ public sealed class CM_ATTACK : AionClientPacket
         }
 
         // M260c: route through ApplyDamageAndPublishAsync — applies HP, sets LastCombatTime, publishes DamageDealtEvent
-        await target.ApplyDamageAndPublishAsync(player, totalDamage, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
+        // M287: suppress DeathEvent in duels — duel restores HP=1 below; the kill is fictional
+        bool autoSuppress = target is Player autoPvp && _duelService.GetOpponent(player.ObjectId) == autoPvp.ObjectId;
+        await target.ApplyDamageAndPublishAsync(player, totalDamage, DamageKind.AutoAttack, skillId: null, _eventBus, ct, suppressDeathEvent: autoSuppress);
 
         // Broadcast attack animation then damage report
         await BroadcastAsync(new SM_ATTACK(player, target, attackno: 0, time: (short)_time, type: 0, hits), ct);
@@ -271,7 +275,8 @@ public sealed class CM_ATTACK : AionClientPacket
                     && Random.Shared.Next(1000) < god.Probability)
                 {
                     int procDmg = god.SkillLvl * 20 + Random.Shared.Next(10, 30);
-                    await target.ApplyDamageAndPublishAsync(player, procDmg, DamageKind.PhysicalSkill, god.SkillId, _eventBus, ct);
+                    bool procSuppress = target is Player procPvp && _duelService.GetOpponent(player.ObjectId) == procPvp.ObjectId;
+                    await target.ApplyDamageAndPublishAsync(player, procDmg, DamageKind.PhysicalSkill, god.SkillId, _eventBus, ct, suppressDeathEvent: procSuppress);
                     int procTargetType = target is Npc ? 3 : 0;
                     await BroadcastAsync(new SM_CASTSPELL(player.ObjectId, god.SkillId, god.SkillLvl,
                         procTargetType, target.ObjectId, duration: 0), ct);

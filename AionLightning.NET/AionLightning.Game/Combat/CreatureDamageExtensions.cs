@@ -19,7 +19,8 @@ public static class CreatureDamageExtensions
         DamageKind    kind,
         int?          skillId,
         IEventBus     bus,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool          suppressDeathEvent = false)
     {
         if (damage <= 0) return;
 
@@ -29,11 +30,18 @@ public static class CreatureDamageExtensions
         int finalDmg = Math.Max(0, cell.Value);
         if (finalDmg <= 0) return; // fully absorbed — skip HP write + post-event entirely
 
+        // M287: capture liveness BEFORE the HP write so we can detect the alive→dead transition exactly once
+        bool wasAlive           = target.CurrentHp > 0;
+
         target.CurrentHp        = Math.Max(0, target.CurrentHp - finalDmg);
         var now                 = DateTime.UtcNow;
         target.LastCombatTime   = now;
         attacker.LastCombatTime = now;
 
         await bus.PublishAsync(new DamageDealtEvent(attacker, target, finalDmg, kind, skillId), ct);
+
+        // M287: publish DeathEvent exactly on the alive→dead edge; caller can suppress for duel-restore paths
+        if (!suppressDeathEvent && wasAlive && target.CurrentHp == 0)
+            await bus.PublishAsync(new DeathEvent(attacker, target, kind, skillId), ct);
     }
 }

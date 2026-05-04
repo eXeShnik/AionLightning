@@ -51,3 +51,15 @@ public sealed record DamageReceivingEvent(
     DamageKind    Kind,
     int?          SkillId
 ) : IGameEvent;
+
+/// <summary>
+/// M287: published exactly once when a Creature transitions from alive to dead via the
+/// canonical damage helper. Killer is the attacker that landed the killing blow (may be the
+/// victim itself for self-damage). SkillId/Kind reflect the attack that caused death.
+/// </summary>
+public sealed record DeathEvent(
+    Creature   Killer,
+    Creature   Victim,
+    DamageKind Kind,
+    int?       SkillId
+) : IGameEvent;

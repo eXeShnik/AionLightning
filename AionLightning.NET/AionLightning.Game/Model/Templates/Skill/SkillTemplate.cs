@@ -165,6 +165,16 @@ public readonly record struct SkillHealCastorOnAtkInfo(
     string HealType      // "hp" | "mp" — Java HealCastorOnAttackedEffect@type attribute
 );
 
+/// <summary>M287: "heal caster when target dies" descriptor parsed from &lt;healcastorontargetdead&gt; (Java HealCastorOnTargetDeadEffect).
+/// The buff is applied to a target; when that target dies, the buff caster (effector) is healed if within Range.</summary>
+public readonly record struct SkillHealOnTargetDeadInfo(
+    int    BaseValue,
+    int    Delta,
+    float  Range,
+    string HealType,    // "hp" | "mp"
+    bool   HealParty    // healparty="true" — also heal the caster's party in range
+);
+
 /// <summary>"Magic counter attack" descriptor parsed from &lt;magiccounteratk&gt; (Java MagicCounterAtkEffect).
 /// When the buffed creature casts a magical ATTACK skill, self-damage = min(MaxDmg, attacker.MaxHp * Percent / 100).</summary>
 public readonly record struct SkillMagicCounterAtkInfo(
@@ -1582,6 +1592,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
+    private static readonly HashSet<string> HealOnTargetDeadEffectNames = ["healcastorontargetdead"];
     private static readonly HashSet<string> MagicCounterAtkEffectNames = ["magiccounteratk"];
     private static readonly HashSet<string> ReflectorEffectNames = ["reflector"];
     private static readonly HashSet<string> ConvertHealEffectNames = ["convertheal"];
@@ -1744,6 +1755,27 @@ public sealed class SkillEffects
                 float.TryParse(e.GetAttribute("range"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out range);
                 string ht = (e.GetAttribute("type") ?? "HP").ToLowerInvariant() == "mp" ? "mp" : "hp";
                 list.Add(new(val, dlt, range, ht));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillHealOnTargetDeadInfo> HealOnTargetDeadEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillHealOnTargetDeadInfo>();
+            foreach (var e in Elements)
+            {
+                if (!HealOnTargetDeadEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                float range = 0f;
+                float.TryParse(e.GetAttribute("range"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out range);
+                string ht = (e.GetAttribute("type") ?? "HP").ToLowerInvariant() == "mp" ? "mp" : "hp";
+                bool party = string.Equals(e.GetAttribute("healparty"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(val, dlt, range, ht, party));
             }
             return list;
         }

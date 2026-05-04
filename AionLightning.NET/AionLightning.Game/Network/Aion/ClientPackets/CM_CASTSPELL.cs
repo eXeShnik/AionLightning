@@ -1316,7 +1316,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
 
                 var stKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
-                await target.ApplyDamageAndPublishAsync(player, damage, stKind, spellId, _eventBus, ct);
+                // M287: suppress DeathEvent in duels — duel restores HP=1 in deadPlayer block below
+                bool stSuppress = target is Player stPvp && _duelService.GetOpponent(player.ObjectId) == stPvp.ObjectId;
+                await target.ApplyDamageAndPublishAsync(player, damage, stKind, spellId, _eventBus, ct, suppressDeathEvent: stSuppress);
 
                 // M239: drain damage variants — caster restores HP/MP from dealt damage
                 if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))

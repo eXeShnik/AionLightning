@@ -2997,3 +2997,17 @@
     - Gameplay impact: 52 aura skill XML entries (Cleric heal mantras, Spiritmaster damage auras, Songweaver buff auras, several boss-room mark-and-pulse mechanics) now tick child skills against in-range group members every 6.5s. Heal auras restore HP/MP, damage auras pass through observer chain (Shield/Reflector still apply on aura ticks)
     - Risks resolved: tick-vs-expiry race avoided via live effect-list polling. Nested-aura recursion bounded at depth 1
     - Build: 0 warnings, 0 errors
+
+287. [✓] DeathEvent + HealCastorOnTargetDead handler (session 2026-05-04)
+    - Architecture milestone built via analyst → planner → implementer pipeline. Java analog: `HealCastorOnTargetDeadEffect.java` (ActionObserver DEATH).
+    - **M287a:** `Events/DamageDealtEvent.cs` — added `DeathEvent(Creature Killer, Creature Victim, DamageKind Kind, int? SkillId)` record alongside existing damage events
+    - **M287b:** `Combat/CreatureDamageExtensions.cs` — `ApplyDamageAndPublishAsync` now publishes DeathEvent on the alive→dead transition. **Race-safe via wasAlive guard** (analyst HIGH risk): captures `wasAlive = target.CurrentHp > 0` before HP write; publishes only when `wasAlive && CurrentHp == 0`. **Duel false-fire suppression** (analyst HIGH risk): added `bool suppressDeathEvent` parameter; `CM_ATTACK.cs` (parry/block/auto/proc lines) and `CM_CASTSPELL.cs` (single-target damage) pre-check `_duelService.GetOpponent` and pass `true` when target is the duel opponent — duel HP=1 restoration happens after helper returns, so DeathEvent must not fire pre-emptively
+    - **M287c:** new `Combat/Handlers/HealCastorOnTargetDeadHandler.cs` — `IEventHandler<DeathEvent>` with explicit attribution per Java line 49+101 (verified before implementation): iterates **victim's** active effects, looks up the **buff caster** (effector) by `ab.EffectorId`, heals the caster (HP or MP per `type` attr), range-gates by `caster.Position.DistanceTo(victim.Position) <= Range`, and extends to **caster's PlayerGroup members** in range when `healparty="true"` is set
+    - **Parser:** `SkillTemplate.cs` — `SkillHealOnTargetDeadInfo` record + `HealOnTargetDeadEffectNames` HashSet + `HealOnTargetDeadEffects` getter parsing `value`, `delta`, `range`, `type` (HP/MP), `healparty`
+    - **DI:** registered as `Transient<IEventHandler<DeathEvent>>`
+    - Out of scope (deferred):
+        - Non-helper death paths (fall damage, scripted kills, GM /kill) — won't fire DeathEvent until those sites also route through the helper
+        - Alliance scope (Java extends to PlayerAllianceGroup2; we cover only PlayerGroup since alliance API isn't ported yet)
+    - Gameplay impact: 2 healcastorontargetdead skill XML entries (Songweaver/Cleric "vengeance" buffs that grant a heal when the bearer dies) now trigger; foundation laid for any future death-driven handlers (loot/quest/abyss-point hooks)
+    - Risks resolved: HIGH double-publish on corpse splash (wasAlive guard); HIGH duel false-fire (suppressDeathEvent param); MEDIUM Java attribution (re-read confirmed: heal recipient = effector / buff caster, ownership = victim's effect list)
+    - Build: 0 warnings, 0 errors
