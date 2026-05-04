@@ -2812,3 +2812,11 @@
     - Java analogy: `HealInstantEffect.applyEffect` reads `value + delta * skillLevel` and applies via `LifeStats.increaseHp`. Our NPC port uses the same formula scaled by skill level instead of the previous flat-1/6th-of-MaxHp approximation
     - Previously: ~30 NPC heal-type skill templates (boss self-heal, mob recovery skills like "Massive Recovery") all healed for the same 1/6 of MaxHp regardless of skill template values. Bosses with low-tier heals over-healed; bosses with high-tier heals under-healed
     - Build: 0 warnings, 0 errors
+
+258. [✓] noresist="true" — damage effects with this attribute skip magic resist + physical dodge rolls (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — extended `SkillDamageInfo` record with `IsNoResist` bool field; `DamageEffects` getter parses `noresist="true"` (case-insensitive) attribute
+    - [✓] `CM_CASTSPELL.cs` — ground-AoE resist/dodge: pre-computes `gAoeNoResist` from `gAoeDmgFx[0].IsNoResist`; magical resist gated `if (spellIsMagical && !gAoeNoResist)`; physical dodge gated `else if (!gAoeNoResist)` so noresist skills skip both rolls cleanly
+    - [✓] `CM_CASTSPELL.cs` — single-target: same pattern with `stNoResist` from `stPreNoResistFx[0].IsNoResist` (a separate lookup since `stDmgFx` is computed later in the path); both magical resist branch and physical dodge branch gated explicitly
+    - Java analogy: `EffectTemplate.calculate(effect, ...)` short-circuits the resist/dodge calc when `noresist=true` — our gating mirrors that intent at the resist/dodge call site
+    - Gameplay impact: a subset of the 9122 noresist="true" XML hits (those on damage effects) — concrete examples include Aether Arrow (which had to land for the 75% MP burn to work), several boss execute mechanics tagged noresist, "guaranteed-hit" finisher skills. Previously these still rolled magic resist on PvP and could whiff
+    - Build: 0 warnings, 0 errors

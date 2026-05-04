@@ -717,8 +717,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         ? (int)((mAtk + gAoeBase) * magicBoostMult)
                         : pAtk + gAoeBase;
 
+                    // M258: skip resist/dodge when damage effect carries noresist="true"
+                    bool gAoeNoResist = gAoeDmgFx is { Count: > 0 } && gAoeDmgFx[0].IsNoResist;
                     // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
-                    if (spellIsMagical)
+                    if (spellIsMagical && !gAoeNoResist)
                     {
                         int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta + player.ConcentrationDelta;
                         int targetMR = (target is Player pvpResist ? pvpResist.BonusMagicResist
@@ -737,7 +739,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             continue;
                         }
                     }
-                    else // physical skill — dodge check (Java calculatePhysicalDodgeRate)
+                    else if (!gAoeNoResist) // physical skill — dodge check (Java calculatePhysicalDodgeRate)
                     {
                         int physAccAoE = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy + player.PhysAccDelta;
                         int evAoE = (target is Player pvpEvAoE ? pvpEvAoE.BaseEvasion + pvpEvAoE.BonusEvasion
@@ -1051,8 +1053,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
 
+                // M258: skip resist/dodge when damage effect carries noresist="true"
+                var stPreNoResistFx = template?.Effects?.DamageEffects;
+                bool stNoResist = stPreNoResistFx is { Count: > 0 } && stPreNoResistFx[0].IsNoResist;
                 // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
-                if (spellIsMagical)
+                if (spellIsMagical && !stNoResist)
                 {
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
                     int targetMagicResist = (target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
@@ -1071,7 +1076,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         return;
                     }
                 }
-                else // physical skill — dodge check (Java calculatePhysicalDodgeRate)
+                else if (!spellIsMagical && !stNoResist) // physical skill — dodge check (Java calculatePhysicalDodgeRate)
                 {
                     int physAccST = player.BasePhysicalAccuracy + player.BonusPhysicalAccuracy + player.PhysAccDelta;
                     int evST = (target is Player pvpEvST ? pvpEvST.BaseEvasion + pvpEvST.BonusEvasion

@@ -99,7 +99,8 @@ public readonly record struct SkillDamageInfo(
     int    AccuracyMod,  // accmod2 value (magic accuracy modifier, 0 = none)
     int    HpPercent,    // drain HP gained: dealtDamage * HpPercent / 100 (0 = no HP drain)
     int    MpPercent,    // drain MP gained: dealtDamage * MpPercent / 100 (0 = no MP drain)
-    string Variant       // raw effect element name (e.g. "skillatk", "procatk_instant") — used to pick combat-log LogId
+    string Variant,      // raw effect element name (e.g. "skillatk", "procatk_instant") — used to pick combat-log LogId
+    bool   IsNoResist    // noresist="true" — skip magic resist / physical dodge roll for this hit
 );
 
 /// <summary>Target-MP burn descriptor parsed from &lt;mpattackinstant&gt; (Java MpAttackInstantEffect).</summary>
@@ -1413,7 +1414,8 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("accmod2"), out int accMod);
                 int.TryParse(e.GetAttribute("hp_percent"), out int hpPct);
                 int.TryParse(e.GetAttribute("mp_percent"), out int mpPct);
-                list.Add(new(val, dlt, dmgType, element, accMod, hpPct, mpPct, e.LocalName));
+                bool noResist = string.Equals(e.GetAttribute("noresist"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(val, dlt, dmgType, element, accMod, hpPct, mpPct, e.LocalName, noResist));
             }
             return list;
         }
