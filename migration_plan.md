@@ -2861,3 +2861,11 @@
     - Approximation: Java's `dispelLevel`/`power` parameters drive a probability/level-gated dispel; we run an unconditional `target.ClearBuffs()` (over-dispel). Acceptable for now — sub-categorized dispel needs a typed-dispel implementation alongside the M250 NPC-dispel infrastructure. Track for a future refinement
     - Previously: 18 dispelbuffcounteratk skill XML entries (Templar/Gladiator dispel-on-hit moves like "Dispelling Cleave") silently ignored both the small damage hit AND the buff dispel
     - Build: 0 warnings, 0 errors
+
+263. [✓] Reflector handler — `<reflector>` returns damage to attacker (session 2026-05-04)
+    - [✓] `Model/Templates/Skill/SkillTemplate.cs` — `SkillReflectorInfo` record (HitValue, HitDelta, Radius); `ReflectorEffectNames` HashSet; `ReflectorEffects` getter parses `hitvalue`, `hitdelta`, `radius`
+    - [✓] `Game/Combat/Handlers/ReflectorHandler.cs` — `IEventHandler<DamageDealtEvent>`: skips DoTTick (Java's observer fires per attack, not per tick), skips self-damage, iterates target's reflector buffs, range-gates attacker by Radius, computes `reflectDmg = HitValue + HitDelta * SkillLevel` (clamped to attacker's CurrentHp), subtracts from attacker, broadcasts `SM_ATTACK_STATUS(Damage, Regular)`
+    - [✓] `Program.cs` — registered as third `Transient<IEventHandler<DamageDealtEvent>>` after HealCastorOnAttacked + MagicCounterAtk
+    - Java analogy: `ReflectorEffect.startEffect` builds an `AttackShieldObserver(hit, value, percent, ...)` and attaches to effected via `addAttackCalcObserver`. Java intercepts BEFORE damage; we approximate AFTER — net gameplay equivalent for typical reflector skills (caster takes some HP back per hit). Skill types where Java's pre-damage shield would absorb instead of allowing damage to land (true shield) need a future `DamageReceivingEvent` with mutable damage payload
+    - Previously: 95 reflector skill XML entries (Templar "Reflect Damage" line, Sorcerer/Spiritmaster magical reflect, several boss-encounter mechanics) cast their animation but never returned damage to attackers
+    - Build: 0 warnings, 0 errors

@@ -40,6 +40,7 @@ builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 // M260+: damage observer handlers
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HealCastorOnAttackedHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, MagicCounterAtkHandler>();
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ReflectorHandler>();
 
 // World
 builder.Services.AddSingleton<GameWorld>();

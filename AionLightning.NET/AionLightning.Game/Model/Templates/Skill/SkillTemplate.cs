@@ -135,6 +135,14 @@ public readonly record struct SkillMagicCounterAtkInfo(
     int MaxDmg      // maxdmg attribute — cap on self-damage per cast
 );
 
+/// <summary>"Damage reflector" descriptor parsed from &lt;reflector&gt; (Java ReflectorEffect).
+/// When the buffed creature is hit, attacker takes HitValue + HitDelta * SkillLevel damage back if within Radius.</summary>
+public readonly record struct SkillReflectorInfo(
+    int   HitValue,   // base reflect damage at level 1
+    int   HitDelta,   // per-level scaling
+    float Radius      // max distance from buffed creature for reflect to fire (0 = no range gate)
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -1318,6 +1326,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
     private static readonly HashSet<string> MagicCounterAtkEffectNames = ["magiccounteratk"];
+    private static readonly HashSet<string> ReflectorEffectNames = ["reflector"];
     // Elements that carry debuff durations via their duration2 attribute
     private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
 
@@ -1490,6 +1499,25 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("value"), out int pct);
                 int.TryParse(e.GetAttribute("maxdmg"), out int max);
                 list.Add(new(pct, max));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillReflectorInfo> ReflectorEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillReflectorInfo>();
+            foreach (var e in Elements)
+            {
+                if (!ReflectorEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("hitvalue"), out int hit);
+                int.TryParse(e.GetAttribute("hitdelta"), out int hitDlt);
+                float radius = 0f;
+                float.TryParse(e.GetAttribute("radius"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out radius);
+                list.Add(new(hit, hitDlt, radius));
             }
             return list;
         }
