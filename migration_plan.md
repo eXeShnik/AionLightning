@@ -3270,6 +3270,15 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M340: PVP_ATTACK_RATIO + PVP_DEFEND_RATIO ADD buffs (45 + 41 = 86 skill entries)** — PvP offensive ratio buffs (e.g. Abyss battle skills, short-burst combat boosts) and PvP defensive ratio buffs (e.g. "Guardian of the Alliance" passive, anti-PvP scrolls) now modify PvP skill and auto-attack damage; Java formula: after PvP 50% cut → `damage *= (1 + atkRatio/1000f - defRatio/1000f)` applied as net modifier
+  - Java analog: `StatFunctions.adjustDamages`: `pvpAttackBonus = PVP_ATTACK_RATIO * 0.001f`; `pvpDefenceBonus = PVP_DEFEND_RATIO * 0.001f`; `damages = round(damages + damages * atkBonus - damages * defBonus)`; our net-delta form `(1 + (atkRatio - defRatio) * 0.001f)` is algebraically equivalent
+  - **M340a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PvpAtkRatioDelta` and `PvpDefRatioDelta` expression-body properties via `ScanStatupAddValue`
+  - **M340b:** `Model/AbnormalState.cs` — added `PvpAtkRatioDelta` / `PvpDefRatioDelta` (`init`-only fields)
+  - **M340c:** `Model/Creature.cs` — added `PvpAtkRatio` / `PvpDefRatio` accumulator fields; `ApplyEffectDeltas` / `ReverseEffectDeltas` each +2 lines
+  - **M340d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path reads + AbnormalState init; AoE-ground and single-target PvP hit paths: after the `rawSpellDmg / 2` cut, apply `rawSpellDmg *= (1 + (player.PvpAtkRatio - target.PvpDefRatio) * 0.001f)` when target is Player; splash skipped (NPC-only targets)
+  - **M340e:** `Network/Aion/ClientPackets/CM_ATTACK.cs` — physical auto-attack PvP 50% block expanded to also apply net PvP ratio modifier after the halving
+  - Build: 0 warnings, 0 errors
+
 - [x] **M339: elemental resistance buffs — FIRE/WATER/WIND/EARTH_RESISTANCE ADD (1273 XML entries; ~9595 elemental skill usages)** — Elemental resist buffs (e.g. Balaur Ward, Fire Resist scrolls, elemental resist armor enchants) now reduce magical-skill damage when the skill's element matches the target's active resistance; Java formula `damage *= (1 - elemDef / 1250f)` applied after defense mitigation, skipped for `noreducespellatk` bypass hits
   - Java analog: `SkillTemplate.element` + per-target elemental stats (FIRE_RESISTANCE, etc.); Java `MagicalSkillTemplate.calculateDamage` consults elemental defense from target's game stats; our port mirrors the reduction factor using `GetElementalResist(target, element)` after both the regular and AoE defense steps
   - **M339a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FireResistDelta`, `WaterResistDelta`, `WindResistDelta`, `EarthResistDelta` expression-body properties via `ScanStatupAddValue` (M338's helper reused)

@@ -665,6 +665,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
                 // M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT timed buff (e.g. Blessed Shield +100%)
                 int healSkillBoostPct       = template.Effects?.OnetimeBoostHealPct     ?? 0;
+                // M340: PvP attack/defend ratio ADD buffs (Java ADD; /1000f applied in damage path)
+                int pvpAtkRatioDelta = template.Effects?.PvpAtkRatioDelta ?? 0;
+                int pvpDefRatioDelta = template.Effects?.PvpDefRatioDelta ?? 0;
                 // M339: elemental resistance ADD buffs (scale: 1250 = 100% immune to that element)
                 int fireResistDelta  = template.Effects?.FireResistDelta  ?? 0;
                 int waterResistDelta = template.Effects?.WaterResistDelta ?? 0;
@@ -726,6 +729,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     HealSkillBoostPct        = healSkillBoostPct,
                     HuntingXpBoostPct        = huntingXpBoostPct,
                     GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
+                    PvpAtkRatioDelta         = pvpAtkRatioDelta,
+                    PvpDefRatioDelta         = pvpDefRatioDelta,
                     FireResistDelta          = fireResistDelta,
                     WaterResistDelta         = waterResistDelta,
                     WindResistDelta          = windResistDelta,
@@ -1292,8 +1297,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         float lvlMod = NpcLevelDiffMod(npcLvlAoEDmg.Level - player.Level);
                         if (lvlMod > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlMod)));
                     }
-                    else if (target is Player)
+                    else if (target is Player pvpGAoe)
+                    {
                         rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
+                        // M340: PvP attack/defend ratio — attacker bonus minus defender reduction (Java * 0.001f each)
+                        int gAoePvpNet = player.PvpAtkRatio - pvpGAoe.PvpDefRatio;
+                        if (gAoePvpNet != 0)
+                            rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f + gAoePvpNet * 0.001f)));
+                    }
 
                     // MResist = resist-chance only; NPC MAGICAL_DEFEND base = 0; use MBResist (magic fortitude) for mitigation
                     int spellDef = target is Player pvpSpellTarget
@@ -1770,8 +1781,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     float lvlModST = NpcLevelDiffMod(npcLvlSTDmg.Level - player.Level);
                     if (lvlModST > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlModST)));
                 }
-                else if (target is Player)
+                else if (target is Player pvpST)
+                {
                     rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
+                    // M340: PvP attack/defend ratio — attacker bonus minus defender reduction (Java * 0.001f each)
+                    int stPvpNet = player.PvpAtkRatio - pvpST.PvpDefRatio;
+                    if (stPvpNet != 0)
+                        rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f + stPvpNet * 0.001f)));
+                }
 
                 // Java: MResist is resist-chance only; MAGICAL_DEFEND (=0 for NPCs) is separate damage mitigation
                 int spellDef = target is Player pvpSpellTarget

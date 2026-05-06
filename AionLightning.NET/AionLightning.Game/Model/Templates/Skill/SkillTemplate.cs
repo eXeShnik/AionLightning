@@ -3463,6 +3463,10 @@ public sealed class SkillEffects
         return total;
     }
 
+    // M340: PvP attack/defend ratio ADD buffs (Java 0–1000+ ADD scale; /1000f multiplier in damage formula).
+    public int PvpAtkRatioDelta => ScanStatupAddValue("PVP_ATTACK_RATIO");
+    public int PvpDefRatioDelta => ScanStatupAddValue("PVP_DEFEND_RATIO");
+
     // M339: elemental resistance ADD deltas (scale matches Java; 1250 = 100% immune to that element).
     // Parsed from statup/statboost change elements; accumulated in Creature.FireResist etc. via ApplyEffectDeltas.
     public int FireResistDelta  => ScanStatupAddValue("FIRE_RESISTANCE");

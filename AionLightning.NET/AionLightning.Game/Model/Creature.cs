@@ -104,6 +104,8 @@ public abstract class Creature : VisibleObject
     public int WaterResist       { get; set; }
     public int WindResist        { get; set; }
     public int EarthResist       { get; set; }
+    public int PvpAtkRatio       { get; set; }
+    public int PvpDefRatio       { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
@@ -258,6 +260,8 @@ public abstract class Creature : VisibleObject
         if ((v = e.WaterResistDelta)        != 0) WaterResist           += v;
         if ((v = e.WindResistDelta)         != 0) WindResist            += v;
         if ((v = e.EarthResistDelta)        != 0) EarthResist           += v;
+        if ((v = e.PvpAtkRatioDelta)        != 0) PvpAtkRatio           += v;
+        if ((v = e.PvpDefRatioDelta)        != 0) PvpDefRatio           += v;
         if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpApply) regenHpApply.BonusRegenHpPct += e.RegenHpPctDeltaVal;
         if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpApply) regenMpApply.BonusRegenMpPct += e.RegenMpPctDeltaVal;
         if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpApply) regenFpApply.BonusRegenFpPct += e.RegenFpPctDeltaVal;
@@ -323,6 +327,8 @@ public abstract class Creature : VisibleObject
         if ((v = e.WaterResistDelta)        != 0) WaterResist           -= v;
         if ((v = e.WindResistDelta)         != 0) WindResist            -= v;
         if ((v = e.EarthResistDelta)        != 0) EarthResist           -= v;
+        if ((v = e.PvpAtkRatioDelta)        != 0) PvpAtkRatio           -= v;
+        if ((v = e.PvpDefRatioDelta)        != 0) PvpDefRatio           -= v;
         if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
         if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
         if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;
