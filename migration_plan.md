@@ -3270,6 +3270,11 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M355: elemental resist PERCENT debuffs — 40 entries (10 unique skills) now reduce target's elemental resistance by % of current value** — `statdown FIRE/WATER/WIND/EARTH_RESISTANCE PERCENT` (Flight: Enervating Bind I–III, Charm: Nature's Curse, Decrease Defense, Depression, Incite Rage, Nova Power, Water Punishment, Weaken Resistance) were silently discarded; added `ScanStatdownPercentValue` helper and 4 debuff properties; in the DEBUFF path, the pct is converted to a flat delta against the target's current resist (same pattern as M322/M326/M327 PERCENT debuffs), then merged into the existing elemental resist ADD delta
+  - **M355a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ScanStatdownPercentValue` private helper; added `FireResistPctDebuff`, `WaterResistPctDebuff`, `WindResistPctDebuff`, `EarthResistPctDebuff` properties
+  - **M355b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: read 4 pct properties, convert to flat delta against `target.FireResist/WaterResist/WindResist/EarthResist`, merged into existing `fireResistDebuff` etc.
+  - Build: 0 warnings, 0 errors
+
 - [x] **M354: FLY_TIME ADD buff — 201 entries now correctly increase MaxFp (flight stamina) for buff duration** — `FLY_TIME ADD` inside `statup`/`statboost` (GM's Armor +120, GM's Tempest +60, GM Wings! +120, consumable scrolls +15, Lustrous Feather Effect, etc.) were silently discarded; `EffectiveMaxFp` formula only applied the PERCENT case; now `BonusFlyTimeFlat` accumulates the flat bonus and `EffectiveMaxFp = (MaxFp * (100+Pct)/100) + Flat`, with CurrentFp clamped on apply and reverse; Creature.cs handles apply/reverse matching the PERCENT path
   - **M354a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FlyTimeAddDelta` property: sums `FLY_TIME ADD` from statup/statboost
   - **M354b:** `Model/AbnormalState.cs` — added `FlyTimeAddDeltaVal` field

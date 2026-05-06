@@ -3639,6 +3639,30 @@ public sealed class SkillEffects
     public int WindResistDelta  => ScanStatupAddValue("WIND_RESISTANCE");
     public int EarthResistDelta => ScanStatupAddValue("EARTH_RESISTANCE");
 
+    // M355: elemental resistance PERCENT debuffs from statdown elements (negative value; e.g. -100 = remove 100% of current resist).
+    public int FireResistPctDebuff  => ScanStatdownPercentValue("FIRE_RESISTANCE");
+    public int WaterResistPctDebuff => ScanStatdownPercentValue("WATER_RESISTANCE");
+    public int WindResistPctDebuff  => ScanStatdownPercentValue("WIND_RESISTANCE");
+    public int EarthResistPctDebuff => ScanStatdownPercentValue("EARTH_RESISTANCE");
+
+    private int ScanStatdownPercentValue(string statName)
+    {
+        if (Elements is null) return 0;
+        int total = 0;
+        foreach (var e in Elements)
+        {
+            if (e.LocalName != "statdown") continue;
+            foreach (XmlNode child in e.ChildNodes)
+            {
+                if (child is not XmlElement ce || ce.LocalName != "change") continue;
+                if (!string.Equals(ce.GetAttribute("stat"), statName, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+            }
+        }
+        return total;
+    }
+
     // M338: per-CC-type resistance ADD deltas (Java 0–1000 scale; 1000 = 100% resistant to that CC type).
     // Parsed from statup/statboost change elements; accumulated in Creature.StunResist etc. via ApplyEffectDeltas.
     public int StunResistDelta       => ScanStatupAddValue("STUN_RESISTANCE");

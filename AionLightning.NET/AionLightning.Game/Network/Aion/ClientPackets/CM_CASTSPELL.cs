@@ -2569,6 +2569,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  waterResistDebuff = template?.Effects?.WaterResistDelta ?? 0;
                     int  windResistDebuff  = template?.Effects?.WindResistDelta  ?? 0;
                     int  earthResistDebuff = template?.Effects?.EarthResistDelta ?? 0;
+                    // M355: elemental resist PERCENT debuffs — 40 entries (Flight: Enervating Bind I-III, etc.; -100 = remove 100% of current resist)
+                    int  fireResistPct  = template?.Effects?.FireResistPctDebuff  ?? 0;
+                    int  waterResistPct = template?.Effects?.WaterResistPctDebuff ?? 0;
+                    int  windResistPct  = template?.Effects?.WindResistPctDebuff  ?? 0;
+                    int  earthResistPct = template?.Effects?.EarthResistPctDebuff ?? 0;
+                    if (fireResistPct  != 0 && target is Player frPctTgt) fireResistDebuff  += frPctTgt.FireResist  * fireResistPct  / 100;
+                    if (waterResistPct != 0 && target is Player wrPctTgt) waterResistDebuff += wrPctTgt.WaterResist * waterResistPct / 100;
+                    if (windResistPct  != 0 && target is Player wiPctTgt) windResistDebuff  += wiPctTgt.WindResist  * windResistPct  / 100;
+                    if (earthResistPct != 0 && target is Player erPctTgt) earthResistDebuff += erPctTgt.EarthResist * earthResistPct / 100;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
