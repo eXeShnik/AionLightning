@@ -287,6 +287,16 @@ public readonly record struct SkillLauncherInfo(
     int SkillId  // sub-skill template ID whose effects are applied to the target
 );
 
+/// <summary>M310: cooldown reduction descriptor parsed from &lt;skillcooltimereset first_cd="A" last_cd="B" delta="D" value="V"/&gt; (Java SkillCooltimeResetEffect).
+/// When Delta &gt; 0: remaining -= remaining * Delta / 100 (e.g. delta=100 = full reset, delta=30 = shorten by 30%).
+/// When Delta == 0: remaining -= Value ms (flat reduction).</summary>
+public readonly record struct SkillCooldownResetInfo(
+    int FirstCd,  // first cooldown ID in the range to reset
+    int LastCd,   // last cooldown ID in the range to reset
+    int Delta,    // percentage reduction (0-100); if >0 takes precedence over Value
+    int Value     // flat ms reduction; used only when Delta == 0
+);
+
 /// <summary>M306: periodic MP drain descriptor parsed from &lt;mpattack checktime="N" value="V" delta="D" duration2="T" percent="true/false"/&gt; (Java MpAttackEffect).</summary>
 public readonly record struct SkillMpAttackDotInfo(
     int  CheckTimeMs,   // tick interval in ms
@@ -2292,6 +2302,26 @@ public sealed class SkillEffects
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
                 bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
                 list.Add(new(check, val, dlt, dur, pct));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M310: parsed &lt;skillcooltimereset first_cd="A" last_cd="B" delta="D" value="V"/&gt; — reduces cooldowns in a CooldownId range (Java SkillCooltimeResetEffect).</summary>
+    public IReadOnlyList<SkillCooldownResetInfo> CooldownResetEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillCooldownResetInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "skillcooltimereset") continue;
+                if (!int.TryParse(e.GetAttribute("first_cd"), out int first) || first <= 0) continue;
+                if (!int.TryParse(e.GetAttribute("last_cd"),  out int last)  || last  <= 0) continue;
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                int.TryParse(e.GetAttribute("value"), out int val);
+                list.Add(new(first, last, dlt, val));
             }
             return list;
         }

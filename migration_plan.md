@@ -3196,3 +3196,9 @@
   - **M309a:** `Model/Templates/Skill/SkillTemplate.cs` — added `"dash"` to `DamageEffectNames`; added `"dash"` to the physical-type branch in `DamageEffects` (`e.LocalName is "skillatk" or "skillatkdraininstant" or "dash"`)
   - **M309b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — after `ApplyDamageAndPublishAsync` in single-target path: detects any DamageEffect with `Variant=="dash"` and target still alive; updates `player.Position` to target's position, sets `MovementMask=0`, sends `SM_TELEPORT_LOC` to caster's connection, broadcasts `SM_MOVE` (stop at new position) to all other nearby clients
   - Build: 0 warnings, 0 errors
+
+- [x] **M310: SkillCooldownReset — reduce/reset cooldowns in a range** — `<skillcooltimereset first_cd="A" last_cd="B" delta="D" value="V"/>` reduces remaining cooldown time for all cooldown IDs in the range; 6 occurrences (Gunner class skills: "Reload I" resets fire-chain CD by 30%/level, "Autoload I" fully resets firing-chain CDs; also debug test skills 3028-3030)
+  - Java analog: `SkillCooltimeResetEffect.applyEffect()` iterates `firstCd` to `lastCd`, computes remaining delay; if `delta > 0`: `remaining -= remaining * delta / 100`; else `remaining -= value`; sends `SM_SKILL_COOLDOWN` with the changed entries
+  - **M310a:** `Model/Templates/Skill/SkillTemplate.cs` — added `SkillCooldownResetInfo(FirstCd, LastCd, Delta, Value)` record; added `CooldownResetEffects` computed property on `SkillEffects` parsing `<skillcooltimereset>` elements
+  - **M310b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — at end of `RunAsync`, reads `CooldownResetEffects`; iterates cooldown ID range, applies delta-percent or flat-ms reduction to `player.SkillCooldowns`, removes fully-expired entries, sends `SM_SKILL_COOLDOWN` when any cooldown changed
+  - Build: 0 warnings, 0 errors

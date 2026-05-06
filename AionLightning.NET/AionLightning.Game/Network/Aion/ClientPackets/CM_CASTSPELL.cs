@@ -2575,6 +2575,34 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var activation = new SM_SKILL_ACTIVATION(_spellId);
             await BroadcastAsync(activation, ct);
         }
+
+        // M310: skillcooltimereset — reduce/reset cooldowns in a CooldownId range on the caster (Java SkillCooltimeResetEffect)
+        var cdResetFx = template?.Effects?.CooldownResetEffects;
+        if (cdResetFx is { Count: > 0 })
+        {
+            bool anyCdChanged = false;
+            var now = DateTime.UtcNow;
+            foreach (var reset in cdResetFx)
+            {
+                for (int cdId = reset.FirstCd; cdId <= reset.LastCd; cdId++)
+                {
+                    if (!player.SkillCooldowns.TryGetValue(cdId, out var expiry)) continue;
+                    long remainMs = (long)(expiry - now).TotalMilliseconds;
+                    if (remainMs <= 0) continue;
+                    if (reset.Delta > 0)
+                        remainMs -= remainMs * reset.Delta / 100;
+                    else if (reset.Value > 0)
+                        remainMs -= reset.Value;
+                    if (remainMs <= 0)
+                        player.SkillCooldowns.Remove(cdId);
+                    else
+                        player.SkillCooldowns[cdId] = now.AddMilliseconds(remainMs);
+                    anyCdChanged = true;
+                }
+            }
+            if (anyCdChanged)
+                try { await _conn.SendAsync(new SM_SKILL_COOLDOWN(_dataManager.Skills, player.SkillCooldowns), ct); } catch { }
+        }
     }
 
     private async ValueTask BroadcastAsync(AionServerPacket packet, CancellationToken ct)
