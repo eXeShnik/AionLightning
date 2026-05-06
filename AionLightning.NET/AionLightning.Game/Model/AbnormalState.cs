@@ -100,6 +100,9 @@ public sealed class AbnormalState
     // True when the skill has a <sanctuary> element — this buff cannot be removed by dispel or healing potions.
     public bool IsSanctuary { get; init; }
 
+    // Mutable hit counter for alwaysblock/alwaysdodge — decremented per hit; buff removed when it reaches 0.
+    public int HitCountRemaining { get; set; }
+
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
 }

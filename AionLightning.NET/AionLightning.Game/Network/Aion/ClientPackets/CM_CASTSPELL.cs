@@ -496,7 +496,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
         }
         else if (template?.SubType is SkillSubType.BUFF or SkillSubType.CHANT
                  && _targetType is 0 or 3 or 4
-                 && (template.Duration > 0 || template.Effects?.ShapeChangeDurationMs > 0))
+                 && (template.Duration > 0
+                     || template.Effects?.ShapeChangeDurationMs > 0
+                     || template.Effects?.AlwaysBlockDurationMs > 0
+                     || template.Effects?.AlwaysDodgeDurationMs > 0))
         {
             // Determine buff target: self when targetObjectId is 0 or caster's own id
             Creature? buffTarget = (_targetObjectId == 0 || _targetObjectId == player.ObjectId)
@@ -521,7 +524,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     return; // dispel completes here, no buff state added
                 }
 
-                int durationMs       = template.Duration > 0 ? template.Duration : (template.Effects?.ShapeChangeDurationMs ?? 0);
+                int durationMs       = template.Duration > 0 ? template.Duration
+                                     : template.Effects?.ShapeChangeDurationMs > 0 ? (template.Effects.ShapeChangeDurationMs)
+                                     : template.Effects?.AlwaysBlockDurationMs  > 0 ? (template.Effects.AlwaysBlockDurationMs)
+                                     : (template.Effects?.AlwaysDodgeDurationMs ?? 0);
                 int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
                 int maxMpStatUpDelta    = template.Effects?.MaxMpStatUpDelta       ?? 0;
                 int mBoostStatUpDelta   = template.Effects?.MagicBoostStatUpDelta  ?? 0;
@@ -581,6 +587,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     MResistStatUpDeltaVal    = mresistStatUpDelta,
                     AtkSpeedStatUpDeltaVal   = atkSpeedStatUpDelta,
                     IsSanctuary              = template.Effects?.HasSanctuary == true,
+                    HitCountRemaining        = (template.Effects?.AlwaysBlockCount ?? 0) + (template.Effects?.AlwaysDodgeCount ?? 0),
                 };
                 buffTarget.AddEffect(effect);
 

@@ -378,6 +378,28 @@ public sealed class SkillEffects
 
     /// <summary>M276: alwaysresist — full magic-damage immunity while buff active (Java AlwaysResistEffect).</summary>
     public bool HasAlwaysResist => Elements?.Any(e => e.LocalName == "alwaysresist") == true;
+    /// <summary>M313: alwaysblock — guaranteed physical block for up to value hits or duration2 ms (Java AlwaysBlockEffect).</summary>
+    public bool HasAlwaysBlock  => Elements?.Any(e => e.LocalName == "alwaysblock")  == true;
+    /// <summary>M313: alwaysdodge — guaranteed physical dodge for up to value hits or duration2 ms (Java AlwaysDodgeEffect).</summary>
+    public bool HasAlwaysDodge  => Elements?.Any(e => e.LocalName == "alwaysdodge")  == true;
+
+    public int AlwaysBlockCount
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysblock"); return el is not null && int.TryParse(el.GetAttribute("value"), out int v) ? v : 0; }
+    }
+    public int AlwaysBlockDurationMs
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysblock"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
+    }
+    public int AlwaysDodgeCount
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysdodge"); return el is not null && int.TryParse(el.GetAttribute("value"), out int v) ? v : 0; }
+    }
+    public int AlwaysDodgeDurationMs
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysdodge"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
+    }
+
     /// <summary>M282: flight-ban debuff — buffed creature loses fly capability (Java NoFlyEffect). Behavior needs flight-state subsystem.</summary>
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
     /// <summary>M285: provoker buff — buffed NPC auto-targets last attacker (Java ProvokerEffect ATTACK observer).</summary>

@@ -3210,6 +3210,16 @@
   - **M311c:** `Services/PlayerEnterWorldService.cs` — accumulates `MaxHpPercentStatUpDelta`/`MaxMpPercentStatUpDelta` at login into `PassiveBonusMaxHpPct`/`PassiveBonusMaxMpPct`; updated MaxHp/MaxMp formula: `(flatSum) * (1 + pct/100f) * ssMult`
   - Build: 0 warnings, 0 errors
 
+- [x] **M313: AlwaysBlock + AlwaysDodge invulnerability buffs** — `<alwaysblock value="N" duration2="T"/>` guarantees N physical blocks; `<alwaysdodge value="N" duration2="T"/>` guarantees N physical dodges; buff expires when hit counter reaches 0 OR duration elapses; 26 + 12 = 38 skills (Templar Shield of Faith I-II, Divine Chastisement I-V, Cry of Ridicule, Battle Call — block; Assassin/Ranger Focused Evasion I-III, Celestial Image I, Illusion I-IV, Bulletproof I — dodge)
+  - Java analog: `AlwaysBlockEffect`/`AlwaysDodgeEffect` register an `AttackStatusObserver`; on each BLOCK/DODGE result the observer decrements a counter and calls `effect.endEffect()` when count reaches 1
+  - All 38 skills have `duration=0` at template level — they were silently skipped by the buff path (condition was `Duration > 0`)
+  - **M313a:** `Model/AbnormalState.cs` — added `HitCountRemaining { get; set; }` mutable counter (exception to init-only pattern, required for per-hit tracking)
+  - **M313b:** `Model/Templates/Skill/SkillTemplate.cs` — added `HasAlwaysBlock`, `HasAlwaysDodge`, `AlwaysBlockCount`, `AlwaysBlockDurationMs`, `AlwaysDodgeCount`, `AlwaysDodgeDurationMs` properties on `SkillEffects`
+  - **M313c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — extended buff path condition: `|| AlwaysBlockDurationMs > 0 || AlwaysDodgeDurationMs > 0`; extended `durationMs` fallback chain; added `HitCountRemaining = AlwaysBlockCount + AlwaysDodgeCount` to AbnormalState initializer
+  - **M313d:** `Combat/Handlers/AlwaysBlockDodgeHandler.cs` (new) — handles `DamageReceivingEvent` for `PhysicalSkill`/`AutoAttack`; finds active alwaysblock/alwaysdodge buff, zeros damage, decrements `HitCountRemaining`; removes buff and broadcasts `SM_ABNORMAL_EFFECT` when count reaches 0
+  - **M313e:** `Program.cs` — registered `AlwaysBlockDodgeHandler` after `AlwaysResistHandler`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M312: MoveBehind + BackDash — gap-closer and retreating strike attacks** — `<movebehind>` deals physical damage and teleports caster directly behind the target; `<backdash distance="N">` deals physical damage and moves caster backward by distance units; 11 + 17 = 28 skills total (Assassin Ambush I-VII, Blind Side, Stigma Ambush; Gladiator/Ranger Retreating Slash, Fighting Withdrawal, Beast Leap, Parting Shot lines)
   - Java analog: `MoveBehindEffect extends DamageEffect` — `calculate()` positions caster at `(target.X + cos(π + targetHeading) * 1.3, target.Y + sin(π + targetHeading) * 1.3, target.Z)` then calls `super.calculate(PHYSICAL)`; `BackDashEffect extends DamageEffect` — calls `super.calculate(PHYSICAL)` then sets position to `(effector.X + cos(π + effectorHeading) * distance, ...)` in `applyEffect()`
   - Position formula: Aion heading is 0-255 = 0-2π; offset = cos/sin(heading × 2π/256 + π) × distance
