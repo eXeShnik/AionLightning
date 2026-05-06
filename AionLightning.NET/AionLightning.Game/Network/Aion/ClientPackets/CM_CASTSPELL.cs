@@ -683,6 +683,24 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int openAerialResistDelta = template.Effects?.OpenAerialResistDelta ?? 0;
                 int rootResistDelta       = template.Effects?.RootResistDelta       ?? 0;
                 int snareResistDelta      = template.Effects?.SnareResistDelta      ?? 0;
+                // M341: BUFF-path self-nerfing statdown elements — apply negative stat deltas to buff caster
+                // Java: statdown inside a BUFF skill applies to the effector (caster), not the enemy target
+                int pdefSelfNerfPct = template.Effects?.PdefPercentDebuff ?? 0;
+                if (pdefSelfNerfPct != 0 && buffTarget is Player pdefNerfTgt)
+                    pdefStatUpDelta += pdefNerfTgt.PhysicalDefense * pdefSelfNerfPct / 100;
+                pdefStatUpDelta += template.Effects?.PdefAddDelta ?? 0;
+                int patkSelfNerfPct = template.Effects?.PatkPercentDebuff ?? 0;
+                if (patkSelfNerfPct != 0 && buffTarget is Player patkNerfTgt)
+                    patkStatUpDelta += (patkNerfTgt.BasePhysicalAttack + patkNerfTgt.BonusPhysicalAtk) * patkSelfNerfPct / 100;
+                patkStatUpDelta += template.Effects?.PhysAtkAddDelta ?? 0;
+                int evasionSelfNerfPct = template.Effects?.EvasionPercentDebuff ?? 0;
+                if (evasionSelfNerfPct != 0 && buffTarget is Player evNerfTgt)
+                    evasionStatUpDelta += (evNerfTgt.BaseEvasion + evNerfTgt.BonusEvasion) * evasionSelfNerfPct / 100;
+                evasionStatUpDelta     += template.Effects?.EvasionAddDelta         ?? 0;
+                mresistStatUpDelta     += template.Effects?.MResistAddDelta         ?? 0;
+                physAccStatUpDelta     += template.Effects?.PhysAccAddDelta         ?? 0;
+                concentrationStatUpDelta += template.Effects?.ConcentrationAddDelta ?? 0;
+                physCritStatUpDelta    += template.Effects?.PhysCritAddDelta        ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,

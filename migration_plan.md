@@ -3270,6 +3270,13 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M341: BUFF-path statdown self-nerfs — 97 BUFF skills with statdown elements now correctly penalize the caster** — Warrior "Ferocity/Berserking" PDEF penalty, Ranger "Focused Shots" PDEF cut, Templar/Gladiator shield-stance PATK reduction, Assassin "Shadow Rage" EVASION/MRESIST cut, and others now apply their self-nerf stat reductions to the caster's own stats alongside the buff bonus
+  - Java analog: `StatDownEffect` inside a BUFF skill is applied to the `effector` (caster), not the `effected` (target). The same `StatDownEffect.applyEffect` is used regardless; Java's effect hierarchy handles both cases through the EffectController pipeline
+  - Note: Summer/Winter Circle elemental resist self-nerfs (Fire/Water/Wind/Earth -30 to -90) were already handled by M339's `ScanStatupAddValue` which includes `statdown` elements — those 69 entries needed no additional work
+  - **M341a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: after existing PERCENT statup blocks, added self-nerf reads: `PdefPercentDebuff` + `PdefAddDelta` → `pdefStatUpDelta`; `PatkPercentDebuff` + `PhysAtkAddDelta` → `patkStatUpDelta`; `EvasionPercentDebuff` + `EvasionAddDelta` → `evasionStatUpDelta`; `MResistAddDelta` → `mresistStatUpDelta`; `PhysAccAddDelta` → `physAccStatUpDelta`; `ConcentrationAddDelta` → `concentrationStatUpDelta`; `PhysCritAddDelta` → `physCritStatUpDelta`. All merged into existing statup variables — AbnormalState, Creature, and expiry logic require no changes
+  - Limitation: MAXHP PERCENT self-nerf (7 entries), SPEED PERCENT (4 entries, movement slow self-nerf), and ATTACK_SPEED PERCENT (4 entries) deferred — those require additional pre-buff snapshot fields and are lower player-facing impact than the stat nerfs
+  - Build: 0 warnings, 0 errors
+
 - [x] **M340: PVP_ATTACK_RATIO + PVP_DEFEND_RATIO ADD buffs (45 + 41 = 86 skill entries)** — PvP offensive ratio buffs (e.g. Abyss battle skills, short-burst combat boosts) and PvP defensive ratio buffs (e.g. "Guardian of the Alliance" passive, anti-PvP scrolls) now modify PvP skill and auto-attack damage; Java formula: after PvP 50% cut → `damage *= (1 + atkRatio/1000f - defRatio/1000f)` applied as net modifier
   - Java analog: `StatFunctions.adjustDamages`: `pvpAttackBonus = PVP_ATTACK_RATIO * 0.001f`; `pvpDefenceBonus = PVP_DEFEND_RATIO * 0.001f`; `damages = round(damages + damages * atkBonus - damages * defBonus)`; our net-delta form `(1 + (atkRatio - defRatio) * 0.001f)` is algebraically equivalent
   - **M340a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PvpAtkRatioDelta` and `PvpDefRatioDelta` expression-body properties via `ScanStatupAddValue`
@@ -3402,7 +3409,7 @@
   - Java analog: `StatDownEffect` with `func=PERCENT` on `PHYSICAL_DEFENSE` or `MAGICAL_RESIST` — reduces the stat by X% of the target's current value
   - **M322a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PdefPercentDebuff` and `MResistPercentDebuff` properties to `SkillEffects`; scan `statdown` elements for `<change stat="PHYSICAL_DEFENSE/MAGICAL_RESIST" func="PERCENT"/>` children, sum all values
   - **M322b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — debuff application block: reads `pdefPctDebuff`/`mresistPctDebuff` after MaxHp/MaxMp pct conversions; if target is Player, computes flat delta = `target.PhysicalDefense/BonusMagicResist * pct / 100` and adds to `pdefDelta`/`mresistDelta` (merged into existing `PdefDelta`/`MResistDelta` field on AbnormalState)
-  - Limitation: 17 BUFF-path self-nerf cases (Ferocity I, Berserking I, etc.) where `statdown PERCENT PDEF` is inside a BUFF skill are not yet handled — deferred
+  - Limitation resolved in M341: BUFF-path self-nerfing statdown elements are now handled
   - Previously: 157+ skills that should reduce pdef/mresist by percentage had no runtime effect on those stats; only the CC flag and duration applied
   - Build: 0 warnings, 0 errors
 
