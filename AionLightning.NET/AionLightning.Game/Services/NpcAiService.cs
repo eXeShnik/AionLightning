@@ -607,7 +607,19 @@ public sealed class NpcAiService : BackgroundService
         {
             foreach (var dot in npcDots)
             {
-                int dotTickDmg = Math.Max(1, dot.BaseValue + dot.Delta * skillLevel);
+                int rawNpcDot = dot.BaseValue + dot.Delta * skillLevel;
+                // M345: elemental resistance for NPC bleed/poison/disease DoT ticks (mirrors M343 player-cast path)
+                int npcDotElemResist = dot.Element switch
+                {
+                    "FIRE"  => target.FireResist,
+                    "WATER" => target.WaterResist,
+                    "WIND"  => target.WindResist,
+                    "EARTH" => target.EarthResist,
+                    _       => 0,
+                };
+                int dotTickDmg = npcDotElemResist > 0
+                    ? Math.Max(1, (int)(rawNpcDot * (1f - npcDotElemResist / 1250f)))
+                    : Math.Max(1, rawNpcDot);
                 var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                 var dotEffect  = new AbnormalState
                 {

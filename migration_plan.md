@@ -3270,6 +3270,11 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M345: elemental resistance applied to NPC-cast DoT tick damage** — NPC bleed/poison/disease ticks now respect the player's elemental resistance (FireResist/WaterResist/WindResist/EarthResist) using the same 1250-scale formula as M343 (player-cast) and M342 (NPC instantaneous magic damage); resistance value is baked into `dotTickDmg` at DoT creation time since the NPC DoT lambda captures a fixed value
+  - Java analog: NPC `DotEffect.onTick()` calls `StatFunctions.calculateMagicalSkillDamage` which applies elemental resistance on each tick; our approach bakes the reduction at creation time (captures static target state) — acceptable since DoT resist buffs rarely change mid-DoT
+  - **M345a:** `Services/NpcAiService.cs` — `CastNpcDamageAsync` DoT loop: replaced `Math.Max(1, dot.BaseValue + dot.Delta * skillLevel)` with `rawNpcDot` + inline element switch → `npcDotElemResist` → apply `(1f - npcDotElemResist / 1250f)` when nonzero
+  - Build: 0 warnings, 0 errors
+
 - [x] **M344: ShieldMastery passive BLOCK% bonus — shield proficiency passives now boost block rate when a shield is equipped (6 shieldmastery entries)** — Warrior/Knight/Templar/Chanter shield training passives add +5% of BaseBlock to total block rating when a shield occupies the sub-hand slot; recomputed on equip/unequip and at world enter; deactivated automatically when shield is removed
   - Java analog: `ShieldMasteryEffect extends BufEffect` uses `StatShieldMasteryFunction` which calls `super.apply(stat)` only if `player.getEquipment().isShieldEquipped()`; the +5% BLOCK PERCENT is applied to the base block stat
   - **M344a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ShieldMasteryBlockPct` computed property on `SkillEffects`: scans `shieldmastery` elements for `<change stat="BLOCK" func="PERCENT" value="N"/>` children, returns sum (mirrors ArmorMastery parser)
