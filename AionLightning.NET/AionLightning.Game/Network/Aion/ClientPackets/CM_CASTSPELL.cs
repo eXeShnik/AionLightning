@@ -576,7 +576,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                      : template.Effects?.OnetimeBoostHealDurationMs > 0 ? (template.Effects.OnetimeBoostHealDurationMs)
                                      : (template.Effects?.AlwaysParryDurationMs ?? 0);
                 int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
+                // M349: PERCENT MAXHP buffs from statup/statboost (Second Wind, Improved Stamina, Blessing of Health, etc.)
+                int maxHpStatUpPct = template.Effects?.MaxHpPercentStatUpDelta ?? 0;
+                if (maxHpStatUpPct != 0 && buffTarget is Player maxHpPctBuff)
+                    maxHpStatUpDelta += maxHpPctBuff.MaxHp * maxHpStatUpPct / 100;
                 int maxMpStatUpDelta    = template.Effects?.MaxMpStatUpDelta       ?? 0;
+                // M349: PERCENT MAXMP buffs from statup/statboost
+                int maxMpStatUpPct = template.Effects?.MaxMpPercentStatUpDelta ?? 0;
+                if (maxMpStatUpPct != 0 && buffTarget is Player maxMpPctBuff)
+                    maxMpStatUpDelta += maxMpPctBuff.MaxMp * maxMpStatUpPct / 100;
                 int mBoostStatUpDelta   = template.Effects?.MagicBoostStatUpDelta  ?? 0;
                 int healBoostStatUpDelta = template.Effects?.HealBoostStatUpDelta ?? 0;
                 int physAccStatUpDelta   = template.Effects?.PhysAccStatUpDelta   ?? 0;
