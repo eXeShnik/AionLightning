@@ -3270,6 +3270,20 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M335: FLY_TIME PERCENT buff (3 entries)** — Active buffs (e.g. "Lustrous Feather Effect" skill 1871 +400%, group buff skill 18145 +200%, test scroll skill 9865 delta-scaled) now increase effective MaxFp by the given percentage; FP heal, drain, regen and UI packets all use `EffectiveMaxFp`; base `MaxFp` unchanged for clean restoration on expiry
+  - Java analog: `PlayerGameStats.getFlyTime() → getStat(StatEnum.FLY_TIME, BASE_FLYTIME)` accumulates all PERCENT modifiers onto the base fly-time value
+  - **M335a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FlyTimeStatUpPct` to `SkillEffects` (scans `statup`/`statboost` for `stat="FLY_TIME" func="PERCENT"`; respects `value + delta*(level-1)`)
+  - **M335b:** `Model/AbnormalState.cs` — added `FlyTimePctDeltaVal` field
+  - **M335c:** `Model/Player.cs` — added `BonusFlyTimePct` (mutable, accumulated) and `EffectiveMaxFp` computed property (`MaxFp * (100 + BonusFlyTimePct) / 100`)
+  - **M335d:** `Model/Creature.cs` — `ApplyEffectDeltas`/`ReverseEffectDeltas` accumulate `BonusFlyTimePct` and clamp `CurrentFp` to `EffectiveMaxFp` on both apply and reverse
+  - **M335e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads `flyTimePctDelta`, stores in `AbnormalState.FlyTimePctDeltaVal`; all 7 `MaxFp` references (FP heal single-target, FP heal HoT tick, FP heal AoE, FP attack instant, FP attack DoT tick) updated to `EffectiveMaxFp`
+  - **M335f:** `Network/Aion/ServerPackets/SM_STATS_INFO.cs` — both MaxFp writes now use `p.EffectiveMaxFp`
+  - **M335g:** `Services/RegenService.cs` — FP regen cap and `SM_FLY_TIME` packets use `EffectiveMaxFp`
+  - **M335h:** `Services/PlayerEnterWorldService.cs` — CurrentFp clamp and `SM_FLY_TIME` packet use `EffectiveMaxFp`
+  - **M335i:** `Network/Aion/ClientPackets/CM_USE_ITEM.cs` — item FP heal cap uses `EffectiveMaxFp`
+  - **M335j:** `Services/AuraChildApplier.cs` — aura FP heal percent uses `EffectiveMaxFp`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M333: ABNORMAL_RESISTANCE_ALL ADD buff (52 entries) + BOOST_HATE PERCENT boosthate (14 entries)** — CC resist buffs now gate all CC-flag debuffs; boosthate PASSIVE skills (Gladiator "Aggravation") + active boosthate buffs now scale hate generation
   - Java analog: `ABNORMAL_RESISTANCE_ALL → AbnormalEffect.calculate() Rnd.get(10000) < resistValue = resisted`; `BOOST_HATE PERCENT → StatFunctions.calculateHate(creature, value) * (1 + boost/100)`
   - **M333a:** `Model/Templates/Skill/SkillTemplate.cs` — added `CcResistAllAddDelta` (scans `statup`/`statboost` for `stat="ABNORMAL_RESISTANCE_ALL" func="ADD"`) and `BoostHateStatPct` (scans `boosthate` elements for `stat="BOOST_HATE" func="PERCENT"`) to `SkillEffects`

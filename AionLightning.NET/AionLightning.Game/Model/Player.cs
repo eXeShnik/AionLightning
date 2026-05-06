@@ -111,6 +111,10 @@ public sealed class Player : Creature
     // Accumulated BOOST_HATE percent from active buffs (positive = % more hate per hit, negative = less). Reversed on buff expiry.
     // Passive boosthate skills (Aggravation) are computed on-the-fly via PassiveBoostHateHelper and not stored here.
     public int BoostHatePct { get; set; }
+    // Accumulated FLY_TIME PERCENT from active buffs (e.g. 400 = +400%); EffectiveMaxFp applies this to MaxFp. Reversed on buff expiry.
+    public int BonusFlyTimePct { get; set; }
+    // Effective MaxFp after applying active FLY_TIME PERCENT buffs. Base MaxFp stays unchanged for restoration on expiry.
+    public int EffectiveMaxFp => BonusFlyTimePct != 0 ? MaxFp * (100 + BonusFlyTimePct) / 100 : MaxFp;
 
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
     public int    MainHandMinDmg    { get; set; }

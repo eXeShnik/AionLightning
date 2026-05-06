@@ -48,7 +48,7 @@ public sealed class AuraChildApplier
                 {
                     "hp" => target.MaxHp * amount / 100,
                     "mp" => target.MaxMp * amount / 100,
-                    "fp" => target is Player fpT ? fpT.MaxFp * amount / 100 : 0,
+                    "fp" => target is Player fpT ? fpT.EffectiveMaxFp * amount / 100 : 0,
                     _    => amount,
                 };
                 if (amount <= 0) continue;

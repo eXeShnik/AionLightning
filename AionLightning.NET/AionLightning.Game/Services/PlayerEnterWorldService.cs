@@ -290,8 +290,10 @@ public sealed class PlayerEnterWorldService
             if ((pv = fx.CastTimeStatUpDelta)         != 0) player.CastTimeDelta         += pv;
             if ((pv = fx.AtkSpeedStatUpDelta)         != 0) player.AtkSpeedStatUpDelta   += pv;
             if ((pv = fx.SpeedStatUpPct)              != 0) player.PassiveBonusMovementSpeedPct += pv;
-            if ((pv = fx.MaxHpPercentStatUpDelta)     != 0) player.PassiveBonusMaxHpPct   += pv;
-            if ((pv = fx.MaxMpPercentStatUpDelta)     != 0) player.PassiveBonusMaxMpPct   += pv;
+            if ((pv = fx.MaxHpPercentStatUpDelta)     != 0) player.PassiveBonusMaxHpPct         += pv;
+            if ((pv = fx.MaxMpPercentStatUpDelta)     != 0) player.PassiveBonusMaxMpPct         += pv;
+            if ((pv = fx.BoostHealSkillBoostPct)      != 0) player.PassiveBonusHealSkillBoostPct += pv;
+            if ((pv = fx.BoostSpellAttackPct)         != 0) player.PassiveBonusSpellAttackPct    += pv;
         }
 
         // M288: ArmorMastery — apply conditional pdef% bonus from passive armor proficiency skills
@@ -334,7 +336,7 @@ public sealed class PlayerEnterWorldService
             });
         player.CurrentHp = player.CurrentHp > 0 ? Math.Min(player.CurrentHp, player.MaxHp) : player.MaxHp;
         player.CurrentMp = player.CurrentMp > 0 ? Math.Min(player.CurrentMp, player.MaxMp) : player.MaxMp;
-        player.CurrentFp = player.CurrentFp > 0 ? Math.Min(player.CurrentFp, player.MaxFp) : player.MaxFp;
+        player.CurrentFp = player.CurrentFp > 0 ? Math.Min(player.CurrentFp, player.EffectiveMaxFp) : player.EffectiveMaxFp;
 
         var questEntries = await _questDao.LoadByPlayerIdAsync(objectId, ct);
         foreach (var entry in questEntries)
@@ -422,7 +424,7 @@ public sealed class PlayerEnterWorldService
         await conn.SendAsync(new SM_EMOTION_LIST(0), ct);
         await conn.SendAsync(new SM_PRICES(), ct);
         await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
-        await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.MaxFp), ct);
+        await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct);
         await conn.SendAsync(new SM_PACKAGE_INFO_NOTIFY(), ct);
 
         await conn.SendAsync(new SM_MACRO_LIST(player.ObjectId, player.Macros.Where(kv => kv.Key <= 24)), ct);

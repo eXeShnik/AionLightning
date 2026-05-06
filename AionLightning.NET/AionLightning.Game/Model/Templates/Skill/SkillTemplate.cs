@@ -3349,6 +3349,29 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M335: PERCENT FLY_TIME change from statup/statboost elements (positive = % more max FP, e.g. 400 = +400% base MaxFp).</summary>
+    public int FlyTimeStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup" && e.LocalName != "statboost") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "FLY_TIME", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int pct)) total += pct;
+                }
+            }
+            return total;
+        }
+    }
+
     private static AbnormalCcFlags ElementToCcFlag(string name) => name switch
     {
         "stun" or "stunalways" or "buffstun"          => AbnormalCcFlags.Stun,

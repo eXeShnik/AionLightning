@@ -170,6 +170,9 @@ public sealed class CM_REVIVE : AionClientPacket
     private async ValueTask ReviveCoreAsync(Player player, int hpPct, int mpPct,
         bool applySoulSickness, int skillId, Position? destination, CancellationToken ct)
     {
+        // M331: noresurrectpenalty buff suppresses soul sickness on death
+        if (applySoulSickness && player.GetActiveEffects().Any(e => e.IsNoDeathPenalty))
+            applySoulSickness = false;
         if (applySoulSickness && player.SoulSicknessCount < 10)
         {
             player.SoulSicknessCount++;

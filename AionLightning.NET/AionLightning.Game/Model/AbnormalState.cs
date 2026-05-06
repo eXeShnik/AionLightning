@@ -120,6 +120,8 @@ public sealed class AbnormalState
     public int CcResistAllDeltaVal { get; init; }
     // Non-zero when this buff changes hate generation rate (BOOST_HATE PERCENT; positive = more hate, negative = less).
     public int BoostHatePctDeltaVal { get; init; }
+    // Non-zero when this buff increases MaxFp by percent (FLY_TIME PERCENT; e.g. 400 = +400% base MaxFp → effective MaxFp = base * 5).
+    public int FlyTimePctDeltaVal { get; init; }
 
     // M334: one-time crit boost — charges consumed when casting a skill; 0 when not a onetimeboostskillcritical buff.
     public int  OnetimeCritCountRemaining { get; set; }

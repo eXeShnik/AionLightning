@@ -544,7 +544,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
             {
                 "hp" => player.MaxHp,
                 "mp" => player.MaxMp,
-                "fp" => player.MaxFp,
+                "fp" => player.EffectiveMaxFp,
                 "dp" => 6000,
                 "vp" => 6000,
                 _    => 0,
@@ -566,7 +566,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
             }
             else if (he.HealType == "fp")
             {
-                heal = Math.Min(heal, player.MaxFp - player.CurrentFp);
+                heal = Math.Min(heal, player.EffectiveMaxFp - player.CurrentFp);
                 if (heal <= 0) continue;
                 player.CurrentFp += heal;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalFp, skillId, heal, SM_ATTACK_STATUS.LogId.FpHeal);

@@ -73,7 +73,7 @@ public sealed class RegenService : BackgroundService
             if (isFlying && player.CurrentFp > 0)
             {
                 player.CurrentFp = Math.Max(0, player.CurrentFp - FpDrainPerTick);
-                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.MaxFp), ct); } catch { }
+                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct); } catch { }
 
                 if (player.CurrentFp <= 0)
                 {
@@ -89,10 +89,13 @@ public sealed class RegenService : BackgroundService
             }
 
             // FP regen when grounded and out of combat
-            if (!isFlying && player.CurrentFp < player.MaxFp && now - player.LastCombatTime >= OutOfCombatDelay)
+            if (!isFlying && player.CurrentFp < player.EffectiveMaxFp && now - player.LastCombatTime >= OutOfCombatDelay)
             {
-                player.CurrentFp = Math.Min(player.MaxFp, player.CurrentFp + FpRegenPerTick);
-                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.MaxFp), ct); } catch { }
+                int fpRegen = player.BonusRegenFpPct != 0
+                    ? Math.Max(1, FpRegenPerTick * (100 + player.BonusRegenFpPct) / 100)
+                    : FpRegenPerTick;
+                player.CurrentFp = Math.Min(player.EffectiveMaxFp, player.CurrentFp + fpRegen);
+                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct); } catch { }
             }
 
             if (now - player.LastCombatTime < OutOfCombatDelay) continue;
@@ -104,6 +107,7 @@ public sealed class RegenService : BackgroundService
             if (player.CurrentHp < player.MaxHp)
             {
                 int regen  = Math.Max(1, (player.Level + 3) * (statTpl?.Health ?? 100) / 100);
+                if (player.BonusRegenHpPct != 0) regen = Math.Max(1, regen * (100 + player.BonusRegenHpPct) / 100);
                 int actual = Math.Min(regen, player.MaxHp - player.CurrentHp);
                 player.CurrentHp += actual;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, 0, actual,
@@ -118,6 +122,7 @@ public sealed class RegenService : BackgroundService
             if (player.CurrentMp < player.MaxMp)
             {
                 int regen  = Math.Max(1, (player.Level + 8) * (statTpl?.Will ?? 100) / 100);
+                if (player.BonusRegenMpPct != 0) regen = Math.Max(1, regen * (100 + player.BonusRegenMpPct) / 100);
                 int actual = Math.Min(regen, player.MaxMp - player.CurrentMp);
                 player.CurrentMp += actual;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, 0, actual,

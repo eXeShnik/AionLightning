@@ -8,9 +8,10 @@ using AionLightning.Game.Network.Aion.ServerPackets;
 namespace AionLightning.Game.Combat.Handlers;
 
 /// <summary>
-/// M313: Handles &lt;alwaysblock&gt; and &lt;alwaysdodge&gt; — physical hits are guaranteed to be
-/// blocked/dodged for up to HitCountRemaining hits; when the counter reaches 0 the buff is removed.
-/// Java analog: AlwaysBlockEffect/AlwaysDodgeEffect use AttackStatusObserver to intercept each hit.
+/// M313/M331: Handles &lt;alwaysblock&gt;, &lt;alwaysdodge&gt;, and &lt;alwaysparry&gt; — physical hits are
+/// guaranteed to be blocked/dodged/parried for up to HitCountRemaining hits; when the counter
+/// reaches 0 the buff is removed.
+/// Java analog: AlwaysBlockEffect/AlwaysDodgeEffect/AlwaysParryEffect use AttackStatusObserver.
 /// </summary>
 public sealed class AlwaysBlockDodgeHandler(
     IDataManager             dataManager,
@@ -34,7 +35,8 @@ public sealed class AlwaysBlockDodgeHandler(
             if (tpl?.Effects is null) continue;
             bool isBlock = tpl.Effects.HasAlwaysBlock;
             bool isDodge = tpl.Effects.HasAlwaysDodge;
-            if (!isBlock && !isDodge) continue;
+            bool isParry = tpl.Effects.HasAlwaysParry;
+            if (!isBlock && !isDodge && !isParry) continue;
 
             e.Damage.Value = 0;
             ab.HitCountRemaining--;

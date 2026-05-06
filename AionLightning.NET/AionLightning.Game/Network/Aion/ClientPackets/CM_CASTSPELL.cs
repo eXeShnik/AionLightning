@@ -235,7 +235,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         {
                             "hp" => healTarget.MaxHp,
                             "mp" => healTarget.MaxMp,
-                            "fp" => healTarget is Player fpHtMax ? fpHtMax.MaxFp : 0,
+                            "fp" => healTarget is Player fpHtMax ? fpHtMax.EffectiveMaxFp : 0,
                             "dp" => 6000, // DP cap (no MaxDp field, mirrors CM_ATTACK / CM_CASTSPELL DP gain caps)
                             "vp" => 6000, // VP cap (M272 — mirrors DP)
                             _    => 0,
@@ -260,7 +260,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         else if (he.HealType == "fp" && healTarget is Player fpHt)
                         {
                             // M248: fphealinstant — flight points heal (Player only)
-                            heal = Math.Min(heal, fpHt.MaxFp - fpHt.CurrentFp);
+                            heal = Math.Min(heal, fpHt.EffectiveMaxFp - fpHt.CurrentFp);
                             if (heal <= 0) continue;
                             fpHt.CurrentFp += heal;
                             var fpStatus = new SM_ATTACK_STATUS(fpHt, SM_ATTACK_STATUS.AttackType.NaturalFp,
@@ -343,7 +343,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     int actual = hot.HealType switch
                                     {
                                         "hp"                                            => Math.Min(tickHealPer, tickTarget.MaxHp - tickTarget.CurrentHp),
-                                        "fp" when tickTarget is Player fpHotTickT       => Math.Min(tickHealPer, fpHotTickT.MaxFp - fpHotTickT.CurrentFp),
+                                        "fp" when tickTarget is Player fpHotTickT       => Math.Min(tickHealPer, fpHotTickT.EffectiveMaxFp - fpHotTickT.CurrentFp),
                                         "fp"                                            => 0,
                                         "dp" when tickTarget is Player dpHotTickT       => Math.Min(tickHealPer, 6000 - dpHotTickT.Dp),
                                         "dp"                                            => 0,
@@ -465,7 +465,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         {
                             "hp" => ally.MaxHp,
                             "mp" => ally.MaxMp,
-                            "fp" => ally is Player fpAllyMax ? fpAllyMax.MaxFp : 0,
+                            "fp" => ally is Player fpAllyMax ? fpAllyMax.EffectiveMaxFp : 0,
                             "dp" => 6000,
                             "vp" => 6000,
                             _    => 0,
@@ -489,7 +489,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         else if (he.HealType == "fp" && ally is Player fpAlly)
                         {
                             // M248: AoE FP heal — Player allies only
-                            h = Math.Min(h, fpAlly.MaxFp - fpAlly.CurrentFp);
+                            h = Math.Min(h, fpAlly.EffectiveMaxFp - fpAlly.CurrentFp);
                             if (h <= 0) continue;
                             fpAlly.CurrentFp += h;
                             var pkt = new SM_ATTACK_STATUS(fpAlly, SM_ATTACK_STATUS.AttackType.NaturalFp, _spellId, h, SM_ATTACK_STATUS.LogId.FpHeal);
@@ -653,6 +653,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // M333: ABNORMAL_RESISTANCE_ALL ADD buff and BOOST_HATE PERCENT buff
                 int ccResistAllDelta = template.Effects?.CcResistAllAddDelta ?? 0;
                 int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
+                // M335: FLY_TIME PERCENT buff — increases player MaxFp by a percentage
+                int flyTimePctDelta  = template.Effects?.FlyTimeStatUpPct   ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -695,6 +697,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     APBoostDeltaVal          = apBoostDelta,
                     CcResistAllDeltaVal      = ccResistAllDelta,
                     BoostHatePctDeltaVal     = boostHateDelta,
+                    FlyTimePctDeltaVal       = flyTimePctDelta,
                     // M334: one-time crit/atk boost charges
                     OnetimeCritCountRemaining = template.Effects?.OnetimeCritCount ?? 0,
                     OnetimeCritBoostFlat      = template.Effects?.OnetimeCritIsPercent == true ? 0 : (template.Effects?.OnetimeCritValue ?? 0),
@@ -1873,7 +1876,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (stFpFx is { Value: > 0 } fpAtk && target is Player fpAtkTarget)
                 {
                     int fpBurnVal = fpAtk.Value + fpAtk.Delta * (_level - 1);
-                    int fpBurn = fpAtk.IsPercent ? fpAtkTarget.MaxFp * fpBurnVal / 100 : fpBurnVal;
+                    int fpBurn = fpAtk.IsPercent ? fpAtkTarget.EffectiveMaxFp * fpBurnVal / 100 : fpBurnVal;
                     if (fpBurn > 0)
                         fpAtkTarget.CurrentFp = Math.Max(0, fpAtkTarget.CurrentFp - fpBurn);
                 }
@@ -2808,7 +2811,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 await Task.Delay(fpTickInfo.CheckTimeMs);
                                 if (fpTickTarget.IsAlreadyDead || DateTime.UtcNow >= fpTickEffect.Expiry) break;
                                 int fpDrain = fpTickInfo.IsPercent
-                                    ? fpTickTarget.MaxFp * fpTickInfo.BaseValue / 100
+                                    ? fpTickTarget.EffectiveMaxFp * fpTickInfo.BaseValue / 100
                                     : Math.Max(1, fpTickInfo.BaseValue + fpTickInfo.Delta * (_level - 1));
                                 fpTickTarget.CurrentFp = Math.Max(0, fpTickTarget.CurrentFp - fpDrain);
                                 var fpDc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == fpTickTarget);

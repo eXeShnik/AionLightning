@@ -236,6 +236,12 @@ public abstract class Creature : VisibleObject
         if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpApply) regenFpApply.BonusRegenFpPct += e.RegenFpPctDeltaVal;
         if (e.APBoostDeltaVal       != 0 && this is Player apBoostApply)   apBoostApply.APBoostDelta    += e.APBoostDeltaVal;
         if (e.BoostHatePctDeltaVal  != 0 && this is Player boostHateApply) boostHateApply.BoostHatePct  += e.BoostHatePctDeltaVal;
+        if (e.FlyTimePctDeltaVal    != 0 && this is Player flyTimeApply)
+        {
+            flyTimeApply.BonusFlyTimePct += e.FlyTimePctDeltaVal;
+            int fpCap = Math.Max(1, flyTimeApply.EffectiveMaxFp);
+            if (flyTimeApply.CurrentFp > fpCap) flyTimeApply.CurrentFp = fpCap;
+        }
     }
 
     internal void ReverseEffectDeltas(AbnormalState e)
@@ -282,6 +288,12 @@ public abstract class Creature : VisibleObject
         if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpRev) regenFpRev.BonusRegenFpPct -= e.RegenFpPctDeltaVal;
         if (e.APBoostDeltaVal       != 0 && this is Player apBoostRev)   apBoostRev.APBoostDelta   -= e.APBoostDeltaVal;
         if (e.BoostHatePctDeltaVal  != 0 && this is Player boostHateRev) boostHateRev.BoostHatePct -= e.BoostHatePctDeltaVal;
+        if (e.FlyTimePctDeltaVal    != 0 && this is Player flyTimeRev)
+        {
+            flyTimeRev.BonusFlyTimePct -= e.FlyTimePctDeltaVal;
+            int fpCap = Math.Max(1, flyTimeRev.EffectiveMaxFp);
+            if (flyTimeRev.CurrentFp > fpCap) flyTimeRev.CurrentFp = fpCap;
+        }
     }
 
     /// <summary>M334: consume one onetimecrit charge; returns (flatBoost, pctBoost) or (0, 0) when no active buff.</summary>
