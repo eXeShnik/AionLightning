@@ -665,6 +665,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
                 // M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT timed buff (e.g. Blessed Shield +100%)
                 int healSkillBoostPct       = template.Effects?.OnetimeBoostHealPct     ?? 0;
+                // M339: elemental resistance ADD buffs (scale: 1250 = 100% immune to that element)
+                int fireResistDelta  = template.Effects?.FireResistDelta  ?? 0;
+                int waterResistDelta = template.Effects?.WaterResistDelta ?? 0;
+                int windResistDelta  = template.Effects?.WindResistDelta  ?? 0;
+                int earthResistDelta = template.Effects?.EarthResistDelta ?? 0;
                 // M338: per-CC-type resistance ADD buffs (Java 0–1000 scale)
                 int stunResistDelta       = template.Effects?.StunResistDelta       ?? 0;
                 int stumbleResistDelta    = template.Effects?.StumbleResistDelta    ?? 0;
@@ -721,6 +726,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     HealSkillBoostPct        = healSkillBoostPct,
                     HuntingXpBoostPct        = huntingXpBoostPct,
                     GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
+                    FireResistDelta          = fireResistDelta,
+                    WaterResistDelta         = waterResistDelta,
+                    WindResistDelta          = windResistDelta,
+                    EarthResistDelta         = earthResistDelta,
                     StunResistDelta          = stunResistDelta,
                     StumbleResistDelta       = stumbleResistDelta,
                     StaggerResistDelta       = staggerResistDelta,
@@ -1302,6 +1311,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int noReduceVal = gAoeNoReduce[0].BaseValue + gAoeNoReduce[0].Delta * (_level - 1);
                         damage = gAoeNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
                     }
+                    // M339: elemental resistance — reduce magical damage if target has resist for this element
+                    if (spellIsMagical && gAoeNoReduce is not { Count: > 0 })
+                    {
+                        int gAoeElemResist = GetElementalResist(target, gAoeDmgFx?[0].Element ?? "");
+                        if (gAoeElemResist > 0)
+                            damage = Math.Max(1, (int)(damage * (1f - gAoeElemResist / 1250f)));
+                    }
                     var gAoeKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
                     await target.ApplyDamageAndPublishAsync(player, damage, gAoeKind, spellId, _eventBus, ct);
 
@@ -1796,6 +1812,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             damage += mod.Value + mod.Delta * (_level - 1);
                     }
                 }
+                // M339: elemental resistance — reduce magical damage if target has resist for this element
+                if (spellIsMagical && stNoReduce is not { Count: > 0 })
+                {
+                    int stElemResist = GetElementalResist(target, stDmgFx?[0].Element ?? "");
+                    if (stElemResist > 0)
+                        damage = Math.Max(1, (int)(damage * (1f - stElemResist / 1250f)));
+                }
 
                 var stKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
                 // M287: suppress DeathEvent in duels — duel restores HP=1 in deadPlayer block below
@@ -2193,6 +2216,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         {
                             int splashNoReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
                             splashDmg = stNoReduce[0].IsPercent ? Math.Max(1, splash.MaxHp * splashNoReduceVal / 100) : Math.Max(1, splashNoReduceVal);
+                        }
+                        // M339: elemental resistance — reduce magical splash damage if target has resist for this element
+                        if (spellIsMagical && stNoReduce is not { Count: > 0 })
+                        {
+                            int splashElemResist = GetElementalResist(splash, stDmgFx?[0].Element ?? "");
+                            if (splashElemResist > 0)
+                                splashDmg = Math.Max(1, (int)(splashDmg * (1f - splashElemResist / 1250f)));
                         }
                         await splash.ApplyDamageAndPublishAsync(player, splashDmg, DamageKind.Splash, spellId, _eventBus, ct);
 
@@ -3085,6 +3115,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
         if (flags.HasFlag(AbnormalCcFlags.Root))       return Math.Max(target.RootResist, target.SnareResist);
         return 0;
     }
+
+    // M339: return the target's elemental resistance value for the given element string (Java scale; 1250 = 100% immune).
+    private static int GetElementalResist(Creature target, string element) => element switch
+    {
+        "FIRE"  => target.FireResist,
+        "WATER" => target.WaterResist,
+        "WIND"  => target.WindResist,
+        "EARTH" => target.EarthResist,
+        _       => 0,
+    };
 
     private static int NpcMagicResist(Model.Npc npc)
     {

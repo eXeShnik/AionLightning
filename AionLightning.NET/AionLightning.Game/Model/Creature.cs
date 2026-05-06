@@ -100,6 +100,10 @@ public abstract class Creature : VisibleObject
     public int OpenAerialResist  { get; set; }
     public int RootResist        { get; set; }
     public int SnareResist       { get; set; }
+    public int FireResist        { get; set; }
+    public int WaterResist       { get; set; }
+    public int WindResist        { get; set; }
+    public int EarthResist       { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
@@ -250,6 +254,10 @@ public abstract class Creature : VisibleObject
         if ((v = e.OpenAerialResistDelta)   != 0) OpenAerialResist      += v;
         if ((v = e.RootResistDelta)         != 0) RootResist            += v;
         if ((v = e.SnareResistDelta)        != 0) SnareResist           += v;
+        if ((v = e.FireResistDelta)         != 0) FireResist            += v;
+        if ((v = e.WaterResistDelta)        != 0) WaterResist           += v;
+        if ((v = e.WindResistDelta)         != 0) WindResist            += v;
+        if ((v = e.EarthResistDelta)        != 0) EarthResist           += v;
         if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpApply) regenHpApply.BonusRegenHpPct += e.RegenHpPctDeltaVal;
         if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpApply) regenMpApply.BonusRegenMpPct += e.RegenMpPctDeltaVal;
         if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpApply) regenFpApply.BonusRegenFpPct += e.RegenFpPctDeltaVal;
@@ -311,6 +319,10 @@ public abstract class Creature : VisibleObject
         if ((v = e.OpenAerialResistDelta)   != 0) OpenAerialResist      -= v;
         if ((v = e.RootResistDelta)         != 0) RootResist            -= v;
         if ((v = e.SnareResistDelta)        != 0) SnareResist           -= v;
+        if ((v = e.FireResistDelta)         != 0) FireResist            -= v;
+        if ((v = e.WaterResistDelta)        != 0) WaterResist           -= v;
+        if ((v = e.WindResistDelta)         != 0) WindResist            -= v;
+        if ((v = e.EarthResistDelta)        != 0) EarthResist           -= v;
         if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
         if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
         if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;

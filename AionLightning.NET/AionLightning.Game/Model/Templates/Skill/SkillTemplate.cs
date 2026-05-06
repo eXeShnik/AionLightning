@@ -3463,6 +3463,13 @@ public sealed class SkillEffects
         return total;
     }
 
+    // M339: elemental resistance ADD deltas (scale matches Java; 1250 = 100% immune to that element).
+    // Parsed from statup/statboost change elements; accumulated in Creature.FireResist etc. via ApplyEffectDeltas.
+    public int FireResistDelta  => ScanStatupAddValue("FIRE_RESISTANCE");
+    public int WaterResistDelta => ScanStatupAddValue("WATER_RESISTANCE");
+    public int WindResistDelta  => ScanStatupAddValue("WIND_RESISTANCE");
+    public int EarthResistDelta => ScanStatupAddValue("EARTH_RESISTANCE");
+
     // M338: per-CC-type resistance ADD deltas (Java 0–1000 scale; 1000 = 100% resistant to that CC type).
     // Parsed from statup/statboost change elements; accumulated in Creature.StunResist etc. via ApplyEffectDeltas.
     public int StunResistDelta       => ScanStatupAddValue("STUN_RESISTANCE");

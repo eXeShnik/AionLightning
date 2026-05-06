@@ -3270,6 +3270,16 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M339: elemental resistance buffs — FIRE/WATER/WIND/EARTH_RESISTANCE ADD (1273 XML entries; ~9595 elemental skill usages)** — Elemental resist buffs (e.g. Balaur Ward, Fire Resist scrolls, elemental resist armor enchants) now reduce magical-skill damage when the skill's element matches the target's active resistance; Java formula `damage *= (1 - elemDef / 1250f)` applied after defense mitigation, skipped for `noreducespellatk` bypass hits
+  - Java analog: `SkillTemplate.element` + per-target elemental stats (FIRE_RESISTANCE, etc.); Java `MagicalSkillTemplate.calculateDamage` consults elemental defense from target's game stats; our port mirrors the reduction factor using `GetElementalResist(target, element)` after both the regular and AoE defense steps
+  - **M339a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FireResistDelta`, `WaterResistDelta`, `WindResistDelta`, `EarthResistDelta` expression-body properties via `ScanStatupAddValue` (M338's helper reused)
+  - **M339b:** `Model/AbnormalState.cs` — added `FireResistDelta … EarthResistDelta` (4 `init`-only fields)
+  - **M339c:** `Model/Creature.cs` — added `FireResist … EarthResist` accumulator fields; `ApplyEffectDeltas` / `ReverseEffectDeltas` each +4 lines
+  - **M339d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads 4 elemental deltas, wires into `AbnormalState`; damage formula: 3 sites (AoE-ground, single-target, splash) each get `GetElementalResist` check guarded by `spellIsMagical && noReduce not active`
+  - **M339e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `GetElementalResist(Creature, string)` switch-expression helper; element strings: "FIRE", "WATER", "WIND", "EARTH"
+  - Scale: Java XML values are on a 0–1250 scale (1250 = 100% immune); damage multiplied by `(1 - resist / 1250f)`, result clamped to minimum 1
+  - Build: 0 warnings, 0 errors
+
 - [x] **M338: per-CC-type resistance buffs — STUN/STUMBLE/STAGGER/SPIN/OPENAREIAL/SLEEP/FEAR/ROOT/SNARE RESISTANCE ADD (272 skill entries across 9 stat types)** — Resistance buffs (e.g. Templar anti-stun stance, Chanter anti-stumble signet, anti-spin/openaerial buffs) now reduce the chance of their respective CC landing; M333's global `CcResistAll` check is complemented by a per-CC secondary roll so both fire independently when the target has specific resistance active
   - Java analog: `EffectTemplate.calculateEffectResistRate` reduces `effectPower = 1000 - ABNORMAL_RESISTANCE_ALL - specificResistance`; our .NET port runs two independent checks (global first, specific second) approximating the combined formula
   - **M338a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ScanStatupAddValue(statName)` private scanner helper + 9 `XxxResistDelta` properties (StunResistDelta … SnareResistDelta) using expression-body one-liners

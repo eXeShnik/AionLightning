@@ -129,6 +129,12 @@ public sealed class AbnormalState
     // Non-zero when this buff increases group-kill XP gain (BOOST_GROUP_HUNTING_XP_RATE ADD; e.g. 30 = +30% group XP per kill).
     public int GroupHuntingXpBoostPct { get; init; }
 
+    // M339: elemental resistance ADD deltas (Java scale; 1250 = 100% immune to that element).
+    public int FireResistDelta  { get; init; }
+    public int WaterResistDelta { get; init; }
+    public int WindResistDelta  { get; init; }
+    public int EarthResistDelta { get; init; }
+
     // M338: per-CC-type resistance deltas (Java 0–1000 scale; 1000 = 100% immune to that CC type).
     // Positive = buff; accumulated in Creature.StunResist etc. via ApplyEffectDeltas.
     public int StunResistDelta       { get; init; }
