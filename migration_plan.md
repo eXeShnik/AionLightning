@@ -3270,6 +3270,12 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M343: elemental resistance applied to DoT (bleed/poison/disease) tick damage (267 elemental DoT entries)** — Bleed and poison DoTs with elemental damage types (FIRE, WIND, EARTH, WATER) now respect the target's elemental resistance when ticking; same 1250-scale formula as M339; spellatk DoTs use magic boost/magic defense path and remain unaffected; skipped for noreducespellatk bypass (already on spellatk path)
+  - Java analog: DoT effects in Java call `StatFunctions.calculateMagicalSkillDamage` on each tick if the DoT element is non-empty; our non-spellatk branch now mirrors that via `GetElementalResist(target, dot.Element)`
+  - Data: 267 DoT entries have a non-empty element — poison EARTH: 85, bleed WIND: 47, bleed FIRE: 45, poison FIRE: 29, bleed WATER: 20, bleed EARTH: 18, poison WATER: 14, poison WIND: 9
+  - **M343a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — 3 DoT sites updated (AoE-ground, splash, single-target): `else` branch changed from `Math.Max(1, rawDot)` to `GetElementalResist(target/splash, dot.Element)` → scale with `(1f - elemResist / 1250f)` when nonzero
+  - Build: 0 warnings, 0 errors
+
 - [x] **M342: elemental resistance applied to NPC magical skill damage (2714 elemental skill entries)** — Player Fire/Water/Wind/Earth resist buffs and gear stats now reduce damage from NPC magical skills (spellatkinstant, spellatk, spellatkdraininstant) with a matching element; same 1250-scale formula as M339's player-cast path; skipped for noreducespellatk bypass
   - Java analog: `calculateMagicalSkillDamage` in `StatFunctions` checks elemental resistance regardless of whether the caster is a player or NPC; our CastNpcDamageAsync now mirrors the same guard `!isPhysical && npcNoReduce not active`
   - **M342a:** `Services/NpcAiService.cs` — `CastNpcDamageAsync`: after npcNoReduce block, added inline element-switch resist check (same logic as `GetElementalResist` in CM_CASTSPELL; inlined to avoid cross-file dependency)

@@ -1437,7 +1437,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 dotTickDmg = Math.Max(1, dotDefG > 0 ? dotRawG * 1000 / (1000 + dotDefG) : dotRawG);
                             }
                             else
-                                dotTickDmg = Math.Max(1, rawDotG);
+                            {
+                                // M343: elemental resistance for bleed/poison/disease DoT ticks
+                                int gAoeElemDot = GetElementalResist(target, dot.Element);
+                                dotTickDmg = gAoeElemDot > 0
+                                    ? Math.Max(1, (int)(rawDotG * (1f - gAoeElemDot / 1250f)))
+                                    : Math.Max(1, rawDotG);
+                            }
                             var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                             var dotEffect  = new AbnormalState
                             {
@@ -2375,7 +2381,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     dotTickDmg = Math.Max(1, dotDefSpl > 0 ? dotRawSpl * 1000 / (1000 + dotDefSpl) : dotRawSpl);
                                 }
                                 else
-                                    dotTickDmg = Math.Max(1, rawDotSpl);
+                                {
+                                    // M343: elemental resistance for bleed/poison/disease DoT ticks
+                                    int splElemDot = GetElementalResist(splash, dot.Element);
+                                    dotTickDmg = splElemDot > 0
+                                        ? Math.Max(1, (int)(rawDotSpl * (1f - splElemDot / 1250f)))
+                                        : Math.Max(1, rawDotSpl);
+                                }
                                 var dotExpiry   = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                                 var dotEffect   = new AbnormalState
                                 {
@@ -2689,7 +2701,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             dmgPerTick = Math.Max(1, dotDefSt > 0 ? dotRawSt * 1000 / (1000 + dotDefSt) : dotRawSt);
                         }
                         else
-                            dmgPerTick = Math.Max(1, rawDotSt);
+                        {
+                            // M343: elemental resistance for bleed/poison/disease DoT ticks
+                            int stElemDot = GetElementalResist(target, dot.Element);
+                            dmgPerTick = stElemDot > 0
+                                ? Math.Max(1, (int)(rawDotSt * (1f - stElemDot / 1250f)))
+                                : Math.Max(1, rawDotSt);
+                        }
                         var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                         var dotEffect  = new AbnormalState
                         {
