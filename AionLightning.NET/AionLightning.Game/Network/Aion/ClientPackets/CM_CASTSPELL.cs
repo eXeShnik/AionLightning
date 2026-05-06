@@ -1176,10 +1176,33 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // M258: skip resist/dodge when damage effect carries noresist="true"
                 var stPreNoResistFx = template?.Effects?.DamageEffects;
                 bool stNoResist = stPreNoResistFx is { Count: > 0 } && stPreNoResistFx[0].IsNoResist;
+
+                // M289: SignetBurst — pre-read signet state before resist check (accmod affects resist roll)
+                var stSbFxPre = template?.Effects?.SignetBurstEffects;
+                bool isSignetBurstSkill = stSbFxPre is { Count: > 0 };
+                AbnormalState? signetBurstState = null;
+                int signetBurstAccBoost = 0;
+                if (isSignetBurstSkill)
+                {
+                    signetBurstState = target.GetEffectByStack(stSbFxPre![0].Signet);
+                    if (signetBurstState is not null)
+                    {
+                        int mAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
+                        signetBurstAccBoost = signetBurstState.SkillLevel switch
+                        {
+                            1 => (int)(-0.8f * mAcc),
+                            2 => (int)(-0.5f * mAcc),
+                            4 => (int)( 0.2f * mAcc),
+                            5 => (int)( 0.5f * mAcc),
+                            _ => 0
+                        };
+                    }
+                }
+
                 // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
                 if (spellIsMagical && !stNoResist)
                 {
-                    int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
+                    int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta + signetBurstAccBoost;
                     int targetMagicResist = (target is Player pvpResistTarget ? pvpResistTarget.BonusMagicResist
                                          : target is Npc npcResistTarget    ? NpcMagicResist(npcResistTarget)
                                          : 0) + target.MResistDebuffDelta + target.MResistStatUpDelta;
@@ -1193,6 +1216,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(resistPkt); } catch { }
+                        // M289: Java SignetBurstEffect.calculate consumes signet even on resist
+                        if (isSignetBurstSkill && signetBurstState is not null)
+                            target.RemoveEffectByStack(stSbFxPre![0].Signet);
                         return;
                     }
                 }
@@ -1235,6 +1261,27 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 {
                     int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
                     rawSpellDmg = pAtkG + (stSkillBase ?? player.Level * 4 + Random.Shared.Next(10, 40));
+                }
+
+                // M289: SignetBurst — scale rawSpellDmg by signet level BEFORE crit (Java: valueWithDelta *= factor)
+                if (isSignetBurstSkill)
+                {
+                    if (signetBurstState is null)
+                    {
+                        rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * 0.05f));
+                    }
+                    else
+                    {
+                        float sbScale = signetBurstState.SkillLevel switch
+                        {
+                            1 => 0.2f,
+                            2 => 0.5f,
+                            4 => 1.2f,
+                            5 => 1.5f,
+                            _ => 1.0f // level 3 = 1.0x (no change)
+                        };
+                        rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * sbScale));
+                    }
                 }
 
                 // Magical crit check (Java calculateMagicalCriticalRate, same piecewise formula as physical)
@@ -1402,6 +1449,71 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 foreach (var c in registry.GetAll())
                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                         try { await c.SendAsync(statusPkt); } catch { }
+
+                // M289: SignetBurst — consume (remove) the signet after damage lands
+                if (isSignetBurstSkill && signetBurstState is not null)
+                {
+                    target.RemoveEffectByStack(stSbFxPre![0].Signet);
+                    bool sbIsPlayer = target is Player;
+                    var sbAbnPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, sbIsPlayer, target.GetActiveEffects());
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(sbAbnPkt); } catch { }
+                }
+
+                // M289: CarveSignet — place or upgrade SYSTEM_SKILL_SIGNET1 on target after damage
+                var stCsFx = template?.Effects?.CarveSignetEffects;
+                if (stCsFx is { Count: > 0 } && target.CurrentHp > 0)
+                {
+                    var cs = stCsFx[0];
+                    // Java: Rnd.get(0, 100) > prob skips placement; Random.Shared.Next(101) gives 0-100
+                    if (Random.Shared.Next(101) <= cs.Prob)
+                    {
+                        int nextSignetLv = cs.SignetLvlStart > 0 ? cs.SignetLvlStart : 1;
+                        var existingSignet = target.GetEffectByStack(cs.Signet);
+                        if (existingSignet is not null)
+                        {
+                            int advanced = existingSignet.SkillId - cs.SignetId + 2;
+                            if (cs.SignetLvlStart > 0 && advanced < cs.SignetLvlStart)
+                                advanced = cs.SignetLvlStart;
+                            nextSignetLv = advanced;
+                            if (nextSignetLv > cs.SignetLvlCap || nextSignetLv > 5)
+                                nextSignetLv--; // stay at cap rather than overflow
+                        }
+
+                        target.RemoveEffectByStack(cs.Signet); // no-op when existingSignet is null
+                        target.AddEffect(new AbnormalState
+                        {
+                            SkillId    = cs.SignetId + nextSignetLv - 1,
+                            SkillLevel = nextSignetLv,
+                            EffectorId = player.ObjectId,
+                            Expiry     = DateTime.UtcNow.AddMilliseconds(24_000), // duration2=24000 from signet XML
+                            IsDebuff   = true,
+                            StackName  = cs.Signet,
+                        });
+
+                        bool csIsPlayer = target is Player;
+                        var csAbnPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, csIsPlayer, target.GetActiveEffects());
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(csAbnPkt); } catch { }
+
+                        // Auto-expiry broadcast — signet is removed by SignetBurst consume or after 24 s
+                        var csCapTgt = target;
+                        var csStack  = cs.Signet;
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(24_000);
+                            csCapTgt.RemoveEffectByStack(csStack); // idempotent if already consumed
+                            int expWorld = csCapTgt.Position.WorldId;
+                            bool expIsPlayer = csCapTgt is Player;
+                            var expPkt = new SM_ABNORMAL_EFFECT(csCapTgt.ObjectId, expIsPlayer, csCapTgt.GetActiveEffects());
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == expWorld)
+                                    try { await c.SendAsync(expPkt); } catch { }
+                        });
+                    }
+                }
 
                 // Dispel buff: strip all non-debuff effects from the target after impact
                 if (template?.Effects?.HasDispelBuff == true && target.CurrentHp > 0)

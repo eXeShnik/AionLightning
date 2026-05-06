@@ -235,6 +235,24 @@ public readonly record struct SkillArmorMasteryInfo(
     int    PdefPct     // PERCENT bonus to PHYSICAL_DEFENSE when matching armor is equipped
 );
 
+/// <summary>M289: carvesignet descriptor — attributes from &lt;carvesignet&gt; XML element.</summary>
+public readonly record struct CarveSignetInfo(
+    int    BaseValue,       // damage value attribute
+    int    Delta,           // per-level scaling
+    int    SignetId,        // signetid= — base SkillId of signet buff series (e.g. 8303)
+    int    SignetLvlCap,    // signetlvl= — max signet level allowed
+    int    SignetLvlStart,  // signetlvlstart= — minimum starting level (0 = default 1)
+    int    Prob,            // prob= — placement probability 0-100 (default 100)
+    string Signet           // signet= — stack name, e.g. "SYSTEM_SKILL_SIGNET1"
+);
+
+/// <summary>M289: signetburst descriptor — attributes from &lt;signetburst&gt; XML element.</summary>
+public readonly record struct SignetBurstInfo(
+    int    SignetLvlMax,    // signetlvl= — max signet level the burst scales to
+    string Signet,          // signet= — stack name, e.g. "SYSTEM_SKILL_SIGNET1"
+    int    AccMod2          // accmod2= — magic accuracy base for per-level bonus
+);
+
 /// <summary>M280: damage modifier parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; &lt;modifiers&gt; block.</summary>
 public readonly record struct SkillDamageModifier(
     string Kind,    // "targetrace" | "targetclass" | "abnormaldamage" | other
@@ -343,6 +361,49 @@ public sealed class SkillEffects
                 }
                 if (pct > 0)
                     list.Add(new(armorType, pct));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M289: carvesignet descriptor — place/upgrade SYSTEM_SKILL_SIGNET1 buff on target after damage.</summary>
+    public IReadOnlyList<CarveSignetInfo> CarveSignetEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<CarveSignetInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "carvesignet") continue;
+                int.TryParse(e.GetAttribute("value"),          out int val);
+                int.TryParse(e.GetAttribute("delta"),          out int dlt);
+                int.TryParse(e.GetAttribute("signetid"),       out int sid);
+                int.TryParse(e.GetAttribute("signetlvl"),      out int cap);
+                int.TryParse(e.GetAttribute("signetlvlstart"), out int start);
+                int prob = 100;
+                if (int.TryParse(e.GetAttribute("prob"), out int p)) prob = p;
+                string signet = e.GetAttribute("signet") ?? "NONE";
+                list.Add(new(val, dlt, sid, cap, start, prob, signet));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M289: signetburst descriptor — scale damage by signet level and consume the signet.</summary>
+    public IReadOnlyList<SignetBurstInfo> SignetBurstEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SignetBurstInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "signetburst") continue;
+                int.TryParse(e.GetAttribute("signetlvl"), out int cap);
+                int.TryParse(e.GetAttribute("accmod2"),   out int acc);
+                string signet = e.GetAttribute("signet") ?? "NONE";
+                list.Add(new(cap, signet, acc));
             }
             return list;
         }

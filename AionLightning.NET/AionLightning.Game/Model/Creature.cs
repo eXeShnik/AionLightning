@@ -126,6 +126,28 @@ public abstract class Creature : VisibleObject
         }
     }
 
+    // M289: locate first non-expired effect by stack group name (e.g. "SYSTEM_SKILL_SIGNET1")
+    public AbnormalState? GetEffectByStack(string stackName)
+    {
+        lock (_effectsLock)
+            return _activeEffects.FirstOrDefault(e =>
+                !e.IsExpired && string.Equals(e.StackName, stackName, StringComparison.Ordinal));
+    }
+
+    // M289: remove all effects matching a stack group name and reverse their deltas (idempotent)
+    public void RemoveEffectByStack(string stackName)
+    {
+        lock (_effectsLock)
+        {
+            for (int i = _activeEffects.Count - 1; i >= 0; i--)
+                if (string.Equals(_activeEffects[i].StackName, stackName, StringComparison.Ordinal))
+                    ReverseEffectDeltas(_activeEffects[i]);
+            _activeEffects.RemoveAll(e =>
+                string.Equals(e.StackName, stackName, StringComparison.Ordinal));
+            ActiveCcFlags = RebuildCcFlags();
+        }
+    }
+
     public void ClearAllEffects()
     {
         lock (_effectsLock)

@@ -3021,3 +3021,20 @@
     - Gameplay impact: 38 PASSIVE armor proficiency skills (CLOTHES/LEATHER/CHAIN/PLATE masteries) now grant their +10% pdef bonus; all classes gain correct physical defense from worn armor type; e.g. Templar in plate gets ~10% pdef boost
     - Previously: armor proficiency skills were parsed and visible in the skill book, but their PERCENT pdef bonus was never applied — players were underperforming Java server pdef values by ~10%
     - Build: 0 warnings, 0 errors
+
+289. [✓] Signet stack system — CarveSignet placement + SignetBurst level-scaled consumption (session 2026-05-06)
+    - Architecture milestone built via analyst → planner → implementer pipeline. Java analogs: `CarveSignetEffect.java` + `SignetBurstEffect.java` + `SignetEffect.java`.
+    - **M289a:** `Model/AbnormalState.cs` — added `StackName { get; init; } = "NONE"` property; used by signet system to locate/remove effects by stack group name without knowing the exact SkillId
+    - **M289b:** `Model/Creature.cs` — added `GetEffectByStack(string)` (returns first non-expired match) and `RemoveEffectByStack(string)` (removes all matches + reverses deltas, idempotent); both use `_effectsLock` + `ReverseEffectDeltas` / `RebuildCcFlags` to stay consistent with existing `RemoveEffectBySkillId` pattern
+    - **M289c:** `Model/Templates/Skill/SkillTemplate.cs` — added `CarveSignetInfo` record (SignetId, SignetLvlCap, SignetLvlStart, Prob, Signet) + `SignetBurstInfo` record (SignetLvlMax, Signet, AccMod2); added `CarveSignetEffects` and `SignetBurstEffects` computed properties on `SkillEffects` following existing `AuraEffects`/`ArmorMasteryEffects` pattern
+    - **M289d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — single-target damage path, 4 splice points:
+        1. Pre-resist: read `signetBurstState` via `GetEffectByStack`; compute `signetBurstAccBoost` from signet level × mAccuracy (Java accmod2 formula: -0.8/-0.5/0/+0.2/+0.5 × mAcc)
+        2. Resist check: `totalMagicAcc += signetBurstAccBoost` (level 1-2 signet = harder to land; level 4-5 = easier); on resist early-return: consume signet before `return` (Java SignetBurstEffect.calculate consumes on resist)
+        3. Post-rawSpellDmg scale: 0.05× (no signet) or 0.2/0.5/1.0/1.2/1.5× by level (with signet); applied BEFORE crit so crit multiplies the scaled value
+        4. Post-statusPkt: SignetBurst removes signet + broadcasts SM_ABNORMAL_EFFECT; CarveSignet computes nextSignetLevel (Java logic: start at signetlvlstart or 1; advance existing +1; cap at min(signetlvl, 5) via `--` stay-at-cap); removes old signet, places new `AbnormalState { StackName = "SYSTEM_SKILL_SIGNET1", Expiry = +24s, SkillLevel = nextLv }`; broadcasts SM_ABNORMAL_EFFECT; schedules 24s auto-expiry Task.Run (idempotent RemoveEffectByStack)
+    - Prob gate: `Random.Shared.Next(101) <= cs.Prob` mirrors Java `Rnd.get(0, 100) > prob` skip condition
+    - Signet duration: hardcoded 24_000ms — all SYSTEM_SKILL_SIGNET1 templates (8303-8307) carry `<signet duration2="24000"/>` in their `<effects>` block
+    - Key behavior change from M271: SignetBurst without a signet on target now deals 5% damage (was 100% in M271 approximation); this is the correct Java behavior
+    - Gameplay impact: 95 carvesignet + 58 signetburst = 153 Sorcerer skill XML entries now have full stack mechanics; Rune Carve line builds SYSTEM_SKILL_SIGNET1 stacks 1→3 on target; Signet Burst consumes the stack for 1.0× (lvl3) up to 1.5× (lvl5) damage; signet expires after 24s if not burst
+    - Previously: both carvesignet and signetburst dealt M271 baseline damage with no stack tracking; burst was over-dealing on bare targets (100% instead of 5%) and under-dealing on stacked targets (100% instead of 150%)
+    - Build: 0 warnings, 0 errors

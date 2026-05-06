@@ -88,6 +88,10 @@ public sealed class AbnormalState
     // MovementSpeed before this speed buff was applied — used to restore on expiry
     public float PreBuffMovSpeed        { get; init; }
 
+    // Stack group name from the skill template's stack="..." attribute.
+    // "NONE" (default) means no stack. Signets use "SYSTEM_SKILL_SIGNET1".
+    public string StackName { get; init; } = "NONE";
+
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
 }
