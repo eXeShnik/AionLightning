@@ -100,6 +100,18 @@ public sealed class Player : Creature
     // Sum of FLY_SPEED percentage bonuses from equipped items (rate stat; same scale as SPEED)
     public int BonusFlySpeedPct { get; set; }
 
+    // Accumulated percent bonus to HP regen rate from active buffs (e.g. 20 = +20% per tick). Reversed on buff expiry.
+    public int BonusRegenHpPct { get; set; }
+    // Accumulated percent bonus to MP regen rate from active buffs. Reversed on buff expiry.
+    public int BonusRegenMpPct { get; set; }
+    // Accumulated percent bonus to FP regen rate from active buffs. Reversed on buff expiry.
+    public int BonusRegenFpPct { get; set; }
+    // Accumulated AP_BOOST percent from active buffs (positive = % more AP per kill, e.g. 20 = +20%). Reversed on buff expiry.
+    public int APBoostDelta { get; set; }
+    // Accumulated BOOST_HATE percent from active buffs (positive = % more hate per hit, negative = less). Reversed on buff expiry.
+    // Passive boosthate skills (Aggravation) are computed on-the-fly via PassiveBoostHateHelper and not stored here.
+    public int BoostHatePct { get; set; }
+
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
     public int    MainHandMinDmg    { get; set; }
     public int    MainHandMaxDmg    { get; set; }
@@ -146,6 +158,9 @@ public sealed class Player : Creature
     public int PassiveBonusMaxMpPct { get; set; }
     // SPEED percentage bonus from passive skills; same scale as BonusMovementSpeedPct (1000 = +100%)
     public int PassiveBonusMovementSpeedPct { get; set; }
+    // M315: PERCENT bonuses from passive boostheal/boostspellattack NOSHOW skills (non-onfly only)
+    public int PassiveBonusHealSkillBoostPct { get; set; }
+    public int PassiveBonusSpellAttackPct    { get; set; }
 
     // Equipment stat bonuses (sum of PHYSICAL_ATTACK, MAGICAL_RESIST, MAGICAL_ATTACK from all equipped items)
     public int BonusPhysicalAtk { get; set; }

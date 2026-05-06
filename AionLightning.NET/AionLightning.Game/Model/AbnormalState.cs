@@ -92,10 +92,48 @@ public sealed class AbnormalState
     // "NONE" (default) means no stack. Signets use "SYSTEM_SKILL_SIGNET1".
     public string StackName { get; init; } = "NONE";
 
+    // Non-zero when this debuff reduces fly speed (e.g. Meteor Strike: -50 = halve fly speed)
+    public int   FlySpeedDebuffPct    { get; init; }
+    // Target's BonusFlySpeedPct before this debuff was applied — used to restore on expiry
+    public int   PreDebuffFlySpeedPct { get; init; }
+
     // Non-zero when this debuff blinds the target: each physical attack misses with this % chance.
     public int BlindDodgePct { get; init; }
     // Non-zero when this effect changes HEAL_SKILL_DEBOOST (negative = receive less healing, positive = receive more).
     public int HealReceivedPctDelta { get; init; }
+
+    // True when this buff suppresses death penalty (soul sickness) — set from <noresurrectpenalty> element.
+    public bool IsNoDeathPenalty { get; init; }
+
+    // Non-zero when this buff changes HP regen rate (positive = % faster regen, e.g. 20 = +20% HP regen per tick).
+    public int RegenHpPctDeltaVal { get; init; }
+    // Non-zero when this buff changes MP regen rate (positive = % faster regen, e.g. 20 = +20% MP regen per tick).
+    public int RegenMpPctDeltaVal { get; init; }
+    // Non-zero when this buff changes FP regen rate (positive = % faster FP regen, e.g. 25 = +25% FP regen per tick).
+    public int RegenFpPctDeltaVal { get; init; }
+
+    // Non-zero when this buff increases drop rate (DR_BOOST ADD: e.g. 20 = +20% item drop chance).
+    public int DRBoostDeltaVal { get; init; }
+    // Non-zero when this buff increases AP gain (AP_BOOST ADD: e.g. 20 = +20% AP reward per kill).
+    public int APBoostDeltaVal { get; init; }
+    // Non-zero when this buff increases CC resist (ABNORMAL_RESISTANCE_ALL ADD; 0–10000 scale, where 10000 = 100% CC immune).
+    public int CcResistAllDeltaVal { get; init; }
+    // Non-zero when this buff changes hate generation rate (BOOST_HATE PERCENT; positive = more hate, negative = less).
+    public int BoostHatePctDeltaVal { get; init; }
+
+    // M334: one-time crit boost — charges consumed when casting a skill; 0 when not a onetimeboostskillcritical buff.
+    public int  OnetimeCritCountRemaining { get; set; }
+    // Flat crit-rating ADD applied for non-percent case (e.g. 1000 = +1000 crit rating for next N casts).
+    public int  OnetimeCritBoostFlat      { get; init; }
+    // Direct crit-% boost applied for percent=true case (e.g. 70 = +70% crit chance for next N casts).
+    public int  OnetimeCritBoostPct       { get; init; }
+
+    // M334: one-time atk boost — charges consumed when casting a matching skill type; 0 when not a onetimeboostskillattack buff.
+    public int  OnetimeAtkCountRemaining  { get; set; }
+    // Percent damage boost (e.g. 30 = +30% damage for next N casts).
+    public int  OnetimeAtkBoostPct        { get; init; }
+    // True = applies to PHYSICAL skill casts; false = MAGICAL.
+    public bool OnetimeAtkBoostIsPhysical { get; init; }
 
     // True when the skill has a <sanctuary> element — this buff cannot be removed by dispel or healing potions.
     public bool IsSanctuary { get; init; }

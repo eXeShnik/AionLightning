@@ -3210,6 +3210,15 @@
   - **M311c:** `Services/PlayerEnterWorldService.cs` — accumulates `MaxHpPercentStatUpDelta`/`MaxMpPercentStatUpDelta` at login into `PassiveBonusMaxHpPct`/`PassiveBonusMaxMpPct`; updated MaxHp/MaxMp formula: `(flatSum) * (1 + pct/100f) * ssMult`
   - Build: 0 warnings, 0 errors
 
+- [x] **M315: BoostHeal + BoostSpellAttack passive PERCENT bonuses** — `<boostheal>` elements with `<change stat="HEAL_SKILL_BOOST" func="PERCENT" value="V"/>` boost healing output by V%; `<boostspellattack>` with `<change stat="BOOST_SPELL_ATTACK" func="PERCENT" value="V"/>` boost magical attack by V%; 8 + 8 = 16 skills, of which 4 boostheal (108 Boost Healing I-IV, 5/10/15/20%) and 1 boostspellattack (1535 Boon of Fierce Attack I, 20%) have no flight condition; the remaining 11 have `<onfly/>` and are skipped
+  - Java analog: `BoostHealEffect`/`BoostSpellAttackEffect` both extend `BufEffect` (empty classes); stat application comes from `<change>` children via the generic stat-change engine; `HEAL_SKILL_BOOST` is applied in `AbstractHealEffect` as `getStat(HEAL_SKILL_BOOST, finalHeal).getCurrent()`; `BOOST_SPELL_ATTACK` is applied in `StatFunctions.calcMagicalDamage` as `getStat(BOOST_SPELL_ATTACK, damages).getCurrent()` — both are PERCENT multipliers on the computed value
+  - Flight-condition filtering: `<change>` children with nested `<conditions><onfly/></conditions>` are skipped so flight-only bonuses (Seraphic Song, Winged Recovery, Winged Magic, Flight: Aetherized Barrels) are not applied to ground combat stats
+  - **M315a:** `Model/Templates/Skill/SkillTemplate.cs` — added `BoostHealSkillBoostPct` and `BoostSpellAttackPct` computed properties on `SkillEffects`; each scans the corresponding element name, iterates `<change>` children, skips those with `<conditions><onfly/>` nesting, accumulates PERCENT values
+  - **M315b:** `Model/Player.cs` — added `PassiveBonusHealSkillBoostPct` and `PassiveBonusSpellAttackPct` properties
+  - **M315c:** `Services/PlayerEnterWorldService.cs` — passive loop accumulates both new properties after `MaxMpPercentStatUpDelta`
+  - **M315d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — `healBoostMult` and `aoeBoostMult` multiplied by `(1 + PassiveBonusHealSkillBoostPct/100f)`; all 7 magical damage computation sites (single-target, caster-AoE, ground/target-AoE, splash, ground-AoE-DoT, splash-DoT, delayed-damage) multiply by `(1 + PassiveBonusSpellAttackPct/100f)` after the mbMult step
+  - Build: 0 warnings, 0 errors
+
 - [x] **M314: DeathBlow DP ultimate skills + CasterAoe damage path** — `<deathblow value="V" delta="D"/>` deals magical damage in an area; all 14 deathblow skills use `first_target="ME/TARGET", target_type="AREA"` — requires a new caster-centered AoE code path; plus 4 IsTargetAoe variants work through the existing single-target + splash path
   - Java analog: `DeathBlowEffect extends DamageEffect { calculate(effect) { super.calculate(effect, DamageType.MAGICAL); } }` — purely magical, otherwise identical to spellatkinstant; DP-cost class ultimates (Heaven and Earth Tremor, Splendor of God, Voice of God, etc.)
   - Root cause for IsCasterAoe (10 skills): `first_target="ME"` sends `_targetObjectId=player.ObjectId`; the existing single-target path would damage the caster; no dedicated caster-AoE damage path existed
@@ -3226,6 +3235,158 @@
   - **M313c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — extended buff path condition: `|| AlwaysBlockDurationMs > 0 || AlwaysDodgeDurationMs > 0`; extended `durationMs` fallback chain; added `HitCountRemaining = AlwaysBlockCount + AlwaysDodgeCount` to AbnormalState initializer
   - **M313d:** `Combat/Handlers/AlwaysBlockDodgeHandler.cs` (new) — handles `DamageReceivingEvent` for `PhysicalSkill`/`AutoAttack`; finds active alwaysblock/alwaysdodge buff, zeros damage, decrements `HitCountRemaining`; removes buff and broadcasts `SM_ABNORMAL_EFFECT` when count reaches 0
   - **M313e:** `Program.cs` — registered `AlwaysBlockDodgeHandler` after `AlwaysResistHandler`
+  - Build: 0 warnings, 0 errors
+
+- [x] **M331: alwaysparry buff + noresurrectpenalty buff + REGEN_FP PERCENT buff** — 4 `<alwaysparry value="N">` entries (Templar "Parry" I-II guarantees N physical parries; Templar "Cross Parry" instant counter-parry) now handled alongside alwaysblock/alwaysdodge; 3 `<noresurrectpenalty>` entries (1-hour Scroll of Revival buff, NPC revival blessing) now suppress soul sickness on death; 2 `REGEN_FP PERCENT value="25"` entries (30-min "+25% FP regen" consumable buffs) now accelerate FP restoration
+  - Java analog: `AlwaysParryEffect` (attack observer, damage→0); `NoresurrectpenaltyEffect` (death flag); `StatUpEffect REGEN_FP PERCENT`
+  - **M331a:** `Model/Templates/Skill/SkillTemplate.cs` — added `HasAlwaysParry`, `AlwaysParryCount`, `AlwaysParryDurationMs`, `HasNoresurrectPenalty`, `RegenFpStatUpPct` properties
+  - **M331b:** `Model/AbnormalState.cs` — added `IsNoDeathPenalty`, `RegenFpPctDeltaVal` fields
+  - **M331c:** `Model/Player.cs` — added `BonusRegenFpPct` property
+  - **M331d:** `Model/Creature.cs` — added FP regen pct to `ApplyEffectDeltas`/`ReverseEffectDeltas`
+  - **M331e:** `Combat/Handlers/AlwaysBlockDodgeHandler.cs` — extended to check `HasAlwaysParry`; parry absorbs hit (damage→0) same as block
+  - **M331f:** `Services/RegenService.cs` — FP regen multiplied by `(100 + BonusRegenFpPct) / 100` when non-zero
+  - **M331g:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — buff path: AlwaysParryCount added to `HitCountRemaining`; `IsNoDeathPenalty` and `RegenFpPctDeltaVal` set in AbnormalState; AlwaysParryDurationMs added to duration fallback chain
+  - **M331h:** `Network/Aion/ClientPackets/CM_REVIVE.cs` — `noresurrectpenalty` buff suppresses `applySoulSickness` before incrementing SoulSicknessCount
+  - Build: 0 warnings, 0 errors
+
+- [x] **M332: DR_BOOST ADD buff (23 entries) + AP_BOOST ADD buff (14 entries)** — Drop-rate boost (e.g. "+20% item drop chance" from 20-min consumables and passive skills) now scales `effectiveChance` in LootService; AP gain boost (e.g. "+20% AP per kill" from Abyss scrolls) now scales AP rewards in CM_ATTACK, CM_CASTSPELL AoE kill, and CM_CASTSPELL single-target kill paths
+  - Java analog: `StatUpEffect DR_BOOST ADD` → `boostDropRate += drBoost / 100f` in DropRegistrationService; `StatUpEffect AP_BOOST ADD` → `points *= (1 + apBoost / 100.0)` in StatFunctions
+  - **M332a:** `Model/Templates/Skill/SkillTemplate.cs` — added `DRBoostAddDelta`, `APBoostAddDelta` to `SkillEffects` (scan `statup`/`statboost` for `func="ADD"`)
+  - **M332b:** `Model/AbnormalState.cs` — added `DRBoostDeltaVal`, `APBoostDeltaVal` fields
+  - **M332c:** `Model/Creature.cs` — added `DRBoostDelta` field; wired in `ApplyEffectDeltas`/`ReverseEffectDeltas`; AP_BOOST handled via `this is Player apBoostApply` cast (Player-only)
+  - **M332d:** `Model/Player.cs` — added `APBoostDelta` property
+  - **M332e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads `drBoostDelta`/`apBoostDelta`, stores in `AbnormalState`
+  - **M332f:** `Services/LootService.cs` — `effectiveChance` boosted by `killer.DRBoostDelta` when non-zero
+  - **M332g:** `Network/Aion/ClientPackets/CM_ATTACK.cs` — NPC and PvP AP scaled by `player.APBoostDelta` when non-zero
+  - **M332h:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — AoE NPC kill, single-target NPC kill, single-target PvP kill AP all scaled by `player.APBoostDelta`
+
+- [x] **M334: onetimeboostskillcritical (7 entries) + onetimeboostskillattack (7+ entries)** — "Hunter's Might" / "Killer's Eye" one-time crit and damage charge buffs now correctly boost crit rating/chance and damage for each charge consumed per skill cast
+  - Java analog: `OneTimeBoostSkillCriticalEffect` (AttackerCriticalStatusObserver charges); `OneTimeBoostSkillAttackEffect` (damage boost per type)
+  - **M334a:** `Model/Templates/Skill/SkillTemplate.cs` — added 8 computed properties to `SkillEffects`: `OnetimeCritCount/Value/IsPercent/DurationMs`, `OnetimeAtkCount/Pct/Type/DurationMs`
+  - **M334b:** `Model/AbnormalState.cs` — added `OnetimeCritCountRemaining/BoostFlat/BoostPct` (crit charges) and `OnetimeAtkCountRemaining/BoostPct/BoostIsPhysical` (atk charges); mutable count fields for charge decrement
+  - **M334c:** `Model/Creature.cs` — added `ConsumeOnetimeCritCharge()` and `ConsumeOnetimeAtkCharge(isPhysical)` methods; each locks `_effectsLock`, decrements charge, removes effect when drained
+  - **M334d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: extended `durationMs` fallback chain for `OnetimeCritDurationMs`/`OnetimeAtkDurationMs`; AbnormalState init sets all 6 new fields; DAMAGE paths (4 locations: caster-AoE NPC, ground/target-AoE loop, single-target, AoE splash): charges consumed once per cast before target loop, cached flat/pct applied at each crit check; atk pct applied to rawDmg/rawSpellDmg/splashRaw before crit
+  - Non-percent case (e.g. Hunter's Might I: count=2, value=1000): adds +1000 to crit rating for next 2 skill casts
+  - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
+  - Build: 0 warnings, 0 errors
+
+- [x] **M333: ABNORMAL_RESISTANCE_ALL ADD buff (52 entries) + BOOST_HATE PERCENT boosthate (14 entries)** — CC resist buffs now gate all CC-flag debuffs; boosthate PASSIVE skills (Gladiator "Aggravation") + active boosthate buffs now scale hate generation
+  - Java analog: `ABNORMAL_RESISTANCE_ALL → AbnormalEffect.calculate() Rnd.get(10000) < resistValue = resisted`; `BOOST_HATE PERCENT → StatFunctions.calculateHate(creature, value) * (1 + boost/100)`
+  - **M333a:** `Model/Templates/Skill/SkillTemplate.cs` — added `CcResistAllAddDelta` (scans `statup`/`statboost` for `stat="ABNORMAL_RESISTANCE_ALL" func="ADD"`) and `BoostHateStatPct` (scans `boosthate` elements for `stat="BOOST_HATE" func="PERCENT"`) to `SkillEffects`
+  - **M333b:** `Model/AbnormalState.cs` — added `CcResistAllDeltaVal` and `BoostHatePctDeltaVal` fields
+  - **M333c:** `Model/Creature.cs` — added `CcResistAll` field; wired in `ApplyEffectDeltas`/`ReverseEffectDeltas`; `BoostHatePctDeltaVal` handled via `this is Player` cast
+  - **M333d:** `Model/Player.cs` — added `BoostHatePct` property (accumulated from active buff AbnormalStates; passive is computed on-the-fly)
+  - **M333e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads `ccResistAllDelta`/`boostHateDelta`, stores in `AbnormalState`; DEBUFF path: `ccResisted` check gates full debuff when `template.CcFlags != None && target.CcResistAll > 0 && Random.Next(10001) < CcResistAll`; taunt hate scaled by `player.BoostHatePct + PassiveBoostHateHelper.ComputePct`
+  - **M333f:** `Services/PassiveBoostHateHelper.cs` — new static helper; scans player.Skills for PASSIVE skills with `BoostHateStatPct != 0` (mirrors PassiveArmorMasteryHelper pattern)
+  - **M333g:** `Services/NpcAiService.cs` — `ForceEngage` scales baseline hate=1 by `(100 + BoostHatePct + passiveBoostPct) / 100`
+  - Note: Toggle/duration=0 active-buff boosthate skills (e.g. Gladiator skill 258 "Defense Preparation") are deferred — their AbnormalState expires immediately; only PASSIVE boosthate and timed-buff boosthate are active
+  - Build: 0 warnings, 0 errors
+
+- [x] **M330: statup PERCENT REGEN_HP and REGEN_MP buffs** — 3 REGEN_HP PERCENT entries (+10% to +20% HP regen rate from long-duration NPC/scroll buffs) + 2 REGEN_MP PERCENT entries now correctly increase per-tick regen rate in RegenService; buff expiry automatically restores via Creature.ReverseEffectDeltas
+  - Java analog: `StatUpEffect REGEN_HP/REGEN_MP PERCENT` — multiplies per-tick regen amount by (100+pct)/100
+  - **M330a:** `Model/AbnormalState.cs` — added `RegenHpPctDeltaVal`, `RegenMpPctDeltaVal` fields
+  - **M330b:** `Model/Player.cs` — added `BonusRegenHpPct`, `BonusRegenMpPct` properties
+  - **M330c:** `Model/Creature.cs` — Player-cast handling in `ApplyEffectDeltas`/`ReverseEffectDeltas`
+  - **M330d:** `Services/RegenService.cs` — HP/MP regen multiplied by `(100 + BonusRegenHpPct/MpPct) / 100` when non-zero
+  - **M330e:** `Model/Templates/Skill/SkillTemplate.cs` — added `RegenHpStatUpPct`, `RegenMpStatUpPct` to `SkillEffects`
+  - **M330f:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads pct, stores in AbnormalState `RegenHpPctDeltaVal`/`RegenMpPctDeltaVal`; Creature.ApplyEffectDeltas then sets `BonusRegenHpPct`/`BonusRegenMpPct`
+  - Build: 0 warnings, 0 errors
+
+- [x] **M329: statup PERCENT MAGICAL_DEFEND buff** — 3 MAGICAL_DEFEND PERCENT entries (+5% from long-duration scroll, +35% from combat proc "Magic Fortification") now compute flat delta from target's current magic defense at cast time; zero new Player fields needed
+  - Java analog: `StatUpEffect MAGICAL_DEFEND PERCENT`
+  - **M329a:** `Model/Templates/Skill/SkillTemplate.cs` — added `MagicDefStatUpPct` property to `SkillEffects`
+  - **M329b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: `magicDefStatUpDelta += player.MagicDefense * pct / 100` (Player targets only)
+  - Build: 0 warnings, 0 errors
+
+- [x] **M328: statdown/statup PERCENT BOOST_MAGICAL_SKILL + statup/statdown PERCENT BLOCK + statup PERCENT PARRY** — 13 BOOST_MAGICAL_SKILL PERCENT debuffs (NPC water/fire-element "-30% to -60% magic power" debuff chains) + 6 BOOST_MAGICAL_SKILL statup/statboost PERCENT buffs + 5 statup BLOCK PERCENT buffs + 1 statdown BLOCK PERCENT debuff + 4 statup PARRY PERCENT buffs now compute flat delta from target's current stat at cast time
+  - Java analog: `StatDownEffect/StatUpEffect BOOST_MAGICAL_SKILL/BLOCK/PARRY PERCENT`
+  - **M328a:** `Model/Templates/Skill/SkillTemplate.cs` — added `MagicBoostPctDebuff`, `MagicBoostStatUpPct`, `BlockStatUpPct`, `BlockPercentDebuff`, `ParryStatUpPct` to `SkillEffects`
+  - **M328b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: magic boost, block, parry PERCENT → `+= BonusMagicBoost|BaseBlock+BonusBlock|BaseParry+BonusParry * pct/100`; DEBUFF path: same for magic boost and block debuffs (Player targets only)
+  - Build: 0 warnings, 0 errors
+
+- [x] **M327: statup PERCENT PHYSICAL_CRITICAL buff + statup/statdown PERCENT PHYSICAL_ACCURACY** — 20 PHYSICAL_CRITICAL PERCENT entries (Assassin/Ranger/Gladiator crit-rate proc buffs: +5% to +70% of current crit rating; Warrior "Empyrean Fury" on-hit crit boost) + 10 PHYSICAL_ACCURACY PERCENT buffs (long-duration +50% phys acc buffs) + 2 PHYSICAL_ACCURACY PERCENT debuffs (NPC fire-element -50% phys acc) now correctly compute flat delta from target's current stat at cast time
+  - Java analog: `StatUpEffect/StatDownEffect PHYSICAL_CRITICAL/PHYSICAL_ACCURACY PERCENT`
+  - **M327a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PhysCritStatUpPct`, `PhysAccStatUpPct`, `PhysAccPercentDebuff` properties to `SkillEffects`
+  - **M327b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: `physCritStatUpDelta += (BaseCritRating+BonusPhysicalCritical)*pct/100`; `physAccStatUpDelta += (BasePhysicalAccuracy+BonusPhysicalAccuracy)*pct/100`; DEBUFF path: `physAccDelta += currentPhysAcc*pct/100` (Player targets only)
+  - Build: 0 warnings, 0 errors
+
+- [x] **M326: statdown PERCENT PHYSICAL_ATTACK, EVASION, and MAGICAL_ATTACK debuffs** — 56 PHYSICAL_ATTACK PERCENT entries (Templar "Nezekan's Shield I" -50%, "Flight: Weakening Flame I-II" -100% patk), 28 EVASION PERCENT entries (Assassin "Shadow Rage I-II" -50%, NPC "Weaken Defense" series), 6 MAGICAL_ATTACK PERCENT entries (Chanter "Healing Mantra I-III Effect" -30%, "Fearful Presence" -30%) now correctly compute flat delta from target's current stat at cast time
+  - Java analog: `StatDownEffect PHYSICAL_ATTACK/EVASION/MAGICAL_ATTACK PERCENT` — multiplies current stat by pct/100, subtracts as ADD delta
+  - **M326a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PatkPercentDebuff`, `EvasionPercentDebuff`, `MagicAtkPercentDebuff` properties to `SkillEffects`; scan `statdown` elements for matching stat+`func=PERCENT` children
+  - **M326b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path after M322 block: `patkDelta += (basePatk) * pct/100`; `evasionDelta += (BaseEvasion+BonusEvasion)*pct/100`; `magicAtkDelta += (MainHandMagicalAtk+BonusMagicAtk)*pct/100` (Player targets only)
+  - Build: 0 warnings, 0 errors
+
+- [x] **M325: statup PERCENT MAGICAL_RESIST and EVASION buffs** — 48 MAGICAL_RESIST PERCENT entries (magic resistance boost buffs) + 19 EVASION PERCENT entries now correctly compute flat delta from target's current stat at cast time
+  - **M325a:** `Model/Templates/Skill/SkillTemplate.cs` — added `MResistStatUpPct` and `EvasionStatUpPct` properties to `SkillEffects`
+  - **M325b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: `mresistStatUpDelta += player.BonusMagicResist * pct / 100`; `evasionStatUpDelta += (player.BaseEvasion + BonusEvasion) * pct / 100` (Player targets only)
+  - Build: 0 warnings, 0 errors
+
+- [x] **M324: statup PERCENT PHYSICAL_DEFENSE and ATTACK_SPEED buffs** — 181 PDEF PERCENT entries (Templar "Shield Defense I", "Defense Preparation II-III" at +144-188% pdef; Gladiator/Warrior defensive buff lines) + 238 ATTACK_SPEED PERCENT entries (Warrior "Daevic Fury" -10%, "Blessing of Nezekan" -20%, "Maximization of Speed" -20%, etc.) now correctly compute flat delta at cast time
+  - Java analog: `StatUpEffect PHYSICAL_DEFENSE PERCENT` and `ATTACK_SPEED PERCENT`
+  - **M324a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PdefStatUpPct` and `AtkSpeedStatUpPct` properties to `SkillEffects`; scan `statup`/`statboost` for `PHYSICAL_DEFENSE PERCENT` and `ATTACK_SPEED PERCENT` children
+  - **M324b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: `pdefStatUpDelta += player.PhysicalDefense * pct / 100` (Player targets only); `atkSpeedStatUpDelta += buffTarget.CurrentAttackSpeed * pct / 100` (works for both Player and NPC; negative pct = faster attacks → negative ADD delta → faster)
+  - Previously: "Defense Preparation" gave 0 pdef boost at runtime (no flat ADD delta); "Daevic Fury" attack speed boost had 0 effect
+  - Build: 0 warnings, 0 errors
+
+- [x] **M323: statup PERCENT PHYSICAL_ATTACK and MAGICAL_ATTACK buffs** — 320 PHYSICAL_ATTACK PERCENT buff entries (Warrior "Ferocity/Berserking/Daevic Fury/Empyrean Fury", Templar/Gladiator offensive buffs) + 152 MAGICAL_ATTACK PERCENT entries (Spiritmaster "Spirit Armor of Light/Darkness", "Armor Spirit") now correctly boost the target's attack stats
+  - Java analog: `StatUpEffect` with `func=PERCENT` on `PHYSICAL_ATTACK/MAGICAL_ATTACK` — multiplies the effective stat by (100+X)/100 relative to the pre-buff base
+  - **M323a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PhysAtkStatUpPct` and `MagicAtkStatUpPct` properties to `SkillEffects`; scan `statup`/`statboost` elements for `<change stat="PHYSICAL_ATTACK/MAGICAL_ATTACK" func="PERCENT"/>`, sum values
+  - **M323b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads `patkStatUpPct`/`magicAtkStatUpPct`; if `buffTarget is Player`, computes flat delta = `basePatk * pct / 100` (basePatk = BasePhysicalAttack + weapon avg + BonusPhysicalAtk) or `(MainHandMagicalAtk + BonusMagicAtk) * pct / 100`; adds to `patkStatUpDelta`/`magicAtkStatUpDelta` before the AbnormalState is built
+  - Limitation: NPC targets (summoned spirits) receive no percentage boost since spirit stats aren't modeled as Player fields
+  - Previously: all PERCENT P-atk and M-atk buff skills applied only their ADD stat-up deltas (which are 0 for these pure-PERCENT skills), so e.g. Ferocity I had zero actual P-attack boost at runtime
+  - Build: 0 warnings, 0 errors
+
+- [x] **M322: statdown PERCENT PHYSICAL_DEFENSE and MAGICAL_RESIST debuffs** — 157 enemy-debuff skills with PERCENT pdef reduction (Ranger "Focused Shots", "Fleshcutter Arrow", "Booming Strike"; many NPC line debuffs) + ~30 mresist PERCENT debuffs now correctly compute the flat pdef/mresist reduction at cast time
+  - Java analog: `StatDownEffect` with `func=PERCENT` on `PHYSICAL_DEFENSE` or `MAGICAL_RESIST` — reduces the stat by X% of the target's current value
+  - **M322a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PdefPercentDebuff` and `MResistPercentDebuff` properties to `SkillEffects`; scan `statdown` elements for `<change stat="PHYSICAL_DEFENSE/MAGICAL_RESIST" func="PERCENT"/>` children, sum all values
+  - **M322b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — debuff application block: reads `pdefPctDebuff`/`mresistPctDebuff` after MaxHp/MaxMp pct conversions; if target is Player, computes flat delta = `target.PhysicalDefense/BonusMagicResist * pct / 100` and adds to `pdefDelta`/`mresistDelta` (merged into existing `PdefDelta`/`MResistDelta` field on AbnormalState)
+  - Limitation: 17 BUFF-path self-nerf cases (Ferocity I, Berserking I, etc.) where `statdown PERCENT PDEF` is inside a BUFF skill are not yet handled — deferred
+  - Previously: 157+ skills that should reduce pdef/mresist by percentage had no runtime effect on those stats; only the CC flag and duration applied
+  - Build: 0 warnings, 0 errors
+
+- [x] **M321: bind/buffbind CC flag corrected to Root (movement-lock, attack allowed)** — 52 `<bind>` + 3 `<buffbind>` entries; skills like "Lockdown I–IV" (Warrior), "Blinding Shackle I–II" (Priest) and similar target-movement-lock skills
+  - Java analog: `BindEffect extends RootEffect` — prevents movement but does NOT prevent attacking; Java `RootEffect` sets `CANT_MOVE_STATE` only
+  - **M321a:** `Model/Templates/Skill/SkillTemplate.cs` — `ElementToCcFlag` entry for `"bind" or "buffbind"` changed from `AbnormalCcFlags.Sleep` to `AbnormalCcFlags.Root`; `Root` is in `CantMove` only, while `Sleep` is in both `CantMove` and `CantAttack`
+  - Previously: bind skills prevented both movement and attacking (Sleep semantics), making Warrior Lockdown incorrectly silence the target's offensive actions
+  - Build: 0 warnings, 0 errors
+
+- [x] **M320: StatDown FLY_SPEED PERCENT debuff — fly speed reduction from `<statdown>` elements** — 24 skill XML entries (Ranger "Meteor Strike I–IV" at -50%, Spiritmaster "Curse of Fire/Water I–II" at -30%, plus NPC debuff lines) that reduce target fly speed while the debuff is active
+  - Java analog: `StatDownEffect extends BufEffect`; `FLY_SPEED PERCENT -50` reduces the target's effective fly speed stat by 50%. In .NET, applied as `BonusFlySpeedPct += statdownFlySpeedPct` (value is negative).
+  - **M320a:** `Model/Templates/Skill/SkillTemplate.cs` — added `StatdownFlySpeedPct` property on `SkillEffects`; scans `statdown` elements for `<change stat="FLY_SPEED" func="PERCENT"/>` children, sums all values (mirrors `StatdownSpeedPct` pattern)
+  - **M320b:** `Model/AbnormalState.cs` — added `FlySpeedDebuffPct` (int) and `PreDebuffFlySpeedPct` (int) fields to track the fly speed penalty and pre-debuff baseline for restoration
+  - **M320c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — debuff application block: reads `statdownFlySpeedPct`; stores in `AbnormalState` with pre-debuff `BonusFlySpeedPct` snapshot; applies `BonusFlySpeedPct += statdownFlySpeedPct` on target; expiry task restores `BonusFlySpeedPct = PreDebuffFlySpeedPct` after `RemoveEffectBySkillId`
+  - Limitation: fly speed changes are internal-state only; `SM_STATS_INFO` and `SM_EMOTION` do not carry fly speed, so the client stat panel will not reflect the change until flight subsystem is fully implemented
+  - Previously: 24 statdown FLY_SPEED skills applied their CC flag and debuff duration but caused no actual fly speed change
+  - Build: 0 warnings, 0 errors
+
+- [x] **M319: FpAtk DoT — `<fpatk>` periodic FP drain over time (Java FpAtkEffect)** — 29 skill XML entries (Ranger/Gunner aerial disruption skills with flight-point drain DoTs) now correctly drain target FP per tick
+  - Java analog: `FpAtkEffect extends AbstractOverTimeEffect`; on each tick calls `player.getLifeStats().reduceFp(value)`; `percent=true` drains `value%` of MaxFP per tick
+  - **M319a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FpAttackDotEffects` getter returning `IReadOnlyList<SkillMpAttackDotInfo>` (reuses same record); scans `fpatk` elements; parses `checktime`, `value`, `delta`, `duration2`, `percent` (mirrors M306 `MpAttackDotEffects` pattern exactly)
+  - **M319b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — after M306 mpattack block: if target is Player and `FpAttackDotEffects.Count > 0`, spawns `Task.Run` per dot entry; each tick computes `fpDrain = IsPercent ? MaxFp * value / 100 : value + delta*(level-1)`; applies to `fpTickTarget.CurrentFp`; sends `SM_STATS_INFO` to target's connection per tick; cleans up on expiry via `RemoveEffect + SM_ABNORMAL_EFFECT` broadcast
+  - Previously: 29 fpatk skill XML entries silently applied their initial `fpatkinstant` hit (M281) but the over-time FP drain never ticked — aerial disruption skills only reduced target FP once instead of repeatedly
+  - Build: 0 warnings, 0 errors
+
+- [x] **M318: StatDown SPEED PERCENT debuff — movement speed reduction from `<statdown>` elements** — 58 skills with `<change stat="SPEED" func="PERCENT" value="-X"/>` inside `statdown` blocks (Spiritmaster "Curse of Fire/Water", boss "Aerial Fury" charge mechanics, NPC debuff lines) that reduce target movement speed identically to snare
+  - Java analog: `StatDownEffect extends BufEffect`; `SPEED PERCENT -30` reduces the target's effective speed stat by 30%. In .NET, both snare and statdown SPEED are PERCENT-type reductions applied to `target.MovementSpeed`.
+  - **M318a:** `Model/Templates/Skill/SkillTemplate.cs` — added `StatdownSpeedPct` property on `SkillEffects`; scans `statdown` elements for `<change stat="SPEED" func="PERCENT"/>` children, sums all values (mirrors `SnareSpeedPct` pattern)
+  - **M318b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — debuff application block: reads `statdownSpeedPct`; combines with `snareSpeedPct` into `combinedMovSpeedPct`; `MovSpeedPct = combinedMovSpeedPct` on `AbnormalState`; speed application and `SM_EMOTION` broadcast use the combined value; `PreDebuffSpeed` correctly records pre-debuff speed for restoration on expiry
+  - Limitation: ADD-func SPEED changes (2 entries — Okaru Poison -1000, Overload -9500) remain deferred; the Java SPEED unit scale doesn't map directly to our `MovementSpeed` float without a stat-template lookup
+  - Previously: 58 statdown SPEED skills applied their CC flag and debuff duration but caused no actual movement speed reduction — Spiritmaster "Curse of Fire/Water" lines appeared to slow the target in UI but had no runtime effect
+  - Build: 0 warnings, 0 errors
+
+- [x] **M317: Periodic HP drain — `<periodicactions><hpuse>` per-tick HP drain while buff active** — 10 skill XML entries (Spiritmaster Penance I-IV, Stigma Penance I, Spirit Bloodlust II, Mobility Thrusters I-III) that maintain an MP-regen or mobility buff at the cost of HP per tick
+  - Java analog: `PeriodicActions` schedules an `HpUseAction` on each tick, consuming `value + delta * level` HP; buff stays active regardless of HP level (no forced-stop in Java — we add an HP=1 floor deactivation for safety)
+  - **M317a:** `Model/Templates/Skill/SkillTemplate.cs` — added `PeriodicHpUse` property `(CheckTimeMs, HpValue, HpDelta)` on `SkillEffects`; scans `<periodicactions><hpuse>` children (mirrors M274 `PeriodicMpUse` pattern exactly)
+  - **M317b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — buff path: after M274 MP drain block, added analogous HP drain `Task.Run` loop; computes `hpDrainPerTick = hpUseValue + hpUseDelta * (level-1)`; floors at HP=1 (not 0 — HP drain shouldn't kill the caster); on HP=1 auto-deactivates via `RemoveEffectBySkillId + SM_PLAYER_STANCE(0) + SM_ABNORMAL_EFFECT` broadcast (mirrors M290 MP deactivate)
+  - Previously: 10 skill XML entries (Penance I-IV + variants) applied their MP-regen buff with no HP cost — Spiritmaster's Penance effectively gave free MP at no resource cost
+  - Build: 0 warnings, 0 errors
+
+- [x] **M316: DP + HP cast costs — `<actions><dpuse>` and `<actions><hpuse>` enforced before cast** — 206 `dpuse` + 203 `hpuse` skill XML entries (Gladiator/Templar DP skills, Spiritmaster/Assassin blood-cost skills, several boss-encounter HP-drain casts) now validate and consume DP/HP before the skill takes effect
+  - Java analog: `DpUseAction.act` checks `currentDp >= value`; if not, sends `STR_SKILL_NOT_ENOUGH_DP` (1300016) and returns false. `HpUseAction.act` computes `value + delta*level`; if `ratio=true` multiplies by `MaxHp/100`; sends `STR_SKILL_NOT_ENOUGH_HP` (1300014) if insufficient
+  - **M316a:** `Model/Templates/Skill/SkillTemplate.cs` — added `[XmlElement("actions")] SkillActions?`; new `SkillActions` class with `[XmlElement("dpuse")] SkillDpUse?` + `[XmlElement("hpuse")] SkillHpUse?`; `SkillDpUse.Value` int; `SkillHpUse.{Value,Delta,IsRatio}`; convenience properties `DpUseCost` (int) and `HpUseCost` tuple on `SkillTemplate`
+  - **M316b:** `Network/Aion/ServerPackets/SM_SYSTEM_MESSAGE.cs` — added `NotEnoughDp()` (1300016) and `NotEnoughHp()` (1300014) factory methods
+  - **M316c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — pre-cast block after chain check: if `DpUseCost > 0` and `player.Dp < cost` → send `NotEnoughDp`, return; else deduct and send `SM_DP_INFO`; if `HpUseCost.Value > 0` and `player.CurrentHp < cost` (with ratio scaling) → send `NotEnoughHp`, return; else deduct HP
+  - Previously: 409 skills with DP/HP action costs consumed nothing — DP skills worked without any DP, blood-cost skills cost no HP; players could spam level-10 DP ultimates at 0 DP
   - Build: 0 warnings, 0 errors
 
 - [x] **M312: MoveBehind + BackDash — gap-closer and retreating strike attacks** — `<movebehind>` deals physical damage and teleports caster directly behind the target; `<backdash distance="N">` deals physical damage and moves caster backward by distance units; 11 + 17 = 28 skills total (Assassin Ambush I-VII, Blind Side, Stigma Ambush; Gladiator/Ranger Retreating Slash, Fighting Withdrawal, Beast Leap, Parting Shot lines)

@@ -22,6 +22,7 @@ public sealed class SkillTemplate
     [XmlElement("properties")]      public SkillProperties?      Properties      { get; set; }
     [XmlElement("startconditions")] public SkillStartConditions? StartConditions { get; set; }
     [XmlElement("effects")]         public SkillEffects?         Effects         { get; set; }
+    [XmlElement("actions")]         public SkillActions?         Actions         { get; set; }
 
     /// <summary>M270: chain category required for this skill to be a valid next-link cast (empty = no chain restriction).</summary>
     public string ChainCategory => StartConditions?.Chain?.Category ?? string.Empty;
@@ -66,6 +67,21 @@ public sealed class SkillTemplate
 
     // When cooldownId == 0 in XML, each skill acts as its own cooldown group (mirrors Java getCooldownId())
     public int EffectiveCooldownId => CooldownId > 0 ? CooldownId : SkillId;
+
+    /// <summary>M316: DP cost consumed on cast; 0 = no cost. Source: &lt;actions&gt;&lt;dpuse value="X"/&gt;.</summary>
+    public int DpUseCost => Actions?.DpUse?.Value ?? 0;
+
+    /// <summary>M316: HP cost consumed on cast; Value=0 means no cost. Source: &lt;actions&gt;&lt;hpuse value="V" delta="D" ratio="true"/&gt;.
+    /// Flat cost = Value + Delta*(level-1); if IsRatio, treat as percent of MaxHp.</summary>
+    public (int Value, int Delta, bool IsRatio) HpUseCost
+    {
+        get
+        {
+            var h = Actions?.HpUse;
+            if (h is null) return (0, 0, false);
+            return (h.Value, h.Delta, h.IsRatio);
+        }
+    }
 }
 
 /// <summary>M269+M270: skill startconditions block — &lt;weapon&gt;, &lt;chain&gt;.</summary>
@@ -85,6 +101,25 @@ public sealed class SkillWeaponCondition
 public sealed class SkillChainCondition
 {
     [XmlAttribute("category")] public string Category { get; set; } = string.Empty;
+}
+
+/// <summary>M316: &lt;actions&gt; block — DP and HP cast costs.</summary>
+public sealed class SkillActions
+{
+    [XmlElement("dpuse")] public SkillDpUse? DpUse { get; set; }
+    [XmlElement("hpuse")] public SkillHpUse? HpUse { get; set; }
+}
+
+public sealed class SkillDpUse
+{
+    [XmlAttribute("value")] public int Value { get; set; }
+}
+
+public sealed class SkillHpUse
+{
+    [XmlAttribute("value")] public int Value   { get; set; }
+    [XmlAttribute("delta")] public int Delta   { get; set; }
+    [XmlAttribute("ratio")] public bool IsRatio { get; set; }
 }
 
 public sealed class SkillProperties
@@ -400,6 +435,20 @@ public sealed class SkillEffects
         get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysdodge"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
     }
 
+    /// <summary>M331: alwaysparry — guaranteed physical parry for up to value hits or duration2 ms (Java AlwaysParryEffect).</summary>
+    public bool HasAlwaysParry  => Elements?.Any(e => e.LocalName == "alwaysparry")  == true;
+    public int AlwaysParryCount
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysparry"); return el is not null && int.TryParse(el.GetAttribute("value"), out int v) ? v : 0; }
+    }
+    public int AlwaysParryDurationMs
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysparry"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
+    }
+
+    /// <summary>M331: noresurrectpenalty — while active, death does not apply soul sickness (Java NoresurrectpenaltyEffect).</summary>
+    public bool HasNoresurrectPenalty => Elements?.Any(e => e.LocalName == "noresurrectpenalty") == true;
+
     /// <summary>M282: flight-ban debuff — buffed creature loses fly capability (Java NoFlyEffect). Behavior needs flight-state subsystem.</summary>
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
     /// <summary>M285: provoker buff — buffed NPC auto-targets last attacker (Java ProvokerEffect ATTACK observer).</summary>
@@ -653,6 +702,32 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M317: per-tick HP cost from &lt;periodicactions checktime="X"&gt;&lt;hpuse value="Y" delta="D"/&gt;&lt;/periodicactions&gt;.
+    /// (CheckTimeMs, HpValue, HpDelta) — CheckTimeMs=0 when no periodic HP drain defined.</summary>
+    public (int CheckTimeMs, int HpValue, int HpDelta) PeriodicHpUse
+    {
+        get
+        {
+            if (Elements is null) return (0, 0, 0);
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "periodicactions") continue;
+                int.TryParse(e.GetAttribute("checktime"), out int check);
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is not System.Xml.XmlElement ce) continue;
+                    if (ce.LocalName != "hpuse") continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v) && v > 0)
+                    {
+                        int.TryParse(ce.GetAttribute("delta"), out int d);
+                        return (check, v, d);
+                    }
+                }
+            }
+            return (0, 0, 0);
+        }
+    }
+
     private static readonly HashSet<string> SnareNames        = ["snare", "absolutesnare"];
 
     /// <summary>
@@ -702,6 +777,583 @@ public sealed class SkillEffects
                 }
             }
             return 0;
+        }
+    }
+
+    /// <summary>M325: sum of PERCENT MAGICAL_RESIST changes from statup/statboost elements (positive = % mresist increased).</summary>
+    public int MResistStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "MAGICAL_RESIST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",         StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M325: sum of PERCENT EVASION changes from statup/statboost elements (positive = % evasion increased).</summary>
+    public int EvasionStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "EVASION", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M324: sum of PERCENT PHYSICAL_DEFENSE changes from statup/statboost elements (positive = % pdef increased).</summary>
+    public int PdefStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_DEFENSE", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M324: sum of PERCENT ATTACK_SPEED changes from statup/statboost elements (negative = % faster attacks; positive = % slower).</summary>
+    public int AtkSpeedStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "ATTACK_SPEED", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",       StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M323: sum of PERCENT PHYSICAL_ATTACK changes from statup/statboost elements (positive = % patk increased).</summary>
+    public int PhysAtkStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",          StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M323: sum of PERCENT MAGICAL_ATTACK changes from statup/statboost elements (positive = % matk increased).</summary>
+    public int MagicAtkStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "MAGICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",         StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M330: sum of PERCENT REGEN_HP changes from statup/statboost elements (positive = % HP regen rate increase per tick).</summary>
+    public int RegenHpStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "REGEN_HP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",  StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M331: sum of PERCENT REGEN_FP changes from statup/statboost elements (positive = % FP regen rate increase per tick).</summary>
+    public int RegenFpStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "REGEN_FP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",  StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M330: sum of PERCENT REGEN_MP changes from statup/statboost elements (positive = % MP regen rate increase per tick).</summary>
+    public int RegenMpStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "REGEN_MP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",  StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M329: sum of PERCENT MAGICAL_DEFEND changes from statup elements (positive = % of current magic defense added).</summary>
+    public int MagicDefStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "MAGICAL_DEFEND", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",        StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M327: sum of PERCENT PHYSICAL_CRITICAL changes from statup/statboost elements (positive = % of current crit rating added).</summary>
+    public int PhysCritStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_CRITICAL", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M327: sum of PERCENT PHYSICAL_ACCURACY changes from statup elements (positive = % of current phys acc added).</summary>
+    public int PhysAccStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_ACCURACY", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M327: sum of PERCENT PHYSICAL_ACCURACY changes from statdown elements (negative = % of target phys acc reduced).</summary>
+    public int PhysAccPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_ACCURACY", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M328: sum of PERCENT BOOST_MAGICAL_SKILL changes from statdown elements (negative = % of magic boost reduced).</summary>
+    public int MagicBoostPctDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "BOOST_MAGICAL_SKILL", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",             StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M328: sum of PERCENT BOOST_MAGICAL_SKILL changes from statup/statboost elements (positive = % of magic boost added).</summary>
+    public int MagicBoostStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "BOOST_MAGICAL_SKILL", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",             StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M328: sum of PERCENT BLOCK changes from statup/statboost elements (positive = % of current block rating added).</summary>
+    public int BlockStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "BLOCK",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M328: sum of PERCENT BLOCK changes from statdown elements (negative = % of current block rating reduced).</summary>
+    public int BlockPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "BLOCK",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M328: sum of PERCENT PARRY changes from statup elements (positive = % of current parry rating added).</summary>
+    public int ParryStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PARRY",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M326: sum of PERCENT PHYSICAL_ATTACK changes from statdown elements (negative = % of target patk reduced).</summary>
+    public int PatkPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",          StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M326: sum of PERCENT EVASION changes from statdown elements (negative = % of target evasion reduced).</summary>
+    public int EvasionPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "EVASION", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M326: sum of PERCENT MAGICAL_ATTACK changes from statdown elements (negative = % of target matk reduced).</summary>
+    public int MagicAtkPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "MAGICAL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",         StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M322: sum of PERCENT PHYSICAL_DEFENSE changes from statdown elements (negative = % of target pdef reduced).</summary>
+    public int PdefPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "PHYSICAL_DEFENSE", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",           StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M322: sum of PERCENT MAGICAL_RESIST changes from statdown elements (negative = % of target mresist reduced).</summary>
+    public int MResistPercentDebuff
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "MAGICAL_RESIST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",         StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M320: fly speed percent change from statdown elements with PERCENT FLY_SPEED changes.
+    /// Typically negative (e.g. -50 = halve fly speed). 0 means no change.</summary>
+    public int StatdownFlySpeedPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "FLY_SPEED", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M318: movement speed percent change from statdown elements with PERCENT SPEED changes.
+    /// Typically negative (e.g. -30 = 30% slower). 0 means no change.</summary>
+    public int StatdownSpeedPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "SPEED",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
         }
     }
 
@@ -1959,6 +2611,70 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M315: sum of PERCENT HEAL_SKILL_BOOST from non-onfly boostheal child changes (passive heal-mastery skills).</summary>
+    public int BoostHealSkillBoostPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "boostheal") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "HEAL_SKILL_BOOST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT",          StringComparison.OrdinalIgnoreCase)) continue;
+                    bool hasOnFly = false;
+                    foreach (XmlNode cond in ce.ChildNodes)
+                        if (cond is XmlElement condEl && condEl.LocalName == "conditions")
+                        {
+                            foreach (XmlNode oc in condEl.ChildNodes)
+                                if (oc is XmlElement ocEl && ocEl.LocalName == "onfly") { hasOnFly = true; break; }
+                            break;
+                        }
+                    if (hasOnFly) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M315: sum of PERCENT BOOST_SPELL_ATTACK from non-onfly boostspellattack child changes (passive spell-attack mastery skills).</summary>
+    public int BoostSpellAttackPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "boostspellattack") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_SPELL_ATTACK", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT",             StringComparison.OrdinalIgnoreCase)) continue;
+                    bool hasOnFly = false;
+                    foreach (XmlNode cond in ce.ChildNodes)
+                        if (cond is XmlElement condEl && condEl.LocalName == "conditions")
+                        {
+                            foreach (XmlNode oc in condEl.ChildNodes)
+                                if (oc is XmlElement ocEl && ocEl.LocalName == "onfly") { hasOnFly = true; break; }
+                            break;
+                        }
+                    if (hasOnFly) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>Sum of all ADD MAXHP changes from statup effects (positive = increased max HP).</summary>
     public int MaxHpStatUpDelta
     {
@@ -2375,6 +3091,27 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M319: parsed &lt;fpatk checktime="N" value="V" delta="D" duration2="T" percent="true/false"/&gt; elements — periodic FP drain (Java FpAtkEffect).</summary>
+    public IReadOnlyList<SkillMpAttackDotInfo> FpAttackDotEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillMpAttackDotInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "fpatk") continue;
+                if (!int.TryParse(e.GetAttribute("checktime"), out int check) || check <= 0) continue;
+                if (!int.TryParse(e.GetAttribute("duration2"), out int dur)   || dur   <= 0) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(check, val, dlt, dur, pct));
+            }
+            return list;
+        }
+    }
+
     /// <summary>M310: parsed &lt;skillcooltimereset first_cd="A" last_cd="B" delta="D" value="V"/&gt; — reduces cooldowns in a CooldownId range (Java SkillCooltimeResetEffect).</summary>
     public IReadOnlyList<SkillCooldownResetInfo> CooldownResetEffects
     {
@@ -2423,13 +3160,202 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M332: sum of ADD DR_BOOST changes from statup/statboost elements (positive = % drop-rate increase, e.g. 20 = +20%).</summary>
+    public int DRBoostAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "DR_BOOST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M332: sum of ADD AP_BOOST changes from statup/statboost elements (positive = % AP-gain increase, e.g. 20 = +20%).</summary>
+    public int APBoostAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "AP_BOOST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M333: sum of ADD ABNORMAL_RESISTANCE_ALL changes from statup/statboost elements (positive = CC resist points, 0–10000 scale).</summary>
+    public int CcResistAllAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "ABNORMAL_RESISTANCE_ALL", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M334: count of one-time crit-boost charges from &lt;onetimeboostskillcritical&gt; element (0 if absent).</summary>
+    public int OnetimeCritCount
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillcritical" && int.TryParse(e.GetAttribute("count"), out int v)) return v;
+            return 0;
+        }
+    }
+
+    /// <summary>M334: crit boost value — flat crit-rating ADD when percent="false", or direct crit% when percent="true".</summary>
+    public int OnetimeCritValue
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillcritical" && int.TryParse(e.GetAttribute("value"), out int v)) return v;
+            return 0;
+        }
+    }
+
+    /// <summary>M334: true when &lt;onetimeboostskillcritical percent="true"/&gt; — value is then a direct crit-% boost, not a crit-rating ADD.</summary>
+    public bool OnetimeCritIsPercent
+    {
+        get
+        {
+            if (Elements is null) return false;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillcritical")
+                    return string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+            return false;
+        }
+    }
+
+    /// <summary>M334: max active duration (ms) from &lt;onetimeboostskillcritical duration2="X"/&gt;.</summary>
+    public int OnetimeCritDurationMs
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillcritical" && int.TryParse(e.GetAttribute("duration2"), out int v)) return v;
+            return 0;
+        }
+    }
+
+    /// <summary>M334: count of one-time atk-boost charges from &lt;onetimeboostskillattack&gt; element (0 if absent).</summary>
+    public int OnetimeAtkCount
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillattack" && int.TryParse(e.GetAttribute("count"), out int v)) return v;
+            return 0;
+        }
+    }
+
+    /// <summary>M334: percent damage boost per charge from &lt;onetimeboostskillattack value="X"/&gt; (e.g. 30 = +30% damage).</summary>
+    public int OnetimeAtkPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillattack" && int.TryParse(e.GetAttribute("value"), out int v)) return v;
+            return 0;
+        }
+    }
+
+    /// <summary>M334: skill type filter from &lt;onetimeboostskillattack type="PHYSICAL|MAGICAL"/&gt;.</summary>
+    public string OnetimeAtkType
+    {
+        get
+        {
+            if (Elements is null) return string.Empty;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillattack") return e.GetAttribute("type") ?? string.Empty;
+            return string.Empty;
+        }
+    }
+
+    /// <summary>M334: max active duration (ms) from &lt;onetimeboostskillattack duration2="X"/&gt;.</summary>
+    public int OnetimeAtkDurationMs
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "onetimeboostskillattack" && int.TryParse(e.GetAttribute("duration2"), out int v)) return v;
+            return 0;
+        }
+    }
+
+    /// <summary>M333: sum of PERCENT BOOST_HATE changes from boosthate elements (positive = % more hate generated, negative = less).</summary>
+    public int BoostHateStatPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "boosthate") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_HATE", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     private static AbnormalCcFlags ElementToCcFlag(string name) => name switch
     {
         "stun" or "stunalways" or "buffstun"          => AbnormalCcFlags.Stun,
         "sleep"                                       => AbnormalCcFlags.Sleep,
         "root"                                        => AbnormalCcFlags.Root,
         "silence" or "buffsilence"                    => AbnormalCcFlags.Silence,
-        "bind" or "buffbind"                          => AbnormalCcFlags.Sleep,  // BIND shares Sleep semantics for cant-attack
+        "bind" or "buffbind"                          => AbnormalCcFlags.Root,   // BIND = movement lock only; still allows attacking (Java BindEffect extends RootEffect)
         "paralyze"                                    => AbnormalCcFlags.Paralyze,
         "fear"                                        => AbnormalCcFlags.Fear,
         "stagger" or "staggeralways"                  => AbnormalCcFlags.Stagger,

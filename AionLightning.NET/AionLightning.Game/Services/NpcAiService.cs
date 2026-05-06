@@ -1193,7 +1193,10 @@ public sealed class NpcAiService : BackgroundService
         if (npc.IsAlreadyDead) return;
         if (player.IsHidden) return; // M301: hidden players do not trigger NPC aggro
         npc.LastCombatTime = DateTime.UtcNow; // refresh on every hit so idle timeout resets
-        npc.AddHate(player.ObjectId, 1); // M279: baseline hate per ForceEngage call (from damage hits)
+        // M333: scale baseline hate by BOOST_HATE (from active buffs + passive Aggravation skills)
+        int boostHatePct = player.BoostHatePct + PassiveBoostHateHelper.ComputePct(player, _dataManager);
+        int hate = boostHatePct != 0 ? Math.Max(1, 1 * (100 + boostHatePct) / 100) : 1;
+        npc.AddHate(player.ObjectId, hate);
         if (_npcTargets.TryAdd(npc.ObjectId, player.ObjectId))
         {
             npc.Target = player;

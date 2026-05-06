@@ -390,6 +390,8 @@ public sealed class CM_ATTACK : AionClientPacket
                 int apGain = AbyssRankService.CalculatePvPApGained(player, deadPlayer);
                 if (_rates.ApPlayerGainRate != 1.0f)
                     apGain = Math.Max(1, (int)(apGain * _rates.ApPlayerGainRate));
+                if (player.APBoostDelta != 0)
+                    apGain = Math.Max(1, apGain * (100 + player.APBoostDelta) / 100);
                 int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
                 bool killerRankUp = AbyssRankService.AddAp(player, apGain);
                 AbyssRankService.LoseAp(deadPlayer, apLoss);
@@ -447,6 +449,8 @@ public sealed class CM_ATTACK : AionClientPacket
                 || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
             {
                 int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
+                if (player.APBoostDelta != 0)
+                    ap = Math.Max(1, ap * (100 + player.APBoostDelta) / 100);
                 bool npcRankUp = AbyssRankService.AddAp(player, ap);
                 if (player.AbyssRank > player.AbyssMaxRank)
                     player.AbyssMaxRank = player.AbyssRank;

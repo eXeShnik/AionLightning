@@ -86,6 +86,10 @@ public abstract class Creature : VisibleObject
     public int AtkSpeedStatUpDelta  { get; set; }
     // Cumulative HEAL_SKILL_DEBOOST delta (negative = receive less healing, positive = receive more; percent)
     public int HealReceivedPct      { get; set; }
+    // Cumulative DR_BOOST delta from statup buffs (positive = % more item drop chance per kill)
+    public int DRBoostDelta         { get; set; }
+    // Cumulative ABNORMAL_RESISTANCE_ALL delta from statup buffs (0–10000 scale; Random.Next(10001) < value = CC resisted)
+    public int CcResistAll          { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
@@ -225,6 +229,13 @@ public abstract class Creature : VisibleObject
         if ((v = e.MResistStatUpDeltaVal)   != 0) MResistStatUpDelta    += v;
         if ((v = e.AtkSpeedStatUpDeltaVal)  != 0) AtkSpeedStatUpDelta   += v;
         if ((v = e.HealReceivedPctDelta)    != 0) HealReceivedPct       += v;
+        if ((v = e.DRBoostDeltaVal)         != 0) DRBoostDelta          += v;
+        if ((v = e.CcResistAllDeltaVal)     != 0) CcResistAll           += v;
+        if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpApply) regenHpApply.BonusRegenHpPct += e.RegenHpPctDeltaVal;
+        if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpApply) regenMpApply.BonusRegenMpPct += e.RegenMpPctDeltaVal;
+        if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpApply) regenFpApply.BonusRegenFpPct += e.RegenFpPctDeltaVal;
+        if (e.APBoostDeltaVal       != 0 && this is Player apBoostApply)   apBoostApply.APBoostDelta    += e.APBoostDeltaVal;
+        if (e.BoostHatePctDeltaVal  != 0 && this is Player boostHateApply) boostHateApply.BoostHatePct  += e.BoostHatePctDeltaVal;
     }
 
     internal void ReverseEffectDeltas(AbnormalState e)
@@ -261,9 +272,54 @@ public abstract class Creature : VisibleObject
         if ((v = e.MResistStatUpDeltaVal)   != 0) MResistStatUpDelta    -= v;
         if ((v = e.AtkSpeedStatUpDeltaVal)  != 0) AtkSpeedStatUpDelta   -= v;
         if ((v = e.HealReceivedPctDelta)    != 0) HealReceivedPct       -= v;
+        if ((v = e.DRBoostDeltaVal)         != 0) DRBoostDelta          -= v;
+        if ((v = e.CcResistAllDeltaVal)     != 0) CcResistAll           -= v;
         if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
         if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
         if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;
+        if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpRev) regenHpRev.BonusRegenHpPct -= e.RegenHpPctDeltaVal;
+        if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpRev) regenMpRev.BonusRegenMpPct -= e.RegenMpPctDeltaVal;
+        if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpRev) regenFpRev.BonusRegenFpPct -= e.RegenFpPctDeltaVal;
+        if (e.APBoostDeltaVal       != 0 && this is Player apBoostRev)   apBoostRev.APBoostDelta   -= e.APBoostDeltaVal;
+        if (e.BoostHatePctDeltaVal  != 0 && this is Player boostHateRev) boostHateRev.BoostHatePct -= e.BoostHatePctDeltaVal;
+    }
+
+    /// <summary>M334: consume one onetimecrit charge; returns (flatBoost, pctBoost) or (0, 0) when no active buff.</summary>
+    public (int FlatBoost, int PctBoost) ConsumeOnetimeCritCharge()
+    {
+        lock (_effectsLock)
+        {
+            for (int i = 0; i < _activeEffects.Count; i++)
+            {
+                var e = _activeEffects[i];
+                if (e.IsExpired || e.OnetimeCritCountRemaining <= 0) continue;
+                e.OnetimeCritCountRemaining--;
+                int flat = e.OnetimeCritBoostFlat;
+                int pct  = e.OnetimeCritBoostPct;
+                if (e.OnetimeCritCountRemaining == 0) _activeEffects.RemoveAt(i);
+                return (flat, pct);
+            }
+            return (0, 0);
+        }
+    }
+
+    /// <summary>M334: consume one onetimeatk charge matching the skill's physical/magical type; returns boost% or 0.</summary>
+    public int ConsumeOnetimeAtkCharge(bool isPhysical)
+    {
+        lock (_effectsLock)
+        {
+            for (int i = 0; i < _activeEffects.Count; i++)
+            {
+                var e = _activeEffects[i];
+                if (e.IsExpired || e.OnetimeAtkCountRemaining <= 0) continue;
+                if (e.OnetimeAtkBoostIsPhysical != isPhysical) continue;
+                e.OnetimeAtkCountRemaining--;
+                int pct = e.OnetimeAtkBoostPct;
+                if (e.OnetimeAtkCountRemaining == 0) _activeEffects.RemoveAt(i);
+                return pct;
+            }
+            return 0;
+        }
     }
 
     public List<AbnormalState> GetActiveEffects()

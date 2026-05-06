@@ -122,6 +122,35 @@ public sealed class CM_CASTSPELL : AionClientPacket
         player.LastChainCategory = template?.ChainCategory ?? string.Empty;
         player.LastChainExpiry   = DateTime.UtcNow.AddMilliseconds(Player.ChainTimeoutMs);
 
+        // M316: <actions><dpuse> — DP cast cost (mirrors Java DpUseAction.act)
+        if (template is not null && template.DpUseCost > 0)
+        {
+            if (player.Dp < template.DpUseCost)
+            {
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.NotEnoughDp(), ct);
+                return;
+            }
+            player.Dp -= template.DpUseCost;
+            await _conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct);
+        }
+
+        // M316: <actions><hpuse> — HP cast cost (mirrors Java HpUseAction.act)
+        if (template is not null)
+        {
+            var (hpVal, hpDelta, hpRatio) = template.HpUseCost;
+            if (hpVal > 0)
+            {
+                int hpCost = hpVal + hpDelta * (_level - 1);
+                if (hpRatio) hpCost = (int)(hpCost / 100f * player.MaxHp);
+                if (player.CurrentHp < hpCost)
+                {
+                    await _conn.SendAsync(SM_SYSTEM_MESSAGE.NotEnoughHp(), ct);
+                    return;
+                }
+                player.CurrentHp -= hpCost;
+            }
+        }
+
         // Server-side cooldown enforcement keyed by CooldownId group (mirrors Java isSkillDisabled)
         if (template is not null && template.Cooldown > 0)
         {
@@ -155,7 +184,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var tauntNpc = _world.GetNpcByObjectId(_targetObjectId);
             if (tauntNpc is not null && !tauntNpc.IsAlreadyDead)
             {
-                tauntNpc.AddHate(player.ObjectId, 10000); // taunt-priority hate — overrides typical damage hate
+                // M333: scale taunt hate by BOOST_HATE (buff + passive)
+                int tauntHate = 10000;
+                int tauntBoostPct = player.BoostHatePct + PassiveBoostHateHelper.ComputePct(player, _dataManager);
+                if (tauntBoostPct != 0)
+                    tauntHate = Math.Max(1, tauntHate * (100 + tauntBoostPct) / 100);
+                tauntNpc.AddHate(player.ObjectId, tauntHate);
                 _npcAi.ForceEngage(tauntNpc, player);
             }
         }
@@ -186,6 +220,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
             {
                 int skillLv = _level;
                 float healBoostMult = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
+                if (player.PassiveBonusHealSkillBoostPct > 0)
+                    healBoostMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
                 int healWorldId = player.Position.WorldId;
                 var healEffects = template?.Effects?.HealEffects;
 
@@ -405,6 +441,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
             {
                 int aoeSkillLv      = _level;
                 float aoeBoostMult  = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
+                if (player.PassiveBonusHealSkillBoostPct > 0)
+                    aoeBoostMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
                 int aoeWorldId      = player.Position.WorldId;
                 float aoeR          = template.EffectiveRange;
                 Position aoeCenter  = healTarget?.Position ?? player.Position;
@@ -499,7 +537,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                  && (template.Duration > 0
                      || template.Effects?.ShapeChangeDurationMs > 0
                      || template.Effects?.AlwaysBlockDurationMs > 0
-                     || template.Effects?.AlwaysDodgeDurationMs > 0))
+                     || template.Effects?.AlwaysDodgeDurationMs > 0
+                     || template.Effects?.AlwaysParryDurationMs > 0))
         {
             // Determine buff target: self when targetObjectId is 0 or caster's own id
             Creature? buffTarget = (_targetObjectId == 0 || _targetObjectId == player.ObjectId)
@@ -527,7 +566,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int durationMs       = template.Duration > 0 ? template.Duration
                                      : template.Effects?.ShapeChangeDurationMs > 0 ? (template.Effects.ShapeChangeDurationMs)
                                      : template.Effects?.AlwaysBlockDurationMs  > 0 ? (template.Effects.AlwaysBlockDurationMs)
-                                     : (template.Effects?.AlwaysDodgeDurationMs ?? 0);
+                                     : template.Effects?.AlwaysDodgeDurationMs  > 0 ? (template.Effects.AlwaysDodgeDurationMs)
+                                     : template.Effects?.OnetimeCritDurationMs  > 0 ? (template.Effects.OnetimeCritDurationMs)
+                                     : template.Effects?.OnetimeAtkDurationMs   > 0 ? (template.Effects.OnetimeAtkDurationMs)
+                                     : (template.Effects?.AlwaysParryDurationMs ?? 0);
                 int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
                 int maxMpStatUpDelta    = template.Effects?.MaxMpStatUpDelta       ?? 0;
                 int mBoostStatUpDelta   = template.Effects?.MagicBoostStatUpDelta  ?? 0;
@@ -554,6 +596,63 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int mresistStatUpDelta           = template.Effects?.MResistStatUpDelta           ?? 0;
                 int atkSpeedStatUpDelta          = template.Effects?.AtkSpeedStatUpDelta          ?? 0;
                 int speedStatUpPct               = template.Effects?.SpeedStatUpPct               ?? 0;
+                // M323: PERCENT PHYSICAL_ATTACK and MAGICAL_ATTACK buffs — convert to flat delta
+                int patkStatUpPct    = template.Effects?.PhysAtkStatUpPct    ?? 0;
+                int magicAtkStatUpPct = template.Effects?.MagicAtkStatUpPct ?? 0;
+                if (patkStatUpPct != 0 && buffTarget is Player patkPctBuff)
+                {
+                    int basePatk = patkPctBuff.BasePhysicalAttack
+                                   + (patkPctBuff.MainHandMinDmg + patkPctBuff.MainHandMaxDmg) / 2
+                                   + patkPctBuff.BonusPhysicalAtk;
+                    patkStatUpDelta += basePatk * patkStatUpPct / 100;
+                }
+                if (magicAtkStatUpPct != 0 && buffTarget is Player matkPctBuff)
+                    magicAtkStatUpDelta += (matkPctBuff.MainHandMagicalAtk + matkPctBuff.BonusMagicAtk) * magicAtkStatUpPct / 100;
+                // M324: PERCENT PDEF and ATTACK_SPEED buffs
+                int pdefStatUpPct    = template.Effects?.PdefStatUpPct    ?? 0;
+                int atkSpdStatUpPct  = template.Effects?.AtkSpeedStatUpPct ?? 0;
+                if (pdefStatUpPct   != 0 && buffTarget is Player pdefPctBuff)
+                    pdefStatUpDelta   += pdefPctBuff.PhysicalDefense * pdefStatUpPct / 100;
+                if (atkSpdStatUpPct != 0)
+                    atkSpeedStatUpDelta += buffTarget.CurrentAttackSpeed * atkSpdStatUpPct / 100;
+                // M325: PERCENT MAGICAL_RESIST and EVASION buffs
+                int mresistStatUpPct = template.Effects?.MResistStatUpPct ?? 0;
+                int evasionStatUpPct = template.Effects?.EvasionStatUpPct ?? 0;
+                if (mresistStatUpPct != 0 && buffTarget is Player mresistPctBuff)
+                    mresistStatUpDelta += mresistPctBuff.BonusMagicResist * mresistStatUpPct / 100;
+                if (evasionStatUpPct != 0 && buffTarget is Player evasionPctBuff)
+                    evasionStatUpDelta += (evasionPctBuff.BaseEvasion + evasionPctBuff.BonusEvasion) * evasionStatUpPct / 100;
+                // M327: PERCENT PHYSICAL_CRITICAL and PHYSICAL_ACCURACY buffs
+                int physCritStatUpPct = template.Effects?.PhysCritStatUpPct ?? 0;
+                int physAccStatUpPct  = template.Effects?.PhysAccStatUpPct  ?? 0;
+                if (physCritStatUpPct != 0 && buffTarget is Player physCritPctBuff)
+                    physCritStatUpDelta += (physCritPctBuff.BaseCritRating + physCritPctBuff.BonusPhysicalCritical) * physCritStatUpPct / 100;
+                if (physAccStatUpPct  != 0 && buffTarget is Player physAccPctBuff)
+                    physAccStatUpDelta  += (physAccPctBuff.BasePhysicalAccuracy + physAccPctBuff.BonusPhysicalAccuracy) * physAccStatUpPct / 100;
+                // M328: PERCENT BOOST_MAGICAL_SKILL buff + BLOCK and PARRY PERCENT buffs
+                int mBoostStatUpPct  = template.Effects?.MagicBoostStatUpPct ?? 0;
+                int blockStatUpPct   = template.Effects?.BlockStatUpPct      ?? 0;
+                int parryStatUpPct   = template.Effects?.ParryStatUpPct      ?? 0;
+                if (mBoostStatUpPct != 0 && buffTarget is Player mBoostPctBuff)
+                    mBoostStatUpDelta  += mBoostPctBuff.BonusMagicBoost * mBoostStatUpPct / 100;
+                if (blockStatUpPct  != 0 && buffTarget is Player blockPctBuff)
+                    blockStatUpDelta   += (blockPctBuff.BaseBlock + blockPctBuff.BonusBlock) * blockStatUpPct / 100;
+                if (parryStatUpPct  != 0 && buffTarget is Player parryPctBuff)
+                    parryStatUpDelta   += (parryPctBuff.BaseParry + parryPctBuff.BonusParry) * parryStatUpPct / 100;
+                // M329: PERCENT MAGICAL_DEFEND buff
+                int magicDefStatUpPct = template.Effects?.MagicDefStatUpPct ?? 0;
+                if (magicDefStatUpPct != 0 && buffTarget is Player magicDefPctBuff)
+                    magicDefStatUpDelta += magicDefPctBuff.MagicDefense * magicDefStatUpPct / 100;
+                // M330/M331: REGEN_HP/MP/FP PERCENT buffs — stored as pct delta, applied per-tick in RegenService
+                int regenHpStatUpPct = template.Effects?.RegenHpStatUpPct ?? 0;
+                int regenMpStatUpPct = template.Effects?.RegenMpStatUpPct ?? 0;
+                int regenFpStatUpPct = template.Effects?.RegenFpStatUpPct ?? 0;
+                // M332: DR_BOOST and AP_BOOST ADD buffs — drop-rate and AP-gain boosts
+                int drBoostDelta = template.Effects?.DRBoostAddDelta ?? 0;
+                int apBoostDelta = template.Effects?.APBoostAddDelta ?? 0;
+                // M333: ABNORMAL_RESISTANCE_ALL ADD buff and BOOST_HATE PERCENT buff
+                int ccResistAllDelta = template.Effects?.CcResistAllAddDelta ?? 0;
+                int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -587,7 +686,22 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     MResistStatUpDeltaVal    = mresistStatUpDelta,
                     AtkSpeedStatUpDeltaVal   = atkSpeedStatUpDelta,
                     IsSanctuary              = template.Effects?.HasSanctuary == true,
-                    HitCountRemaining        = (template.Effects?.AlwaysBlockCount ?? 0) + (template.Effects?.AlwaysDodgeCount ?? 0),
+                    HitCountRemaining        = (template.Effects?.AlwaysBlockCount ?? 0) + (template.Effects?.AlwaysDodgeCount ?? 0) + (template.Effects?.AlwaysParryCount ?? 0),
+                    IsNoDeathPenalty         = template.Effects?.HasNoresurrectPenalty == true,
+                    RegenHpPctDeltaVal       = regenHpStatUpPct,
+                    RegenMpPctDeltaVal       = regenMpStatUpPct,
+                    RegenFpPctDeltaVal       = regenFpStatUpPct,
+                    DRBoostDeltaVal          = drBoostDelta,
+                    APBoostDeltaVal          = apBoostDelta,
+                    CcResistAllDeltaVal      = ccResistAllDelta,
+                    BoostHatePctDeltaVal     = boostHateDelta,
+                    // M334: one-time crit/atk boost charges
+                    OnetimeCritCountRemaining = template.Effects?.OnetimeCritCount ?? 0,
+                    OnetimeCritBoostFlat      = template.Effects?.OnetimeCritIsPercent == true ? 0 : (template.Effects?.OnetimeCritValue ?? 0),
+                    OnetimeCritBoostPct       = template.Effects?.OnetimeCritIsPercent == true ? (template.Effects?.OnetimeCritValue ?? 0) : 0,
+                    OnetimeAtkCountRemaining  = template.Effects?.OnetimeAtkCount ?? 0,
+                    OnetimeAtkBoostPct        = template.Effects?.OnetimeAtkPct   ?? 0,
+                    OnetimeAtkBoostIsPhysical = string.Equals(template.Effects?.OnetimeAtkType, "PHYSICAL", StringComparison.OrdinalIgnoreCase),
                 };
                 buffTarget.AddEffect(effect);
 
@@ -651,6 +765,37 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 foreach (var c in _connRegistry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == deactWorld)
                                         try { await c.SendAsync(deactAbn); } catch { }
+                                break;
+                            }
+                        }
+                    });
+                }
+
+                // M317: <periodicactions><hpuse> — periodic HP drain task while buff active (mirrors M274 mpuse)
+                var (hpUseInterval, hpUseValue, hpUseDelta) = template?.Effects is null ? (0, 0, 0) : template.Effects.PeriodicHpUse;
+                if (hpUseInterval > 0 && hpUseValue > 0 && buffTarget is Player hpDrainTarget)
+                {
+                    var hpDrainEffect   = effect;
+                    var hpDrainPlayer   = hpDrainTarget;
+                    var hpDrainInterval = hpUseInterval;
+                    var hpDrainPerTick  = hpUseValue + hpUseDelta * (_level - 1);
+                    _ = Task.Run(async () =>
+                    {
+                        while (!hpDrainPlayer.IsAlreadyDead && DateTime.UtcNow < hpDrainEffect.Expiry)
+                        {
+                            await Task.Delay(hpDrainInterval);
+                            if (hpDrainPlayer.IsAlreadyDead || DateTime.UtcNow >= hpDrainEffect.Expiry) break;
+                            hpDrainPlayer.CurrentHp = Math.Max(1, hpDrainPlayer.CurrentHp - hpDrainPerTick);
+                            // When HP would reach 1 (floor), auto-deactivate (matches M290 mpuse pattern; keep alive unlike mpuse)
+                            if (hpDrainPlayer.CurrentHp <= 1)
+                            {
+                                hpDrainPlayer.RemoveEffectBySkillId(hpDrainEffect.SkillId);
+                                int deactWorld2 = hpDrainPlayer.Position.WorldId;
+                                try { await _conn.SendAsync(new SM_PLAYER_STANCE(hpDrainPlayer.ObjectId, 0)); } catch { }
+                                var deactAbn2 = new SM_ABNORMAL_EFFECT(hpDrainPlayer.ObjectId, true, hpDrainPlayer.GetActiveEffects());
+                                foreach (var c in _connRegistry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == deactWorld2)
+                                        try { await c.SendAsync(deactAbn2); } catch { }
                                 break;
                             }
                         }
@@ -858,6 +1003,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var cDmgFx    = template?.Effects?.DamageEffects;
                 int? cSkillBase = cDmgFx is { Count: > 0 } ? cDmgFx[0].BaseValue + cDmgFx[0].Delta * (_level - 1) : null;
 
+                // M334: consume one-time crit/atk charges once per cast before the target loop
+                var (onetimeCritFlatC, onetimeCritPctC) = player.ConsumeOnetimeCritCharge();
+                int onetimeAtkPctC = player.ConsumeOnetimeAtkCharge(isPhysical: false); // caster-AoE is magical
+
                 int hitCount = 0;
                 foreach (var npc in world.GetAllNpcs())
                 {
@@ -872,6 +1021,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     float mbMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppress) / 1000f;
                     int cBase = cSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40);
                     int rawDmg = (int)((mAtk + cBase) * mbMult);
+                    if (player.PassiveBonusSpellAttackPct > 0)
+                        rawDmg = (int)(rawDmg * (1f + player.PassiveBonusSpellAttackPct / 100f));
+                    if (onetimeAtkPctC != 0) rawDmg = Math.Max(1, rawDmg * (100 + onetimeAtkPctC) / 100);
 
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
                     int mr = NpcMagicResist(npc);
@@ -887,10 +1039,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         continue;
                     }
 
-                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
+                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatC;
                     double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
                                      : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                      : 52.0 + (mCritRating - 600) * 0.02;
+                    if (onetimeCritPctC > 0) mCritRate = Math.Min(100, mCritRate + onetimeCritPctC);
                     if (Random.Shared.Next(100) < (int)mCritRate)
                         rawDmg = (int)(rawDmg * 1.5f);
 
@@ -991,6 +1144,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     ? gAoeDmgFx[0].BaseValue + gAoeDmgFx[0].Delta * (_level - 1)
                     : null;
 
+                // M334: consume one-time crit/atk charges once per cast before target loop
+                var (onetimeCritFlatG, onetimeCritPctG) = player.ConsumeOnetimeCritCharge();
+                int onetimeAtkPctG = player.ConsumeOnetimeAtkCharge(!spellIsMagical);
+
                 foreach (var target in targets)
                 {
                     // Java: magicBoost -= getMBResist() (target suppression reduces caster boost, min 0)
@@ -1005,6 +1162,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int rawSpellDmg = spellIsMagical
                         ? (int)((mAtk + gAoeBase) * magicBoostMult)
                         : pAtk + gAoeBase;
+                    if (spellIsMagical && player.PassiveBonusSpellAttackPct > 0)
+                        rawSpellDmg = (int)(rawSpellDmg * (1f + player.PassiveBonusSpellAttackPct / 100f));
+                    if (onetimeAtkPctG != 0) rawSpellDmg = Math.Max(1, rawSpellDmg * (100 + onetimeAtkPctG) / 100);
 
                     // M258: skip resist/dodge when damage effect carries noresist="true"
                     bool gAoeNoResist = gAoeDmgFx is { Count: > 0 } && gAoeDmgFx[0].IsNoResist;
@@ -1051,12 +1211,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // Magical crit check (same piecewise formula as physical crit)
                     if (spellIsMagical)
                     {
-                        int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
+                        int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatG;
                         int mCritResist = target is Player pvpMCrit ? pvpMCrit.BonusMagicalCriticalResist + pvpMCrit.MagicCritResistDelta : 0;
                         mCritRating = Math.Max(0, mCritRating - mCritResist);
                         double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
                                          : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                          : 52.0 + (mCritRating - 600) * 0.02;
+                        if (onetimeCritPctG > 0) mCritRate = Math.Min(100, mCritRate + onetimeCritPctG);
                         if (Random.Shared.Next(100) < (int)mCritRate)
                         {
                             int spF = target is Player pvpSpF ? pvpSpF.BonusSpellFortitude + pvpSpF.SpellFortitudeDelta : 0;
@@ -1066,12 +1227,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                     else // physical skill crit (Java calculatePhysicalCriticalRate, coefficient 1.5 for skills)
                     {
-                        int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
+                        int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta + onetimeCritFlatG;
                         int pCritResist = target is Player pvpPCG ? pvpPCG.BonusPhysicalCriticalResist + pvpPCG.PhysCritResistDelta : 0;
                         pCritRating = Math.Max(0, pCritRating - pCritResist);
                         double pCritRate = pCritRating <= 440 ? pCritRating * 0.1
                                          : pCritRating <= 600 ? 44.0 + (pCritRating - 440) * 0.05
                                          : 52.0 + (pCritRating - 600) * 0.02;
+                        if (onetimeCritPctG > 0) pCritRate = Math.Min(100, pCritRate + onetimeCritPctG);
                         if (Random.Shared.Next(100) < (int)pCritRate)
                         {
                             int sFortG = target is Player pvpSFG ? pvpSFG.BonusStrikeFortitude + pvpSFG.StrikeFortitudeDelta : 0;
@@ -1188,6 +1350,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                             : target is Npc dotNpcG ? (dotNpcG.Template.Stats?.MBResist ?? 0) : 0;
                                 float dotMbG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - dotSuppG) / 1000f;
                                 int dotRawG  = (int)((mAtkDotG + rawDotG) * dotMbG);
+                                if (player.PassiveBonusSpellAttackPct > 0)
+                                    dotRawG = (int)(dotRawG * (1f + player.PassiveBonusSpellAttackPct / 100f));
                                 int dotDefG  = target is Player dotDefPvpG ? dotDefPvpG.MagicDefense + dotDefPvpG.MagicDefDelta
                                             : target is Npc dotDefNpcG ? (dotDefNpcG.Template.Stats?.MBResist ?? 0) : 0;
                                 dotTickDmg = Math.Max(1, dotDefG > 0 ? dotRawG * 1000 / (1000 + dotDefG) : dotRawG);
@@ -1317,6 +1481,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         || killed.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
                     {
                         int ap = AbyssRankService.CalculateNpcApReward(killed.Level);
+                        if (player.APBoostDelta != 0)
+                            ap = Math.Max(1, ap * (100 + player.APBoostDelta) / 100);
                         bool aoeNpcRankUp = AbyssRankService.AddAp(player, ap);
                         if (player.AbyssRank > player.AbyssMaxRank) player.AbyssMaxRank = player.AbyssRank;
                         try { await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), CancellationToken.None); } catch { }
@@ -1393,6 +1559,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
 
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
+
+                // M334: consume one-time crit/atk charges once per skill cast
+                var (onetimeCritFlatST, onetimeCritPctST) = player.ConsumeOnetimeCritCharge();
+                int onetimeAtkPctST = player.ConsumeOnetimeAtkCharge(!spellIsMagical);
 
                 // M258: skip resist/dodge when damage effect carries noresist="true"
                 var stPreNoResistFx = template?.Effects?.DamageEffects;
@@ -1477,12 +1647,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     float mbMultG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppressG) / 1000f;
                     int stMagicBase = stSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40);
                     rawSpellDmg = (int)((mAtkG + stMagicBase) * mbMultG);
+                    if (player.PassiveBonusSpellAttackPct > 0)
+                        rawSpellDmg = (int)(rawSpellDmg * (1f + player.PassiveBonusSpellAttackPct / 100f));
                 }
                 else
                 {
                     int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
                     rawSpellDmg = pAtkG + (stSkillBase ?? player.Level * 4 + Random.Shared.Next(10, 40));
                 }
+
+                if (onetimeAtkPctST != 0) rawSpellDmg = Math.Max(1, rawSpellDmg * (100 + onetimeAtkPctST) / 100);
 
                 // M289: SignetBurst — scale rawSpellDmg by signet level BEFORE crit (Java: valueWithDelta *= factor)
                 if (isSignetBurstSkill)
@@ -1508,12 +1682,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // Magical crit check (Java calculateMagicalCriticalRate, same piecewise formula as physical)
                 if (spellIsMagical)
                 {
-                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
+                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatST;
                     int mCritResist = target is Player pvpMCritTarget ? pvpMCritTarget.BonusMagicalCriticalResist + pvpMCritTarget.MagicCritResistDelta : 0;
                     mCritRating = Math.Max(0, mCritRating - mCritResist);
                     double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
                                      : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
                                      : 52.0 + (mCritRating - 600) * 0.02;
+                    if (onetimeCritPctST > 0) mCritRate = Math.Min(100, mCritRate + onetimeCritPctST);
                     if (Random.Shared.Next(100) < (int)mCritRate)
                     {
                         int spFt = target is Player pvpSpFt ? pvpSpFt.BonusSpellFortitude + pvpSpFt.SpellFortitudeDelta : 0;
@@ -1523,12 +1698,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
                 else // physical skill crit (Java calculatePhysicalCriticalRate, coefficient 1.5 for skills)
                 {
-                    int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
+                    int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta + onetimeCritFlatST;
                     int pCritResist = target is Player pvpPCST ? pvpPCST.BonusPhysicalCriticalResist + pvpPCST.PhysCritResistDelta : 0;
                     pCritRating = Math.Max(0, pCritRating - pCritResist);
                     double pCritRate = pCritRating <= 440 ? pCritRating * 0.1
                                      : pCritRating <= 600 ? 44.0 + (pCritRating - 440) * 0.05
                                      : 52.0 + (pCritRating - 600) * 0.02;
+                    if (onetimeCritPctST > 0) pCritRate = Math.Min(100, pCritRate + onetimeCritPctST);
                     if (Random.Shared.Next(100) < (int)pCritRate)
                     {
                         int sFortST = target is Player pvpSFST ? pvpSFST.BonusStrikeFortitude + pvpSFST.StrikeFortitudeDelta : 0;
@@ -1861,6 +2037,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 : ddTarget is Npc ddNpcT ? (ddNpcT.Template.Stats?.MBResist ?? 0) : 0;
                             float ddMbMult = 1.0f + Math.Max(0, ddPlayer.BonusMagicBoost + ddPlayer.MagicBoostDelta - ddSuppress) / 1000f;
                             int ddRaw = (int)((ddMAtk + ddVal) * ddMbMult);
+                            if (ddPlayer.PassiveBonusSpellAttackPct > 0)
+                                ddRaw = (int)(ddRaw * (1f + ddPlayer.PassiveBonusSpellAttackPct / 100f));
                             int ddDef = ddTarget is Player ddDefPvp
                                 ? ddDefPvp.MagicDefense + ddDefPvp.MagicDefDelta
                                 : ddTarget is Npc ddDefNpc ? (ddDefNpc.Template.Stats?.MBResist ?? 0) : 0;
@@ -1913,6 +2091,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int splashRaw = spellIsMagical
                             ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta) + splashBase) * splashMBMult)
                             : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta) + splashBase;
+                        if (spellIsMagical && player.PassiveBonusSpellAttackPct > 0)
+                            splashRaw = (int)(splashRaw * (1f + player.PassiveBonusSpellAttackPct / 100f));
+                        if (onetimeAtkPctST != 0) splashRaw = Math.Max(1, splashRaw * (100 + onetimeAtkPctST) / 100);
 
                         // Magic resist check for AoE splash / physical dodge check (splash targets are NPC-only)
                         if (spellIsMagical)
@@ -1950,19 +2131,21 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         // Magical crit check for AoE splash
                         if (spellIsMagical)
                         {
-                            int mCritRatingS = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
+                            int mCritRatingS = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatST;
                             double mCritRateS = mCritRatingS <= 440 ? mCritRatingS * 0.1
                                               : mCritRatingS <= 600 ? 44.0 + (mCritRatingS - 440) * 0.05
                                               : 52.0 + (mCritRatingS - 600) * 0.02;
+                            if (onetimeCritPctST > 0) mCritRateS = Math.Min(100, mCritRateS + onetimeCritPctST);
                             if (Random.Shared.Next(100) < (int)mCritRateS)
                                 splashRaw = (int)(splashRaw * 1.5f);
                         }
                         else // physical skill crit for AoE splash (splash targets are NPCs, no PvP crit resist)
                         {
-                            int pCritSpl = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta;
+                            int pCritSpl = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta + onetimeCritFlatST;
                             double pCritRateSpl = pCritSpl <= 440 ? pCritSpl * 0.1
                                                 : pCritSpl <= 600 ? 44.0 + (pCritSpl - 440) * 0.05
                                                 : 52.0 + (pCritSpl - 600) * 0.02;
+                            if (onetimeCritPctST > 0) pCritRateSpl = Math.Min(100, pCritRateSpl + onetimeCritPctST);
                             if (Random.Shared.Next(100) < (int)pCritRateSpl)
                                 splashRaw = (int)(splashRaw * 1.5f);
                         }
@@ -2086,6 +2269,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     int dotSuppSpl = splash.Template.Stats?.MBResist ?? 0;
                                     float dotMbSpl = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - dotSuppSpl) / 1000f;
                                     int dotRawSpl  = (int)((mAtkDotSpl + rawDotSpl) * dotMbSpl);
+                                    if (player.PassiveBonusSpellAttackPct > 0)
+                                        dotRawSpl = (int)(dotRawSpl * (1f + player.PassiveBonusSpellAttackPct / 100f));
                                     int dotDefSpl  = splash.Template.Stats?.MBResist ?? 0;
                                     dotTickDmg = Math.Max(1, dotDefSpl > 0 ? dotRawSpl * 1000 / (1000 + dotDefSpl) : dotRawSpl);
                                 }
@@ -2156,10 +2341,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool isDebuffSkill = template?.SubType == SkillSubType.DEBUFF
                                   || (string.Equals(template?.TSlot, "DEBUFF",
                                           StringComparison.OrdinalIgnoreCase) && debuffDurationMs > 0);
-                if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0)
+                // M333: ABNORMAL_RESISTANCE_ALL — if target has CC resist and the skill carries CC flags, roll to resist
+                bool ccResisted = (template?.CcFlags ?? AbnormalCcFlags.None) != AbnormalCcFlags.None
+                               && target.CcResistAll > 0
+                               && Random.Shared.Next(10001) < target.CcResistAll;
+                if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0 && !ccResisted)
                 {
                     bool debuffTargetIsPlayer = target is Player;
-                    int  snareSpeedPct        = template?.Effects?.SnareSpeedPct     ?? 0;
+                    int  snareSpeedPct        = template?.Effects?.SnareSpeedPct        ?? 0;
+                    int  statdownSpeedPct     = template?.Effects?.StatdownSpeedPct     ?? 0;
+                    int  combinedMovSpeedPct  = snareSpeedPct + statdownSpeedPct;
+                    int  statdownFlySpeedPct  = template?.Effects?.StatdownFlySpeedPct  ?? 0;
                     int  slowAtkPct           = template?.Effects?.SlowAttackSpeedPct ?? 0;
                     int  pdefDelta            = template?.Effects?.PdefAddDelta       ?? 0;
                     int  mresistDelta         = template?.Effects?.MResistAddDelta    ?? 0;
@@ -2173,11 +2365,38 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  maxMpPctDelta        = template?.Effects?.MaxMpPercentDelta    ?? 0;
                     if (maxHpPctDelta != 0) maxHpDelta += target.MaxHp * maxHpPctDelta / 100;
                     if (maxMpPctDelta != 0) maxMpDelta += target.MaxMp * maxMpPctDelta / 100;
+                    // M322: PERCENT pdef/mresist debuffs — convert to flat delta against target's current stat
+                    int  pdefPctDebuff    = template?.Effects?.PdefPercentDebuff    ?? 0;
+                    int  mresistPctDebuff = template?.Effects?.MResistPercentDebuff ?? 0;
+                    if (pdefPctDebuff    != 0 && target is Player pdefPctTgt)    pdefDelta    += pdefPctTgt.PhysicalDefense  * pdefPctDebuff    / 100;
+                    if (mresistPctDebuff != 0 && target is Player mresistPctTgt) mresistDelta += mresistPctTgt.BonusMagicResist * mresistPctDebuff / 100;
+                    // M326: PERCENT patk/evasion/matk debuffs — convert to flat delta against target's current stat
+                    int  patkPctDebuff     = template?.Effects?.PatkPercentDebuff     ?? 0;
+                    int  evasionPctDebuff  = template?.Effects?.EvasionPercentDebuff  ?? 0;
+                    int  magicAtkPctDebuff = template?.Effects?.MagicAtkPercentDebuff ?? 0;
+                    if (patkPctDebuff    != 0 && target is Player patkPctTgt)
+                        patkDelta    += (patkPctTgt.BasePhysicalAttack + (patkPctTgt.MainHandMinDmg + patkPctTgt.MainHandMaxDmg) / 2 + patkPctTgt.BonusPhysicalAtk) * patkPctDebuff / 100;
+                    if (evasionPctDebuff != 0 && target is Player evasionPctTgt)
+                        evasionDelta += (evasionPctTgt.BaseEvasion + evasionPctTgt.BonusEvasion) * evasionPctDebuff / 100;
+                    if (magicAtkPctDebuff!= 0 && target is Player matkPctTgt)
+                        magicAtkDelta+= (matkPctTgt.MainHandMagicalAtk + matkPctTgt.BonusMagicAtk) * magicAtkPctDebuff / 100;
                     int  mBoostDebuffDelta     = template?.Effects?.MagicBoostAddDelta   ?? 0;
+                    // M328: PERCENT BOOST_MAGICAL_SKILL debuff
+                    int  mBoostPctDebuff = template?.Effects?.MagicBoostPctDebuff ?? 0;
+                    if (mBoostPctDebuff != 0 && target is Player mBoostPctTgt)
+                        mBoostDebuffDelta += mBoostPctTgt.BonusMagicBoost * mBoostPctDebuff / 100;
                     int  physAccDelta          = template?.Effects?.PhysAccAddDelta       ?? 0;
+                    // M327: PERCENT PHYSICAL_ACCURACY debuff — reduce phys acc by pct of target's current accuracy
+                    int  physAccPctDebuff = template?.Effects?.PhysAccPercentDebuff ?? 0;
+                    if (physAccPctDebuff != 0 && target is Player physAccPctTgt)
+                        physAccDelta += (physAccPctTgt.BasePhysicalAccuracy + physAccPctTgt.BonusPhysicalAccuracy) * physAccPctDebuff / 100;
                     int  magicAccDelta         = template?.Effects?.MagicAccAddDelta      ?? 0;
                     int  parryDelta            = template?.Effects?.ParryAddDelta         ?? 0;
                     int  blockDelta            = template?.Effects?.BlockAddDelta         ?? 0;
+                    // M328: PERCENT BLOCK debuff — reduce block rating by pct of target's current block
+                    int  blockPctDebuff = template?.Effects?.BlockPercentDebuff ?? 0;
+                    if (blockPctDebuff != 0 && target is Player blockPctTgt)
+                        blockDelta += (blockPctTgt.BaseBlock + blockPctTgt.BonusBlock) * blockPctDebuff / 100;
                     int  physCritDelta         = template?.Effects?.PhysCritAddDelta         ?? 0;
                     int  magicCritDelta        = template?.Effects?.MagicCritAddDelta        ?? 0;
                     int  physCritResistDelta   = template?.Effects?.PhysCritResistAddDelta    ?? 0;
@@ -2198,7 +2417,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         Expiry              = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
                         CcFlags             = template!.CcFlags,
                         IsDebuff            = true,
-                        MovSpeedPct         = snareSpeedPct,
+                        MovSpeedPct         = combinedMovSpeedPct,
                         PreDebuffSpeed      = target.MovementSpeed,
                         AttackSpeedPct      = slowAtkPct,
                         PreDebuffAtkSpeed   = target.CurrentAttackSpeed,
@@ -2227,13 +2446,19 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         MagicDefDeltaVal         = magicDefDelta,
                         BlindDodgePct            = blindDodgePct,
                         HealReceivedPctDelta     = healDeboostPct,
+                        FlySpeedDebuffPct        = statdownFlySpeedPct,
+                        PreDebuffFlySpeedPct     = target is Player flyDebuffTarget ? flyDebuffTarget.BonusFlySpeedPct : 0,
                     };
                     target.AddEffect(debuffEffect);
 
-                    // Snare: reduce movement speed; Slow: increase attack speed (higher = slower)
-                    bool speedChanged = snareSpeedPct != 0 || slowAtkPct != 0;
-                    if (snareSpeedPct != 0)
-                        target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + snareSpeedPct) / 100f);
+                    // M320: statdown FLY_SPEED PERCENT — apply fly speed penalty to player's bonus
+                    if (statdownFlySpeedPct != 0 && target is Player flySpeedTarget)
+                        flySpeedTarget.BonusFlySpeedPct += statdownFlySpeedPct;
+
+                    // Snare + statdown SPEED: reduce movement speed; Slow: increase attack speed (higher = slower)
+                    bool speedChanged = combinedMovSpeedPct != 0 || slowAtkPct != 0;
+                    if (combinedMovSpeedPct != 0)
+                        target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + combinedMovSpeedPct) / 100f);
                     if (slowAtkPct != 0)
                         target.CurrentAttackSpeed = Math.Max(500, (int)(target.CurrentAttackSpeed * (100 + slowAtkPct) / 100f));
                     if (speedChanged)
@@ -2297,6 +2522,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         bool atkSpeedRestored = expEffect.AtkSpeedDelta != 0;
 
                         expTarget.RemoveEffectBySkillId(expEffect.SkillId);
+
+                        // M320: restore fly speed debuff
+                        if (expEffect.FlySpeedDebuffPct != 0 && expTarget is Player flyExpPlayer)
+                            flyExpPlayer.BonusFlySpeedPct = expEffect.PreDebuffFlySpeedPct;
 
                         if (speedRestored)
                         {
@@ -2549,6 +2778,56 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
+                // M319: fpatk — periodic FP drain on target (Player targets only; mirrors M306 mpattack pattern)
+                if (target is Player fpDotPlayer && template?.Effects?.FpAttackDotEffects is { Count: > 0 } fpDots)
+                {
+                    foreach (var fpDot in fpDots)
+                    {
+                        var fpDotExpiry = DateTime.UtcNow.AddMilliseconds(fpDot.Duration2Ms);
+                        var fpDotEffect = new AbnormalState
+                        {
+                            SkillId    = spellId,
+                            SkillLevel = _level,
+                            EffectorId = player.ObjectId,
+                            Expiry     = fpDotExpiry,
+                            IsDebuff   = true,
+                        };
+                        fpDotPlayer.AddEffect(fpDotEffect);
+                        var fpDotAbnPkt = new SM_ABNORMAL_EFFECT(fpDotPlayer.ObjectId, true, fpDotPlayer.GetActiveEffects());
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(fpDotAbnPkt); } catch { }
+
+                        var fpTickTarget = fpDotPlayer;
+                        var fpTickEffect = fpDotEffect;
+                        var fpTickInfo   = fpDot;
+                        _ = Task.Run(async () =>
+                        {
+                            while (!fpTickTarget.IsAlreadyDead && DateTime.UtcNow < fpTickEffect.Expiry)
+                            {
+                                await Task.Delay(fpTickInfo.CheckTimeMs);
+                                if (fpTickTarget.IsAlreadyDead || DateTime.UtcNow >= fpTickEffect.Expiry) break;
+                                int fpDrain = fpTickInfo.IsPercent
+                                    ? fpTickTarget.MaxFp * fpTickInfo.BaseValue / 100
+                                    : Math.Max(1, fpTickInfo.BaseValue + fpTickInfo.Delta * (_level - 1));
+                                fpTickTarget.CurrentFp = Math.Max(0, fpTickTarget.CurrentFp - fpDrain);
+                                var fpDc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == fpTickTarget);
+                                if (fpDc is not null)
+                                {
+                                    var fpStats = new SM_STATS_INFO(fpTickTarget, _dataManager.PlayerStats.GetTemplate(fpTickTarget.PlayerClass, fpTickTarget.Level));
+                                    try { await fpDc.SendAsync(fpStats); } catch { }
+                                }
+                            }
+                            fpTickTarget.RemoveEffect(fpTickEffect.SkillId, fpTickEffect.Expiry);
+                            var fpExpPkt = new SM_ABNORMAL_EFFECT(fpTickTarget.ObjectId, true, fpTickTarget.GetActiveEffects());
+                            int fpExpWorld = fpTickTarget.Position.WorldId;
+                            foreach (var c in registry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == fpExpWorld)
+                                    try { await c.SendAsync(fpExpPkt); } catch { }
+                        });
+                    }
+                }
+
                 if (target.CurrentHp > 0) return;
 
                 if (target is Player deadPlayer)
@@ -2607,6 +2886,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int apGain = AbyssRankService.CalculatePvPApGained(player, deadPlayer);
                         if (rates.ApPlayerGainRate != 1.0f)
                             apGain = Math.Max(1, (int)(apGain * rates.ApPlayerGainRate));
+                        if (player.APBoostDelta != 0)
+                            apGain = Math.Max(1, apGain * (100 + player.APBoostDelta) / 100);
                         int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
                         bool spellPvpRankUp = AbyssRankService.AddAp(player, apGain);
                         AbyssRankService.LoseAp(deadPlayer, apLoss);
@@ -2671,6 +2952,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
                     {
                         int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
+                        if (player.APBoostDelta != 0)
+                            ap = Math.Max(1, ap * (100 + player.APBoostDelta) / 100);
                         bool spellNpcRankUp = AbyssRankService.AddAp(player, ap);
                         if (player.AbyssRank > player.AbyssMaxRank) player.AbyssMaxRank = player.AbyssRank;
                         try { await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), CancellationToken.None); } catch { }
