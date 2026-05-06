@@ -1508,6 +1508,19 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             try { await c.SendAsync(caAbnPkt); } catch { }
                 }
 
+                // M309: dash — teleport caster to target's position after dealing damage (Java DashEffect.applyEffect → World.updatePosition)
+                if (stDmgFx?.Any(d => d.Variant == "dash") == true && target.CurrentHp > 0)
+                {
+                    var tp = target.Position;
+                    player.Position = new Position(tp.X, tp.Y, tp.Z, tp.Heading, tp.WorldId, tp.InstanceId);
+                    player.MovementMask = 0;
+                    try { await _conn.SendAsync(new SM_TELEPORT_LOC(player.Position, portAnimation: 0)); } catch { }
+                    var dashMovePkt = new SM_MOVE(player);
+                    foreach (var c in registry.GetAll())
+                        if (c != _conn && c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(dashMovePkt); } catch { }
+                }
+
                 // M239: drain damage variants — caster restores HP/MP from dealt damage
                 if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
                 {

@@ -1907,7 +1907,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant", "fphealinstant", "procfphealinstant", "dphealinstant", "procdphealinstant", "vphealinstant", "procvphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal", "fpheal", "dpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease", "spellatk", "spellatkdrain"];
-    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant", "dispelbuffcounteratk", "carvesignet", "signetburst"];
+    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant", "dispelbuffcounteratk", "carvesignet", "signetburst", "dash"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];
@@ -2036,7 +2036,7 @@ public sealed class SkillEffects
                 if (!DamageEffectNames.Contains(e.LocalName)) continue;
                 int.TryParse(e.GetAttribute("value"), out int val);
                 int.TryParse(e.GetAttribute("delta"), out int dlt);
-                string dmgType = e.LocalName is "skillatk" or "skillatkdraininstant" ? "physical" : "magical";
+                string dmgType = e.LocalName is "skillatk" or "skillatkdraininstant" or "dash" ? "physical" : "magical";
                 string element = e.GetAttribute("element") ?? string.Empty;
                 int.TryParse(e.GetAttribute("accmod2"), out int accMod);
                 int.TryParse(e.GetAttribute("hp_percent"), out int hpPct);

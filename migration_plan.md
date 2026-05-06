@@ -3190,3 +3190,9 @@
   - **M308a:** `Model/Templates/Skill/SkillTemplate.cs` — all 25 `*StatUpDelta` computed properties extended from `e.LocalName != "statup"` → `e.LocalName is not ("statup" or "statboost")`; also added `"statboost"` to `EffectDurNames` for the rare timed statboost buff case
   - Stats now gained from statboost passives: PHYSICAL_ATTACK (15 skills), PHYSICAL_DEFENSE (14), PHYSICAL_CRITICAL (7), BLOCK (6), MAXHP (6), PHYSICAL_ACCURACY (5), MAGIC_SKILL_BOOST_RESIST (5), EVASION (5), BOOST_MAGICAL_SKILL (5), ATTACK_SPEED (5), CONCENTRATION (4), MAXMP (3), and others
   - Build: 0 warnings, 0 errors
+
+- [x] **M309: Dash strike (teleport-to-target attack)** — `<dash value="V" delta="D"/>` deals physical damage then moves the caster to the target's position; 36 occurrences (Assassin/Gladiator gap-closer skills: "Dash Attack I-V", "Rushing Wave", "Charged Dash", etc.)
+  - Java analog: `DashEffect extends DamageEffect`; `applyEffect()` calls `super.applyEffect()` (physical damage), then `World.updatePosition(effector, skill.getX(), skill.getY(), skill.getZ(), skill.getH())` to teleport the caster to the target's position
+  - **M309a:** `Model/Templates/Skill/SkillTemplate.cs` — added `"dash"` to `DamageEffectNames`; added `"dash"` to the physical-type branch in `DamageEffects` (`e.LocalName is "skillatk" or "skillatkdraininstant" or "dash"`)
+  - **M309b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — after `ApplyDamageAndPublishAsync` in single-target path: detects any DamageEffect with `Variant=="dash"` and target still alive; updates `player.Position` to target's position, sets `MovementMask=0`, sends `SM_TELEPORT_LOC` to caster's connection, broadcasts `SM_MOVE` (stop at new position) to all other nearby clients
+  - Build: 0 warnings, 0 errors
