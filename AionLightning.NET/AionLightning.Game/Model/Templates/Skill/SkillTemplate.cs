@@ -1985,7 +1985,7 @@ public sealed class SkillEffects
     private static readonly HashSet<string> HealInstantNames  = ["healinstant", "mphealinstant", "prochealinstant", "procmphealinstant", "fphealinstant", "procfphealinstant", "dphealinstant", "procdphealinstant", "vphealinstant", "procvphealinstant"];
     private static readonly HashSet<string> HotNames          = ["heal", "mpheal", "fpheal", "dpheal"];
     private static readonly HashSet<string> DotNames          = ["bleed", "poison", "disease", "spellatk", "spellatkdrain"];
-    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant", "dispelbuffcounteratk", "carvesignet", "signetburst", "dash", "movebehind", "backdash"];
+    private static readonly HashSet<string> DamageEffectNames = ["skillatk", "spellatkinstant", "skillatkdraininstant", "spellatkdraininstant", "procatk_instant", "dispelbuffcounteratk", "carvesignet", "signetburst", "dash", "movebehind", "backdash", "deathblow"];
     private static readonly HashSet<string> MpAttackEffectNames = ["mpattackinstant"];
     private static readonly HashSet<string> NoReduceEffectNames = ["noreducespellatk"];
     private static readonly HashSet<string> HealCastorOnAtkEffectNames = ["healcastoronatk"];

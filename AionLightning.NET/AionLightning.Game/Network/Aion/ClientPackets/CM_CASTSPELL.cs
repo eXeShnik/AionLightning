@@ -827,6 +827,93 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
             await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
         }
+        else if (isDamageSkill && template?.IsCasterAoe == true
+                 && _targetType is 0 or 3 or 4
+                 && (_targetObjectId == 0 || _targetObjectId == player.ObjectId))
+        {
+            // M314: Caster-centered AoE damage (first_target=ME, target_type=AREA) — e.g. deathblow DP skills.
+            // No primary target: hit all enemies within EffectiveRange of the caster's position.
+            var spellId   = _spellId;
+            var world     = _world;
+            var registry  = _connRegistry;
+            float cAoeR   = Math.Max(1f, template.EffectiveRange);
+            float cAoeAlt = Math.Max(1f, template.EffectiveAltitude);
+            int   cMaxHit = template.TargetMaxCount;
+
+            _ = Task.Run(async () =>
+            {
+                if (castDelay > 0)
+                    await Task.Delay(castDelay);
+
+                if (player.IsAlreadyDead) return;
+
+                int castWorldId = player.Position.WorldId;
+                var activation  = new SM_SKILL_ACTIVATION(spellId);
+                foreach (var c in registry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                        try { await c.SendAsync(activation); } catch { }
+
+                Position cCenter = player.Position;
+                int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
+                var cDmgFx    = template?.Effects?.DamageEffects;
+                int? cSkillBase = cDmgFx is { Count: > 0 } ? cDmgFx[0].BaseValue + cDmgFx[0].Delta * (_level - 1) : null;
+
+                int hitCount = 0;
+                foreach (var npc in world.GetAllNpcs())
+                {
+                    if (hitCount >= cMaxHit) break;
+                    if (npc.IsAlreadyDead) continue;
+                    if (npc.Position.WorldId != castWorldId) continue;
+                    float dx = npc.Position.X - cCenter.X, dy = npc.Position.Y - cCenter.Y, dz = npc.Position.Z - cCenter.Z;
+                    if (dx * dx + dy * dy > cAoeR * cAoeR) continue;
+                    if (Math.Abs(dz) > cAoeAlt) continue;
+
+                    int tMBSuppress = npc.Template.Stats?.MBResist ?? 0;
+                    float mbMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppress) / 1000f;
+                    int cBase = cSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40);
+                    int rawDmg = (int)((mAtk + cBase) * mbMult);
+
+                    int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
+                    int mr = NpcMagicResist(npc);
+                    int resistRate = Math.Max(1, mr - totalMagicAcc);
+                    int lvlDiff = npc.Level - player.Level - 2;
+                    if (lvlDiff > 0) resistRate += lvlDiff * 100;
+                    if (Random.Shared.Next(1000) < resistRate)
+                    {
+                        var resistPkt = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(resistPkt); } catch { }
+                        continue;
+                    }
+
+                    int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta;
+                    double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
+                                     : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
+                                     : 52.0 + (mCritRating - 600) * 0.02;
+                    if (Random.Shared.Next(100) < (int)mCritRate)
+                        rawDmg = (int)(rawDmg * 1.5f);
+
+                    float lvlMod = NpcLevelDiffMod(npc.Level - player.Level);
+                    if (lvlMod > 0f) rawDmg = Math.Max(1, (int)(rawDmg * (1f - lvlMod)));
+
+                    int mbResist = npc.Template.Stats?.MBResist ?? 0;
+                    int damage = mbResist > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + mbResist)) : rawDmg;
+
+                    await npc.ApplyDamageAndPublishAsync(player, damage, DamageKind.MagicalSkill, spellId, _eventBus, ct);
+
+                    if (npc.CurrentHp > 0)
+                        _npcAi.ForceEngage(npc, player);
+
+                    var statusPkt = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.Damage, spellId, damage, SM_ATTACK_STATUS.LogId.SpellAtk);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(statusPkt); } catch { }
+
+                    hitCount++;
+                }
+            });
+        }
         else if (isDamageSkill && _targetType is 1 or 2 && template?.IsGroundAoe == true)
         {
             // Ground-targeted AoE (first_target=POINT, target_type=AREA): damage all enemies near the cast point

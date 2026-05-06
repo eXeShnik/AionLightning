@@ -3210,6 +3210,14 @@
   - **M311c:** `Services/PlayerEnterWorldService.cs` — accumulates `MaxHpPercentStatUpDelta`/`MaxMpPercentStatUpDelta` at login into `PassiveBonusMaxHpPct`/`PassiveBonusMaxMpPct`; updated MaxHp/MaxMp formula: `(flatSum) * (1 + pct/100f) * ssMult`
   - Build: 0 warnings, 0 errors
 
+- [x] **M314: DeathBlow DP ultimate skills + CasterAoe damage path** — `<deathblow value="V" delta="D"/>` deals magical damage in an area; all 14 deathblow skills use `first_target="ME/TARGET", target_type="AREA"` — requires a new caster-centered AoE code path; plus 4 IsTargetAoe variants work through the existing single-target + splash path
+  - Java analog: `DeathBlowEffect extends DamageEffect { calculate(effect) { super.calculate(effect, DamageType.MAGICAL); } }` — purely magical, otherwise identical to spellatkinstant; DP-cost class ultimates (Heaven and Earth Tremor, Splendor of God, Voice of God, etc.)
+  - Root cause for IsCasterAoe (10 skills): `first_target="ME"` sends `_targetObjectId=player.ObjectId`; the existing single-target path would damage the caster; no dedicated caster-AoE damage path existed
+  - **M314a:** `Model/Templates/Skill/SkillTemplate.cs` — added `"deathblow"` to `DamageEffectNames`; `deathblow` not in physical branch so it correctly defaults to magical type in `DamageEffects`
+  - **M314b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — new `else if` branch before the ground-AoE path: `isDamageSkill && IsCasterAoe && _targetType is 0 or 3 or 4 && (_targetObjectId == 0 || == player.ObjectId)`; collects NPC enemies within `EffectiveRange`/`EffectiveAltitude` of player position, applies full magical damage formula (magic resist check, MBResist defense reduction, crit, NPC level-diff), calls `ApplyDamageAndPublishAsync`, `ForceEngage`, `SM_ATTACK_STATUS`
+  - IsTargetAoe deathblow variants (1812, 1813, 1820, 1821) work through the existing single-target + splash path with no additional changes
+  - Build: 0 warnings, 0 errors
+
 - [x] **M313: AlwaysBlock + AlwaysDodge invulnerability buffs** — `<alwaysblock value="N" duration2="T"/>` guarantees N physical blocks; `<alwaysdodge value="N" duration2="T"/>` guarantees N physical dodges; buff expires when hit counter reaches 0 OR duration elapses; 26 + 12 = 38 skills (Templar Shield of Faith I-II, Divine Chastisement I-V, Cry of Ridicule, Battle Call — block; Assassin/Ranger Focused Evasion I-III, Celestial Image I, Illusion I-IV, Bulletproof I — dodge)
   - Java analog: `AlwaysBlockEffect`/`AlwaysDodgeEffect` register an `AttackStatusObserver`; on each BLOCK/DODGE result the observer decrements a counter and calls `effect.endEffect()` when count reaches 1
   - All 38 skills have `duration=0` at template level — they were silently skipped by the buff path (condition was `Duration > 0`)
