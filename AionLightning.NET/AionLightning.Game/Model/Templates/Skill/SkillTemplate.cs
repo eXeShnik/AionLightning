@@ -634,7 +634,7 @@ public sealed class SkillEffects
             if (Elements is null) return 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -771,7 +771,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -817,7 +817,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -909,7 +909,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -932,7 +932,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -946,7 +946,7 @@ public sealed class SkillEffects
         }
     }
 
-    /// <summary>Sum of all ADD MAXHP changes from statdown effects (negative = reduced max HP).</summary>
+    /// <summary>Sum of all ADD MAXHP changes from statdown/curse effects (negative = reduced max HP).</summary>
     public int MaxHpAddDelta
     {
         get
@@ -955,13 +955,59 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statdown") continue;
+                if (e.LocalName is not ("statdown" or "curse")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
                     if (ce.LocalName != "change") continue;
                     if (!string.Equals(ce.GetAttribute("stat"), "MAXHP", StringComparison.OrdinalIgnoreCase)) continue;
                     if (!string.Equals(ce.GetAttribute("func"), "ADD",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M307: sum of all PERCENT MAXHP changes from statdown/curse effects (negative = % of target MaxHp reduced).</summary>
+    public int MaxHpPercentDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statdown" or "curse")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAXHP",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M307: sum of all PERCENT MAXMP changes from statdown/curse effects (negative = % of target MaxMp reduced).</summary>
+    public int MaxMpPercentDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statdown" or "curse")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "MAXMP",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
                     if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
                 }
             }
@@ -1001,7 +1047,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1015,7 +1061,7 @@ public sealed class SkillEffects
         }
     }
 
-    /// <summary>Sum of all ADD MAXMP changes from statdown effects (negative = reduced max MP).</summary>
+    /// <summary>Sum of all ADD MAXMP changes from statdown/curse effects (negative = reduced max MP).</summary>
     public int MaxMpAddDelta
     {
         get
@@ -1024,7 +1070,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statdown") continue;
+                if (e.LocalName is not ("statdown" or "curse")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1047,7 +1093,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1093,7 +1139,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1139,7 +1185,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1185,7 +1231,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1231,7 +1277,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1277,7 +1323,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1361,7 +1407,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1407,7 +1453,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1453,7 +1499,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1499,7 +1545,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1545,7 +1591,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1591,7 +1637,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1637,7 +1683,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1683,7 +1729,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1706,7 +1752,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1752,7 +1798,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1798,7 +1844,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1821,7 +1867,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1844,7 +1890,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName != "statup") continue;
+                if (e.LocalName is not ("statup" or "statboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1874,11 +1920,12 @@ public sealed class SkillEffects
     // Elements that carry debuff durations via their duration2 attribute
     // M305: CC element names added so EffectDuration returns non-zero for attack skills with tslot=DEBUFF + CC (388 skills affected)
     private static readonly HashSet<string> EffectDurNames    = [
-        "slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow", "deboostheal", "openaerial",
+        "slow", "snare", "absolutesnare", "statdown", "statup", "statboost", "blind", "confuse", "absoluteslow", "deboostheal", "openaerial",
         "stun", "stunalways", "buffstun", "sleep", "root", "silence", "buffsilence",
         "paralyze", "fear", "stagger", "staggeralways", "stumble", "stumblealways", "spin",
         "bind", "buffbind",
-        "mpattack"
+        "mpattack",
+        "curse"
     ];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
@@ -2292,6 +2339,7 @@ public sealed class SkillEffects
         "spin"                                        => AbnormalCcFlags.Spin,
         "blind"                                       => AbnormalCcFlags.Blind,
         "openaerial"                                  => AbnormalCcFlags.OpenAerial,
+        "curse"                                       => AbnormalCcFlags.Curse,
         _                                             => AbnormalCcFlags.None
     };
 }

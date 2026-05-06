@@ -2028,6 +2028,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  magicAtkDelta        = template?.Effects?.MagicAtkAddDelta   ?? 0;
                     int  atkSpdDelta          = template?.Effects?.AtkSpeedAddDelta   ?? 0;
                     int  maxMpDelta           = template?.Effects?.MaxMpAddDelta        ?? 0;
+                    int  maxHpPctDelta        = template?.Effects?.MaxHpPercentDelta    ?? 0;
+                    int  maxMpPctDelta        = template?.Effects?.MaxMpPercentDelta    ?? 0;
+                    if (maxHpPctDelta != 0) maxHpDelta += target.MaxHp * maxHpPctDelta / 100;
+                    if (maxMpPctDelta != 0) maxMpDelta += target.MaxMp * maxMpPctDelta / 100;
                     int  mBoostDebuffDelta     = template?.Effects?.MagicBoostAddDelta   ?? 0;
                     int  physAccDelta          = template?.Effects?.PhysAccAddDelta       ?? 0;
                     int  magicAccDelta         = template?.Effects?.MagicAccAddDelta      ?? 0;

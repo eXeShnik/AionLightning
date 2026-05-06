@@ -20,6 +20,7 @@ public enum AbnormalCcFlags : long
     Stumble    = 16384,
     Stagger    = 32768,
     OpenAerial = 65536,
+    Curse      = 131072,
     Spin       = 524288,
     CannotMove = 4194304,
 

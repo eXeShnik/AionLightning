@@ -3177,3 +3177,16 @@
   - **M305a:** `Model/Templates/Skill/SkillTemplate.cs` — added all CC element names to `EffectDurNames`: `stun`, `stunalways`, `buffstun`, `sleep`, `root`, `silence`, `buffsilence`, `paralyze`, `fear`, `stagger`, `staggeralways`, `stumble`, `stumblealways`, `spin`, `bind`, `buffbind`
   - Skills now correctly reporting CC duration: Shield Counter I-V (stun 2000ms), Tendon Slice I-II (root 8000ms), Force Cleave I-II (stun 3000ms), Strike Head I-IV (stun 3000ms), Lockdown series (bind 3000ms), all root/silence/sleep debuff skills with duration=0 at template level; 388 total
   - Build: 0 warnings, 0 errors
+
+- [x] **M307: Curse debuff + PERCENT MaxHp/MaxMp reduction** — 24 `<curse>` skills were not registered as CC (no CC flag assigned); additionally, both `<curse>` and `<statdown>` carry PERCENT-type MAXHP/MAXMP reductions (46+22 HP cases, 16+22 MP cases) that were silently ignored because `MaxHpAddDelta`/`MaxMpAddDelta` only scanned ADD-func children
+  - Java analog: `CurseEffect` extends `BufEffect`, sets `AbnormalState.CURSE`; stat changes of both ADD and PERCENT func are applied via the generic stat-change engine on effect apply
+  - **M307a:** `Model/AbnormalCcFlags.cs` — added `Curse = 131072` (next power-of-2 after OpenAerial=65536)
+  - **M307b:** `Model/Templates/Skill/SkillTemplate.cs` — added `"curse"` to `EffectDurNames` (2 curse skills have `duration=0`); extended `MaxHpAddDelta` and `MaxMpAddDelta` to also scan `curse` elements for ADD changes; added `MaxHpPercentDelta` and `MaxMpPercentDelta` computed properties reading PERCENT MAXHP/MAXMP from `statdown` and `curse` elements; added `"curse" => AbnormalCcFlags.Curse` to `ElementToCcFlag`
+  - **M307c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — in debuff block after reading `maxMpDelta`: reads `maxHpPctDelta`/`maxMpPctDelta`, multiplies by `target.MaxHp`/`target.MaxMp`, folds flat result into existing `maxHpDelta`/`maxMpDelta` vars so the `AbnormalState.MaxHpDelta`/`MaxMpDelta` fields carry the full reduction
+  - Build: 0 warnings, 0 errors
+
+- [x] **M308: StatBoost passive extension** — 194 `<statboost>` PASSIVE skill effects (e.g. "Boost Knockdown", "Concentration I", "Boost Block I", "Boost Physical Attack I") were not contributing any stat bonuses at login because all 25 `*StatUpDelta` properties in `SkillEffects` only scanned `statup` elements
+  - Java analog: `StatboostEffect` extends `BufEffect` identically to `StatupEffect` for stat application; both scan `<change>` children with ADD/PERCENT func attributes
+  - **M308a:** `Model/Templates/Skill/SkillTemplate.cs` — all 25 `*StatUpDelta` computed properties extended from `e.LocalName != "statup"` → `e.LocalName is not ("statup" or "statboost")`; also added `"statboost"` to `EffectDurNames` for the rare timed statboost buff case
+  - Stats now gained from statboost passives: PHYSICAL_ATTACK (15 skills), PHYSICAL_DEFENSE (14), PHYSICAL_CRITICAL (7), BLOCK (6), MAXHP (6), PHYSICAL_ACCURACY (5), MAGIC_SKILL_BOOST_RESIST (5), EVASION (5), BOOST_MAGICAL_SKILL (5), ATTACK_SPEED (5), CONCENTRATION (4), MAXMP (3), and others
+  - Build: 0 warnings, 0 errors
