@@ -3270,6 +3270,10 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M353: elemental resist ADD debuffs — 271 entries now reduce target's fire/water/wind/earth resistance** — `statdown FIRE/WATER/WIND/EARTH_RESISTANCE ADD` (Agonizing Slash I-V −50 each, Agony's Shackles, Elementar's/Sorcerer's Weakening Blow, etc.) were silently discarded because the DEBUFF path AbnormalState initializer didn't include elemental resist fields; `ScanStatupAddValue` already scans `statdown` elements so `FireResistDelta` etc. correctly return negative values; the fix is purely wiring them into the debuff AbnormalState; `Creature.ApplyEffectDeltas` and `ReverseEffectDeltas` already handle these fields from the M339 BUFF work
+  - **M353a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: read `FireResistDelta/WaterResistDelta/WindResistDelta/EarthResistDelta` from template; add to debuff AbnormalState initializer; add to expiry `statChanged` check
+  - Build: 0 warnings, 0 errors
+
 - [x] **M352: REGEN_HP/MP ADD flat buff — 104+100=204 entries now correctly add flat HP/MP per regen tick** — `REGEN_HP ADD` and `REGEN_MP ADD` inside `statup`/`statboost` (Boost HP I +4/II +10/III +20, Breath of Nature I +20/II +30/III +35, and similar) were silently discarded; `BonusRegenHpFlat`/`BonusRegenMpFlat` did not exist on Player and RegenService only applied the PERCENT case; now flat regen is accumulated on buff application, added per tick in RegenService after the PERCENT multiplier, and reversed on buff expiry via Creature.ReverseEffectDeltas
   - **M352a:** `Model/Templates/Skill/SkillTemplate.cs` — added `RegenHpAddDelta` + `RegenMpAddDelta` computed properties: sum ADD REGEN_HP/MP from statup/statboost
   - **M352b:** `Model/AbnormalState.cs` — added `RegenHpAddDeltaVal` + `RegenMpAddDeltaVal` fields

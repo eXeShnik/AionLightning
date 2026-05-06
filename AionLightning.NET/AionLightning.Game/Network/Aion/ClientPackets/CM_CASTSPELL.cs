@@ -2561,6 +2561,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  magicDefDelta         = template?.Effects?.MagicDefAddDelta            ?? 0;
                     int  blindDodgePct         = template?.Effects?.BlindDodgePct               ?? 0;
                     int  healDeboostPct        = template?.Effects?.HealDeboostPct              ?? 0;
+                    // M353: elemental resist ADD debuffs — ScanStatupAddValue sums statdown negative values; 271 entries (Agonizing Slash, etc.)
+                    int  fireResistDebuff  = template?.Effects?.FireResistDelta  ?? 0;
+                    int  waterResistDebuff = template?.Effects?.WaterResistDelta ?? 0;
+                    int  windResistDebuff  = template?.Effects?.WindResistDelta  ?? 0;
+                    int  earthResistDebuff = template?.Effects?.EarthResistDelta ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -2600,6 +2605,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         HealReceivedPctDelta     = healDeboostPct,
                         FlySpeedDebuffPct        = statdownFlySpeedPct,
                         PreDebuffFlySpeedPct     = target is Player flyDebuffTarget ? flyDebuffTarget.BonusFlySpeedPct : 0,
+                        // M353: elemental resist ADD debuffs (negative values; Creature.ApplyEffectDeltas subtracts them from FireResist etc.)
+                        FireResistDelta          = fireResistDebuff,
+                        WaterResistDelta         = waterResistDebuff,
+                        WindResistDelta          = windResistDebuff,
+                        EarthResistDelta         = earthResistDebuff,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -2669,7 +2679,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             expEffect.MagicCritResistDeltaVal != 0 || expEffect.StrikeFortitudeDeltaVal != 0 ||
                             expEffect.SpellFortitudeDeltaVal != 0 || expEffect.CastTimeDeltaVal != 0 ||
                             expEffect.ConcentrationDeltaVal != 0 || expEffect.MagicSuppressionDeltaVal != 0 ||
-                            expEffect.MagicDefDeltaVal != 0;
+                            expEffect.MagicDefDeltaVal != 0 ||
+                            expEffect.FireResistDelta != 0 || expEffect.WaterResistDelta != 0 ||
+                            expEffect.WindResistDelta != 0 || expEffect.EarthResistDelta != 0;
                         bool speedRestored    = expEffect.MovSpeedPct != 0 || expEffect.AttackSpeedPct != 0;
                         bool atkSpeedRestored = expEffect.AtkSpeedDelta != 0;
 
