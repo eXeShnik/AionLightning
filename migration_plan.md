@@ -3270,6 +3270,16 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M338: per-CC-type resistance buffs — STUN/STUMBLE/STAGGER/SPIN/OPENAREIAL/SLEEP/FEAR/ROOT/SNARE RESISTANCE ADD (272 skill entries across 9 stat types)** — Resistance buffs (e.g. Templar anti-stun stance, Chanter anti-stumble signet, anti-spin/openaerial buffs) now reduce the chance of their respective CC landing; M333's global `CcResistAll` check is complemented by a per-CC secondary roll so both fire independently when the target has specific resistance active
+  - Java analog: `EffectTemplate.calculateEffectResistRate` reduces `effectPower = 1000 - ABNORMAL_RESISTANCE_ALL - specificResistance`; our .NET port runs two independent checks (global first, specific second) approximating the combined formula
+  - **M338a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ScanStatupAddValue(statName)` private scanner helper + 9 `XxxResistDelta` properties (StunResistDelta … SnareResistDelta) using expression-body one-liners
+  - **M338b:** `Model/AbnormalState.cs` — added `StunResistDelta … SnareResistDelta` (9 fields, `init` only)
+  - **M338c:** `Model/Creature.cs` — added 9 `XxxResist` accumulator fields; `ApplyEffectDeltas` / `ReverseEffectDeltas` each +9 lines
+  - **M338d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads all 9 resist deltas, wires into `AbnormalState`; DEBUFF path: CC resist check refactored to check global `CcResistAll` first then `GetCcFlagResist(target, ccFlags)` second
+  - **M338e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `GetCcFlagResist(Creature, AbnormalCcFlags)` static helper; Root flag uses `Max(RootResist, SnareResist)` since snare/root/bind all map to `AbnormalCcFlags.Root` in our system
+  - Scale note: per-CC resistance values in XML are on Java's 0–1000 scale (1000 = 100% immune to that CC type); checked via `Random.Next(1001) < specificResist` — consistent with the existing per-CC stat scale (separate from M333's 0–10000 global scale)
+  - Build: 0 warnings, 0 errors
+
 - [x] **M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT active buff (5 skill entries)** — Cleric "Blessed Shield I-III", Stigma Blessed Shield, and Chanter "Healer's Praise I Effect" now apply a timed multiplicative healing output boost (+100% in most cases); buff participates in the same `healBoostMult`/`aoeBoostMult` pipeline as passive and flat heal boosts
   - Java analog: `OnetimeBoostHealEffect extends BufEffect`; applies a HEAL_SKILL_BOOST PERCENT modifier for the buff's duration; our `BonusHealSkillBoostPct` mirrors the existing `PassiveBonusHealSkillBoostPct` but for timed active buffs
   - **M337a:** `Model/Templates/Skill/SkillTemplate.cs` — added `OnetimeBoostHealPct` (scans `onetimeboostheal` for `stat="HEAL_SKILL_BOOST" func="PERCENT"`) and `OnetimeBoostHealDurationMs` (reads `duration2` from first `onetimeboostheal` element) to `SkillEffects`

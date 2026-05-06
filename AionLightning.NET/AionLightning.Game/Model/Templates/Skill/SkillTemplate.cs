@@ -3444,6 +3444,37 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M338: sum of ADD changes for a specific resistance stat from statup/statboost/statdown elements (0–1000 Java scale).</summary>
+    private int ScanStatupAddValue(string statName)
+    {
+        if (Elements is null) return 0;
+        int total = 0;
+        foreach (var e in Elements)
+        {
+            if (e.LocalName is not ("statup" or "statboost" or "statdown")) continue;
+            foreach (XmlNode child in e.ChildNodes)
+            {
+                if (child is not XmlElement ce || ce.LocalName != "change") continue;
+                if (!string.Equals(ce.GetAttribute("stat"), statName, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(ce.GetAttribute("func"), "ADD", StringComparison.OrdinalIgnoreCase)) continue;
+                if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+            }
+        }
+        return total;
+    }
+
+    // M338: per-CC-type resistance ADD deltas (Java 0–1000 scale; 1000 = 100% resistant to that CC type).
+    // Parsed from statup/statboost change elements; accumulated in Creature.StunResist etc. via ApplyEffectDeltas.
+    public int StunResistDelta       => ScanStatupAddValue("STUN_RESISTANCE");
+    public int StumbleResistDelta    => ScanStatupAddValue("STUMBLE_RESISTANCE");
+    public int StaggerResistDelta    => ScanStatupAddValue("STAGGER_RESISTANCE");
+    public int SpinResistDelta       => ScanStatupAddValue("SPIN_RESISTANCE");
+    public int SleepResistDelta      => ScanStatupAddValue("SLEEP_RESISTANCE");
+    public int FearResistDelta       => ScanStatupAddValue("FEAR_RESISTANCE");
+    public int OpenAerialResistDelta => ScanStatupAddValue("OPENAREIAL_RESISTANCE");
+    public int RootResistDelta       => ScanStatupAddValue("ROOT_RESISTANCE");
+    public int SnareResistDelta      => ScanStatupAddValue("SNARE_RESISTANCE");
+
     private static AbnormalCcFlags ElementToCcFlag(string name) => name switch
     {
         "stun" or "stunalways" or "buffstun"          => AbnormalCcFlags.Stun,

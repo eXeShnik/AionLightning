@@ -665,6 +665,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
                 // M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT timed buff (e.g. Blessed Shield +100%)
                 int healSkillBoostPct       = template.Effects?.OnetimeBoostHealPct     ?? 0;
+                // M338: per-CC-type resistance ADD buffs (Java 0–1000 scale)
+                int stunResistDelta       = template.Effects?.StunResistDelta       ?? 0;
+                int stumbleResistDelta    = template.Effects?.StumbleResistDelta    ?? 0;
+                int staggerResistDelta    = template.Effects?.StaggerResistDelta    ?? 0;
+                int spinResistDelta       = template.Effects?.SpinResistDelta       ?? 0;
+                int sleepResistDelta      = template.Effects?.SleepResistDelta      ?? 0;
+                int fearResistDelta       = template.Effects?.FearResistDelta       ?? 0;
+                int openAerialResistDelta = template.Effects?.OpenAerialResistDelta ?? 0;
+                int rootResistDelta       = template.Effects?.RootResistDelta       ?? 0;
+                int snareResistDelta      = template.Effects?.SnareResistDelta      ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -711,6 +721,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     HealSkillBoostPct        = healSkillBoostPct,
                     HuntingXpBoostPct        = huntingXpBoostPct,
                     GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
+                    StunResistDelta          = stunResistDelta,
+                    StumbleResistDelta       = stumbleResistDelta,
+                    StaggerResistDelta       = staggerResistDelta,
+                    SpinResistDelta          = spinResistDelta,
+                    SleepResistDelta         = sleepResistDelta,
+                    FearResistDelta          = fearResistDelta,
+                    OpenAerialResistDelta    = openAerialResistDelta,
+                    RootResistDelta          = rootResistDelta,
+                    SnareResistDelta         = snareResistDelta,
                     // M334: one-time crit/atk boost charges
                     OnetimeCritCountRemaining = template.Effects?.OnetimeCritCount ?? 0,
                     OnetimeCritBoostFlat      = template.Effects?.OnetimeCritIsPercent == true ? 0 : (template.Effects?.OnetimeCritValue ?? 0),
@@ -2357,10 +2376,20 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool isDebuffSkill = template?.SubType == SkillSubType.DEBUFF
                                   || (string.Equals(template?.TSlot, "DEBUFF",
                                           StringComparison.OrdinalIgnoreCase) && debuffDurationMs > 0);
-                // M333: ABNORMAL_RESISTANCE_ALL — if target has CC resist and the skill carries CC flags, roll to resist
-                bool ccResisted = (template?.CcFlags ?? AbnormalCcFlags.None) != AbnormalCcFlags.None
-                               && target.CcResistAll > 0
-                               && Random.Shared.Next(10001) < target.CcResistAll;
+                // M333+M338: CC resist — global ABNORMAL_RESISTANCE_ALL roll, then per-CC-type roll if global passes
+                var ccFlagsForResist = template?.CcFlags ?? AbnormalCcFlags.None;
+                bool ccResisted = false;
+                if (ccFlagsForResist != AbnormalCcFlags.None)
+                {
+                    if (target.CcResistAll > 0 && Random.Shared.Next(10001) < target.CcResistAll)
+                        ccResisted = true;
+                    if (!ccResisted)
+                    {
+                        int specificResist = GetCcFlagResist(target, ccFlagsForResist);
+                        if (specificResist > 0 && Random.Shared.Next(1001) < specificResist)
+                            ccResisted = true;
+                    }
+                }
                 if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0 && !ccResisted)
                 {
                     bool debuffTargetIsPlayer = target is Player;
@@ -3042,6 +3071,21 @@ public sealed class CM_CASTSPELL : AionClientPacket
     }
 
     // Java NpcGameStats.getMResist(): base = round(level*17.5+75) when mRes==0; template MResist adds on top
+    // M338: return the per-CC-type resist value for the highest-priority CC flag set in flags (Java 0–1000 scale).
+    // Root covers both ROOT_RESISTANCE and SNARE_RESISTANCE (snare maps to Root CC flag in our system).
+    private static int GetCcFlagResist(Creature target, AbnormalCcFlags flags)
+    {
+        if (flags.HasFlag(AbnormalCcFlags.Stun))       return target.StunResist;
+        if (flags.HasFlag(AbnormalCcFlags.Stumble))    return target.StumbleResist;
+        if (flags.HasFlag(AbnormalCcFlags.Stagger))    return target.StaggerResist;
+        if (flags.HasFlag(AbnormalCcFlags.Spin))       return target.SpinResist;
+        if (flags.HasFlag(AbnormalCcFlags.Sleep))      return target.SleepResist;
+        if (flags.HasFlag(AbnormalCcFlags.Fear))       return target.FearResist;
+        if (flags.HasFlag(AbnormalCcFlags.OpenAerial)) return target.OpenAerialResist;
+        if (flags.HasFlag(AbnormalCcFlags.Root))       return Math.Max(target.RootResist, target.SnareResist);
+        return 0;
+    }
+
     private static int NpcMagicResist(Model.Npc npc)
     {
         int @base = (int)Math.Round(npc.Level * 17.5f + 75);

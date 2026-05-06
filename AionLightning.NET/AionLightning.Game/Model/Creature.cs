@@ -90,6 +90,16 @@ public abstract class Creature : VisibleObject
     public int DRBoostDelta         { get; set; }
     // Cumulative ABNORMAL_RESISTANCE_ALL delta from statup buffs (0–10000 scale; Random.Next(10001) < value = CC resisted)
     public int CcResistAll          { get; set; }
+    // M338: per-CC-type resist accumulators (Java 0–1000 scale; Random.Next(1001) < value = specific CC resisted).
+    public int StunResist        { get; set; }
+    public int StumbleResist     { get; set; }
+    public int StaggerResist     { get; set; }
+    public int SpinResist        { get; set; }
+    public int SleepResist       { get; set; }
+    public int FearResist        { get; set; }
+    public int OpenAerialResist  { get; set; }
+    public int RootResist        { get; set; }
+    public int SnareResist       { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
@@ -231,6 +241,15 @@ public abstract class Creature : VisibleObject
         if ((v = e.HealReceivedPctDelta)    != 0) HealReceivedPct       += v;
         if ((v = e.DRBoostDeltaVal)         != 0) DRBoostDelta          += v;
         if ((v = e.CcResistAllDeltaVal)     != 0) CcResistAll           += v;
+        if ((v = e.StunResistDelta)         != 0) StunResist            += v;
+        if ((v = e.StumbleResistDelta)      != 0) StumbleResist         += v;
+        if ((v = e.StaggerResistDelta)      != 0) StaggerResist         += v;
+        if ((v = e.SpinResistDelta)         != 0) SpinResist            += v;
+        if ((v = e.SleepResistDelta)        != 0) SleepResist           += v;
+        if ((v = e.FearResistDelta)         != 0) FearResist            += v;
+        if ((v = e.OpenAerialResistDelta)   != 0) OpenAerialResist      += v;
+        if ((v = e.RootResistDelta)         != 0) RootResist            += v;
+        if ((v = e.SnareResistDelta)        != 0) SnareResist           += v;
         if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpApply) regenHpApply.BonusRegenHpPct += e.RegenHpPctDeltaVal;
         if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpApply) regenMpApply.BonusRegenMpPct += e.RegenMpPctDeltaVal;
         if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpApply) regenFpApply.BonusRegenFpPct += e.RegenFpPctDeltaVal;
@@ -283,6 +302,15 @@ public abstract class Creature : VisibleObject
         if ((v = e.HealReceivedPctDelta)    != 0) HealReceivedPct       -= v;
         if ((v = e.DRBoostDeltaVal)         != 0) DRBoostDelta          -= v;
         if ((v = e.CcResistAllDeltaVal)     != 0) CcResistAll           -= v;
+        if ((v = e.StunResistDelta)         != 0) StunResist            -= v;
+        if ((v = e.StumbleResistDelta)      != 0) StumbleResist         -= v;
+        if ((v = e.StaggerResistDelta)      != 0) StaggerResist         -= v;
+        if ((v = e.SpinResistDelta)         != 0) SpinResist            -= v;
+        if ((v = e.SleepResistDelta)        != 0) SleepResist           -= v;
+        if ((v = e.FearResistDelta)         != 0) FearResist            -= v;
+        if ((v = e.OpenAerialResistDelta)   != 0) OpenAerialResist      -= v;
+        if ((v = e.RootResistDelta)         != 0) RootResist            -= v;
+        if ((v = e.SnareResistDelta)        != 0) SnareResist           -= v;
         if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
         if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
         if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;

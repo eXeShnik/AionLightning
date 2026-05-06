@@ -129,6 +129,18 @@ public sealed class AbnormalState
     // Non-zero when this buff increases group-kill XP gain (BOOST_GROUP_HUNTING_XP_RATE ADD; e.g. 30 = +30% group XP per kill).
     public int GroupHuntingXpBoostPct { get; init; }
 
+    // M338: per-CC-type resistance deltas (Java 0–1000 scale; 1000 = 100% immune to that CC type).
+    // Positive = buff; accumulated in Creature.StunResist etc. via ApplyEffectDeltas.
+    public int StunResistDelta       { get; init; }
+    public int StumbleResistDelta    { get; init; }
+    public int StaggerResistDelta    { get; init; }
+    public int SpinResistDelta       { get; init; }
+    public int SleepResistDelta      { get; init; }
+    public int FearResistDelta       { get; init; }
+    public int OpenAerialResistDelta { get; init; }
+    public int RootResistDelta       { get; init; }
+    public int SnareResistDelta      { get; init; }
+
     // M334: one-time crit boost — charges consumed when casting a skill; 0 when not a onetimeboostskillcritical buff.
     public int  OnetimeCritCountRemaining { get; set; }
     // Flat crit-rating ADD applied for non-percent case (e.g. 1000 = +1000 crit rating for next N casts).
