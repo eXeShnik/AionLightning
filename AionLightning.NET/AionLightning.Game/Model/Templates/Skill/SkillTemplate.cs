@@ -1409,6 +1409,29 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M350: sum of ATTACK_SPEED PERCENT changes from statdown elements. Positive = attacks become that % slower (Body Control, Exhausting Cloud, Bravery of the Composed self-nerf, Sign of Infernal Blaze…).</summary>
+    public int StatdownAtkSpeedPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statdown") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "ATTACK_SPEED", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>M292: miss chance % from the first blind element's value= attribute (e.g. 80 → 80% miss).</summary>
     public int BlindDodgePct
     {

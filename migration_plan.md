@@ -3270,6 +3270,11 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M350: statdown ATTACK_SPEED PERCENT — 22 entries now applied in both debuff and BUFF self-nerf paths** — `statdown ATTACK_SPEED PERCENT` was silently ignored: the debuff path only read ATTACK_SPEED PERCENT from `<slow>` elements and the BUFF path self-nerf (M341) skipped attack speed entirely; now enemy debuffs like Body Control I, Exhausting Cloud, Sign of Infernal Blaze apply the attack speed slow, and BUFF self-nerfs like "Bravery of the Composed (+70%)" correctly slow the caster's own attacks; Java analog: `StatdownEffect.applyEffect` with `AdditionStat.calculatePercent(delta) = (100+delta)/100`
+  - **M350a:** `Model/Templates/Skill/SkillTemplate.cs` — added `StatdownAtkSpeedPct` computed property on `SkillEffects`: sums ATTACK_SPEED PERCENT changes from `statdown` elements
+  - **M350b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: merged `StatdownAtkSpeedPct` into `slowAtkPct` accumulator; BUFF path self-nerf: added `StatdownAtkSpeedPct → atkSpeedStatUpDelta += target.CurrentAttackSpeed × pct / 100`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M349: PERCENT MAXHP/MAXMP active buff support — 53 MAXHP + 2 MAXMP = 55 buff skill entries now correctly increase target's max health/mana** — `statup PERCENT MAXHP/MAXMP` in active BUFF skills (Second Wind, Improved Stamina I–III, Empyrean Armor, Blessing of Health, Blessing of Stone, Elemental Spirit Armor, Etude, Refresh Spirit, etc.) were silently discarded; MaxHpPercentStatUpDelta and MaxMpPercentStatUpDelta were only applied for passive skills at login, not for active buffs during combat; the delta is now computed as `buffTarget.MaxHp/MaxMp × pct / 100` and merged into the existing MaxHpDelta/MaxMpDelta AbnormalState field with full expiry clamping via the existing buff-expiry path
   - **M349a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: after `maxHpStatUpDelta = MaxHpStatUpDelta`, added `MaxHpPercentStatUpDelta` computation → `maxHpStatUpDelta += buffTarget.MaxHp × pct / 100`; same for MAXMP; both gated on `buffTarget is Player`
   - Build: 0 warnings, 0 errors

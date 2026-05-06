@@ -710,6 +710,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 physAccStatUpDelta     += template.Effects?.PhysAccAddDelta         ?? 0;
                 concentrationStatUpDelta += template.Effects?.ConcentrationAddDelta ?? 0;
                 physCritStatUpDelta    += template.Effects?.PhysCritAddDelta        ?? 0;
+                // M350: BUFF-path statdown ATTACK_SPEED PERCENT self-nerf (Bravery of the Composed +70%)
+                int atkSpdSelfNerfPct = template.Effects?.StatdownAtkSpeedPct ?? 0;
+                if (atkSpdSelfNerfPct != 0)
+                    atkSpeedStatUpDelta += buffTarget.CurrentAttackSpeed * atkSpdSelfNerfPct / 100;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -2483,7 +2487,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  statdownSpeedPct     = template?.Effects?.StatdownSpeedPct     ?? 0;
                     int  combinedMovSpeedPct  = snareSpeedPct + statdownSpeedPct;
                     int  statdownFlySpeedPct  = template?.Effects?.StatdownFlySpeedPct  ?? 0;
-                    int  slowAtkPct           = template?.Effects?.SlowAttackSpeedPct ?? 0;
+                    int  slowAtkPct           = (template?.Effects?.SlowAttackSpeedPct ?? 0)
+                                              + (template?.Effects?.StatdownAtkSpeedPct ?? 0); // M350
                     int  pdefDelta            = template?.Effects?.PdefAddDelta       ?? 0;
                     int  mresistDelta         = template?.Effects?.MResistAddDelta    ?? 0;
                     int  patkDelta            = template?.Effects?.PhysAtkAddDelta    ?? 0;
