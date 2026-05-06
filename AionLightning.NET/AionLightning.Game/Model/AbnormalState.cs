@@ -97,6 +97,11 @@ public sealed class AbnormalState
     // Target's BonusFlySpeedPct before this debuff was applied — used to restore on expiry
     public int   PreDebuffFlySpeedPct { get; init; }
 
+    // Non-zero when this buff increases fly speed (M351: FLY_SPEED PERCENT statup; e.g. Flyover Reconnaisance +33%)
+    public int   FlySpeedStatUpPct    { get; init; }
+    // Target's BonusFlySpeedPct before this buff was applied — used to restore on expiry
+    public int   PreBuffFlySpeedPct   { get; init; }
+
     // Non-zero when this debuff blinds the target: each physical attack misses with this % chance.
     public int BlindDodgePct { get; init; }
     // Non-zero when this effect changes HEAL_SKILL_DEBOOST (negative = receive less healing, positive = receive more).

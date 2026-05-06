@@ -3270,6 +3270,12 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M351: FLY_SPEED PERCENT buff (statup/statboost) — 70 entries now correctly increase target's fly speed for buff duration** — `FLY_SPEED PERCENT` values inside `statup`/`statboost` elements (Flyover Reconnaisance +33%, Charge +60%, Winged Rage I-II +33%, Flight: Maximization of Speed +50%, Strengthen Wings I-III +10/15/20%, etc.) were silently discarded; `Player.BonusFlySpeedPct` was never modified by active buff casts; now the pct is added on buff application and restored to the pre-buff snapshot on expiry (same restore-by-snapshot pattern as M320 fly speed debuff)
+  - **M351a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FlySpeedStatUpPct` computed property on `SkillEffects`: sums `FLY_SPEED PERCENT` from `statup`/`statboost` elements
+  - **M351b:** `Model/AbnormalState.cs` — added `FlySpeedStatUpPct` + `PreBuffFlySpeedPct` fields (mirror of `FlySpeedDebuffPct`/`PreDebuffFlySpeedPct`)
+  - **M351c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: read `flySpeedStatUpPct`; store `PreBuffFlySpeedPct = buffTarget.BonusFlySpeedPct` in AbnormalState; apply `BonusFlySpeedPct += flySpeedStatUpPct`; expiry: restore `BonusFlySpeedPct = PreBuffFlySpeedPct`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M350: statdown ATTACK_SPEED PERCENT — 22 entries now applied in both debuff and BUFF self-nerf paths** — `statdown ATTACK_SPEED PERCENT` was silently ignored: the debuff path only read ATTACK_SPEED PERCENT from `<slow>` elements and the BUFF path self-nerf (M341) skipped attack speed entirely; now enemy debuffs like Body Control I, Exhausting Cloud, Sign of Infernal Blaze apply the attack speed slow, and BUFF self-nerfs like "Bravery of the Composed (+70%)" correctly slow the caster's own attacks; Java analog: `StatdownEffect.applyEffect` with `AdditionStat.calculatePercent(delta) = (100+delta)/100`
   - **M350a:** `Model/Templates/Skill/SkillTemplate.cs` — added `StatdownAtkSpeedPct` computed property on `SkillEffects`: sums ATTACK_SPEED PERCENT changes from `statdown` elements
   - **M350b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: merged `StatdownAtkSpeedPct` into `slowAtkPct` accumulator; BUFF path self-nerf: added `StatdownAtkSpeedPct → atkSpeedStatUpDelta += target.CurrentAttackSpeed × pct / 100`

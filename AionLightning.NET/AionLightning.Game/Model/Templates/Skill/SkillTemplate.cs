@@ -782,6 +782,29 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M351: FLY_SPEED PERCENT buff from statup/statboost elements (e.g. Flyover Reconnaisance +33%, Strengthen Wings +10%). Summed across all matching elements.</summary>
+    public int FlySpeedStatUpPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"),  "FLY_SPEED", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"),  "PERCENT",   StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>
     /// Movement speed percent change from the first snare/absolutesnare effect with a PERCENT SPEED change.
     /// Typically -50 (halve speed). 0 means no movement speed change.

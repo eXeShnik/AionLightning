@@ -669,6 +669,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
                 // M335: FLY_TIME PERCENT buff — increases player MaxFp by a percentage
                 int flyTimePctDelta       = template.Effects?.FlyTimeStatUpPct      ?? 0;
+                // M351: FLY_SPEED PERCENT buff from statup/statboost (e.g. Flyover Reconnaisance +33%, Charge +60%)
+                int flySpeedStatUpPct     = template.Effects?.FlySpeedStatUpPct     ?? 0;
                 // M336: XP rate buffs — solo and group hunting XP boost
                 int huntingXpBoostPct      = template.Effects?.HuntingXpBoostPct      ?? 0;
                 int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
@@ -757,6 +759,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     CcResistAllDeltaVal      = ccResistAllDelta,
                     BoostHatePctDeltaVal     = boostHateDelta,
                     FlyTimePctDeltaVal       = flyTimePctDelta,
+                    FlySpeedStatUpPct        = flySpeedStatUpPct,
+                    PreBuffFlySpeedPct       = buffTarget is Player flySpeedBuff ? flySpeedBuff.BonusFlySpeedPct : 0,
                     HealSkillBoostPct        = healSkillBoostPct,
                     HuntingXpBoostPct        = huntingXpBoostPct,
                     GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
@@ -946,6 +950,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (c.ActivePlayer?.Position.WorldId == speedWorld)
                             try { await c.SendAsync(speedEmo, ct); } catch { }
                 }
+                // M351: apply FLY_SPEED PERCENT buff — additive pct to BonusFlySpeedPct
+                if (flySpeedStatUpPct != 0 && buffTarget is Player flySpeedBuffTarget)
+                    flySpeedBuffTarget.BonusFlySpeedPct += flySpeedStatUpPct;
                 if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0 || evasionStatUpDelta != 0 || mresistStatUpDelta != 0 || atkSpeedStatUpDelta != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
@@ -983,6 +990,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     bool movSpeedChanged = expiryEffect.SpeedStatUpPct != 0;
 
                     expiryTarget.RemoveEffectBySkillId(expiryEffect.SkillId);
+
+                    // M351: restore fly speed buff on expiry
+                    if (expiryEffect.FlySpeedStatUpPct != 0 && expiryTarget is Player flySpeedExpTarget)
+                        flySpeedExpTarget.BonusFlySpeedPct = expiryEffect.PreBuffFlySpeedPct;
 
                     // Clamp HP/MP when a MaxHp/MaxMp buff expires (cap went down)
                     if (expiryEffect.MaxHpDelta != 0)
