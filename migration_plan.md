@@ -3038,3 +3038,19 @@
     - Gameplay impact: 95 carvesignet + 58 signetburst = 153 Sorcerer skill XML entries now have full stack mechanics; Rune Carve line builds SYSTEM_SKILL_SIGNET1 stacks 1→3 on target; Signet Burst consumes the stack for 1.0× (lvl3) up to 1.5× (lvl5) damage; signet expires after 24s if not burst
     - Previously: both carvesignet and signetburst dealt M271 baseline damage with no stack tracking; burst was over-dealing on bare targets (100% instead of 5%) and under-dealing on stacked targets (100% instead of 150%)
     - Build: 0 warnings, 0 errors
+
+290. [✓] MP-drain auto-deactivate — toggle buff removed when MP hits 0 during periodicactions drain (session 2026-05-06)
+    - **M290a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — in the periodic MP drain task (M274), after `drainPlayer.CurrentMp = Math.Max(0, ...)`: when `CurrentMp == 0`, calls `RemoveEffectBySkillId(drainEffect.SkillId)`, sends `SM_PLAYER_STANCE(0)` to the toggle owner, broadcasts `SM_ABNORMAL_EFFECT` to the zone, then breaks the drain loop; removes TODO comment
+    - No new packet needed — Java also has no SM_TOGGLE_SKILL_DEACTIVATE server-side packet; the existing CM_TOGGLE_SKILL_DEACTIVATE.cs (client packet handler, opcode 0xE0) has the same deactivation sequence; M290 mirrors it inline
+    - Gameplay impact: 38 periodicactions toggle skills (Aether-fly toggles, Spiritmaster summon-maintenance, Templar/Cleric stance toggles) now correctly deactivate when MP is fully drained; previously the buff remained active indefinitely even at 0 MP
+    - Build: 0 warnings, 0 errors
+
+291. [✓] WeaponMastery passive — conditional physAtk% / magAtk% bonus from weapon proficiency skills (session 2026-05-06)
+    - Architecture: mirrors M288 ArmorMastery pattern exactly; Java analog: `WeaponMasteryEffect.java` + `StatWeaponMasteryFunction.java`.
+    - **M291a:** `Model/Templates/Skill/SkillTemplate.cs` — `SkillWpnMasteryInfo` record (WeaponType, Stat, Pct); `WpnMasteryEffects` computed property on `SkillEffects` parses `<wpnmastery weapon="X"><change stat="Y" func="PERCENT" value="Z"/></wpnmastery>`
+    - **M291b:** `Services/PassiveWeaponMasteryHelper.cs` (new) — `Compute(Player, IDataManager)` returns `(PhysAttPct, MagAttPct)`; collects equipped weapon types from inventory; iterates PASSIVE skills for WpnMasteryEffects matching those weapon types; accumulates PHYSICAL_ATTACK and MAGICAL_ATTACK percents separately
+    - **M291c:** `Services/PlayerEnterWorldService.cs` — after M288 ArmorMastery block: calls `PassiveWeaponMasteryHelper.Compute`; multiplies `player.BasePhysicalAttack` by `(1 + physPct/100.0)` and `player.MainHandMagicalAtk` by `(1 + magPct/100.0)` when non-zero
+    - **M291d:** `Network/Aion/ClientPackets/CM_EQUIP_ITEM.cs` and `CM_MANASTONE.cs` — same recompute pattern after M288 block; ensures weapon swap and manastone equip refresh the mastery bonus
+    - Stats covered: 92 PHYSICAL_ATTACK PERCENT + 32 MAGICAL_ATTACK PERCENT entries across 124 wpnmastery XML entries (all classes: Warrior/Gladiator/Templar get sword/polearm; Scout/Ranger/Assassin get bow/dagger; Mage/Sorcerer/Spiritmaster get staff/orb; Priest/Cleric/Chanter get mace/staff)
+    - Previously: weapon proficiency skills were visible in skill book but PERCENT attack bonuses were never applied; players underperforming by 16-30% physical attack (class-dependent) compared to Java server values
+    - Build: 0 warnings, 0 errors

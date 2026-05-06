@@ -594,7 +594,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             await Task.Delay(drainInterval);
                             if (drainPlayer.IsAlreadyDead || DateTime.UtcNow >= drainEffect.Expiry) break;
                             drainPlayer.CurrentMp = Math.Max(0, drainPlayer.CurrentMp - drainPerTick);
-                            // TODO: when CurrentMp == 0, broadcast SM_TOGGLE_SKILL_DEACTIVATE to end the toggle (deferred)
+                            // M290: MP hit 0 — auto-deactivate toggle (mirrors CM_TOGGLE_SKILL_DEACTIVATE.RunAsync)
+                            if (drainPlayer.CurrentMp == 0)
+                            {
+                                drainPlayer.RemoveEffectBySkillId(drainEffect.SkillId);
+                                int deactWorld = drainPlayer.Position.WorldId;
+                                try { await _conn.SendAsync(new SM_PLAYER_STANCE(drainPlayer.ObjectId, 0)); } catch { }
+                                var deactAbn = new SM_ABNORMAL_EFFECT(drainPlayer.ObjectId, true, drainPlayer.GetActiveEffects());
+                                foreach (var c in _connRegistry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == deactWorld)
+                                        try { await c.SendAsync(deactAbn); } catch { }
+                                break;
+                            }
                         }
                     });
                 }

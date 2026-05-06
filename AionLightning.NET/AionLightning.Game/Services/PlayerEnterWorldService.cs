@@ -297,6 +297,13 @@ public sealed class PlayerEnterWorldService
         if (armMasteryPct > 0)
             player.PhysicalDefense = (int)(player.PhysicalDefense * (1.0 + armMasteryPct / 100.0));
 
+        // M291: WeaponMastery — apply conditional physAtk%/magAtk% bonus from weapon proficiency skills
+        var (wpnPhysPct, wpnMagPct) = PassiveWeaponMasteryHelper.Compute(player, _dataManager);
+        if (wpnPhysPct > 0)
+            player.BasePhysicalAttack = (int)(player.BasePhysicalAttack * (1.0 + wpnPhysPct / 100.0));
+        if (wpnMagPct > 0)
+            player.MainHandMagicalAtk = (int)(player.MainHandMagicalAtk * (1.0 + wpnMagPct / 100.0));
+
         // Compute derived stats after equipment + title bonuses are fully applied
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)

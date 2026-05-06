@@ -235,6 +235,13 @@ public readonly record struct SkillArmorMasteryInfo(
     int    PdefPct     // PERCENT bonus to PHYSICAL_DEFENSE when matching armor is equipped
 );
 
+/// <summary>M291: weapon mastery descriptor — PHYSICAL_ATTACK or MAGICAL_ATTACK % bonus when matching weapon is equipped.</summary>
+public readonly record struct SkillWpnMasteryInfo(
+    string WeaponType, // "SWORD_1H" | "DAGGER_1H" | "MACE_1H" | "SWORD_2H" | "POLEARM_2H" | "BOW" etc.
+    string Stat,       // "PHYSICAL_ATTACK" or "MAGICAL_ATTACK"
+    int    Pct         // PERCENT bonus value
+);
+
 /// <summary>M289: carvesignet descriptor — attributes from &lt;carvesignet&gt; XML element.</summary>
 public readonly record struct CarveSignetInfo(
     int    BaseValue,       // damage value attribute
@@ -361,6 +368,36 @@ public sealed class SkillEffects
                 }
                 if (pct > 0)
                     list.Add(new(armorType, pct));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M291: parsed &lt;wpnmastery weapon="X"&gt;&lt;change stat="Y" func="PERCENT" value="Z"/&gt; — weapon proficiency passive bonuses.</summary>
+    public IReadOnlyList<SkillWpnMasteryInfo> WpnMasteryEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillWpnMasteryInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "wpnmastery") continue;
+                string weaponType = e.GetAttribute("weapon") ?? string.Empty;
+                if (weaponType.Length == 0) continue;
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is System.Xml.XmlElement ce
+                        && ce.LocalName == "change"
+                        && string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(ce.GetAttribute("value"), out int v)
+                        && v > 0)
+                    {
+                        string stat = ce.GetAttribute("stat") ?? string.Empty;
+                        if (stat.Length > 0)
+                            list.Add(new(weaponType, stat, v));
+                    }
+                }
             }
             return list;
         }

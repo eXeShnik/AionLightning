@@ -179,6 +179,15 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
                 player.PhysicalDefense = (int)(player.PhysicalDefense * (1.0 + mastPct / 100.0));
         }
 
+        // M291: recompute WeaponMastery bonus after any weapon equip/unequip
+        {
+            var (wpnPhysPct, wpnMagPct) = PassiveWeaponMasteryHelper.Compute(player, _dataManager);
+            if (wpnPhysPct > 0)
+                player.BasePhysicalAttack = (int)(player.BasePhysicalAttack * (1.0 + wpnPhysPct / 100.0));
+            if (wpnMagPct > 0)
+                player.MainHandMagicalAtk = (int)(player.MainHandMagicalAtk * (1.0 + wpnMagPct / 100.0));
+        }
+
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;
