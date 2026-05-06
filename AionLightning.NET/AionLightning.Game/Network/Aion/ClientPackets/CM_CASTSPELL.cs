@@ -539,6 +539,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         else if (template?.SubType is SkillSubType.BUFF or SkillSubType.CHANT
                  && _targetType is 0 or 3 or 4
                  && (template.Duration > 0
+                     || template.Effects?.EffectDuration > 0
                      || template.Effects?.ShapeChangeDurationMs > 0
                      || template.Effects?.AlwaysBlockDurationMs > 0
                      || template.Effects?.AlwaysDodgeDurationMs > 0
@@ -574,7 +575,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                      : template.Effects?.OnetimeCritDurationMs      > 0 ? (template.Effects.OnetimeCritDurationMs)
                                      : template.Effects?.OnetimeAtkDurationMs      > 0 ? (template.Effects.OnetimeAtkDurationMs)
                                      : template.Effects?.OnetimeBoostHealDurationMs > 0 ? (template.Effects.OnetimeBoostHealDurationMs)
-                                     : (template.Effects?.AlwaysParryDurationMs ?? 0);
+                                     : template.Effects?.AlwaysParryDurationMs      > 0 ? template.Effects.AlwaysParryDurationMs
+                                     : (template.Effects?.EffectDuration ?? 0);
                 int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
                 // M349: PERCENT MAXHP buffs from statup/statboost (Second Wind, Improved Stamina, Blessing of Health, etc.)
                 int maxHpStatUpPct = template.Effects?.MaxHpPercentStatUpDelta ?? 0;

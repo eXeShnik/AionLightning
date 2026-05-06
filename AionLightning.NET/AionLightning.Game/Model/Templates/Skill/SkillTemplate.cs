@@ -768,7 +768,7 @@ public sealed class SkillEffects
             if (Elements is null) return 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -791,7 +791,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -839,7 +839,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -862,7 +862,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -885,7 +885,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -908,7 +908,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -931,7 +931,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -954,7 +954,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -977,7 +977,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1000,7 +1000,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1023,7 +1023,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1046,7 +1046,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1069,7 +1069,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1092,7 +1092,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1115,7 +1115,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1138,7 +1138,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1207,7 +1207,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1230,7 +1230,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1276,7 +1276,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1574,7 +1574,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1620,7 +1620,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1712,7 +1712,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1735,7 +1735,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1850,7 +1850,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1896,7 +1896,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1942,7 +1942,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -1988,7 +1988,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2034,7 +2034,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2080,7 +2080,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2126,7 +2126,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2149,7 +2149,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2233,7 +2233,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2279,7 +2279,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2325,7 +2325,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2371,7 +2371,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2417,7 +2417,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2463,7 +2463,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2509,7 +2509,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2555,7 +2555,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2578,7 +2578,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2624,7 +2624,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2670,7 +2670,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2693,7 +2693,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2716,7 +2716,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2739,7 +2739,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2826,7 +2826,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -2853,15 +2853,17 @@ public sealed class SkillEffects
     private static readonly HashSet<string> ConvertHealEffectNames = ["convertheal"];
     private static readonly HashSet<string> ShieldEffectNames = ["shield"];
     private static readonly HashSet<string> ProtectEffectNames = ["protect"];
-    // Elements that carry debuff durations via their duration2 attribute
-    // M305: CC element names added so EffectDuration returns non-zero for attack skills with tslot=DEBUFF + CC (388 skills affected)
+    // Elements that carry effect durations via their duration2 attribute
+    // M305: CC element names; M358: buff effect names (shield/protect/nofly/xpboost/hostileup/etc.)
     private static readonly HashSet<string> EffectDurNames    = [
-        "slow", "snare", "absolutesnare", "statdown", "statup", "statboost", "blind", "confuse", "absoluteslow", "deboostheal", "openaerial",
+        "slow", "snare", "absolutesnare", "statdown", "statup", "statboost", "weaponstatup", "blind", "confuse", "absoluteslow", "deboostheal", "openaerial",
         "stun", "stunalways", "buffstun", "sleep", "root", "silence", "buffsilence",
         "paralyze", "fear", "stagger", "staggeralways", "stumble", "stumblealways", "spin",
         "bind", "buffbind",
         "mpattack",
-        "curse"
+        "curse",
+        "shield", "protect", "nofly", "xpboost", "skillxpboost", "hostileup",
+        "dispeldebuff", "dispelbuff", "sanctuary", "boostskillcastingtime"
     ];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
@@ -3311,7 +3313,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -3334,7 +3336,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -3357,7 +3359,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
