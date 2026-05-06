@@ -515,6 +515,33 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M344: summed BLOCK PERCENT value from &lt;shieldmastery&gt; passive (only applies when shield equipped).</summary>
+    public int ShieldMasteryBlockPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "shieldmastery") continue;
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is System.Xml.XmlElement ce
+                        && ce.LocalName == "change"
+                        && string.Equals(ce.GetAttribute("stat"), "BLOCK", StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(ce.GetAttribute("value"), out int v)
+                        && v > 0)
+                    {
+                        total += v;
+                    }
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>M291: parsed &lt;wpnmastery weapon="X"&gt;&lt;change stat="Y" func="PERCENT" value="Z"/&gt; — weapon proficiency passive bonuses.</summary>
     public IReadOnlyList<SkillWpnMasteryInfo> WpnMasteryEffects
     {

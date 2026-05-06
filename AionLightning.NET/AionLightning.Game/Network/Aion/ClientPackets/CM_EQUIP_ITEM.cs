@@ -179,6 +179,13 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
                 player.PhysicalDefense = (int)(player.PhysicalDefense * (1.0 + mastPct / 100.0));
         }
 
+        // M344: recompute ShieldMastery BLOCK% bonus — applies only when a shield is in slot 2
+        {
+            bool shieldEquipped = subTpl?.ArmorTypeName == "SHIELD";
+            int smPct = shieldEquipped ? PassiveShieldMasteryHelper.ComputePct(player, _dataManager) : 0;
+            player.PassiveBonusBlock = smPct > 0 ? player.BaseBlock * smPct / 100 : 0;
+        }
+
         // M291: recompute WeaponMastery bonus after any weapon equip/unequip
         {
             var (wpnPhysPct, wpnMagPct) = PassiveWeaponMasteryHelper.Compute(player, _dataManager);

@@ -301,6 +301,15 @@ public sealed class PlayerEnterWorldService
         if (armMasteryPct > 0)
             player.PhysicalDefense = (int)(player.PhysicalDefense * (1.0 + armMasteryPct / 100.0));
 
+        // M344: ShieldMastery — apply BLOCK% passive bonus when a shield is in slot 2
+        {
+            var shieldItem = player.Inventory.All.FirstOrDefault(i => i.IsEquipped && i.Slot == 2);
+            var shieldTpl  = shieldItem is not null ? _dataManager.Items.GetTemplate(shieldItem.ItemId) : null;
+            bool shieldEquipped = shieldTpl?.ArmorTypeName == "SHIELD";
+            int smPct = shieldEquipped ? PassiveShieldMasteryHelper.ComputePct(player, _dataManager) : 0;
+            player.PassiveBonusBlock = smPct > 0 ? player.BaseBlock * smPct / 100 : 0;
+        }
+
         // M291: WeaponMastery — apply conditional physAtk%/magAtk% bonus from weapon proficiency skills
         var (wpnPhysPct, wpnMagPct) = PassiveWeaponMasteryHelper.Compute(player, _dataManager);
         if (wpnPhysPct > 0)

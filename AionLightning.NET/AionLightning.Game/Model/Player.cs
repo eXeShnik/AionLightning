@@ -207,6 +207,9 @@ public sealed class Player : Creature
     public int BonusParry { get; set; }
     public int BonusBlock { get; set; }
 
+    // M344: ShieldMastery passive BLOCK% bonus — set on equip/login; 0 when no shield equipped
+    public int PassiveBonusBlock { get; set; }
+
     // Strike/spell fortitude — sum of PHYSICAL/MAGICAL_CRITICAL_DAMAGE_REDUCE from all equipped items
     public int BonusStrikeFortitude { get; set; }
     public int BonusSpellFortitude  { get; set; }

@@ -3270,6 +3270,16 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M344: ShieldMastery passive BLOCK% bonus — shield proficiency passives now boost block rate when a shield is equipped (6 shieldmastery entries)** — Warrior/Knight/Templar/Chanter shield training passives add +5% of BaseBlock to total block rating when a shield occupies the sub-hand slot; recomputed on equip/unequip and at world enter; deactivated automatically when shield is removed
+  - Java analog: `ShieldMasteryEffect extends BufEffect` uses `StatShieldMasteryFunction` which calls `super.apply(stat)` only if `player.getEquipment().isShieldEquipped()`; the +5% BLOCK PERCENT is applied to the base block stat
+  - **M344a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ShieldMasteryBlockPct` computed property on `SkillEffects`: scans `shieldmastery` elements for `<change stat="BLOCK" func="PERCENT" value="N"/>` children, returns sum (mirrors ArmorMastery parser)
+  - **M344b:** `Model/Player.cs` — added `PassiveBonusBlock` field (flat bonus, recalculated on equip/login; 0 when shield not equipped)
+  - **M344c:** `Services/PassiveShieldMasteryHelper.cs` — new static helper `ComputePct`: scans PASSIVE skills for `ShieldMasteryBlockPct > 0`, returns total (mirrors PassiveArmorMasteryHelper)
+  - **M344d:** `Network/Aion/ClientPackets/CM_EQUIP_ITEM.cs` — after ArmorMastery block: detect `subTpl?.ArmorTypeName == "SHIELD"`, compute smPct, set `PassiveBonusBlock = BaseBlock * smPct / 100`
+  - **M344e:** `Services/PlayerEnterWorldService.cs` — after ArmorMastery block: same shield detect + `PassiveBonusBlock` assignment at login
+  - **M344f:** `Network/Aion/ClientPackets/CM_ATTACK.cs` — block total now includes `pvpBlock.PassiveBonusBlock`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M343: elemental resistance applied to DoT (bleed/poison/disease) tick damage (267 elemental DoT entries)** — Bleed and poison DoTs with elemental damage types (FIRE, WIND, EARTH, WATER) now respect the target's elemental resistance when ticking; same 1250-scale formula as M339; spellatk DoTs use magic boost/magic defense path and remain unaffected; skipped for noreducespellatk bypass (already on spellatk path)
   - Java analog: DoT effects in Java call `StatFunctions.calculateMagicalSkillDamage` on each tick if the DoT element is non-empty; our non-spellatk branch now mirrors that via `GetElementalResist(target, dot.Element)`
   - Data: 267 DoT entries have a non-empty element — poison EARTH: 85, bleed WIND: 47, bleed FIRE: 45, poison FIRE: 29, bleed WATER: 20, bleed EARTH: 18, poison WATER: 14, poison WIND: 9

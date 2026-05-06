@@ -160,7 +160,7 @@ public sealed class CM_ATTACK : AionClientPacket
         // Block check — Java calculatePhysicalBlockRate: diff=(block-accuracy), max 500/1000 (players only)
         if (target is Player pvpBlock)
         {
-            int totalBlock = pvpBlock.BaseBlock + pvpBlock.BonusBlock + pvpBlock.BlockDelta;
+            int totalBlock = pvpBlock.BaseBlock + pvpBlock.BonusBlock + pvpBlock.BlockDelta + pvpBlock.PassiveBonusBlock;
             if (totalBlock > 0)
             {
                 float blockRate = Math.Clamp(totalBlock - totalAccuracy, 0f, 500f);
