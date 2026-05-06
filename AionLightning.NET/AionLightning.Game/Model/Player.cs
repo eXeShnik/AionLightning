@@ -113,6 +113,8 @@ public sealed class Player : Creature
     public int BoostHatePct { get; set; }
     // Accumulated FLY_TIME PERCENT from active buffs (e.g. 400 = +400%); EffectiveMaxFp applies this to MaxFp. Reversed on buff expiry.
     public int BonusFlyTimePct { get; set; }
+    // Accumulated HEAL_SKILL_BOOST PERCENT from onetimeboostheal active buffs (e.g. 100 = +100% healing output). Reversed on buff expiry.
+    public int BonusHealSkillBoostPct { get; set; }
     // Accumulated BOOST_HUNTING_XP_RATE ADD from active buffs (e.g. 30 = +30% solo kill XP). Reversed on buff expiry.
     public int BonusHuntingXpPct { get; set; }
     // Accumulated BOOST_GROUP_HUNTING_XP_RATE ADD from active buffs (e.g. 30 = +30% group kill XP). Reversed on buff expiry.

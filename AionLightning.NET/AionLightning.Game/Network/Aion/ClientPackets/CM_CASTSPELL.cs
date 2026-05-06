@@ -222,6 +222,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 float healBoostMult = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
                 if (player.PassiveBonusHealSkillBoostPct > 0)
                     healBoostMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
+                if (player.BonusHealSkillBoostPct > 0)
+                    healBoostMult *= 1f + player.BonusHealSkillBoostPct / 100f;
                 int healWorldId = player.Position.WorldId;
                 var healEffects = template?.Effects?.HealEffects;
 
@@ -443,6 +445,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 float aoeBoostMult  = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
                 if (player.PassiveBonusHealSkillBoostPct > 0)
                     aoeBoostMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
+                if (player.BonusHealSkillBoostPct > 0)
+                    aoeBoostMult *= 1f + player.BonusHealSkillBoostPct / 100f;
                 int aoeWorldId      = player.Position.WorldId;
                 float aoeR          = template.EffectiveRange;
                 Position aoeCenter  = healTarget?.Position ?? player.Position;
@@ -567,8 +571,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                      : template.Effects?.ShapeChangeDurationMs > 0 ? (template.Effects.ShapeChangeDurationMs)
                                      : template.Effects?.AlwaysBlockDurationMs  > 0 ? (template.Effects.AlwaysBlockDurationMs)
                                      : template.Effects?.AlwaysDodgeDurationMs  > 0 ? (template.Effects.AlwaysDodgeDurationMs)
-                                     : template.Effects?.OnetimeCritDurationMs  > 0 ? (template.Effects.OnetimeCritDurationMs)
-                                     : template.Effects?.OnetimeAtkDurationMs   > 0 ? (template.Effects.OnetimeAtkDurationMs)
+                                     : template.Effects?.OnetimeCritDurationMs      > 0 ? (template.Effects.OnetimeCritDurationMs)
+                                     : template.Effects?.OnetimeAtkDurationMs      > 0 ? (template.Effects.OnetimeAtkDurationMs)
+                                     : template.Effects?.OnetimeBoostHealDurationMs > 0 ? (template.Effects.OnetimeBoostHealDurationMs)
                                      : (template.Effects?.AlwaysParryDurationMs ?? 0);
                 int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
                 int maxMpStatUpDelta    = template.Effects?.MaxMpStatUpDelta       ?? 0;
@@ -656,8 +661,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // M335: FLY_TIME PERCENT buff — increases player MaxFp by a percentage
                 int flyTimePctDelta       = template.Effects?.FlyTimeStatUpPct      ?? 0;
                 // M336: XP rate buffs — solo and group hunting XP boost
-                int huntingXpBoostPct     = template.Effects?.HuntingXpBoostPct     ?? 0;
-                int groupHuntingXpBoostPct = template.Effects?.GroupHuntingXpBoostPct ?? 0;
+                int huntingXpBoostPct      = template.Effects?.HuntingXpBoostPct      ?? 0;
+                int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
+                // M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT timed buff (e.g. Blessed Shield +100%)
+                int healSkillBoostPct       = template.Effects?.OnetimeBoostHealPct     ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -701,6 +708,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     CcResistAllDeltaVal      = ccResistAllDelta,
                     BoostHatePctDeltaVal     = boostHateDelta,
                     FlyTimePctDeltaVal       = flyTimePctDelta,
+                    HealSkillBoostPct        = healSkillBoostPct,
                     HuntingXpBoostPct        = huntingXpBoostPct,
                     GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
                     // M334: one-time crit/atk boost charges

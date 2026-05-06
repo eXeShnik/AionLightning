@@ -3270,6 +3270,15 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT active buff (5 skill entries)** — Cleric "Blessed Shield I-III", Stigma Blessed Shield, and Chanter "Healer's Praise I Effect" now apply a timed multiplicative healing output boost (+100% in most cases); buff participates in the same `healBoostMult`/`aoeBoostMult` pipeline as passive and flat heal boosts
+  - Java analog: `OnetimeBoostHealEffect extends BufEffect`; applies a HEAL_SKILL_BOOST PERCENT modifier for the buff's duration; our `BonusHealSkillBoostPct` mirrors the existing `PassiveBonusHealSkillBoostPct` but for timed active buffs
+  - **M337a:** `Model/Templates/Skill/SkillTemplate.cs` — added `OnetimeBoostHealPct` (scans `onetimeboostheal` for `stat="HEAL_SKILL_BOOST" func="PERCENT"`) and `OnetimeBoostHealDurationMs` (reads `duration2` from first `onetimeboostheal` element) to `SkillEffects`
+  - **M337b:** `Model/AbnormalState.cs` — added `HealSkillBoostPct` field
+  - **M337c:** `Model/Player.cs` — added `BonusHealSkillBoostPct` mutable property
+  - **M337d:** `Model/Creature.cs` — `ApplyEffectDeltas`/`ReverseEffectDeltas` accumulate via `this is Player` cast
+  - **M337e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: extended `durationMs` fallback chain with `OnetimeBoostHealDurationMs`; reads `healSkillBoostPct`, stores in `AbnormalState`; both `healBoostMult` (single-target) and `aoeBoostMult` (AoE heal) extended with `BonusHealSkillBoostPct` multiplicative factor
+  - Build: 0 warnings, 0 errors
+
 - [x] **M336: XP rate buffs — `xpboost` BOOST_HUNTING_XP_RATE + BOOST_GROUP_HUNTING_XP_RATE (22 + 22 = 30 skill entries)** — Solo and group NPC kill XP now scaled by active buff multipliers; crafting/gathering/tapping XP rate stats deferred (systems not yet implemented)
   - Java analog: `XpBoostEffect extends BufEffect`; on NPC kill Java calls `XPCalculation.getXP` which reads `StatEnum.BOOST_HUNTING_XP_RATE` from `PlayerGameStats.getStat`; our `ExperienceService.AddGroupExpAsync` now applies the same multiplier at the XP calculation point
   - **M336a:** `Model/Templates/Skill/SkillTemplate.cs` — added `HuntingXpBoostPct` and `GroupHuntingXpBoostPct` to `SkillEffects` (each scans `xpboost` elements for the matching `stat` name, `func="ADD"`)
