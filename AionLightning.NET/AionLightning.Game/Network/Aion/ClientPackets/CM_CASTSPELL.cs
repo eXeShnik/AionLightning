@@ -2578,6 +2578,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (waterResistPct != 0 && target is Player wrPctTgt) waterResistDebuff += wrPctTgt.WaterResist * waterResistPct / 100;
                     if (windResistPct  != 0 && target is Player wiPctTgt) windResistDebuff  += wiPctTgt.WindResist  * windResistPct  / 100;
                     if (earthResistPct != 0 && target is Player erPctTgt) earthResistDebuff += erPctTgt.EarthResist * earthResistPct / 100;
+                    // M356: CC resistance ADD debuffs — ScanStatupAddValue scans statdown too; negative values reduce target's CC resistance
+                    int  sleepResistDebuff  = template?.Effects?.SleepResistDelta      ?? 0;
+                    int  rootResistDebuff   = template?.Effects?.RootResistDelta       ?? 0;
+                    int  stunResistDebuff   = template?.Effects?.StunResistDelta       ?? 0;
+                    int  stumbleResistDebuff= template?.Effects?.StumbleResistDelta    ?? 0;
+                    int  staggerResistDebuff= template?.Effects?.StaggerResistDelta    ?? 0;
+                    int  spinResistDebuff   = template?.Effects?.SpinResistDelta       ?? 0;
+                    int  snareResistDebuff  = template?.Effects?.SnareResistDelta      ?? 0;
+                    int  fearResistDebuff   = template?.Effects?.FearResistDelta       ?? 0;
+                    int  openAerialResistDb = template?.Effects?.OpenAerialResistDelta ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -2622,6 +2632,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         WaterResistDelta         = waterResistDebuff,
                         WindResistDelta          = windResistDebuff,
                         EarthResistDelta         = earthResistDebuff,
+                        // M356: CC resistance ADD debuffs (negative values; reduce target's resist to that CC type)
+                        SleepResistDelta         = sleepResistDebuff,
+                        RootResistDelta          = rootResistDebuff,
+                        StunResistDelta          = stunResistDebuff,
+                        StumbleResistDelta       = stumbleResistDebuff,
+                        StaggerResistDelta       = staggerResistDebuff,
+                        SpinResistDelta          = spinResistDebuff,
+                        SnareResistDelta         = snareResistDebuff,
+                        FearResistDelta          = fearResistDebuff,
+                        OpenAerialResistDelta    = openAerialResistDb,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -2693,7 +2713,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             expEffect.ConcentrationDeltaVal != 0 || expEffect.MagicSuppressionDeltaVal != 0 ||
                             expEffect.MagicDefDeltaVal != 0 ||
                             expEffect.FireResistDelta != 0 || expEffect.WaterResistDelta != 0 ||
-                            expEffect.WindResistDelta != 0 || expEffect.EarthResistDelta != 0;
+                            expEffect.WindResistDelta != 0 || expEffect.EarthResistDelta != 0 ||
+                            expEffect.SleepResistDelta != 0 || expEffect.RootResistDelta != 0 ||
+                            expEffect.StunResistDelta != 0 || expEffect.StumbleResistDelta != 0 ||
+                            expEffect.StaggerResistDelta != 0 || expEffect.SpinResistDelta != 0 ||
+                            expEffect.SnareResistDelta != 0 || expEffect.FearResistDelta != 0 ||
+                            expEffect.OpenAerialResistDelta != 0;
                         bool speedRestored    = expEffect.MovSpeedPct != 0 || expEffect.AttackSpeedPct != 0;
                         bool atkSpeedRestored = expEffect.AtkSpeedDelta != 0;
 

@@ -3270,6 +3270,10 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M356: CC resistance ADD debuffs — 12 entries now correctly reduce target's CC resistance via statdown** — `SLEEP_RESISTANCE ADD` (Kinetic Battery I −300), `ROOT_RESISTANCE ADD` (Mobility Thrusters I −200), and similar per-CC-type resistance reductions from `statdown` were silently discarded; `ScanStatupAddValue` already scanned `statdown` so the properties return negative values, but the DEBUFF path never set them in AbnormalState; now all 9 CC resistance types (stun/stumble/stagger/spin/sleep/fear/openaerial/root/snare) are wired into the DEBUFF initializer; `Creature.ApplyEffectDeltas`/`ReverseEffectDeltas` already handle these from M338
+  - **M356a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: read all 9 CC resist deltas from template; add to debuff AbnormalState initializer; add to expiry `statChanged` check
+  - Build: 0 warnings, 0 errors
+
 - [x] **M355: elemental resist PERCENT debuffs — 40 entries (10 unique skills) now reduce target's elemental resistance by % of current value** — `statdown FIRE/WATER/WIND/EARTH_RESISTANCE PERCENT` (Flight: Enervating Bind I–III, Charm: Nature's Curse, Decrease Defense, Depression, Incite Rage, Nova Power, Water Punishment, Weaken Resistance) were silently discarded; added `ScanStatdownPercentValue` helper and 4 debuff properties; in the DEBUFF path, the pct is converted to a flat delta against the target's current resist (same pattern as M322/M326/M327 PERCENT debuffs), then merged into the existing elemental resist ADD delta
   - **M355a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ScanStatdownPercentValue` private helper; added `FireResistPctDebuff`, `WaterResistPctDebuff`, `WindResistPctDebuff`, `EarthResistPctDebuff` properties
   - **M355b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: read 4 pct properties, convert to flat delta against `target.FireResist/WaterResist/WindResist/EarthResist`, merged into existing `fireResistDebuff` etc.
