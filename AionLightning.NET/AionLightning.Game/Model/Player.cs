@@ -141,6 +141,9 @@ public sealed class Player : Creature
     // HP/MP bonus from passive skills (MAXHP/MAXMP statup); set once at login, survives equipment changes
     public int PassiveBonusMaxHp { get; set; }
     public int PassiveBonusMaxMp { get; set; }
+    // PERCENT MAXHP/MAXMP bonus from passive skills (statup/statboost PERCENT changes); applied as a multiplier on the flat sum
+    public int PassiveBonusMaxHpPct { get; set; }
+    public int PassiveBonusMaxMpPct { get; set; }
     // SPEED percentage bonus from passive skills; same scale as BonusMovementSpeedPct (1000 = +100%)
     public int PassiveBonusMovementSpeedPct { get; set; }
 

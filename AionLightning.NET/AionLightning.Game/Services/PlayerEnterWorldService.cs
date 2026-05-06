@@ -290,6 +290,8 @@ public sealed class PlayerEnterWorldService
             if ((pv = fx.CastTimeStatUpDelta)         != 0) player.CastTimeDelta         += pv;
             if ((pv = fx.AtkSpeedStatUpDelta)         != 0) player.AtkSpeedStatUpDelta   += pv;
             if ((pv = fx.SpeedStatUpPct)              != 0) player.PassiveBonusMovementSpeedPct += pv;
+            if ((pv = fx.MaxHpPercentStatUpDelta)     != 0) player.PassiveBonusMaxHpPct   += pv;
+            if ((pv = fx.MaxMpPercentStatUpDelta)     != 0) player.PassiveBonusMaxMpPct   += pv;
         }
 
         // M288: ArmorMastery — apply conditional pdef% bonus from passive armor proficiency skills
@@ -316,8 +318,10 @@ public sealed class PlayerEnterWorldService
         player.MovementSpeed = (tpl?.RunSpeed ?? 6.0f) * (1000 + player.BonusMovementSpeedPct + player.PassiveBonusMovementSpeedPct) / 1000f;
 
         float ssMult  = player.SoulSicknessMultiplier;
-        player.MaxHp  = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * ssMult);
-        player.MaxMp  = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * ssMult);
+        float hpPctMult = 1f + player.PassiveBonusMaxHpPct / 100f;
+        float mpPctMult = 1f + player.PassiveBonusMaxMpPct / 100f;
+        player.MaxHp  = (int)(((tpl?.MaxHp ?? 1000) + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * hpPctMult * ssMult);
+        player.MaxMp  = (int)(((tpl?.MaxMp ?? 500)  + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * mpPctMult * ssMult);
 
         // Re-apply soul sickness debuff so skull icon appears on login (Java skill 8291, level = stack count)
         if (player.SoulSicknessCount > 0)

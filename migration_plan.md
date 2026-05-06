@@ -3202,3 +3202,10 @@
   - **M310a:** `Model/Templates/Skill/SkillTemplate.cs` — added `SkillCooldownResetInfo(FirstCd, LastCd, Delta, Value)` record; added `CooldownResetEffects` computed property on `SkillEffects` parsing `<skillcooltimereset>` elements
   - **M310b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — at end of `RunAsync`, reads `CooldownResetEffects`; iterates cooldown ID range, applies delta-percent or flat-ms reduction to `player.SkillCooldowns`, removes fully-expired entries, sends `SM_SKILL_COOLDOWN` when any cooldown changed
   - Build: 0 warnings, 0 errors
+
+- [x] **M311: Passive PERCENT MaxHp/MaxMp bonuses from statup/statboost** — PERCENT MAXHP/MAXMP changes in passive skills were silently ignored; all `*StatUpDelta` properties only read ADD-func changes; significant for players with "Increase MAX HP" and "Boost HP" passive lines (skills 118, 121 give 5-12% MaxHp; many higher-level statboost PERCENT entries)
+  - Java analog: `StatupEffect`/`StatboostEffect` applies both ADD and PERCENT stat changes via the stat-change engine on skill activate; PERCENT MAXHP multiplies the base MaxHp from class template
+  - **M311a:** `Model/Templates/Skill/SkillTemplate.cs` — added `MaxHpPercentStatUpDelta` and `MaxMpPercentStatUpDelta` properties on `SkillEffects`, reading PERCENT MAXHP/MAXMP `<change>` children of `statup`/`statboost` elements
+  - **M311b:** `Model/Player.cs` — added `PassiveBonusMaxHpPct` and `PassiveBonusMaxMpPct` properties
+  - **M311c:** `Services/PlayerEnterWorldService.cs` — accumulates `MaxHpPercentStatUpDelta`/`MaxMpPercentStatUpDelta` at login into `PassiveBonusMaxHpPct`/`PassiveBonusMaxMpPct`; updated MaxHp/MaxMp formula: `(flatSum) * (1 + pct/100f) * ssMult`
+  - Build: 0 warnings, 0 errors
