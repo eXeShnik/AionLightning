@@ -1521,6 +1521,40 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             try { await c.SendAsync(dashMovePkt); } catch { }
                 }
 
+                // M312: movebehind — teleport caster to position directly behind target (Java MoveBehindEffect)
+                if (stDmgFx?.Any(d => d.Variant == "movebehind") == true && target.CurrentHp > 0)
+                {
+                    var tp = target.Position;
+                    double mbRad = (tp.Heading & 0xFF) * Math.PI * 2.0 / 256.0;
+                    float mbX = tp.X + (float)(Math.Cos(mbRad + Math.PI) * 1.3);
+                    float mbY = tp.Y + (float)(Math.Sin(mbRad + Math.PI) * 1.3);
+                    player.Position = new Position(mbX, mbY, tp.Z, tp.Heading, tp.WorldId, tp.InstanceId);
+                    player.MovementMask = 0;
+                    try { await _conn.SendAsync(new SM_TELEPORT_LOC(player.Position, portAnimation: 0)); } catch { }
+                    var mbMovePkt = new SM_MOVE(player);
+                    foreach (var c in registry.GetAll())
+                        if (c != _conn && c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(mbMovePkt); } catch { }
+                }
+
+                // M312: backdash — deal physical damage then move caster backward by distance (Java BackDashEffect)
+                if (stDmgFx?.Any(d => d.Variant == "backdash") == true)
+                {
+                    var bdEl = template?.Effects?.Elements?.FirstOrDefault(e => e.LocalName == "backdash");
+                    float bdDist = bdEl is not null && int.TryParse(bdEl.GetAttribute("distance"), out int bdd) ? bdd : 25f;
+                    var pp = player.Position;
+                    double bdRad = (pp.Heading & 0xFF) * Math.PI * 2.0 / 256.0;
+                    float bdX = pp.X + (float)(Math.Cos(bdRad + Math.PI) * bdDist);
+                    float bdY = pp.Y + (float)(Math.Sin(bdRad + Math.PI) * bdDist);
+                    player.Position = new Position(bdX, bdY, pp.Z, pp.Heading, pp.WorldId, pp.InstanceId);
+                    player.MovementMask = 0;
+                    try { await _conn.SendAsync(new SM_TELEPORT_LOC(player.Position, portAnimation: 0)); } catch { }
+                    var bdMovePkt = new SM_MOVE(player);
+                    foreach (var c in registry.GetAll())
+                        if (c != _conn && c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(bdMovePkt); } catch { }
+                }
+
                 // M239: drain damage variants — caster restores HP/MP from dealt damage
                 if (stDmgFx is { Count: > 0 } && (stDmgFx[0].HpPercent != 0 || stDmgFx[0].MpPercent != 0))
                 {

@@ -3209,3 +3209,10 @@
   - **M311b:** `Model/Player.cs` — added `PassiveBonusMaxHpPct` and `PassiveBonusMaxMpPct` properties
   - **M311c:** `Services/PlayerEnterWorldService.cs` — accumulates `MaxHpPercentStatUpDelta`/`MaxMpPercentStatUpDelta` at login into `PassiveBonusMaxHpPct`/`PassiveBonusMaxMpPct`; updated MaxHp/MaxMp formula: `(flatSum) * (1 + pct/100f) * ssMult`
   - Build: 0 warnings, 0 errors
+
+- [x] **M312: MoveBehind + BackDash — gap-closer and retreating strike attacks** — `<movebehind>` deals physical damage and teleports caster directly behind the target; `<backdash distance="N">` deals physical damage and moves caster backward by distance units; 11 + 17 = 28 skills total (Assassin Ambush I-VII, Blind Side, Stigma Ambush; Gladiator/Ranger Retreating Slash, Fighting Withdrawal, Beast Leap, Parting Shot lines)
+  - Java analog: `MoveBehindEffect extends DamageEffect` — `calculate()` positions caster at `(target.X + cos(π + targetHeading) * 1.3, target.Y + sin(π + targetHeading) * 1.3, target.Z)` then calls `super.calculate(PHYSICAL)`; `BackDashEffect extends DamageEffect` — calls `super.calculate(PHYSICAL)` then sets position to `(effector.X + cos(π + effectorHeading) * distance, ...)` in `applyEffect()`
+  - Position formula: Aion heading is 0-255 = 0-2π; offset = cos/sin(heading × 2π/256 + π) × distance
+  - **M312a:** `Model/Templates/Skill/SkillTemplate.cs` — added `"movebehind"` and `"backdash"` to `DamageEffectNames`; added both to the physical-type branch in `DamageEffects` (`e.LocalName is "skillatk" or … or "movebehind" or "backdash"`)
+  - **M312b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `movebehind` block after dash block: if target alive, computes position 1.3 units behind target heading, updates `player.Position`, sends `SM_TELEPORT_LOC` to caster + broadcasts `SM_MOVE` to zone; added `backdash` block: reads `distance` attribute from first `backdash` XML element (default 25), computes position `distance` units opposite caster heading, updates `player.Position`, sends `SM_TELEPORT_LOC` + broadcasts `SM_MOVE`; backdash movement fires regardless of target state (caster always retreats)
+  - Build: 0 warnings, 0 errors
