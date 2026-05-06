@@ -3270,6 +3270,13 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M346: NPC skill magic resist check + crit for NPC skill casts** — NPC magical skills can now be resisted by players with high magic resist; both magical (1.5×) and physical (2.0×) NPC skill crits now apply, respecting target's SpellFortitude and StrikeFortitude
+  - Java analog: `EffectTemplate.calculate()` calls `StatFunctions.calculateMagicalResistRate(npc, player, accMod)` for magical skill effects; `AttackUtil.calculateMagicalCritical/calculateWeaponCritical` applies the crit coefficient
+  - Magic resist formula: `resistRate = max(1, player.MResist - npcMagicAcc)` where npcMagicAcc = level*(33.6-0.16*level)+5 (level-scaled, no NPC magic_accuracy in templates); skipped if noresist="true" on damage effect
+  - Crit formula: power-stat piecewise (≤440: power×0.1%, ≤600: 44+(power-440)×0.05%, >600: 52+(power-600)×0.02%); physical multiplier = max(1, 2.0−round(strikeFortitude/1000)); magical multiplier = max(1, 1.5−round(spellFortitude/1000))
+  - **M346a:** `Services/NpcAiService.cs` — `CastNpcDamageAsync`: moved dmgFx before resist check; added magic resist block (before defense calc, early return on resist); added crit block (after elemental resist, before ApplyDamageAndPublishAsync)
+  - Build: 0 warnings, 0 errors
+
 - [x] **M345: elemental resistance applied to NPC-cast DoT tick damage** — NPC bleed/poison/disease ticks now respect the player's elemental resistance (FireResist/WaterResist/WindResist/EarthResist) using the same 1250-scale formula as M343 (player-cast) and M342 (NPC instantaneous magic damage); resistance value is baked into `dotTickDmg` at DoT creation time since the NPC DoT lambda captures a fixed value
   - Java analog: NPC `DotEffect.onTick()` calls `StatFunctions.calculateMagicalSkillDamage` which applies elemental resistance on each tick; our approach bakes the reduction at creation time (captures static target state) — acceptable since DoT resist buffs rarely change mid-DoT
   - **M345a:** `Services/NpcAiService.cs` — `CastNpcDamageAsync` DoT loop: replaced `Math.Max(1, dot.BaseValue + dot.Delta * skillLevel)` with `rawNpcDot` + inline element switch → `npcDotElemResist` → apply `(1f - npcDotElemResist / 1250f)` when nonzero

@@ -542,6 +542,25 @@ public sealed class NpcAiService : BackgroundService
 
         // Use per-skill damage template when available; fall back to level-scaled estimate
         var dmgFx = skillTemplate?.Effects?.DamageEffects;
+
+        // M346: magic resist check for NPC magical skills (Java calculateMagicalResistRate; accMod=0 for NPC skills)
+        bool npcNoResist = dmgFx is { Count: > 0 } && dmgFx[0].IsNoResist;
+        if (!isPhysical && !npcNoResist)
+        {
+            int npcMagAcc  = (int)(npc.Level * (33.6f - 0.16f * npc.Level) + 5f);
+            int playerMR   = target.BonusMagicResist + target.MResistDebuffDelta + target.MResistStatUpDelta;
+            int npcResistR = Math.Max(1, playerMR - npcMagAcc);
+            int lvlDiffNpc = target.Level - npc.Level - 2;
+            if (lvlDiffNpc > 0) npcResistR += lvlDiffNpc * 100;
+            if (Random.Shared.Next(1000) < npcResistR)
+            {
+                var resistPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                foreach (var c in _connRegistry.GetAll())
+                    if (c.ActivePlayer?.Position.WorldId == worldId)
+                        try { await c.SendAsync(resistPkt, ct); } catch { }
+                return;
+            }
+        }
         int skillBase = dmgFx is { Count: > 0 }
             ? dmgFx[0].BaseValue + dmgFx[0].Delta * (skillLevel - 1)
             : npc.Level * 8 + Random.Shared.Next(10, 40);
@@ -573,6 +592,28 @@ public sealed class NpcAiService : BackgroundService
             if (npcElemResist > 0)
                 spellDmg = Math.Max(1, (int)(spellDmg * (1f - npcElemResist / 1250f)));
         }
+
+        // M346: crit check for NPC skill casts (physical = 2.0× minus strike fortitude; magical = 1.5×)
+        int npcCritPwr = npc.Template.Stats?.Power > 0 ? npc.Template.Stats.Power : 10;
+        double npcSkillCritRate = npcCritPwr <= 440 ? npcCritPwr * 0.1
+                                : npcCritPwr <= 600 ? 44.0 + (npcCritPwr - 440) * 0.05
+                                :                     52.0 + (npcCritPwr - 600) * 0.02;
+        if (Random.Shared.Next(100) < (int)npcSkillCritRate)
+        {
+            if (isPhysical)
+            {
+                int sFort = target.BonusStrikeFortitude + target.StrikeFortitudeDelta;
+                float physCritCoeff = Math.Max(1.0f, 2.0f - (float)Math.Round(sFort / 1000.0));
+                spellDmg = (int)(spellDmg * physCritCoeff);
+            }
+            else
+            {
+                int spFort = target.BonusSpellFortitude + target.SpellFortitudeDelta;
+                float magCritCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(spFort / 1000.0));
+                spellDmg = (int)(spellDmg * magCritCoeff);
+            }
+        }
+
         var npcSkillKind = isPhysical ? DamageKind.PhysicalSkill : DamageKind.MagicalSkill;
         await target.ApplyDamageAndPublishAsync(npc, spellDmg, npcSkillKind, skillId, _eventBus, ct);
 
