@@ -661,6 +661,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int regenHpStatUpPct = template.Effects?.RegenHpStatUpPct ?? 0;
                 int regenMpStatUpPct = template.Effects?.RegenMpStatUpPct ?? 0;
                 int regenFpStatUpPct = template.Effects?.RegenFpStatUpPct ?? 0;
+                // M352: REGEN_HP/MP ADD buffs — flat HP/MP added per regen tick (Boost HP I-III, Breath of Nature I-III, etc.)
+                int regenHpAddDelta  = template.Effects?.RegenHpAddDelta  ?? 0;
+                int regenMpAddDelta  = template.Effects?.RegenMpAddDelta  ?? 0;
                 // M332: DR_BOOST and AP_BOOST ADD buffs — drop-rate and AP-gain boosts
                 int drBoostDelta = template.Effects?.DRBoostAddDelta ?? 0;
                 int apBoostDelta = template.Effects?.APBoostAddDelta ?? 0;
@@ -754,6 +757,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     RegenHpPctDeltaVal       = regenHpStatUpPct,
                     RegenMpPctDeltaVal       = regenMpStatUpPct,
                     RegenFpPctDeltaVal       = regenFpStatUpPct,
+                    RegenHpAddDeltaVal       = regenHpAddDelta,
+                    RegenMpAddDeltaVal       = regenMpAddDelta,
                     DRBoostDeltaVal          = drBoostDelta,
                     APBoostDeltaVal          = apBoostDelta,
                     CcResistAllDeltaVal      = ccResistAllDelta,

@@ -262,9 +262,11 @@ public abstract class Creature : VisibleObject
         if ((v = e.EarthResistDelta)        != 0) EarthResist           += v;
         if ((v = e.PvpAtkRatioDelta)        != 0) PvpAtkRatio           += v;
         if ((v = e.PvpDefRatioDelta)        != 0) PvpDefRatio           += v;
-        if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpApply) regenHpApply.BonusRegenHpPct += e.RegenHpPctDeltaVal;
-        if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpApply) regenMpApply.BonusRegenMpPct += e.RegenMpPctDeltaVal;
-        if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpApply) regenFpApply.BonusRegenFpPct += e.RegenFpPctDeltaVal;
+        if (e.RegenHpPctDeltaVal  != 0 && this is Player regenHpApply)  regenHpApply.BonusRegenHpPct  += e.RegenHpPctDeltaVal;
+        if (e.RegenMpPctDeltaVal  != 0 && this is Player regenMpApply)  regenMpApply.BonusRegenMpPct  += e.RegenMpPctDeltaVal;
+        if (e.RegenFpPctDeltaVal  != 0 && this is Player regenFpApply)  regenFpApply.BonusRegenFpPct  += e.RegenFpPctDeltaVal;
+        if (e.RegenHpAddDeltaVal  != 0 && this is Player regenHpFlAt)   regenHpFlAt.BonusRegenHpFlat  += e.RegenHpAddDeltaVal;
+        if (e.RegenMpAddDeltaVal  != 0 && this is Player regenMpFlAt)   regenMpFlAt.BonusRegenMpFlat  += e.RegenMpAddDeltaVal;
         if (e.APBoostDeltaVal       != 0 && this is Player apBoostApply)   apBoostApply.APBoostDelta    += e.APBoostDeltaVal;
         if (e.BoostHatePctDeltaVal  != 0 && this is Player boostHateApply) boostHateApply.BoostHatePct  += e.BoostHatePctDeltaVal;
         if (e.FlyTimePctDeltaVal    != 0 && this is Player flyTimeApply)
@@ -332,9 +334,11 @@ public abstract class Creature : VisibleObject
         if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
         if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
         if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;
-        if (e.RegenHpPctDeltaVal != 0 && this is Player regenHpRev) regenHpRev.BonusRegenHpPct -= e.RegenHpPctDeltaVal;
-        if (e.RegenMpPctDeltaVal != 0 && this is Player regenMpRev) regenMpRev.BonusRegenMpPct -= e.RegenMpPctDeltaVal;
-        if (e.RegenFpPctDeltaVal != 0 && this is Player regenFpRev) regenFpRev.BonusRegenFpPct -= e.RegenFpPctDeltaVal;
+        if (e.RegenHpPctDeltaVal  != 0 && this is Player regenHpRev)  regenHpRev.BonusRegenHpPct  -= e.RegenHpPctDeltaVal;
+        if (e.RegenMpPctDeltaVal  != 0 && this is Player regenMpRev)  regenMpRev.BonusRegenMpPct  -= e.RegenMpPctDeltaVal;
+        if (e.RegenFpPctDeltaVal  != 0 && this is Player regenFpRev)  regenFpRev.BonusRegenFpPct  -= e.RegenFpPctDeltaVal;
+        if (e.RegenHpAddDeltaVal  != 0 && this is Player regenHpFlRv) regenHpFlRv.BonusRegenHpFlat -= e.RegenHpAddDeltaVal;
+        if (e.RegenMpAddDeltaVal  != 0 && this is Player regenMpFlRv) regenMpFlRv.BonusRegenMpFlat -= e.RegenMpAddDeltaVal;
         if (e.APBoostDeltaVal       != 0 && this is Player apBoostRev)   apBoostRev.APBoostDelta   -= e.APBoostDeltaVal;
         if (e.BoostHatePctDeltaVal  != 0 && this is Player boostHateRev) boostHateRev.BoostHatePct -= e.BoostHatePctDeltaVal;
         if (e.FlyTimePctDeltaVal    != 0 && this is Player flyTimeRev)

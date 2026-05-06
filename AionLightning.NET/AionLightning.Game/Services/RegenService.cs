@@ -107,7 +107,8 @@ public sealed class RegenService : BackgroundService
             if (player.CurrentHp < player.MaxHp)
             {
                 int regen  = Math.Max(1, (player.Level + 3) * (statTpl?.Health ?? 100) / 100);
-                if (player.BonusRegenHpPct != 0) regen = Math.Max(1, regen * (100 + player.BonusRegenHpPct) / 100);
+                if (player.BonusRegenHpPct  != 0) regen = Math.Max(1, regen * (100 + player.BonusRegenHpPct) / 100);
+                if (player.BonusRegenHpFlat != 0) regen += player.BonusRegenHpFlat;
                 int actual = Math.Min(regen, player.MaxHp - player.CurrentHp);
                 player.CurrentHp += actual;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, 0, actual,
@@ -122,7 +123,8 @@ public sealed class RegenService : BackgroundService
             if (player.CurrentMp < player.MaxMp)
             {
                 int regen  = Math.Max(1, (player.Level + 8) * (statTpl?.Will ?? 100) / 100);
-                if (player.BonusRegenMpPct != 0) regen = Math.Max(1, regen * (100 + player.BonusRegenMpPct) / 100);
+                if (player.BonusRegenMpPct  != 0) regen = Math.Max(1, regen * (100 + player.BonusRegenMpPct) / 100);
+                if (player.BonusRegenMpFlat != 0) regen += player.BonusRegenMpFlat;
                 int actual = Math.Min(regen, player.MaxMp - player.CurrentMp);
                 player.CurrentMp += actual;
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, 0, actual,

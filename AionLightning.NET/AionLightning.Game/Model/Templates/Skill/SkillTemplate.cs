@@ -1037,6 +1037,52 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M352: sum of ADD REGEN_HP changes from statup/statboost elements (flat HP per tick added; e.g. Boost HP I +4, Boost HP III +20).</summary>
+    public int RegenHpAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "REGEN_HP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M352: sum of ADD REGEN_MP changes from statup/statboost elements (flat MP per tick added; e.g. Breath of Nature I +20, III +35).</summary>
+    public int RegenMpAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "REGEN_MP", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>M329: sum of PERCENT MAGICAL_DEFEND changes from statup elements (positive = % of current magic defense added).</summary>
     public int MagicDefStatUpPct
     {

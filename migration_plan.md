@@ -3270,6 +3270,15 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M352: REGEN_HP/MP ADD flat buff — 104+100=204 entries now correctly add flat HP/MP per regen tick** — `REGEN_HP ADD` and `REGEN_MP ADD` inside `statup`/`statboost` (Boost HP I +4/II +10/III +20, Breath of Nature I +20/II +30/III +35, and similar) were silently discarded; `BonusRegenHpFlat`/`BonusRegenMpFlat` did not exist on Player and RegenService only applied the PERCENT case; now flat regen is accumulated on buff application, added per tick in RegenService after the PERCENT multiplier, and reversed on buff expiry via Creature.ReverseEffectDeltas
+  - **M352a:** `Model/Templates/Skill/SkillTemplate.cs` — added `RegenHpAddDelta` + `RegenMpAddDelta` computed properties: sum ADD REGEN_HP/MP from statup/statboost
+  - **M352b:** `Model/AbnormalState.cs` — added `RegenHpAddDeltaVal` + `RegenMpAddDeltaVal` fields
+  - **M352c:** `Model/Player.cs` — added `BonusRegenHpFlat` + `BonusRegenMpFlat` fields
+  - **M352d:** `Model/Creature.cs` — `ApplyEffectDeltas`/`ReverseEffectDeltas` apply/reverse flat regen (same pattern as percent)
+  - **M352e:** `Services/RegenService.cs` — `regen += BonusRegenHpFlat/BonusRegenMpFlat` after PERCENT multiplier
+  - **M352f:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path reads `RegenHpAddDelta`/`RegenMpAddDelta` from template, stores in AbnormalState
+  - Build: 0 warnings, 0 errors
+
 - [x] **M351: FLY_SPEED PERCENT buff (statup/statboost) — 70 entries now correctly increase target's fly speed for buff duration** — `FLY_SPEED PERCENT` values inside `statup`/`statboost` elements (Flyover Reconnaisance +33%, Charge +60%, Winged Rage I-II +33%, Flight: Maximization of Speed +50%, Strengthen Wings I-III +10/15/20%, etc.) were silently discarded; `Player.BonusFlySpeedPct` was never modified by active buff casts; now the pct is added on buff application and restored to the pre-buff snapshot on expiry (same restore-by-snapshot pattern as M320 fly speed debuff)
   - **M351a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FlySpeedStatUpPct` computed property on `SkillEffects`: sums `FLY_SPEED PERCENT` from `statup`/`statboost` elements
   - **M351b:** `Model/AbnormalState.cs` — added `FlySpeedStatUpPct` + `PreBuffFlySpeedPct` fields (mirror of `FlySpeedDebuffPct`/`PreDebuffFlySpeedPct`)

@@ -116,6 +116,10 @@ public sealed class AbnormalState
     public int RegenMpPctDeltaVal { get; init; }
     // Non-zero when this buff changes FP regen rate (positive = % faster FP regen, e.g. 25 = +25% FP regen per tick).
     public int RegenFpPctDeltaVal { get; init; }
+    // Non-zero when this buff adds flat HP per regen tick (M352: REGEN_HP ADD; e.g. Boost HP I +4, III +20).
+    public int RegenHpAddDeltaVal { get; init; }
+    // Non-zero when this buff adds flat MP per regen tick (M352: REGEN_MP ADD; e.g. Breath of Nature I +20, III +35).
+    public int RegenMpAddDeltaVal { get; init; }
 
     // Non-zero when this buff increases drop rate (DR_BOOST ADD: e.g. 20 = +20% item drop chance).
     public int DRBoostDeltaVal { get; init; }

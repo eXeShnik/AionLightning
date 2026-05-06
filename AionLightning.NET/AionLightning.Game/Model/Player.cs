@@ -106,6 +106,10 @@ public sealed class Player : Creature
     public int BonusRegenMpPct { get; set; }
     // Accumulated percent bonus to FP regen rate from active buffs. Reversed on buff expiry.
     public int BonusRegenFpPct { get; set; }
+    // Accumulated flat HP per regen tick from active buffs (M352: REGEN_HP ADD; e.g. Boost HP I +4). Reversed on buff expiry.
+    public int BonusRegenHpFlat { get; set; }
+    // Accumulated flat MP per regen tick from active buffs (M352: REGEN_MP ADD; e.g. Breath of Nature I +20). Reversed on buff expiry.
+    public int BonusRegenMpFlat { get; set; }
     // Accumulated AP_BOOST percent from active buffs (positive = % more AP per kill, e.g. 20 = +20%). Reversed on buff expiry.
     public int APBoostDelta { get; set; }
     // Accumulated BOOST_HATE percent from active buffs (positive = % more hate per hit, negative = less). Reversed on buff expiry.
