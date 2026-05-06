@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 namespace AionLightning.Game.DataHolders;
 
 [XmlRoot("player_experience_table")]
-internal sealed class PlayerExperienceTableXml
+public sealed class PlayerExperienceTableXml
 {
     [XmlElement("exp")] public long[] Experience { get; set; } = Array.Empty<long>();
 }

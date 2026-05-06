@@ -33,7 +33,7 @@ public sealed class PlayerTitlesData
     public int Count => _data.Count;
 
     [XmlRoot("player_titles")]
-    private sealed class PlayerTitleListXml
+    public sealed class PlayerTitleListXml
     {
         [XmlElement("title")] public List<PlayerTitleTemplate> Titles { get; set; } = new();
     }

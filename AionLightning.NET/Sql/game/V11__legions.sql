@@ -1,4 +1,4 @@
-CREATE TABLE legions (
+CREATE TABLE IF NOT EXISTS legions (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(20) NOT NULL UNIQUE,
     level TINYINT NOT NULL DEFAULT 1,
@@ -10,7 +10,7 @@ CREATE TABLE legions (
     volunteer_permission SMALLINT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE legion_members (
+CREATE TABLE IF NOT EXISTS legion_members (
     player_id INT NOT NULL PRIMARY KEY,
     legion_id INT NOT NULL,
     rank_id TINYINT NOT NULL DEFAULT 3,

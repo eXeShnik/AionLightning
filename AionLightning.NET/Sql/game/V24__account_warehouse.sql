@@ -1,4 +1,4 @@
-CREATE TABLE `account_warehouse_items` (
+CREATE TABLE IF NOT EXISTS `account_warehouse_items` (
     `unique_id`     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `account_id`    INT NOT NULL,
     `item_id`       INT NOT NULL,

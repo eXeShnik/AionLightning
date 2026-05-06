@@ -83,10 +83,11 @@ public sealed class LoginServerHost : BackgroundService
             while (!ct.IsCancellationRequested)
             {
                 Socket socket = await listener.AcceptSocketAsync(ct);
+                _log.LogInformation("{Label} connection from {EP}", label, socket.RemoteEndPoint);
                 var conn = factory.Create(socket, ct);
                 _ = conn.RunAsync(ct).ContinueWith(
                     t => _log.LogError(t.Exception!.GetBaseException(), "{Label} connection error", label),
-                    ct, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }
         }
         catch (OperationCanceledException) { }

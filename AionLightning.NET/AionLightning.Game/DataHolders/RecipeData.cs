@@ -41,7 +41,7 @@ public sealed class RecipeData
     public int Count => _data.Count;
 
     [XmlRoot("recipe_templates")]
-    private sealed class RecipeListXml
+    public sealed class RecipeListXml
     {
         [XmlElement("recipe_template")]
         public List<RecipeTemplate> Items { get; set; } = new();

@@ -1,4 +1,4 @@
-CREATE TABLE legion_warehouse_items (
+CREATE TABLE IF NOT EXISTS legion_warehouse_items (
     unique_id  BIGINT NOT NULL,
     legion_id  INT    NOT NULL,
     item_id    INT    NOT NULL DEFAULT 0,

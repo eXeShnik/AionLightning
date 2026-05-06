@@ -1,4 +1,4 @@
-CREATE TABLE player_settings (
+CREATE TABLE IF NOT EXISTS player_settings (
   player_id    INT      NOT NULL,
   settings_type TINYINT  NOT NULL,   -- 0=ui_settings, 1=shortcuts, 2=house_buddies
   settings     MEDIUMBLOB NOT NULL,

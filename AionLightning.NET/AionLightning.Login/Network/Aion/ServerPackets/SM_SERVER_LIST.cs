@@ -32,15 +32,15 @@ public sealed class SM_SERVER_LIST : AionServerPacket
             w.WriteH((short)gsi.GetCurrentPlayers());
             w.WriteH((short)gsi.MaxPlayers);
             w.WriteC((byte)(gsi.IsOnline ? 1 : 0));
-            w.WriteD(0x00);                       // char race bits
-            w.WriteC(0x00);                       // brackets
+            w.WriteD(1);                          // char race bits (matches Java: writeD(1))
+            w.WriteC(1);                          // brackets (matches Java: writeC(1))
             if (gsi.Id > maxId) maxId = gsi.Id;
         }
 
-        // character counts per server slot 0..maxId
+        // character counts per server slot 1..maxId (Java: for i=1; i<=maxId)
         w.WriteH((short)(maxId + 1));
         w.WriteC(0x01);
-        for (int i = 0; i <= maxId; i++)
+        for (int i = 1; i <= maxId; i++)
             w.WriteC(0x00);
     }
 }

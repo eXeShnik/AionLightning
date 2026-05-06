@@ -42,6 +42,12 @@ public static class KeyGen
             new BigInteger(1, rsaParams.DQ!),
             new BigInteger(1, rsaParams.InverseQ!)
         ));
-        return engine.ProcessBlock(encrypted, 0, encrypted.Length);
+        var result = engine.ProcessBlock(encrypted, 0, encrypted.Length);
+        int blockSize = rsaParams.Modulus!.Length; // 128 bytes for 1024-bit key
+        if (result.Length == blockSize)
+            return result;
+        var padded = new byte[blockSize];
+        result.CopyTo(padded, blockSize - result.Length);
+        return padded;
     }
 }

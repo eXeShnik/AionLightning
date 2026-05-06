@@ -5,15 +5,13 @@ using MySqlConnector;
 
 namespace AionLightning.Login;
 
-/// <summary>
-/// Runs Evolve schema migration on the LoginDb before other hosted services start.
-/// Registration order in Program.cs guarantees this runs first.
-/// </summary>
+// Runs schema migrations synchronously in StartAsync so that LoginServerHost
+// cannot begin accepting connections until the schema is ready.
 public sealed class SchemaMigrationHost(
     IConfiguration config,
-    ILogger<SchemaMigrationHost> log) : BackgroundService
+    ILogger<SchemaMigrationHost> log) : IHostedService
 {
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    public async Task StartAsync(CancellationToken ct)
     {
         var cs = config.GetConnectionString("LoginDb")
             ?? throw new InvalidOperationException("ConnectionStrings:LoginDb is required");
@@ -21,13 +19,16 @@ public sealed class SchemaMigrationHost(
         await using var conn = new MySqlConnection(cs);
         await conn.OpenAsync(ct);
 
+        var sqlPath = Path.Combine(AppContext.BaseDirectory, "Sql", "login");
         var evolve = new EvolveDb.Evolve(conn, msg => log.LogInformation("Evolve: {Message}", msg))
         {
-            Locations = ["Sql/login"],
+            Locations = [sqlPath],
             IsEraseDisabled = true,
         };
         evolve.Migrate();
 
         log.LogInformation("Schema migration completed.");
     }
+
+    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }

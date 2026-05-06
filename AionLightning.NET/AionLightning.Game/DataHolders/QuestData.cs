@@ -32,7 +32,7 @@ public sealed class QuestData
     public int Count => _data.Count;
 
     [XmlRoot("quests")]
-    private sealed class QuestsXml
+    public sealed class QuestsXml
     {
         [XmlElement("quest")]
         public List<QuestTemplate> Items { get; set; } = new();

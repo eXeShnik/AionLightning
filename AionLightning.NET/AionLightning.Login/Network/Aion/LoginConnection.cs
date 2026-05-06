@@ -23,6 +23,7 @@ public sealed class LoginConnection : AConnection
     public SessionKey? SessionKey { get; set; }
     public GameServerInfo? JoinedGs { get; set; }
     public EncryptedRSAKeyPair RsaKeyPair => _rsaKeyPair;
+    public ILogger Log => _log;
 
     public enum LoginState { CONNECTED, AUTHED_GG, AUTHED_LOGIN }
 
@@ -37,11 +38,13 @@ public sealed class LoginConnection : AConnection
 
     protected override async ValueTask OnConnectedAsync(CancellationToken ct)
     {
+        _log.LogInformation("[{IP}] Sending SM_INIT (session {SessionId})", IP, SessionId);
         var blowfishKey = new byte[16];
         Random.Shared.NextBytes(blowfishKey);
 
         // SM_INIT is encrypted with the default blowfish key (client knows it too)
         await SendAsync(new SM_INIT(SessionId, _rsaKeyPair.PublicKey, blowfishKey), ct);
+        _log.LogInformation("[{IP}] SM_INIT sent", IP);
 
         // All subsequent packets use the per-session key
         _crypt.UpdateKey(blowfishKey);
@@ -77,10 +80,9 @@ public sealed class LoginConnection : AConnection
         var w = new PacketWriter(bodyBuf);
         packet.Write(ref w);
 
-        // Layout: [opcode(1)][body][zero-padding][checksum(4)]
-        // Total must be a multiple of 8 (Blowfish block size)
-        int contentLen = 1 + bodyBuf.WrittenCount;
-        int encLen = ((contentLen + 4 + 7) / 8) * 8;
+        // Java formula: encrypt receives buf.limit()-2 = (opcode+body)-2 = body-1 as initial length,
+        // then adds 4 (checksum/XOR space) and aligns to 8. Replicated here exactly.
+        int encLen = ((bodyBuf.WrittenCount - 1 + 4 + 7) / 8) * 8;
 
         byte[] enc = new byte[encLen];
         enc[0] = (byte)packet.Opcode;

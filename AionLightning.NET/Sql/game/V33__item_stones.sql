@@ -1,4 +1,4 @@
-CREATE TABLE item_stones (
+CREATE TABLE IF NOT EXISTS item_stones (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     item_unique_id BIGINT NOT NULL,
     item_id        INT    NOT NULL,

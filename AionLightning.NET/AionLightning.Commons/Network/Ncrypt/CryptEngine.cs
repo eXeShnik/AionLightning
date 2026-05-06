@@ -11,6 +11,7 @@ public sealed class CryptEngine
     ];
 
     private BlowfishCipher _cipher;
+    private bool _firstPacket = true;
 
     public CryptEngine() : this(DefaultKey) { }
 
@@ -30,10 +31,46 @@ public sealed class CryptEngine
         return Checksum(data, offset, length);
     }
 
+    // First server packet (SM_INIT) uses encXORPass; all subsequent use appendChecksum.
+    // This matches Java CryptEngine.encrypt(!updatedKey / updatedKey paths).
     public void Encrypt(byte[] data, int offset, int length)
     {
-        AppendChecksum(data, offset, length);
+        if (_firstPacket)
+        {
+            _firstPacket = false;
+            EncXorPass(data, offset, length, Random.Shared.Next());
+        }
+        else
+        {
+            AppendChecksum(data, offset, length);
+        }
         _cipher.Encrypt(data, offset, length);
+    }
+
+    private static void EncXorPass(byte[] data, int offset, int length, int key)
+    {
+        int stop = length - 8;
+        int pos = 4 + offset;
+        int ecx = key;
+
+        while (pos < stop)
+        {
+            int edx = (data[pos] & 0xFF)
+                      | (data[pos + 1] & 0xFF) << 8
+                      | (data[pos + 2] & 0xFF) << 16
+                      | (data[pos + 3] & 0xFF) << 24;
+            ecx += edx;
+            edx ^= ecx;
+            data[pos++] = (byte)(edx & 0xFF);
+            data[pos++] = (byte)(edx >> 8 & 0xFF);
+            data[pos++] = (byte)(edx >> 16 & 0xFF);
+            data[pos++] = (byte)(edx >> 24 & 0xFF);
+        }
+
+        data[pos++] = (byte)(ecx & 0xFF);
+        data[pos++] = (byte)(ecx >> 8 & 0xFF);
+        data[pos++] = (byte)(ecx >> 16 & 0xFF);
+        data[pos]   = (byte)(ecx >> 24 & 0xFF);
     }
 
     private static bool Checksum(byte[] raw, int offset, int size)
@@ -60,7 +97,7 @@ public sealed class CryptEngine
         check |= (long)((raw[i + 2] << 16) & 0xff0000);
         check |= (long)(raw[i + 3] << 24) & 0xff000000L;
 
-        return check == chksum;
+        return chksum == 0;
     }
 
     private static void AppendChecksum(byte[] raw, int offset, int size)

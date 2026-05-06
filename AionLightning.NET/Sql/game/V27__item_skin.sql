@@ -1,2 +1,7 @@
-ALTER TABLE `player_items`
-    ADD COLUMN `skin_item_id` int(11) NOT NULL DEFAULT 0 AFTER `optional_socket`;
+DROP PROCEDURE IF EXISTS _mig;
+CREATE PROCEDURE _mig() BEGIN
+    DECLARE CONTINUE HANDLER FOR 1060 BEGIN END;
+    ALTER TABLE `player_items` ADD COLUMN `skin_item_id` int(11) NOT NULL DEFAULT 0;
+END;
+CALL _mig();
+DROP PROCEDURE IF EXISTS _mig;

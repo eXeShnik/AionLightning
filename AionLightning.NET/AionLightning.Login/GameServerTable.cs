@@ -64,6 +64,7 @@ public static class GameServerTable
         gsi.MaxPlayers = maxPlayers;
         gsi.GscHandler = gsConnection;
         gsConnection.GameServerInfo = gsi;
+        _log.LogInformation("GS #{Id} authenticated from {IP} (port={Port})", requestedId, gsConnection.IP, port);
         return GsAuthResponse.AUTHED;
     }
 

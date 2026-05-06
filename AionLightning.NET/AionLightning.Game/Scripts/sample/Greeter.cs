@@ -1,4 +1,6 @@
 // Hot-reloadable sample script. Edit text and save — the server reloads automatically.
+using System.Threading;
+using System.Threading.Tasks;
 using AionLightning.Commons.Events;
 using AionLightning.Commons.Scripting.Contracts;
 using AionLightning.Game.Events;

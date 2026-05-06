@@ -1,4 +1,4 @@
-CREATE TABLE broker_items (
+CREATE TABLE IF NOT EXISTS broker_items (
     id              INT          NOT NULL AUTO_INCREMENT,
     item_id         INT          NOT NULL DEFAULT 0,
     seller_id       INT          NOT NULL DEFAULT 0,

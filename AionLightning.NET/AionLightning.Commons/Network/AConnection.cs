@@ -47,9 +47,12 @@ public abstract class AConnection : IAsyncDisposable
 
     private async Task ReadLoopAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        while (!ct.IsCancellationRequested && _disposed == 0)
         {
-            var result = await Reader.ReadAsync(ct);
+            ReadResult result;
+            try { result = await Reader.ReadAsync(ct); }
+            catch (InvalidOperationException) { return; } // DisposeAsync called before ReadAsync
+
             var buffer = result.Buffer;
 
             if (result.IsCompleted && buffer.IsEmpty)
@@ -64,11 +67,13 @@ public abstract class AConnection : IAsyncDisposable
                 {
                     await OnPacketAsync(frame, ct);
                     consumed = frameEnd;
+                    if (_disposed != 0) return; // DisposeAsync called from packet handler
                 }
             }
             finally
             {
-                Reader.AdvanceTo(consumed, examined);
+                if (_disposed == 0)
+                    Reader.AdvanceTo(consumed, examined);
             }
 
             if (result.IsCompleted)

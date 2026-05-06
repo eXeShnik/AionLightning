@@ -1,5 +1,6 @@
 using AionLightning.Commons.Network;
 using AionLightning.Login.Network.Aion.ServerPackets;
+using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Login.Network.Aion.ClientPackets;
 
@@ -29,7 +30,11 @@ public sealed class CM_SERVER_LIST : AionClientPacket
             return;
         }
 
-        var servers = GameServerTable.GetGameServers();
+        var servers = GameServerTable.GetGameServers().ToList();
+        _conn.Log.LogInformation("[{IP}] SM_SERVER_LIST: {Count} server(s){Details}",
+            _conn.IP, servers.Count,
+            servers.Count == 0 ? "" : " — " + string.Join(", ", servers.Select(s => $"id={s.Id} online={s.IsOnline}")));
+
         sbyte lastServer = _conn.Account?.LastServer ?? -1;
         await _conn.SendAsync(new SM_SERVER_LIST(servers, lastServer, _conn.IP), ct);
     }

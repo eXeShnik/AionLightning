@@ -31,7 +31,7 @@ public sealed class SpawnMapEntry
 }
 
 [XmlRoot("spawns")]
-internal sealed class SpawnsFileXml
+public sealed class SpawnsFileXml
 {
     [XmlElement("spawn_map")] public List<SpawnMapEntry> Maps { get; set; } = new();
 }
