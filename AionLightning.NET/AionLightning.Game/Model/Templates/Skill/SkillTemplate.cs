@@ -229,6 +229,12 @@ public readonly record struct SkillAuraInfo(
     float DistanceZ      // vertical altitude limit (defaults to Distance/2 when XML missing)
 );
 
+/// <summary>M288: armor mastery descriptor — pdef% bonus conditional on equipped armor type.</summary>
+public readonly record struct SkillArmorMasteryInfo(
+    string ArmorType,  // "CLOTHES" | "LEATHER" | "CHAIN" | "PLATE"
+    int    PdefPct     // PERCENT bonus to PHYSICAL_DEFENSE when matching armor is equipped
+);
+
 /// <summary>M280: damage modifier parsed from &lt;skillatk&gt;/&lt;spellatkinstant&gt; &lt;modifiers&gt; block.</summary>
 public readonly record struct SkillDamageModifier(
     string Kind,    // "targetrace" | "targetclass" | "abnormaldamage" | other
@@ -305,6 +311,38 @@ public sealed class SkillEffects
                     distanceZ = distance / 2f;
                 if (childId > 0 && distance > 0f)
                     list.Add(new(childId, distance, distanceZ));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M288: parsed &lt;armormastery armor="X"&gt; effects — conditional pdef% bonus.</summary>
+    public IReadOnlyList<SkillArmorMasteryInfo> ArmorMasteryEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillArmorMasteryInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "armormastery") continue;
+                string armorType = e.GetAttribute("armor") ?? string.Empty;
+                if (armorType.Length == 0) continue;
+                int pct = 0;
+                foreach (System.Xml.XmlNode child in e.ChildNodes)
+                {
+                    if (child is System.Xml.XmlElement ce
+                        && ce.LocalName == "change"
+                        && string.Equals(ce.GetAttribute("stat"), "PHYSICAL_DEFENSE", StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(ce.GetAttribute("value"), out int v)
+                        && v > 0)
+                    {
+                        pct += v;
+                    }
+                }
+                if (pct > 0)
+                    list.Add(new(armorType, pct));
             }
             return list;
         }

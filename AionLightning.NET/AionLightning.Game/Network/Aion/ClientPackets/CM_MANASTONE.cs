@@ -223,6 +223,13 @@ public sealed class CM_MANASTONE : AionClientPacket
                 TitleStatsApplicator.Apply(player, titleTpl);
         }
 
+        // M288: recompute ArmorMastery bonus after manastone equip (armor type unchanged but pdef base changes)
+        {
+            int mastPct = PassiveArmorMasteryHelper.ComputePct(player, _dataManager);
+            if (mastPct > 0)
+                player.PhysicalDefense = (int)(player.PhysicalDefense * (1.0 + mastPct / 100.0));
+        }
+
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)
             : player.BaseAttackSpeed;

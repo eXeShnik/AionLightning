@@ -292,6 +292,11 @@ public sealed class PlayerEnterWorldService
             if ((pv = fx.SpeedStatUpPct)              != 0) player.PassiveBonusMovementSpeedPct += pv;
         }
 
+        // M288: ArmorMastery — apply conditional pdef% bonus from passive armor proficiency skills
+        int armMasteryPct = PassiveArmorMasteryHelper.ComputePct(player, _dataManager);
+        if (armMasteryPct > 0)
+            player.PhysicalDefense = (int)(player.PhysicalDefense * (1.0 + armMasteryPct / 100.0));
+
         // Compute derived stats after equipment + title bonuses are fully applied
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)

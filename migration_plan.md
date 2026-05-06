@@ -3011,3 +3011,13 @@
     - Gameplay impact: 2 healcastorontargetdead skill XML entries (Songweaver/Cleric "vengeance" buffs that grant a heal when the bearer dies) now trigger; foundation laid for any future death-driven handlers (loot/quest/abyss-point hooks)
     - Risks resolved: HIGH double-publish on corpse splash (wasAlive guard); HIGH duel false-fire (suppressDeathEvent param); MEDIUM Java attribution (re-read confirmed: heal recipient = effector / buff caster, ownership = victim's effect list)
     - Build: 0 warnings, 0 errors
+
+288. [✓] ArmorMastery passive — conditional pdef% bonus from armor proficiency skills (session 2026-05-05)
+    - Architecture milestone built via analyst → implementer pipeline. Java analog: `ArmorMasteryEffect.java` + `StatArmorMasteryFunction.java`.
+    - **M288a:** `Model/Templates/Skill/SkillTemplate.cs` — `SkillArmorMasteryInfo` record (ArmorType, PdefPct); `ArmorMasteryEffects` getter on `SkillEffects` parses `<armormastery armor="X">` elements, sums `<change stat="PHYSICAL_DEFENSE" func="PERCENT" value="Y"/>` children
+    - **M288b:** `Services/PassiveArmorMasteryHelper.cs` — `ComputePct(Player, IDataManager)`: collects equipped armor types from inventory, iterates PASSIVE skills for ArmorMasteryEffects matching those armor types, returns total percent
+    - **M288c:** `Services/PlayerEnterWorldService.cs` — after passive loop, calls `ComputePct` and multiplies `player.PhysicalDefense` by `(1 + pct/100.0)`; at this point `PhysicalDefense` already holds equipment + title flat contributions
+    - **M288d:** `Network/Aion/ClientPackets/CM_EQUIP_ITEM.cs` and `CM_MANASTONE.cs` — same pattern: after `TitleStatsApplicator.Apply`, recompute mastery pct and apply to `player.PhysicalDefense`
+    - Gameplay impact: 38 PASSIVE armor proficiency skills (CLOTHES/LEATHER/CHAIN/PLATE masteries) now grant their +10% pdef bonus; all classes gain correct physical defense from worn armor type; e.g. Templar in plate gets ~10% pdef boost
+    - Previously: armor proficiency skills were parsed and visible in the skill book, but their PERCENT pdef bonus was never applied — players were underperforming Java server pdef values by ~10%
+    - Build: 0 warnings, 0 errors
