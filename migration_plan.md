@@ -3054,3 +3054,126 @@
     - Stats covered: 92 PHYSICAL_ATTACK PERCENT + 32 MAGICAL_ATTACK PERCENT entries across 124 wpnmastery XML entries (all classes: Warrior/Gladiator/Templar get sword/polearm; Scout/Ranger/Assassin get bow/dagger; Mage/Sorcerer/Spiritmaster get staff/orb; Priest/Cleric/Chanter get mace/staff)
     - Previously: weapon proficiency skills were visible in skill book but PERCENT attack bonuses were never applied; players underperforming by 16-30% physical attack (class-dependent) compared to Java server values
     - Build: 0 warnings, 0 errors
+
+- [x] **M292: Blind debuff** — BlindEffect forces physical auto-attacks to miss with value% probability; 76 occurrences in skills_templates.xml (e.g. `<blind value="80" duration2="25000"/>`)
+    - Java analog: `BlindEffect.java` → `AttackCalcObserver.checkShield()` returning DODGE when `Rnd.get(0,100) <= value`
+    - **M292a:** `Model/AbnormalCcFlags.cs` — added `Blind = 1` (bit 0, unused by existing flags); not part of CantAttack or CantMove composites (blind doesn't prevent action, only causes misses)
+    - **M292b:** `Model/AbnormalState.cs` — added `BlindDodgePct { get; init; }` alongside existing stat-delta properties
+    - **M292c:** `Model/Templates/Skill/SkillTemplate.cs` — added `BlindDodgePct` computed property on `SkillEffects` reading `blind.value` directly; added `"blind" => AbnormalCcFlags.Blind` to `ElementToCcFlag` switch
+    - **M292d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — in the debuff application block: read `BlindDodgePct` and set it on the `debuffEffect` initializer
+    - **M292e:** `Network/Aion/ClientPackets/CM_ATTACK.cs` — after CantAttack guard: if attacker has Blind CcFlag active, roll `Random.Shared.Next(101) <= blindEffect.BlindDodgePct`; on hit, broadcast `SM_ATTACK.HitResult.Dodge` and return (attack consumed, no damage, cooldown not bypassed)
+    - Build: 0 warnings, 0 errors
+
+- [x] **M293: BoostSkillCastingTime buff** — `<boostskillcastingtime>` elements with `<change stat="BOOST_CASTING_TIME" func="PERCENT" value="X"/>` children reduce cast time by X%; 68 occurrences
+    - Java analog: `BoostSkillCastingTimeEffect.java` extends `BufEffect`; PERCENT BOOST_CASTING_TIME change applied to CreatureGameStats
+    - **M293a:** `Model/Templates/Skill/SkillTemplate.cs` — added `BoostCastTimePctDelta` property on `SkillEffects`; reads `boostskillcastingtime PERCENT BOOST_CASTING_TIME value * 10` (converts % to permille for cast time formula base-1000)
+    - **M293b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — in BUFF statup path at `castTimeStatUpDelta`: combined with `BoostCastTimePctDelta`; the sum flows into `CastTimeDeltaVal` on AbnormalState and `CastTimeDelta` on Creature, feeding the existing `(1000 - CastTimeDelta) / 1000f` formula
+    - Previously: boostskillcastingtime buff skills cast their animation and applied the buff icon but cast time was never reduced
+    - Build: 0 warnings, 0 errors
+
+- [x] **M294: HealDeboost debuff** — `<deboostheal>` elements with `<change stat="HEAL_SKILL_DEBOOST" func="PERCENT" value="X"/>` reduce (or boost) received healing by X%; 32 occurrences (mostly -50%/-60% debuffs; 1 +30% buff)
+    - Java analog: `DeboostHealEffect.java` extends `BufEffect`; modifies HEAL_SKILL_DEBOOST CreatureGameStats entry used when calculating incoming heal
+    - **M294a:** `Model/AbnormalState.cs` — added `HealReceivedPctDelta { get; init; }` property
+    - **M294b:** `Model/Creature.cs` — added `HealReceivedPct` accumulator field; AddEffect/ReverseEffectDeltas updated to accumulate/reverse `HealReceivedPctDelta`
+    - **M294c:** `Model/Templates/Skill/SkillTemplate.cs` — added `HealDeboostPct` property on `SkillEffects`; added `"deboostheal"` to `EffectDurNames` so `EffectDuration` picks up duration2 for debuff tracking
+    - **M294d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — debuff block: reads `HealDeboostPct`, sets `HealReceivedPctDelta`; all 3 heal paths (instant healinstant, HoT tick, AoE group heal) now multiply heal by `(100 + healTarget.HealReceivedPct) / 100f` clamped to 0
+    - Previously: HEAL_SKILL_DEBOOST debuffs (Spiritmaster/Chanter counter spells) had no effect — targets received full healing even under the debuff
+    - Build: 0 warnings, 0 errors
+
+- [x] **M295: OpenAerial CC** — `<openaerial>` element sets AbnormalCcFlags.OpenAerial CC (CantAttack + CantMove); 19 occurrences (aerial state / launch into air)
+    - Java analog: `OpenAerialEffect.java` sets AbnormalState.OPENAERIAL and cancels movement
+    - **M295a:** `Model/Templates/Skill/SkillTemplate.cs` — added `"openaerial" => AbnormalCcFlags.OpenAerial` to `ElementToCcFlag` switch; added `"openaerial"` to `EffectDurNames` to pick up `duration2` (typical: 2000ms); `OpenAerial` is already in `CantAttack` and `CantMove` composites
+    - Since `OpenAerial` is in `CantMove`, the existing SM_TARGET_IMMOBILIZE broadcast in the debuff path fires automatically
+    - Build: 0 warnings, 0 errors
+
+- [x] **M296: WeaponDual passive** — `<wpndual value="X"/>` passive skill sets off-hand damage effectiveness %; 11 occurrences (Assassin/Ranger Advanced Dual-Wielding line)
+    - Java analog: `WeaponDualEffect.setDualEffectValue(value)` on Player; used by StatDualWeaponMasteryFunction in AttackUtil off-hand calculation
+    - **M296a:** `Model/Player.cs` — added `DualWieldEffectPct { get; set; }` (0 = not learned; runtime default is 50%)
+    - **M296b:** `Model/Templates/Skill/SkillTemplate.cs` — added `WpnDualEffectPct` computed property on `SkillEffects` reading the first `wpndual` element's `value=` attribute
+    - **M296c:** `Services/PlayerEnterWorldService.cs` — after M291 WeaponMastery block: scans all player passive skills for highest `WpnDualEffectPct` value and assigns to `player.DualWieldEffectPct`
+    - **M296d:** `Network/Aion/ClientPackets/CM_ATTACK.cs` — replaced hardcoded `ohRaw /= 2` with `dualPct = player.DualWieldEffectPct > 0 ? player.DualWieldEffectPct : 50; ohRaw = ohRaw * dualPct / 100`
+    - Previously: off-hand attacks always dealt 50% damage regardless of dual-wield mastery skill level; Assassin/Ranger classes with Advanced Dual-Wielding (70-83%) were underperforming by 40-66% on off-hand hits
+    - Build: 0 warnings, 0 errors
+
+- [x] **M297: DelayDamage** — `<delaydamage delay="N" value="V" delta="D" element="E"/>` fires magical skill damage after delay ms post-cast; 28 occurrences (e.g. Sorcerer Flame Cage, Spiritmaster DoT finale)
+    - Java analog: `DelayedSpellAttackInstantEffect extends DamageEffect` — schedules `calculateAndApplyDamage(effect)` via `ThreadPoolManager.schedule`; uses `AttackUtil.calculateMagicalSkillResult` with `valueWithDelta = value + delta * skillLevel`
+    - XML format: `<delaydamage delay="4000" value="1613" delta="23" e="1" element="FIRE" critprobmod2="0" hoptype="DAMAGE"/>`
+    - **M297a:** `Model/Templates/Skill/SkillTemplate.cs` — added `SkillDelayDamageInfo(DelayMs, BaseValue, Delta, Element)` record; added `DelayDamageEffects` computed property on `SkillEffects` parsing all `delaydamage` elements
+    - **M297b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — after dispel-buff block in single-target damage path: for each `DelayDamageEffects` entry, dispatches `Task.Run` with `Task.Delay(DelayMs)`; inside: dead-check, full magical damage formula (mAtk + ddVal) * mbMult, MBResist defense reduction, `ApplyDamageAndPublishAsync`, `SM_ATTACK_STATUS` broadcast; target/player captured as locals before loop to avoid closure drift
+    - No crit roll on delayed damage (Java also skips crit for DoT-style delay effects in 4.6.0)
+    - Build: 0 warnings, 0 errors
+
+- [x] **M298: SpellAtk DoT formula fix** — `<spellatk checktime="N" value="V" delta="D" duration2="T"/>` periodic magical DoT was using flat `value + delta*level` per tick; corrected to full magical skill formula: `(mAtk + valueWithDelta) * mbMult` with MBResist/MagicDefense reduction; 491 occurrences (Sorcerer/Spiritmaster main DoT chain)
+    - Java analog: `SpellAttackInstantEffect extends DamageEffect` — calls `calculateAndApplyDamage(effect)` on each tick using `AttackUtil.calculateMagicalSkillResult` (includes caster MAtk + MagicBoost × suppression)
+    - Previously: Sorcerer/Spiritmaster `spellatk` ticks dealt flat value damage ignoring caster's magical attack and magic boost stats, severely underperforming for high-MAtk builds
+    - **M298a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — updated all 3 DoT tick sites (AoE primary, AoE splash, single-target): added `if (dot.DotType == "spellatk")` branch that computes `(mAtk + rawDotVal) * mbMult` with MBResist defense reduction; splash site simplifies to `Npc.Template.Stats?.MBResist` directly (splash is always Npc)
+    - `spellatk` was already in `DotNames` HashSet and `DamageEffectNames` is also fine; only the tick damage quantity formula needed correction
+    - Build: 0 warnings, 0 errors
+
+- [x] **M299: SubEffect secondary skill trigger** — nested `<subeffect skill_id="X" chance="Y"/>` inside damage effect elements triggers a secondary CC skill on hit; 787 occurrences (primarily Warrior/Ranger physical combos: Stumble on hit, Aether's Hold on hit)
+    - Java analog: `SubEffect.calculateSubEffect()` — chance roll, load sub-skill template, create new Effect, apply via `startSubEffect()`
+    - Main sub-skills in use: 8218 "Stumble" (CcFlag=Stumble, 3000ms) — physical melee proc; 8224 "Aether's Hold" (CcFlag=OpenAerial, 3000ms) — launch target
+    - **M299a:** `Model/Templates/Skill/SkillTemplate.cs` — added `SkillSubEffectInfo(SkillId, Chance)` record; added `SubEffects` computed property on `SkillEffects` iterating each `Elements` entry's `ChildNodes` for `<subeffect>` elements; `chance` defaults to 100 when absent
+    - **M299b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added M299 sub-effect block in single-target damage path (after SM_ATTACK_STATUS, before SignetBurst) and in AoE primary-target loop (after DoT application): load sub-template, read `CcFlags` + `Duration`, create `AbnormalState`, broadcast `SM_ABNORMAL_EFFECT`
+    - Sub-effects only apply CC flags; stat-delta sub-skills (unusual, <1% of cases) are not applied — acceptable simplification for 4.6.0
+    - Build: 0 warnings, 0 errors
+
+- [x] **M300: Sanctuary — dispel-immune buffs** — `<sanctuary/>` child element inside a buff skill's effects marks the buff as immune to `dispelbuff` removal and healing potions; 71 occurrences (primarily Templar/Cleric divine protection skills)
+    - Java analog: `Effect.isSanctuaryEffect` flag checked in `EffectController.removeSanctuaryEffect` before any dispel/remove operation
+    - **M300a:** `Model/AbnormalState.cs` — added `IsSanctuary { get; init; }` property
+    - **M300b:** `Model/Creature.cs` — `ClearBuffs()`: changed predicate from `!e.IsDebuff` to `!e.IsDebuff && !e.IsSanctuary` to skip sanctuary buffs during dispel
+    - **M300c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — buff application block: added `IsSanctuary = template.Effects?.HasSanctuary == true` to the `AbnormalState` initializer
+    - `HasSanctuary` property already existed in `SkillTemplate` (line 298) — only wire-up needed
+    - Build: 0 warnings, 0 errors
+
+- [x] **M301: Hide (stealth)** — `<hide state="HIDE1/HIDE2" duration2="N"/>` makes the player invisible to NPCs and other players; 78 occurrences (Assassin/Ranger stealth line, some Chanter/Cleric evasion skills)
+    - Java analog: `HideEffect` sets `CreatureVisualState.HIDE`, broadcasts `SM_PLAYER_STATE`; cancelled by attack, damage-skill cast, item use
+    - Stealth types: HIDE1 (combat break on damage received), HIDE2 (bufcount-limited skill use)
+    - **M301a:** `Network/Aion/ServerPackets/SM_PLAYER_STATE.cs` (new) — opcode 0x44; writes objectId (D), visualState (C), seeState (C), blink flag (C); visualState 1 = hidden, 0 = revealed
+    - **M301b:** `Model/Templates/Skill/SkillTemplate.cs` — added `HideDurationMs` property on `SkillEffects` reading `<hide duration2="N"/>` attribute
+    - **M301c:** `Model/Player.cs` — added `IsHidden { get; set; }` flag
+    - **M301d:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — buff path: after AddEffect, if `HasHide`, set `player.IsHidden = true`, broadcast `SM_PLAYER_STATE(…, visualState=1)`; expiry task: if `isHideEffect`, clear `IsHidden`, broadcast `SM_PLAYER_STATE(…, visualState=0)`; single-target damage path: if `player.IsHidden`, reveal before damage
+    - **M301e:** `Network/Aion/ClientPackets/CM_ATTACK.cs` — reveal hidden player before auto-attack proceeds
+    - **M301f:** `Services/NpcAiService.cs` — `ForceEngage` skips hidden players (no aggro while stealthed)
+    - Limitation: HIDE2 `bufcount` limit (max N self-buffs before reveal) not enforced — acceptable for 4.6.0 initial pass; player-side de-spawn (invisible to nearby clients) requires zone-broadcast filter, deferred
+    - Build: 0 warnings, 0 errors
+
+- [x] **M302: ShapeChange/Polymorph/Deform transform** — `<shapechange model="N" duration2="T"/>` (and `<polymorph>`, `<deform>`, `<form>`) changes the player's visual model for the duration; 309+152+77 occurrences (Assassin/Ranger combat forms, quest transformation scrolls, PvE event items)
+    - Java analog: `ShapeChangeEffect extends TransformEffect` — sets `creature.getTransformModel()`, broadcasts `SM_PLAYER_INFO`; reverted on buff expiry
+    - Previously: shapechange skill templates had `duration="0"`, so the buff path condition `template.Duration > 0` never fired
+    - **M302a:** `Model/Templates/Skill/SkillTemplate.cs` — added `ShapeChangeDurationMs` property reading `duration2` from first shapechange/polymorph/deform/form element
+    - **M302b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — expanded buff path condition to `template.Duration > 0 || template.Effects?.ShapeChangeDurationMs > 0`; updated `durationMs` to fall back to `ShapeChangeDurationMs` when `Duration == 0`; added `isTransformEffect` block to set `player.TransformModelId`, broadcast `SM_PLAYER_INFO` to zone; expiry task: clear `TransformModelId`, re-broadcast `SM_PLAYER_INFO`
+    - **M302c:** `Model/Player.cs` — added `TransformModelId { get; set; }` (0 = no transform)
+    - **M302d:** `Network/Aion/ServerPackets/SM_PLAYER_INFO.cs` — changed transform type field from hardcoded 0 to `p.TransformModelId`
+    - Build: 0 warnings, 0 errors
+
+- [x] **M303: SkillLauncher** — `<skilllauncher skill_id="X"/>` fires the referenced sub-skill's effects on the same target; 52 occurrences (e.g. Sorcerer skill 1664 "Magic Implosion I" launches sub-skill 8686 which applies a `spellatk` DoT)
+  - Java analog: `SkillLauncherEffect.applyEffect()` loads the sub-skill template, creates a new Effect, calls `e.applyEffect()`
+  - Implementation:
+    - **M303a:** `Model/Templates/Skill/SkillTemplate.cs` — added `SkillLauncherInfo(int SkillId)` record; added `LauncherEffects` property in `SkillEffects` parsing top-level `<skilllauncher skill_id="X">` elements
+    - **M303b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added launcher dispatch block in single-target path after main DoT application; for each launcher entry, loads sub-skill template, iterates its `DotEffects`, applies spellatk formula or flat DoT, creates `AbnormalState` with sub-skill's SkillId, schedules tick/expiry task using same pattern as native DoTs
+  - Build: 0 warnings, 0 errors
+
+- [x] **M306: MpAttack periodic MP drain** — `<mpattack checktime="N" value="V" delta="D" duration2="T" percent="X"/>` drains MP from the target on each tick; 41 occurrences (NPC boss debuffs: "Steal Frozen Soul", "Mind Smash", "Aether Wave", etc.)
+  - Java analog: `MpAttackEffect.onPeriodicAction()` calls `reduceMp(value)` or `reduceMp(maxMP * value / 100)` on the effected creature per tick
+  - **M306a:** `Model/Templates/Skill/SkillTemplate.cs` — added `SkillMpAttackDotInfo(CheckTimeMs, BaseValue, Delta, Duration2Ms, IsPercent)` record; added `MpAttackDotEffects` computed property on `SkillEffects` parsing `<mpattack>` elements; added `"mpattack"` to `EffectDurNames` so skills with `duration=0, tslot=DEBUFF` correctly get their CC duration from the element's `duration2`
+  - **M306b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `mpattack` periodic drain block in single-target path after M303 launcher block: creates `AbnormalState`, broadcasts `SM_ABNORMAL_EFFECT`; schedules `Task.Run` tick loop draining MP per `CheckTimeMs`; on tick sends `SM_STATS_INFO` to target player connection if target is a player; expiry: `RemoveEffect` + broadcast `SM_ABNORMAL_EFFECT`
+  - Build: 0 warnings, 0 errors
+
+- [x] **M304: CloseAerial + BackDamage**
+  - **CloseAerial** — `<closeaerial>` on hit removes the OpenAerial (aerial launch) effect from the target; 40 occurrences (Warrior aerial combo finishers e.g. "Smashing Blow", "Rupture")
+    - Java analog: `CloseAerialEffect.applyEffect()` calls `removeEffect(8224)` on the effected creature (8224 = "Aether's Hold" OpenAerial skill)
+    - **M304a:** `Model/Templates/Skill/SkillTemplate.cs` — added `HasCloseAerial` property on `SkillEffects`
+    - **M304b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `closeaerial` block in single-target damage path after `ApplyDamageAndPublishAsync`: calls `target.RemoveEffectBySkillId(8224)`, broadcasts `SM_ABNORMAL_EFFECT`
+  - **BackDamage** — `<backdamage value="V" delta="D"/>` modifier inside a `<skillatk>` block adds bonus physical damage when the caster is behind the target; 40 occurrences (Assassin/Gladiator back-attack skills)
+    - Java analog: `BackDamageModifier.analyze()` returns `value + delta * skillLevel` when `PositionUtil.isBehindTarget()` is true; MAX_ANGLE_DIFF = 90°
+    - `backdamage` was already parsed into `DamageModifiers` (Kind="backdamage", Match="") — only dispatch logic was missing
+    - **M304c:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `IsBehindTarget(Position, Position)` static helper using Java PositionUtil logic (atan2 angle vs target heading×3°, ±90° window); added `else if (mod.Kind == "backdamage" && IsBehindTarget(...))` branch in `DamageModifiers` loop
+  - Build: 0 warnings, 0 errors
+
+- [x] **M305: EffectDuration CC coverage** — 388 skills with CC effects (`stun`, `root`, `bind`, `sleep`, `silence`, `paralyze`, `fear`, `stagger`, `stumble`, `spin`) had CC duration silently reported as 0 because the CC element names were missing from `EffectDurNames`; these are attack skills with `tslot=DEBUFF, duration=0` where duration must come from the effect element's `duration2` attribute
+  - Root cause: `EffectDuration` computed property on `SkillEffects` only scanned elements in `EffectDurNames` (slow/snare/statdown/statup/blind/confuse); CC element names were absent from the set
+  - Java analog: Java effect templates each have a `duration` field directly on the `EffectTemplate`; `EffectDuration` was our consolidating property to read the highest `duration2` found in any matching element
+  - **M305a:** `Model/Templates/Skill/SkillTemplate.cs` — added all CC element names to `EffectDurNames`: `stun`, `stunalways`, `buffstun`, `sleep`, `root`, `silence`, `buffsilence`, `paralyze`, `fear`, `stagger`, `staggeralways`, `stumble`, `stumblealways`, `spin`, `bind`, `buffbind`
+  - Skills now correctly reporting CC duration: Shield Counter I-V (stun 2000ms), Tendon Slice I-II (root 8000ms), Force Cleave I-II (stun 3000ms), Strike Head I-IV (stun 3000ms), Lockdown series (bind 3000ms), all root/silence/sleep debuff skills with duration=0 at template level; 388 total
+  - Build: 0 warnings, 0 errors

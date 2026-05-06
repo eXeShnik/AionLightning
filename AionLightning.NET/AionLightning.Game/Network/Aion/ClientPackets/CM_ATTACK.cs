@@ -73,6 +73,33 @@ public sealed class CM_ATTACK : AionClientPacket
         // Java Creature.canAttack(): block if CANT_ATTACK_STATE (stun/sleep/paralyze/etc.) is active
         if ((player.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;
 
+        // M292: blind — forced DODGE when blinded (Java AttackCalcObserver: Rnd.get(0,100) <= value → DODGE)
+        if ((player.ActiveCcFlags & AbnormalCcFlags.Blind) != 0)
+        {
+            var blindEffect = player.GetActiveEffects().FirstOrDefault(e =>
+                (e.CcFlags & AbnormalCcFlags.Blind) != 0 && !e.IsExpired);
+            if (blindEffect is not null && Random.Shared.Next(101) <= blindEffect.BlindDodgePct)
+            {
+                // Resolve target for the dodge packet (silently skip if no longer present)
+                Creature? blindTarget = _world.GetPlayerByObjectId(_targetObjectId)
+                                     ?? (Creature?)_world.GetNpcByObjectId(_targetObjectId);
+                if (blindTarget is not null)
+                    await BroadcastAsync(new SM_ATTACK(player, blindTarget, attackno: 0, time: (short)_time, type: 0, 0, SM_ATTACK.HitResult.Dodge), ct);
+                return;
+            }
+        }
+
+        // M301: reveal player when auto-attacking while hidden
+        if (player.IsHidden)
+        {
+            player.IsHidden = false;
+            var revealPkt = new SM_PLAYER_STATE(player.ObjectId, visualState: 0);
+            int revWorld = player.Position.WorldId;
+            foreach (var c in _connRegistry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == revWorld)
+                    try { await c.SendAsync(revealPkt, ct); } catch { }
+        }
+
         // Enforce auto-attack cooldown (weapon attack speed; default 1500ms)
         var now = DateTime.UtcNow;
         int effectiveAtkSpd = Math.Max(500, player.CurrentAttackSpeed + player.AtkSpeedDebuffDelta + player.AtkSpeedStatUpDelta);
@@ -222,7 +249,9 @@ public sealed class CM_ATTACK : AionClientPacket
         if (player.OffHandMinDmg > 0)
         {
             int ohRaw = Random.Shared.Next(player.OffHandMinDmg, Math.Max(player.OffHandMinDmg + 1, player.OffHandMaxDmg + 1)) + baseAtk;
-            ohRaw /= 2; // dual-wield penalty (no WeaponDualEffect passive)
+            // M296: wpndual passive sets DualWieldEffectPct; default 50% penalty when not learned
+            int dualPct = player.DualWieldEffectPct > 0 ? player.DualWieldEffectPct : 50;
+            ohRaw = ohRaw * dualPct / 100;
             if (isCrit)
             {
                 int ohSF = target is Player pvpOhSF ? pvpOhSF.BonusStrikeFortitude + pvpOhSF.StrikeFortitudeDelta : 0;

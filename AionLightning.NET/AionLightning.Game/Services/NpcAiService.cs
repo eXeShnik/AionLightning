@@ -1191,6 +1191,7 @@ public sealed class NpcAiService : BackgroundService
     public void ForceEngage(Npc npc, Player player)
     {
         if (npc.IsAlreadyDead) return;
+        if (player.IsHidden) return; // M301: hidden players do not trigger NPC aggro
         npc.LastCombatTime = DateTime.UtcNow; // refresh on every hit so idle timeout resets
         npc.AddHate(player.ObjectId, 1); // M279: baseline hate per ForceEngage call (from damage hits)
         if (_npcTargets.TryAdd(npc.ObjectId, player.ObjectId))

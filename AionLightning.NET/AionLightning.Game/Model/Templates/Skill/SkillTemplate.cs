@@ -182,6 +182,14 @@ public readonly record struct SkillMagicCounterAtkInfo(
     int MaxDmg      // maxdmg attribute — cap on self-damage per cast
 );
 
+/// <summary>M297: delayed magical damage descriptor parsed from &lt;delaydamage&gt; (Java DelayedSpellAttackInstantEffect).</summary>
+public readonly record struct SkillDelayDamageInfo(
+    int    DelayMs,    // delay= attribute in milliseconds
+    int    BaseValue,  // value= — base damage at level 1
+    int    Delta,      // delta= — per-level scaling
+    string Element     // element= — e.g. "FIRE", "WIND", etc.
+);
+
 /// <summary>"Damage reflector" descriptor parsed from &lt;reflector&gt; (Java ReflectorEffect).
 /// When the buffed creature is hit, attacker takes HitValue + HitDelta * SkillLevel damage back if within Radius.</summary>
 public readonly record struct SkillReflectorInfo(
@@ -268,6 +276,26 @@ public readonly record struct SkillDamageModifier(
     int    Delta   // per-level scaling
 );
 
+/// <summary>Nested &lt;subeffect skill_id="X" chance="Y"/&gt; element inside a damage effect — triggers a secondary skill CC on hit.</summary>
+public readonly record struct SkillSubEffectInfo(
+    int SkillId,  // skill template ID to apply on hit
+    int Chance    // 0-100; default 100 when absent in XML
+);
+
+/// <summary>M303: top-level &lt;skilllauncher skill_id="X"/&gt; — fires the referenced sub-skill's effects on the same target (Java SkillLauncherEffect).</summary>
+public readonly record struct SkillLauncherInfo(
+    int SkillId  // sub-skill template ID whose effects are applied to the target
+);
+
+/// <summary>M306: periodic MP drain descriptor parsed from &lt;mpattack checktime="N" value="V" delta="D" duration2="T" percent="true/false"/&gt; (Java MpAttackEffect).</summary>
+public readonly record struct SkillMpAttackDotInfo(
+    int  CheckTimeMs,   // tick interval in ms
+    int  BaseValue,     // MP drain per tick at level 1 (flat or % of MaxMp when IsPercent)
+    int  Delta,         // per-level scaling
+    int  Duration2Ms,   // total effect duration in ms
+    bool IsPercent      // true = drain BaseValue% of target MaxMp per tick
+);
+
 /// <summary>Captures CC and DoT effect elements from the &lt;effects&gt; block of a skill_template.</summary>
 public sealed class SkillEffects
 {
@@ -302,8 +330,38 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M302: duration in ms of the shape-change effect (from the first shapechange/polymorph/deform/form element's duration2 attribute).</summary>
+    public int ShapeChangeDurationMs
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("shapechange" or "polymorph" or "deform" or "form")) continue;
+                if (int.TryParse(e.GetAttribute("duration2"), out int d) && d > 0) return d;
+            }
+            return 0;
+        }
+    }
+
     /// <summary>M275: stealth/hide effect present. Behavior needs per-creature visibility filter on packet broadcasts.</summary>
     public bool HasHide         => Elements?.Any(e => e.LocalName == "hide")         == true;
+
+    /// <summary>M301: duration of the hide/stealth effect in ms (from the &lt;hide duration2="N"/&gt; element).</summary>
+    public int HideDurationMs
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "hide") continue;
+                if (int.TryParse(e.GetAttribute("duration2"), out int d) && d > 0) return d;
+            }
+            return 0;
+        }
+    }
 
     /// <summary>M275: AbsoluteStatBuff present. Behavior needs external AbsoluteStatsData.xml loader keyed by statsetid.</summary>
     public bool HasAbsStatBuff  => Elements?.Any(e => e.LocalName is "absstatbuff" or "absstatdebuff") == true;
@@ -314,6 +372,9 @@ public sealed class SkillEffects
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
     /// <summary>M285: provoker buff — buffed NPC auto-targets last attacker (Java ProvokerEffect ATTACK observer).</summary>
     public bool HasProvoker     => Elements?.Any(e => e.LocalName == "provoker")     == true;
+
+    /// <summary>M304: closeaerial — removes the OpenAerial (aerial launch) effect from the target on hit (Java CloseAerialEffect removes skill 8224).</summary>
+    public bool HasCloseAerial  => Elements?.Any(e => e.LocalName == "closeaerial")  == true;
 
     /// <summary>M286a: aura buff present (Java AuraEffect) — caster-anchored periodic AoE on group/self in range.</summary>
     public bool HasAura         => Elements?.Any(e => e.LocalName == "aura")         == true;
@@ -634,6 +695,44 @@ public sealed class SkillEffects
                 }
             }
             return 0;
+        }
+    }
+
+    /// <summary>M292: miss chance % from the first blind element's value= attribute (e.g. 80 → 80% miss).</summary>
+    public int BlindDodgePct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "blind") continue;
+                if (int.TryParse(e.GetAttribute("value"), out int pct)) return pct;
+            }
+            return 0;
+        }
+    }
+
+    /// <summary>M294: HEAL_SKILL_DEBOOST percent from deboostheal child change (negative = less healing received).</summary>
+    public int HealDeboostPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "deboostheal") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "HEAL_SKILL_DEBOOST", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
         }
     }
 
@@ -1192,6 +1291,44 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M296: off-hand damage effectiveness % from the first wpndual element's value= attribute (e.g. 70 → 70%).</summary>
+    public int WpnDualEffectPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "wpndual") continue;
+                if (int.TryParse(e.GetAttribute("value"), out int pct)) return pct;
+            }
+            return 0;
+        }
+    }
+
+    /// <summary>M293: PERCENT BOOST_CASTING_TIME from boostskillcastingtime elements, converted to permille (value*10) for the cast-time formula.</summary>
+    public int BoostCastTimePctDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "boostskillcastingtime") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_CASTING_TIME", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v * 10;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>Sum of all ADD CONCENTRATION changes from statdown effects (negative = reduced concentration).</summary>
     public int ConcentrationAddDelta
     {
@@ -1735,7 +1872,14 @@ public sealed class SkillEffects
     private static readonly HashSet<string> ShieldEffectNames = ["shield"];
     private static readonly HashSet<string> ProtectEffectNames = ["protect"];
     // Elements that carry debuff durations via their duration2 attribute
-    private static readonly HashSet<string> EffectDurNames    = ["slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow"];
+    // M305: CC element names added so EffectDuration returns non-zero for attack skills with tslot=DEBUFF + CC (388 skills affected)
+    private static readonly HashSet<string> EffectDurNames    = [
+        "slow", "snare", "absolutesnare", "statdown", "statup", "blind", "confuse", "absoluteslow", "deboostheal", "openaerial",
+        "stun", "stunalways", "buffstun", "sleep", "root", "silence", "buffsilence",
+        "paralyze", "fear", "stagger", "staggeralways", "stumble", "stumblealways", "spin",
+        "bind", "buffbind",
+        "mpattack"
+    ];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
     {
@@ -2026,6 +2170,86 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M297: delayed magical damage descriptors from &lt;delaydamage&gt; elements.</summary>
+    public IReadOnlyList<SkillDelayDamageInfo> DelayDamageEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillDelayDamageInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "delaydamage") continue;
+                if (!int.TryParse(e.GetAttribute("delay"), out int delayMs) || delayMs <= 0) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                string element = e.GetAttribute("element") ?? string.Empty;
+                list.Add(new(delayMs, val, dlt, element));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M299: nested &lt;subeffect skill_id="X" chance="Y"/&gt; elements inside any damage effect; triggers secondary CC on hit.</summary>
+    public IReadOnlyList<SkillSubEffectInfo> SubEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillSubEffectInfo>();
+            foreach (var e in Elements)
+            {
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce || ce.LocalName != "subeffect") continue;
+                    if (!int.TryParse(ce.GetAttribute("skill_id"), out int skillId) || skillId <= 0) continue;
+                    int.TryParse(ce.GetAttribute("chance"), out int chance);
+                    if (chance <= 0) chance = 100;
+                    list.Add(new(skillId, chance));
+                }
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M303: top-level &lt;skilllauncher skill_id="X"/&gt; elements — each fires the sub-skill's effects on the same target.</summary>
+    public IReadOnlyList<SkillLauncherInfo> LauncherEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillLauncherInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "skilllauncher") continue;
+                if (!int.TryParse(e.GetAttribute("skill_id"), out int skillId) || skillId <= 0) continue;
+                list.Add(new(skillId));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M306: parsed &lt;mpattack checktime="N" value="V" delta="D" duration2="T" percent="X"/&gt; elements — periodic MP drain.</summary>
+    public IReadOnlyList<SkillMpAttackDotInfo> MpAttackDotEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillMpAttackDotInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "mpattack") continue;
+                if (!int.TryParse(e.GetAttribute("checktime"), out int check) || check <= 0) continue;
+                if (!int.TryParse(e.GetAttribute("duration2"), out int dur)   || dur   <= 0) continue;
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(check, val, dlt, dur, pct));
+            }
+            return list;
+        }
+    }
+
     /// <summary>True when any effect element is a &lt;resurrect&gt; (Java ResurrectEffect).</summary>
     public bool HasResurrectEffect
     {
@@ -2066,6 +2290,8 @@ public sealed class SkillEffects
         "stagger" or "staggeralways"                  => AbnormalCcFlags.Stagger,
         "stumble" or "stumblealways"                  => AbnormalCcFlags.Stumble,
         "spin"                                        => AbnormalCcFlags.Spin,
+        "blind"                                       => AbnormalCcFlags.Blind,
+        "openaerial"                                  => AbnormalCcFlags.OpenAerial,
         _                                             => AbnormalCcFlags.None
     };
 }

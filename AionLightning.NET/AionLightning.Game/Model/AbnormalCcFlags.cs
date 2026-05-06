@@ -10,6 +10,7 @@ namespace AionLightning.Game.Model;
 public enum AbnormalCcFlags : long
 {
     None       = 0,
+    Blind      = 1,
     Paralyze   = 4,
     Sleep      = 8,
     Root       = 16,

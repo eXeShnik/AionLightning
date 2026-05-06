@@ -84,6 +84,8 @@ public abstract class Creature : VisibleObject
     public int MResistStatUpDelta   { get; set; }
     // Cumulative ATTACK_SPEED statup delta (negative = faster attacks; subtracts from ms)
     public int AtkSpeedStatUpDelta  { get; set; }
+    // Cumulative HEAL_SKILL_DEBOOST delta (negative = receive less healing, positive = receive more; percent)
+    public int HealReceivedPct      { get; set; }
 
     // Active buff/debuff effects — thread-safe via _effectsLock
     private readonly object              _effectsLock   = new();
@@ -175,8 +177,8 @@ public abstract class Creature : VisibleObject
         lock (_effectsLock)
         {
             for (int i = _activeEffects.Count - 1; i >= 0; i--)
-                if (!_activeEffects[i].IsDebuff) ReverseEffectDeltas(_activeEffects[i]);
-            _activeEffects.RemoveAll(e => !e.IsDebuff);
+                if (!_activeEffects[i].IsDebuff && !_activeEffects[i].IsSanctuary) ReverseEffectDeltas(_activeEffects[i]);
+            _activeEffects.RemoveAll(e => !e.IsDebuff && !e.IsSanctuary);
             ActiveCcFlags = RebuildCcFlags();
         }
     }
@@ -222,6 +224,7 @@ public abstract class Creature : VisibleObject
         if ((v = e.EvasionStatUpDeltaVal)   != 0) EvasionStatUpDelta    += v;
         if ((v = e.MResistStatUpDeltaVal)   != 0) MResistStatUpDelta    += v;
         if ((v = e.AtkSpeedStatUpDeltaVal)  != 0) AtkSpeedStatUpDelta   += v;
+        if ((v = e.HealReceivedPctDelta)    != 0) HealReceivedPct       += v;
     }
 
     internal void ReverseEffectDeltas(AbnormalState e)
@@ -257,6 +260,7 @@ public abstract class Creature : VisibleObject
         if ((v = e.EvasionStatUpDeltaVal)   != 0) EvasionStatUpDelta    -= v;
         if ((v = e.MResistStatUpDeltaVal)   != 0) MResistStatUpDelta    -= v;
         if ((v = e.AtkSpeedStatUpDeltaVal)  != 0) AtkSpeedStatUpDelta   -= v;
+        if ((v = e.HealReceivedPctDelta)    != 0) HealReceivedPct       -= v;
         if (e.MovSpeedPct    != 0) MovementSpeed      = e.PreDebuffSpeed;
         if (e.AttackSpeedPct != 0) CurrentAttackSpeed = e.PreDebuffAtkSpeed;
         if (e.SpeedStatUpPct != 0) MovementSpeed      = e.PreBuffMovSpeed;

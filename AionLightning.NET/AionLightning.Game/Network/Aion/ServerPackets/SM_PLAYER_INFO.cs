@@ -41,10 +41,11 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
 
         w.WriteD(templateId);   // model template
         w.WriteD(0);            // robotId (4.5)
-        w.WriteD(templateId);   // actual model (no transform)
+        w.WriteD(templateId);   // base model
 
         w.WriteC(0x00);         // pet info
-        w.WriteD(0);            // transform type
+        // M302: write active transform model (0 = no transform; shapechange/polymorph/deform sets TransformModelId)
+        w.WriteD(p.TransformModelId);
         w.WriteC(_enemy ? (byte)0x00 : (byte)0x26); // visible flags
 
         w.WriteC((byte)raceId);

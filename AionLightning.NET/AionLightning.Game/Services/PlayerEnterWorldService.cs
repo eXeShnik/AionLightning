@@ -304,6 +304,11 @@ public sealed class PlayerEnterWorldService
         if (wpnMagPct > 0)
             player.MainHandMagicalAtk = (int)(player.MainHandMagicalAtk * (1.0 + wpnMagPct / 100.0));
 
+        // M296: WeaponDual — off-hand effectiveness % from the highest-value wpndual passive skill
+        player.DualWieldEffectPct = player.Skills.AllSkills
+            .Select(s => _dataManager.Skills.GetTemplate(s.SkillId)?.Effects?.WpnDualEffectPct ?? 0)
+            .DefaultIfEmpty(0).Max();
+
         // Compute derived stats after equipment + title bonuses are fully applied
         player.CurrentAttackSpeed = player.BonusAttackSpeedPct > 0
             ? player.BaseAttackSpeed * 1000 / (1000 + player.BonusAttackSpeedPct)

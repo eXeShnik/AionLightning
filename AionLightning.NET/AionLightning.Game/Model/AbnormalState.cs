@@ -92,6 +92,14 @@ public sealed class AbnormalState
     // "NONE" (default) means no stack. Signets use "SYSTEM_SKILL_SIGNET1".
     public string StackName { get; init; } = "NONE";
 
+    // Non-zero when this debuff blinds the target: each physical attack misses with this % chance.
+    public int BlindDodgePct { get; init; }
+    // Non-zero when this effect changes HEAL_SKILL_DEBOOST (negative = receive less healing, positive = receive more).
+    public int HealReceivedPctDelta { get; init; }
+
+    // True when the skill has a <sanctuary> element — this buff cannot be removed by dispel or healing potions.
+    public bool IsSanctuary { get; init; }
+
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);
 }

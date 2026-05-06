@@ -113,6 +113,8 @@ public sealed class Player : Creature
     public int    OffHandMaxDmg    { get; set; }
     public int    OffHandHitCount  { get; set; } = 1;
     public string OffHandWeaponType { get; set; } = string.Empty;
+    // M296: off-hand effectiveness % from wpndual passive skill (0 = skill not learned; 50 = default penalty applied)
+    public int DualWieldEffectPct  { get; set; }
 
     // M270: chain-skill state — set when last successful cast carried a chain category
     public string LastChainCategory { get; set; } = string.Empty;
@@ -223,6 +225,12 @@ public sealed class Player : Creature
     // Recoverable XP lost from death (soul sickness) — visible on XP bar as the "grey" portion.
     // Cleared as the player earns XP back. Capped at 25% of expNeeded-for-next-level.
     public long ExpRecoverable { get; set; }
+
+    // M301: hide/stealth state — set when a hide skill buff is active; cleared on attack/damage skill
+    public bool IsHidden { get; set; }
+
+    // M302: active transform model ID (0 = no transform); set by shapechange/polymorph/deform buffs
+    public int TransformModelId { get; set; }
 
     // Item use cooldowns: delayId → expiry UTC time (mirrors Java addItemCoolDown / isItemUseDisabled)
     public Dictionary<int, DateTime> ItemCooldowns { get; } = new();
