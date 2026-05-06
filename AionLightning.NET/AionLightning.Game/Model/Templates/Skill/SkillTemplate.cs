@@ -2048,6 +2048,29 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M348: PERCENT BOOST_CASTING_TIME from statup/statboost elements, in permille (value*10). Positive = faster casting (Boon of Quickness, Sage's Wisdom, Summoning Alacrity…).</summary>
+    public int CastTimeStatUpPctDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName is not ("statup" or "statboost")) continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_CASTING_TIME", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "PERCENT",            StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v * 10;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>M296: off-hand damage effectiveness % from the first wpndual element's value= attribute (e.g. 70 → 70%).</summary>
     public int WpnDualEffectPct
     {

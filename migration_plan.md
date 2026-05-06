@@ -3270,6 +3270,11 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M348: BOOST_CASTING_TIME PERCENT buffs from statup/statboost elements (147 entries) — Boon of Quickness, Sage's Wisdom, Summoning Alacrity, Word of Quickness, and similar cast-speed buffs now correctly reduce skill cast times** — `BOOST_CASTING_TIME PERCENT` values inside `statup`/`statboost` elements were silently discarded; now captured as permille (value×10) and merged into `CastTimeDelta` via the BUFF path; negative values (e.g. "Shackle of Vulnerability" −50%) slow cast time; Java analog: `ReverseStat.calculatePercent(delta) = (100−delta)/100`
+  - **M348a:** `Model/Templates/Skill/SkillTemplate.cs` — added `CastTimeStatUpPctDelta` computed property on `SkillEffects`: scans `statup`/`statboost` for `PERCENT BOOST_CASTING_TIME` changes, returns sum(v×10) in permille
+  - **M348b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: added `CastTimeStatUpPctDelta` to `castTimeStatUpDelta` accumulator (alongside existing `CastTimeStatUpDelta` ADD and `BoostCastTimePctDelta` from boostskillcastingtime)
+  - Build: 0 warnings, 0 errors
+
 - [x] **M347: NPC AoE splash magic resist, elemental resistance, and crit checks** — NPC caster-centered AoE splash hits now apply the same checks as the primary target (M346/M342/M345): magical splashes can be resisted by players with high magic resist; elemental resistance reduces elemental splash damage; crit multiplier applies based on NPC power stat
   - Java analog: Java AoE effects call `calculate()` per-target which applies resist/crit through the same `EffectTemplate.calculate()` pipeline used for single targets — our AoE splash now mirrors this per-target logic
   - **M347a:** `Services/NpcAiService.cs` — NPC AoE splash loop: added magic resist check block before damage calc (player-only, skipped for `npcNoResist`, `continue` on resist with 0-damage broadcast); added elemental resist reduction after noreducespellatk; added crit block reusing `npcSkillCritRate` computed for the primary target

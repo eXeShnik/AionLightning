@@ -590,7 +590,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int strikeFortitudeStatUpDelta   = template.Effects?.StrikeFortitudeStatUpDelta   ?? 0;
                 int spellFortitudeStatUpDelta    = template.Effects?.SpellFortitudeStatUpDelta    ?? 0;
                 int castTimeStatUpDelta          = (template.Effects?.CastTimeStatUpDelta          ?? 0)
-                                               + (template.Effects?.BoostCastTimePctDelta        ?? 0);
+                                               + (template.Effects?.BoostCastTimePctDelta        ?? 0)
+                                               + (template.Effects?.CastTimeStatUpPctDelta       ?? 0); // M348
                 int concentrationStatUpDelta     = template.Effects?.ConcentrationStatUpDelta     ?? 0;
                 int magicSuppressionStatUpDelta  = template.Effects?.MagicSuppressionStatUpDelta  ?? 0;
                 int pdefStatUpDelta              = template.Effects?.PdefStatUpDelta              ?? 0;
