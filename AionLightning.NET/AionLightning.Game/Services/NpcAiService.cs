@@ -558,6 +558,21 @@ public sealed class NpcAiService : BackgroundService
             int noReduceVal = npcNoReduce[0].BaseValue + npcNoReduce[0].Delta * (skillLevel - 1);
             spellDmg = npcNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
         }
+        // M342: elemental resistance — reduce NPC magical damage if target has resist for this element
+        if (!isPhysical && npcNoReduce is not { Count: > 0 })
+        {
+            string npcElem = dmgFx is { Count: > 0 } ? dmgFx[0].Element : "";
+            int npcElemResist = npcElem switch
+            {
+                "FIRE"  => target.FireResist,
+                "WATER" => target.WaterResist,
+                "WIND"  => target.WindResist,
+                "EARTH" => target.EarthResist,
+                _       => 0,
+            };
+            if (npcElemResist > 0)
+                spellDmg = Math.Max(1, (int)(spellDmg * (1f - npcElemResist / 1250f)));
+        }
         var npcSkillKind = isPhysical ? DamageKind.PhysicalSkill : DamageKind.MagicalSkill;
         await target.ApplyDamageAndPublishAsync(npc, spellDmg, npcSkillKind, skillId, _eventBus, ct);
 

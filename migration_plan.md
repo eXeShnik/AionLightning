@@ -3270,6 +3270,11 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M342: elemental resistance applied to NPC magical skill damage (2714 elemental skill entries)** — Player Fire/Water/Wind/Earth resist buffs and gear stats now reduce damage from NPC magical skills (spellatkinstant, spellatk, spellatkdraininstant) with a matching element; same 1250-scale formula as M339's player-cast path; skipped for noreducespellatk bypass
+  - Java analog: `calculateMagicalSkillDamage` in `StatFunctions` checks elemental resistance regardless of whether the caster is a player or NPC; our CastNpcDamageAsync now mirrors the same guard `!isPhysical && npcNoReduce not active`
+  - **M342a:** `Services/NpcAiService.cs` — `CastNpcDamageAsync`: after npcNoReduce block, added inline element-switch resist check (same logic as `GetElementalResist` in CM_CASTSPELL; inlined to avoid cross-file dependency)
+  - Build: 0 warnings, 0 errors
+
 - [x] **M341: BUFF-path statdown self-nerfs — 97 BUFF skills with statdown elements now correctly penalize the caster** — Warrior "Ferocity/Berserking" PDEF penalty, Ranger "Focused Shots" PDEF cut, Templar/Gladiator shield-stance PATK reduction, Assassin "Shadow Rage" EVASION/MRESIST cut, and others now apply their self-nerf stat reductions to the caster's own stats alongside the buff bonus
   - Java analog: `StatDownEffect` inside a BUFF skill is applied to the `effector` (caster), not the `effected` (target). The same `StatDownEffect.applyEffect` is used regardless; Java's effect hierarchy handles both cases through the EffectController pipeline
   - Note: Summer/Winter Circle elemental resist self-nerfs (Fire/Water/Wind/Earth -30 to -90) were already handled by M339's `ScanStatupAddValue` which includes `statdown` elements — those 69 entries needed no additional work
