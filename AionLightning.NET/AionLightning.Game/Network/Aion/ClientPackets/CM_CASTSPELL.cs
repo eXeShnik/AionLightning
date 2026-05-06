@@ -672,6 +672,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
                 // M335: FLY_TIME PERCENT buff — increases player MaxFp by a percentage
                 int flyTimePctDelta       = template.Effects?.FlyTimeStatUpPct      ?? 0;
+                // M354: FLY_TIME ADD buff — increases player MaxFp by a flat amount (GM buffs, consumable scrolls)
+                int flyTimeAddDelta       = template.Effects?.FlyTimeAddDelta       ?? 0;
                 // M351: FLY_SPEED PERCENT buff from statup/statboost (e.g. Flyover Reconnaisance +33%, Charge +60%)
                 int flySpeedStatUpPct     = template.Effects?.FlySpeedStatUpPct     ?? 0;
                 // M336: XP rate buffs — solo and group hunting XP boost
@@ -764,6 +766,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     CcResistAllDeltaVal      = ccResistAllDelta,
                     BoostHatePctDeltaVal     = boostHateDelta,
                     FlyTimePctDeltaVal       = flyTimePctDelta,
+                    FlyTimeAddDeltaVal       = flyTimeAddDelta,
                     FlySpeedStatUpPct        = flySpeedStatUpPct,
                     PreBuffFlySpeedPct       = buffTarget is Player flySpeedBuff ? flySpeedBuff.BonusFlySpeedPct : 0,
                     HealSkillBoostPct        = healSkillBoostPct,

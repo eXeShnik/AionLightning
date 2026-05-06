@@ -117,6 +117,8 @@ public sealed class Player : Creature
     public int BoostHatePct { get; set; }
     // Accumulated FLY_TIME PERCENT from active buffs (e.g. 400 = +400%); EffectiveMaxFp applies this to MaxFp. Reversed on buff expiry.
     public int BonusFlyTimePct { get; set; }
+    // Accumulated FLY_TIME ADD flat bonus from active buffs (M354; e.g. +15 from scroll, +120 from GM buff). Reversed on buff expiry.
+    public int BonusFlyTimeFlat { get; set; }
     // Accumulated HEAL_SKILL_BOOST PERCENT from onetimeboostheal active buffs (e.g. 100 = +100% healing output). Reversed on buff expiry.
     public int BonusHealSkillBoostPct { get; set; }
     // Accumulated BOOST_HUNTING_XP_RATE ADD from active buffs (e.g. 30 = +30% solo kill XP). Reversed on buff expiry.
@@ -124,7 +126,7 @@ public sealed class Player : Creature
     // Accumulated BOOST_GROUP_HUNTING_XP_RATE ADD from active buffs (e.g. 30 = +30% group kill XP). Reversed on buff expiry.
     public int BonusGroupHuntingXpPct { get; set; }
     // Effective MaxFp after applying active FLY_TIME PERCENT buffs. Base MaxFp stays unchanged for restoration on expiry.
-    public int EffectiveMaxFp => BonusFlyTimePct != 0 ? MaxFp * (100 + BonusFlyTimePct) / 100 : MaxFp;
+    public int EffectiveMaxFp => (BonusFlyTimePct != 0 ? MaxFp * (100 + BonusFlyTimePct) / 100 : MaxFp) + BonusFlyTimeFlat;
 
     // Equipped main-hand weapon damage range; both 0 when no weapon is equipped or a magical weapon
     public int    MainHandMinDmg    { get; set; }

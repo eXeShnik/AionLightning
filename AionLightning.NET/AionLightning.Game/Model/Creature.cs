@@ -275,6 +275,12 @@ public abstract class Creature : VisibleObject
             int fpCap = Math.Max(1, flyTimeApply.EffectiveMaxFp);
             if (flyTimeApply.CurrentFp > fpCap) flyTimeApply.CurrentFp = fpCap;
         }
+        if (e.FlyTimeAddDeltaVal    != 0 && this is Player flyTimeAddApply)
+        {
+            flyTimeAddApply.BonusFlyTimeFlat += e.FlyTimeAddDeltaVal;
+            int fpCapAdd = Math.Max(1, flyTimeAddApply.EffectiveMaxFp);
+            if (flyTimeAddApply.CurrentFp > fpCapAdd) flyTimeAddApply.CurrentFp = fpCapAdd;
+        }
         if (e.HealSkillBoostPct      != 0 && this is Player healBoostApply) healBoostApply.BonusHealSkillBoostPct += e.HealSkillBoostPct;
         if (e.HuntingXpBoostPct      != 0 && this is Player xpApply)        xpApply.BonusHuntingXpPct            += e.HuntingXpBoostPct;
         if (e.GroupHuntingXpBoostPct != 0 && this is Player grpXpApply)     grpXpApply.BonusGroupHuntingXpPct    += e.GroupHuntingXpBoostPct;
@@ -346,6 +352,12 @@ public abstract class Creature : VisibleObject
             flyTimeRev.BonusFlyTimePct -= e.FlyTimePctDeltaVal;
             int fpCap = Math.Max(1, flyTimeRev.EffectiveMaxFp);
             if (flyTimeRev.CurrentFp > fpCap) flyTimeRev.CurrentFp = fpCap;
+        }
+        if (e.FlyTimeAddDeltaVal    != 0 && this is Player flyTimeAddRev)
+        {
+            flyTimeAddRev.BonusFlyTimeFlat -= e.FlyTimeAddDeltaVal;
+            int fpCapAddRev = Math.Max(1, flyTimeAddRev.EffectiveMaxFp);
+            if (flyTimeAddRev.CurrentFp > fpCapAddRev) flyTimeAddRev.CurrentFp = fpCapAddRev;
         }
         if (e.HealSkillBoostPct      != 0 && this is Player healBoostRev) healBoostRev.BonusHealSkillBoostPct -= e.HealSkillBoostPct;
         if (e.HuntingXpBoostPct      != 0 && this is Player xpRev)        xpRev.BonusHuntingXpPct            -= e.HuntingXpBoostPct;

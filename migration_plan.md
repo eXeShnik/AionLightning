@@ -3270,6 +3270,14 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M354: FLY_TIME ADD buff — 201 entries now correctly increase MaxFp (flight stamina) for buff duration** — `FLY_TIME ADD` inside `statup`/`statboost` (GM's Armor +120, GM's Tempest +60, GM Wings! +120, consumable scrolls +15, Lustrous Feather Effect, etc.) were silently discarded; `EffectiveMaxFp` formula only applied the PERCENT case; now `BonusFlyTimeFlat` accumulates the flat bonus and `EffectiveMaxFp = (MaxFp * (100+Pct)/100) + Flat`, with CurrentFp clamped on apply and reverse; Creature.cs handles apply/reverse matching the PERCENT path
+  - **M354a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FlyTimeAddDelta` property: sums `FLY_TIME ADD` from statup/statboost
+  - **M354b:** `Model/AbnormalState.cs` — added `FlyTimeAddDeltaVal` field
+  - **M354c:** `Model/Player.cs` — added `BonusFlyTimeFlat` field; updated `EffectiveMaxFp` to `= (pct-formula) + BonusFlyTimeFlat`
+  - **M354d:** `Model/Creature.cs` — `ApplyEffectDeltas`/`ReverseEffectDeltas` apply/reverse flat MaxFp bonus with CurrentFp clamping
+  - **M354e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path reads `FlyTimeAddDelta`, stores `FlyTimeAddDeltaVal` in AbnormalState
+  - Build: 0 warnings, 0 errors
+
 - [x] **M353: elemental resist ADD debuffs — 271 entries now reduce target's fire/water/wind/earth resistance** — `statdown FIRE/WATER/WIND/EARTH_RESISTANCE ADD` (Agonizing Slash I-V −50 each, Agony's Shackles, Elementar's/Sorcerer's Weakening Blow, etc.) were silently discarded because the DEBUFF path AbnormalState initializer didn't include elemental resist fields; `ScanStatupAddValue` already scans `statdown` elements so `FireResistDelta` etc. correctly return negative values; the fix is purely wiring them into the debuff AbnormalState; `Creature.ApplyEffectDeltas` and `ReverseEffectDeltas` already handle these fields from the M339 BUFF work
   - **M353a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: read `FireResistDelta/WaterResistDelta/WindResistDelta/EarthResistDelta` from template; add to debuff AbnormalState initializer; add to expiry `statChanged` check
   - Build: 0 warnings, 0 errors

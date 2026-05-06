@@ -131,6 +131,8 @@ public sealed class AbnormalState
     public int BoostHatePctDeltaVal { get; init; }
     // Non-zero when this buff increases MaxFp by percent (FLY_TIME PERCENT; e.g. 400 = +400% base MaxFp → effective MaxFp = base * 5).
     public int FlyTimePctDeltaVal { get; init; }
+    // Non-zero when this buff increases MaxFp by a flat amount (M354: FLY_TIME ADD; e.g. GM's Armor +120, consumable scrolls +15).
+    public int FlyTimeAddDeltaVal { get; init; }
     // Non-zero when this buff increases HEAL_SKILL_BOOST by percent (onetimeboostheal; e.g. 100 = +100% healing output).
     public int HealSkillBoostPct { get; init; }
     // Non-zero when this buff increases solo-kill XP gain (BOOST_HUNTING_XP_RATE ADD; e.g. 30 = +30% solo XP per kill).

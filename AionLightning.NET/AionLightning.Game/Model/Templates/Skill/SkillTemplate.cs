@@ -3586,6 +3586,29 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M354: ADD FLY_TIME from statup/statboost elements (flat MaxFp increase; e.g. GM's Armor +120, consumable scrolls +15).</summary>
+    public int FlyTimeAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "statup" && e.LocalName != "statboost") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "FLY_TIME", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>M338: sum of ADD changes for a specific resistance stat from statup/statboost/statdown elements (0–1000 Java scale).</summary>
     private int ScanStatupAddValue(string statName)
     {
