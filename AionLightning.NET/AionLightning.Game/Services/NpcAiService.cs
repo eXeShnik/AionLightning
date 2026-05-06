@@ -736,6 +736,24 @@ public sealed class NpcAiService : BackgroundService
                 if (Math.Abs(dz) > aoeAlt) continue;
 
                 splashCount++;
+                // M347: magic resist check for NPC AoE splash (mirrors M346 primary target)
+                if (!isPhysical && !npcNoResist && other is Player splashResistTarget)
+                {
+                    int npcMagAccSpl  = (int)(npc.Level * (33.6f - 0.16f * npc.Level) + 5f);
+                    int splMR         = splashResistTarget.BonusMagicResist + splashResistTarget.MResistDebuffDelta + splashResistTarget.MResistStatUpDelta;
+                    int splResistRate = Math.Max(1, splMR - npcMagAccSpl);
+                    int splLvlDiff    = splashResistTarget.Level - npc.Level - 2;
+                    if (splLvlDiff > 0) splResistRate += splLvlDiff * 100;
+                    if (Random.Shared.Next(1000) < splResistRate)
+                    {
+                        var splResistPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        foreach (var c in _connRegistry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == worldId)
+                                try { await c.SendAsync(splResistPkt, ct); } catch { }
+                        continue;
+                    }
+                }
+
                 int splashRaw  = Math.Max(1, skillBase + Random.Shared.Next(0, Math.Max(1, skillBase / 10)));
                 int splashDef  = isPhysical
                     ? Math.Max(0, other.PhysicalDefense + other.PdefDebuffDelta + other.PdefStatUpDelta)
@@ -746,6 +764,37 @@ public sealed class NpcAiService : BackgroundService
                 {
                     int splNoReduceVal = npcNoReduce[0].BaseValue + npcNoReduce[0].Delta * (skillLevel - 1);
                     splashDmg = npcNoReduce[0].IsPercent ? Math.Max(1, other.MaxHp * splNoReduceVal / 100) : Math.Max(1, splNoReduceVal);
+                }
+                // M347: elemental resistance for NPC AoE splash
+                if (!isPhysical && npcNoReduce is not { Count: > 0 })
+                {
+                    string splElem = dmgFx is { Count: > 0 } ? dmgFx[0].Element : "";
+                    int splElemResist = splElem switch
+                    {
+                        "FIRE"  => other.FireResist,
+                        "WATER" => other.WaterResist,
+                        "WIND"  => other.WindResist,
+                        "EARTH" => other.EarthResist,
+                        _       => 0,
+                    };
+                    if (splElemResist > 0)
+                        splashDmg = Math.Max(1, (int)(splashDmg * (1f - splElemResist / 1250f)));
+                }
+                // M347: crit check for NPC AoE splash (same power-stat formula as M346 primary path)
+                if (Random.Shared.Next(100) < (int)npcSkillCritRate)
+                {
+                    if (isPhysical)
+                    {
+                        int sFortSpl = other is Player pSpl ? pSpl.BonusStrikeFortitude + pSpl.StrikeFortitudeDelta : 0;
+                        float physCritCoeffSpl = Math.Max(1.0f, 2.0f - (float)Math.Round(sFortSpl / 1000.0));
+                        splashDmg = (int)(splashDmg * physCritCoeffSpl);
+                    }
+                    else
+                    {
+                        int spFortSpl = other is Player pSpFort ? pSpFort.BonusSpellFortitude + pSpFort.SpellFortitudeDelta : 0;
+                        float magCritCoeffSpl = Math.Max(1.0f, 1.5f - (float)Math.Round(spFortSpl / 1000.0));
+                        splashDmg = (int)(splashDmg * magCritCoeffSpl);
+                    }
                 }
                 await other.ApplyDamageAndPublishAsync(npc, splashDmg, DamageKind.Splash, skillId, _eventBus, ct);
 

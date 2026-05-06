@@ -3270,6 +3270,11 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M347: NPC AoE splash magic resist, elemental resistance, and crit checks** — NPC caster-centered AoE splash hits now apply the same checks as the primary target (M346/M342/M345): magical splashes can be resisted by players with high magic resist; elemental resistance reduces elemental splash damage; crit multiplier applies based on NPC power stat
+  - Java analog: Java AoE effects call `calculate()` per-target which applies resist/crit through the same `EffectTemplate.calculate()` pipeline used for single targets — our AoE splash now mirrors this per-target logic
+  - **M347a:** `Services/NpcAiService.cs` — NPC AoE splash loop: added magic resist check block before damage calc (player-only, skipped for `npcNoResist`, `continue` on resist with 0-damage broadcast); added elemental resist reduction after noreducespellatk; added crit block reusing `npcSkillCritRate` computed for the primary target
+  - Build: 0 warnings, 0 errors
+
 - [x] **M346: NPC skill magic resist check + crit for NPC skill casts** — NPC magical skills can now be resisted by players with high magic resist; both magical (1.5×) and physical (2.0×) NPC skill crits now apply, respecting target's SpellFortitude and StrikeFortitude
   - Java analog: `EffectTemplate.calculate()` calls `StatFunctions.calculateMagicalResistRate(npc, player, accMod)` for magical skill effects; `AttackUtil.calculateMagicalCritical/calculateWeaponCritical` applies the crit coefficient
   - Magic resist formula: `resistRate = max(1, player.MResist - npcMagicAcc)` where npcMagicAcc = level*(33.6-0.16*level)+5 (level-scaled, no NPC magic_accuracy in templates); skipped if noresist="true" on damage effect
