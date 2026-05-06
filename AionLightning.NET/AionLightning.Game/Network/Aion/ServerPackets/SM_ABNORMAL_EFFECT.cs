@@ -34,10 +34,11 @@ public sealed class SM_ABNORMAL_EFFECT : AionServerPacket
     public override void Write(ref PacketWriter w)
     {
         byte effectType = _isPlayer ? (byte)2 : (byte)1;
+        int abnormals = _effects.Aggregate(0, (acc, e) => acc | (int)e.CcFlags);
         w.WriteD(_effectedId);
         w.WriteC(effectType);
         w.WriteD(0);      // time
-        w.WriteD(0);      // abnormals mask
+        w.WriteD(abnormals);
         w.WriteD(0);      // unk
         w.WriteC(0x7F);   // slots (127 = max)
         w.WriteH(_effects.Count);

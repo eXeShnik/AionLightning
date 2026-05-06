@@ -3270,6 +3270,12 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M357: SM_ABNORMAL_EFFECT protocol bitmask — CC state now visible on client nameplates/status bars** — `SM_ABNORMAL_EFFECT.abnormals` DWORD was hardcoded to `0` so the client never showed CC icons (stun, sleep, root, snare, slow, bind, nofly, blind, etc.) on target nameplates; `AbnormalCcFlags` had three errors (`Blind=1` should be 32, `Curse=131072` should be 1024, `SNARE` missing) and four missing flags (`Snare=131072`, `Slow=262144`, `Bind=1048576`, `NoFly=8388608`); `ElementToCcFlag` was missing "snare"/"absolutesnare", "slow"/"absoluteslow", "nofly" mappings and had "bind"/"buffbind" → Root instead of Bind; now `SM_ABNORMAL_EFFECT.Write` ORs each active effect's `CcFlags` into an int and writes it; `CantMove` compound flag now includes Bind (bind prevents movement); 361+120+52+104 = 637 skills now contribute correct CC bits
+  - **M357a:** `Model/AbnormalCcFlags.cs` — fix `Blind=1→32`, `Curse=131072→1024`; add `Snare=131072`, `Slow=262144`, `Bind=1048576`, `NoFly=8388608`; add `Bind` to `CantMove` compound
+  - **M357b:** `Model/Templates/Skill/SkillTemplate.cs` `ElementToCcFlag` — fix "bind"/"buffbind" → Bind; add "snare"/"absolutesnare" → Snare; add "slow"/"absoluteslow" → Slow; add "nofly" → NoFly
+  - **M357c:** `Network/Aion/ServerPackets/SM_ABNORMAL_EFFECT.cs` — compute `int abnormals = _effects.Aggregate(0, (acc, e) => acc | (int)e.CcFlags)` and write it instead of `WriteD(0)`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M356: CC resistance ADD debuffs — 12 entries now correctly reduce target's CC resistance via statdown** — `SLEEP_RESISTANCE ADD` (Kinetic Battery I −300), `ROOT_RESISTANCE ADD` (Mobility Thrusters I −200), and similar per-CC-type resistance reductions from `statdown` were silently discarded; `ScanStatupAddValue` already scanned `statdown` so the properties return negative values, but the DEBUFF path never set them in AbnormalState; now all 9 CC resistance types (stun/stumble/stagger/spin/sleep/fear/openaerial/root/snare) are wired into the DEBUFF initializer; `Creature.ApplyEffectDeltas`/`ReverseEffectDeltas` already handle these from M338
   - **M356a:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — DEBUFF path: read all 9 CC resist deltas from template; add to debuff AbnormalState initializer; add to expiry `statChanged` check
   - Build: 0 warnings, 0 errors

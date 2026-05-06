@@ -3681,7 +3681,10 @@ public sealed class SkillEffects
         "sleep"                                       => AbnormalCcFlags.Sleep,
         "root"                                        => AbnormalCcFlags.Root,
         "silence" or "buffsilence"                    => AbnormalCcFlags.Silence,
-        "bind" or "buffbind"                          => AbnormalCcFlags.Root,   // BIND = movement lock only; still allows attacking (Java BindEffect extends RootEffect)
+        "bind" or "buffbind"                          => AbnormalCcFlags.Bind,
+        "snare" or "absolutesnare"                    => AbnormalCcFlags.Snare,
+        "slow" or "absoluteslow"                      => AbnormalCcFlags.Slow,
+        "nofly"                                       => AbnormalCcFlags.NoFly,
         "paralyze"                                    => AbnormalCcFlags.Paralyze,
         "fear"                                        => AbnormalCcFlags.Fear,
         "stagger" or "staggeralways"                  => AbnormalCcFlags.Stagger,
