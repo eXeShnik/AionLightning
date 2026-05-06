@@ -3270,6 +3270,16 @@
   - Percent case (e.g. Contract of Focus I: count=1, value=70, percent=true): adds +70% directly to crit rate for next 1 cast
   - Build: 0 warnings, 0 errors
 
+- [x] **M336: XP rate buffs — `xpboost` BOOST_HUNTING_XP_RATE + BOOST_GROUP_HUNTING_XP_RATE (22 + 22 = 30 skill entries)** — Solo and group NPC kill XP now scaled by active buff multipliers; crafting/gathering/tapping XP rate stats deferred (systems not yet implemented)
+  - Java analog: `XpBoostEffect extends BufEffect`; on NPC kill Java calls `XPCalculation.getXP` which reads `StatEnum.BOOST_HUNTING_XP_RATE` from `PlayerGameStats.getStat`; our `ExperienceService.AddGroupExpAsync` now applies the same multiplier at the XP calculation point
+  - **M336a:** `Model/Templates/Skill/SkillTemplate.cs` — added `HuntingXpBoostPct` and `GroupHuntingXpBoostPct` to `SkillEffects` (each scans `xpboost` elements for the matching `stat` name, `func="ADD"`)
+  - **M336b:** `Model/AbnormalState.cs` — added `HuntingXpBoostPct` and `GroupHuntingXpBoostPct` fields
+  - **M336c:** `Model/Player.cs` — added `BonusHuntingXpPct` and `BonusGroupHuntingXpPct` mutable properties
+  - **M336d:** `Model/Creature.cs` — `ApplyEffectDeltas`/`ReverseEffectDeltas` accumulate both fields via `this is Player` cast
+  - **M336e:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — BUFF path: reads both pct fields, stores in `AbnormalState`
+  - **M336f:** `Services/ExperienceService.cs` — solo path: `xp * (100 + killer.BonusHuntingXpPct) / 100`; group path: per-member `memberXp * (100 + member.BonusGroupHuntingXpPct) / 100`
+  - Build: 0 warnings, 0 errors
+
 - [x] **M335: FLY_TIME PERCENT buff (3 entries)** — Active buffs (e.g. "Lustrous Feather Effect" skill 1871 +400%, group buff skill 18145 +200%, test scroll skill 9865 delta-scaled) now increase effective MaxFp by the given percentage; FP heal, drain, regen and UI packets all use `EffectiveMaxFp`; base `MaxFp` unchanged for clean restoration on expiry
   - Java analog: `PlayerGameStats.getFlyTime() → getStat(StatEnum.FLY_TIME, BASE_FLYTIME)` accumulates all PERCENT modifiers onto the base fly-time value
   - **M335a:** `Model/Templates/Skill/SkillTemplate.cs` — added `FlyTimeStatUpPct` to `SkillEffects` (scans `statup`/`statboost` for `stat="FLY_TIME" func="PERCENT"`; respects `value + delta*(level-1)`)

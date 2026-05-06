@@ -113,6 +113,10 @@ public sealed class Player : Creature
     public int BoostHatePct { get; set; }
     // Accumulated FLY_TIME PERCENT from active buffs (e.g. 400 = +400%); EffectiveMaxFp applies this to MaxFp. Reversed on buff expiry.
     public int BonusFlyTimePct { get; set; }
+    // Accumulated BOOST_HUNTING_XP_RATE ADD from active buffs (e.g. 30 = +30% solo kill XP). Reversed on buff expiry.
+    public int BonusHuntingXpPct { get; set; }
+    // Accumulated BOOST_GROUP_HUNTING_XP_RATE ADD from active buffs (e.g. 30 = +30% group kill XP). Reversed on buff expiry.
+    public int BonusGroupHuntingXpPct { get; set; }
     // Effective MaxFp after applying active FLY_TIME PERCENT buffs. Base MaxFp stays unchanged for restoration on expiry.
     public int EffectiveMaxFp => BonusFlyTimePct != 0 ? MaxFp * (100 + BonusFlyTimePct) / 100 : MaxFp;
 

@@ -242,6 +242,8 @@ public abstract class Creature : VisibleObject
             int fpCap = Math.Max(1, flyTimeApply.EffectiveMaxFp);
             if (flyTimeApply.CurrentFp > fpCap) flyTimeApply.CurrentFp = fpCap;
         }
+        if (e.HuntingXpBoostPct      != 0 && this is Player xpApply)      xpApply.BonusHuntingXpPct      += e.HuntingXpBoostPct;
+        if (e.GroupHuntingXpBoostPct != 0 && this is Player grpXpApply)   grpXpApply.BonusGroupHuntingXpPct += e.GroupHuntingXpBoostPct;
     }
 
     internal void ReverseEffectDeltas(AbnormalState e)
@@ -294,6 +296,8 @@ public abstract class Creature : VisibleObject
             int fpCap = Math.Max(1, flyTimeRev.EffectiveMaxFp);
             if (flyTimeRev.CurrentFp > fpCap) flyTimeRev.CurrentFp = fpCap;
         }
+        if (e.HuntingXpBoostPct      != 0 && this is Player xpRev)      xpRev.BonusHuntingXpPct      -= e.HuntingXpBoostPct;
+        if (e.GroupHuntingXpBoostPct != 0 && this is Player grpXpRev)   grpXpRev.BonusGroupHuntingXpPct -= e.GroupHuntingXpBoostPct;
     }
 
     /// <summary>M334: consume one onetimecrit charge; returns (flatBoost, pctBoost) or (0, 0) when no active buff.</summary>

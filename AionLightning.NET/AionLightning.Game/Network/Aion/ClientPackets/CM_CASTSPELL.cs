@@ -654,7 +654,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int ccResistAllDelta = template.Effects?.CcResistAllAddDelta ?? 0;
                 int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
                 // M335: FLY_TIME PERCENT buff — increases player MaxFp by a percentage
-                int flyTimePctDelta  = template.Effects?.FlyTimeStatUpPct   ?? 0;
+                int flyTimePctDelta       = template.Effects?.FlyTimeStatUpPct      ?? 0;
+                // M336: XP rate buffs — solo and group hunting XP boost
+                int huntingXpBoostPct     = template.Effects?.HuntingXpBoostPct     ?? 0;
+                int groupHuntingXpBoostPct = template.Effects?.GroupHuntingXpBoostPct ?? 0;
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
@@ -698,6 +701,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     CcResistAllDeltaVal      = ccResistAllDelta,
                     BoostHatePctDeltaVal     = boostHateDelta,
                     FlyTimePctDeltaVal       = flyTimePctDelta,
+                    HuntingXpBoostPct        = huntingXpBoostPct,
+                    GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
                     // M334: one-time crit/atk boost charges
                     OnetimeCritCountRemaining = template.Effects?.OnetimeCritCount ?? 0,
                     OnetimeCritBoostFlat      = template.Effects?.OnetimeCritIsPercent == true ? 0 : (template.Effects?.OnetimeCritValue ?? 0),

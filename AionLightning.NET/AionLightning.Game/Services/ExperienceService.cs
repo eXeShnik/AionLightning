@@ -46,6 +46,8 @@ public sealed class ExperienceService
         {
             int pct  = XpRewardPercent(npcLevel - killer.Level);
             long xp  = (long)(xpBase * pct / 100L * _rates.XpRate);
+            if (killer.BonusHuntingXpPct != 0)
+                xp = xp * (100 + killer.BonusHuntingXpPct) / 100;
             var conn = _connRegistry.Get(killer.ObjectId);
             if (conn is not null && xp > 0)
                 await AddExpAsync(killer, xp, conn, ct);
@@ -76,6 +78,8 @@ public sealed class ExperienceService
             if (highestLevel - member.Level >= 10) continue; // too low — no reward
             long memberXp = (long)(xpPool * bonus * member.Level / (partyLvlSum * 100L) * _rates.XpRate);
             if (memberXp <= 0) continue;
+            if (member.BonusGroupHuntingXpPct != 0)
+                memberXp = memberXp * (100 + member.BonusGroupHuntingXpPct) / 100;
             var memberConn = _connRegistry.Get(member.ObjectId);
             if (memberConn is not null)
                 await AddExpAsync(member, memberXp, memberConn, ct);

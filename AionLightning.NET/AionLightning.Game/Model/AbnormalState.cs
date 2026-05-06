@@ -122,6 +122,10 @@ public sealed class AbnormalState
     public int BoostHatePctDeltaVal { get; init; }
     // Non-zero when this buff increases MaxFp by percent (FLY_TIME PERCENT; e.g. 400 = +400% base MaxFp → effective MaxFp = base * 5).
     public int FlyTimePctDeltaVal { get; init; }
+    // Non-zero when this buff increases solo-kill XP gain (BOOST_HUNTING_XP_RATE ADD; e.g. 30 = +30% solo XP per kill).
+    public int HuntingXpBoostPct { get; init; }
+    // Non-zero when this buff increases group-kill XP gain (BOOST_GROUP_HUNTING_XP_RATE ADD; e.g. 30 = +30% group XP per kill).
+    public int GroupHuntingXpBoostPct { get; init; }
 
     // M334: one-time crit boost — charges consumed when casting a skill; 0 when not a onetimeboostskillcritical buff.
     public int  OnetimeCritCountRemaining { get; set; }

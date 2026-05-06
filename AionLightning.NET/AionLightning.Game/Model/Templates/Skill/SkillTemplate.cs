@@ -3349,6 +3349,50 @@ public sealed class SkillEffects
         }
     }
 
+    /// <summary>M336: BOOST_HUNTING_XP_RATE ADD from xpboost elements (positive = % more XP from solo NPC kills, e.g. 30 = +30%).</summary>
+    public int HuntingXpBoostPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "xpboost") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_HUNTING_XP_RATE", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M336: BOOST_GROUP_HUNTING_XP_RATE ADD from xpboost elements (positive = % more XP from group NPC kills, e.g. 30 = +30%).</summary>
+    public int GroupHuntingXpBoostPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "xpboost") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_GROUP_HUNTING_XP_RATE", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
     /// <summary>M335: PERCENT FLY_TIME change from statup/statboost elements (positive = % more max FP, e.g. 400 = +400% base MaxFp).</summary>
     public int FlyTimeStatUpPct
     {
