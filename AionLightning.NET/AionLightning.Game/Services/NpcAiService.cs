@@ -522,6 +522,8 @@ public sealed class NpcAiService : BackgroundService
                     skillTemplate.Effects?.MagicSuppressionAddDelta  ?? 0,
                     skillTemplate.Effects?.PdefStatUpDelta           ?? 0,
                     skillTemplate.Effects?.MagicDefAddDelta          ?? 0,
+                    skillTemplate.DispelCategory,    // M380
+                    skillTemplate.ReqDispelLevel,    // M380
                     now, worldId, ct);
                 break;
             default:
@@ -993,6 +995,8 @@ public sealed class NpcAiService : BackgroundService
         int magicSuppressionDelta,
         int pdefStatUpDelta,
         int magicDefDelta,
+        string dispelCategory,    // M380
+        int    reqDispelLevel,    // M380
         DateTime now, int worldId, CancellationToken ct)
     {
         if (durationMs <= 0) return;
@@ -1013,7 +1017,8 @@ public sealed class NpcAiService : BackgroundService
             StrikeFortitudeDeltaVal = strikeFortitudeDelta, SpellFortitudeDeltaVal = spellFortitudeDelta,
             CastTimeDeltaVal = castTimeDelta,
             ConcentrationDeltaVal = concentrationDelta, MagicSuppressionDeltaVal = magicSuppressionDelta,
-            PdefStatUpDeltaVal = pdefStatUpDelta, MagicDefDeltaVal = magicDefDelta };
+            PdefStatUpDeltaVal = pdefStatUpDelta, MagicDefDeltaVal = magicDefDelta,
+            DispelCategory = dispelCategory, ReqDispelLevel = reqDispelLevel };
         target.AddEffect(effect);
 
         // Snare: reduce movement speed; Slow: increase attack speed (higher = slower attacks)

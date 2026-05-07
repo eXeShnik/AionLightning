@@ -151,6 +151,31 @@ public sealed class CM_CASTSPELL : AionClientPacket
             }
         }
 
+        // M371: <actions><mpuse> — MP cast cost (mirrors Java MpUseAction.act); 2615 skills have this element
+        if (template is not null)
+        {
+            var (mpVal, mpDelta, mpRatio) = template.MpUseCost;
+            if (mpVal > 0)
+            {
+                int mpCost = mpVal + mpDelta * (_level - 1);
+                if (mpRatio) mpCost = (int)(mpCost / 100f * player.MaxMp);
+                // M378: boostskillcost — mirrors Java MpUseAction: mpCost -= mpCost / (100 / boostPct)
+                // e.g. boostPct=100 → free; boostPct=50 → half cost; boostPct=-10 → +10% more expensive
+                if (player.BonusSkillCostBoostPct != 0 && player.BonusSkillCostBoostPct != 100)
+                    mpCost = Math.Max(0, mpCost - mpCost / (100 / player.BonusSkillCostBoostPct));
+                else if (player.BonusSkillCostBoostPct == 100)
+                    mpCost = 0;
+                if (player.CurrentMp < mpCost)
+                {
+                    await _conn.SendAsync(SM_SYSTEM_MESSAGE.NotEnoughMp(), ct);
+                    return;
+                }
+                player.CurrentMp -= mpCost;
+                var mpStatsPkt = new SM_STATS_INFO(player, _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level));
+                await _conn.SendAsync(mpStatsPkt, ct);
+            }
+        }
+
         // Server-side cooldown enforcement keyed by CooldownId group (mirrors Java isSkillDisabled)
         if (template is not null && template.Cooldown > 0)
         {
@@ -418,6 +443,38 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
+                // M365: switchhpmp — Reverse Condition / Exchange Vitality: swap current HP and MP
+                if (template?.Effects?.HasSwitchHpMp == true)
+                {
+                    int oldHp = healTarget.CurrentHp;
+                    int oldMp = healTarget.CurrentMp;
+                    healTarget.CurrentHp = Math.Min(healTarget.MaxHp, oldMp);
+                    healTarget.CurrentMp = Math.Min(healTarget.MaxMp, oldHp);
+                    int swWorldId = healTarget.Position.WorldId;
+                    int hpDelta = healTarget.CurrentHp - oldHp;
+                    int mpDelta = healTarget.CurrentMp - oldMp;
+                    if (hpDelta != 0)
+                    {
+                        var hpPkt = new SM_ATTACK_STATUS(healTarget,
+                            hpDelta > 0 ? SM_ATTACK_STATUS.AttackType.NaturalHp : SM_ATTACK_STATUS.AttackType.UsedHp,
+                            _spellId, Math.Abs(hpDelta),
+                            hpDelta > 0 ? SM_ATTACK_STATUS.LogId.Heal : SM_ATTACK_STATUS.LogId.Regular);
+                        foreach (var c in _connRegistry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == swWorldId)
+                                try { await c.SendAsync(hpPkt, ct); } catch { }
+                    }
+                    if (mpDelta != 0)
+                    {
+                        var mpPkt = new SM_ATTACK_STATUS(healTarget,
+                            mpDelta > 0 ? SM_ATTACK_STATUS.AttackType.NaturalMp : SM_ATTACK_STATUS.AttackType.Mp,
+                            _spellId, Math.Abs(mpDelta),
+                            mpDelta > 0 ? SM_ATTACK_STATUS.LogId.MpHeal : SM_ATTACK_STATUS.LogId.Regular);
+                        foreach (var c in _connRegistry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == swWorldId)
+                                try { await c.SendAsync(mpPkt, ct); } catch { }
+                    }
+                }
+
                 // Update group HP display for healed player
                 if (healTarget is Player healedPlayer)
                 {
@@ -543,7 +600,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                      || template.Effects?.ShapeChangeDurationMs > 0
                      || template.Effects?.AlwaysBlockDurationMs > 0
                      || template.Effects?.AlwaysDodgeDurationMs > 0
-                     || template.Effects?.AlwaysParryDurationMs > 0))
+                     || template.Effects?.AlwaysParryDurationMs > 0
+                     || template.Effects?.AlwaysResistDurationMs > 0
+                     // M377: onetimeboost effects have their own duration2; must be listed here (not in EffectDurNames)
+                     || template.Effects?.OnetimeCritDurationMs      > 0
+                     || template.Effects?.OnetimeAtkDurationMs       > 0
+                     || template.Effects?.OnetimeBoostHealDurationMs > 0
+                     // M373: TOGGLE activation = permanent stance/mode skills (no duration2; expiry = DateTime.MaxValue)
+                     || string.Equals(template.Activation, "TOGGLE", StringComparison.OrdinalIgnoreCase)))
         {
             // Determine buff target: self when targetObjectId is 0 or caster's own id
             Creature? buffTarget = (_targetObjectId == 0 || _targetObjectId == player.ObjectId)
@@ -552,29 +616,50 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
             if (buffTarget is not null && !buffTarget.IsAlreadyDead)
             {
-                // Dispel debuff: remove all active debuff states from the target and re-broadcast
-                // Java DispelDebuffEffect.applyEffect — removes effects by DispelCategory; simplified to IsDebuff flag
+                // Dispel debuff: remove debuff states from the target and re-broadcast.
+                // M372: do NOT return early here — 46 skills combine dispeldebuff with other duration-contributing
+                // effects (shield, statup, etc.). After clearing debuffs, fall through to apply the buff state.
+                // Pure-cleanse skills (duration=0, EffectDuration=0) never reach this block (gate at line ~590).
+                // M380: dispeldebuffphysical/mental only remove debuffs of the matching category (uses DispelCategory
+                // stored on AbnormalState from the debuff skill's dispel_category attribute).
                 if (template.Effects?.HasDispelDebuff == true)
                 {
-                    buffTarget.ClearDebuffs();
-                    bool isPlayerTarget = buffTarget is Player;
+                    if (template.Effects.HasDispelDebuffPhysical)
+                    {
+                        var (pVal, pDelta, pLevel) = template.Effects.DispelDebuffPhysicalInfo;
+                        int pCount = Math.Max(1, pVal + pDelta * _level);
+                        buffTarget.ClearDebuffsByCategory("DEBUFF_PHYSICAL", pCount, pLevel);
+                    }
+                    else if (template.Effects.HasDispelDebuffMental)
+                    {
+                        var (mVal, mDelta, mLevel) = template.Effects.DispelDebuffMentalInfo;
+                        int mCount = Math.Max(1, mVal + mDelta * _level);
+                        buffTarget.ClearDebuffsByCategory("DEBUFF_MENTAL", mCount, mLevel);
+                    }
+                    else
+                    {
+                        // dispeldebuff / dispelnpcdebuff / dispel — all-category cleanse (existing behavior)
+                        buffTarget.ClearDebuffs();
+                    }
+                    bool isDispelPlayerTarget = buffTarget is Player;
                     int dispelWorldId = player.Position.WorldId;
-                    var cleansed = new SM_ABNORMAL_EFFECT(buffTarget.ObjectId, isPlayerTarget,
+                    var cleansed = new SM_ABNORMAL_EFFECT(buffTarget.ObjectId, isDispelPlayerTarget,
                                        buffTarget.GetActiveEffects());
                     foreach (var c in _connRegistry.GetAll())
                         if (c.ActivePlayer?.Position.WorldId == dispelWorldId)
                             try { await c.SendAsync(cleansed, ct); } catch { }
-                    await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
-                    return; // dispel completes here, no buff state added
                 }
 
-                int durationMs       = template.Duration > 0 ? template.Duration
+                // M377: onetimeboost effects own duration2 takes precedence over template.Duration
+                // (template.Duration can be the cast channel time, e.g. Focused Shots I = 500ms, not the 60s buff duration)
+                int durationMs       = template.Effects?.OnetimeCritDurationMs      > 0 ? template.Effects.OnetimeCritDurationMs
+                                     : template.Effects?.OnetimeAtkDurationMs       > 0 ? template.Effects.OnetimeAtkDurationMs
+                                     : template.Effects?.OnetimeBoostHealDurationMs > 0 ? template.Effects.OnetimeBoostHealDurationMs
+                                     : template.Duration > 0 ? template.Duration
                                      : template.Effects?.ShapeChangeDurationMs > 0 ? (template.Effects.ShapeChangeDurationMs)
                                      : template.Effects?.AlwaysBlockDurationMs  > 0 ? (template.Effects.AlwaysBlockDurationMs)
                                      : template.Effects?.AlwaysDodgeDurationMs  > 0 ? (template.Effects.AlwaysDodgeDurationMs)
-                                     : template.Effects?.OnetimeCritDurationMs      > 0 ? (template.Effects.OnetimeCritDurationMs)
-                                     : template.Effects?.OnetimeAtkDurationMs      > 0 ? (template.Effects.OnetimeAtkDurationMs)
-                                     : template.Effects?.OnetimeBoostHealDurationMs > 0 ? (template.Effects.OnetimeBoostHealDurationMs)
+                                     : template.Effects?.AlwaysResistDurationMs    > 0 ? template.Effects.AlwaysResistDurationMs
                                      : template.Effects?.AlwaysParryDurationMs      > 0 ? template.Effects.AlwaysParryDurationMs
                                      : (template.Effects?.EffectDuration ?? 0);
                 int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
@@ -666,9 +751,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // M352: REGEN_HP/MP ADD buffs — flat HP/MP added per regen tick (Boost HP I-III, Breath of Nature I-III, etc.)
                 int regenHpAddDelta  = template.Effects?.RegenHpAddDelta  ?? 0;
                 int regenMpAddDelta  = template.Effects?.RegenMpAddDelta  ?? 0;
-                // M332: DR_BOOST and AP_BOOST ADD buffs — drop-rate and AP-gain boosts
-                int drBoostDelta = template.Effects?.DRBoostAddDelta ?? 0;
-                int apBoostDelta = template.Effects?.APBoostAddDelta ?? 0;
+                // M332/M364: DR_BOOST, AP_BOOST, and BOOST_DROP_RATE ADD buffs
+                int drBoostDelta       = template.Effects?.DRBoostAddDelta       ?? 0;
+                int apBoostDelta       = template.Effects?.APBoostAddDelta       ?? 0;
+                int boostDropRateDelta = template.Effects?.BoostDropRateAddDelta ?? 0;
                 // M333: ABNORMAL_RESISTANCE_ALL ADD buff and BOOST_HATE PERCENT buff
                 int ccResistAllDelta = template.Effects?.CcResistAllAddDelta ?? 0;
                 int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
@@ -683,6 +769,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
                 // M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT timed buff (e.g. Blessed Shield +100%)
                 int healSkillBoostPct       = template.Effects?.OnetimeBoostHealPct     ?? 0;
+                // M378: boostskillcost — skill MP cost modifier (e.g. Grace of Empyrean Lord: 100 = free)
+                int boostSkillCostPct       = template.Effects?.BoostSkillCostPct       ?? 0;
                 // M340: PvP attack/defend ratio ADD buffs (Java ADD; /1000f applied in damage path)
                 int pvpAtkRatioDelta = template.Effects?.PvpAtkRatioDelta ?? 0;
                 int pvpDefRatioDelta = template.Effects?.PvpDefRatioDelta ?? 0;
@@ -723,12 +811,34 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 int atkSpdSelfNerfPct = template.Effects?.StatdownAtkSpeedPct ?? 0;
                 if (atkSpdSelfNerfPct != 0)
                     atkSpeedStatUpDelta += buffTarget.CurrentAttackSpeed * atkSpdSelfNerfPct / 100;
+                // M359: <shield> damage absorption — compute per-hit cap and total pool at current skill level
+                var shieldFx     = template.Effects?.ShieldEffects;
+                int shieldHitVal = 0, shieldPool = 0;
+                bool isShieldPct = false;
+                if (shieldFx?.Count > 0)
+                {
+                    var s    = shieldFx[0];
+                    shieldHitVal = s.HitValue + s.HitDelta * _level;
+                    shieldPool   = s.Value    + s.Delta    * _level;
+                    isShieldPct  = s.IsPercent;
+                }
+                var mpShieldFx     = template.Effects?.MpShieldEffects;
+                int mpShieldHitVal = 0, mpShieldPool = 0;
+                bool isMpShieldPct = false;
+                if (mpShieldFx?.Count > 0)
+                {
+                    var ms    = mpShieldFx[0];
+                    mpShieldHitVal = ms.HitValue + ms.HitDelta * _level;
+                    mpShieldPool   = ms.Value    + ms.Delta    * _level;
+                    isMpShieldPct  = ms.IsPercent;
+                }
                 var effect = new AbnormalState
                 {
                     SkillId            = _spellId,
                     SkillLevel         = _level,
                     EffectorId         = player.ObjectId,
-                    Expiry             = DateTime.UtcNow.AddMilliseconds(durationMs),
+                    // M373: TOGGLE skills have durationMs=0; use MaxValue for permanent (until CM_TOGGLE_SKILL_DEACTIVATE)
+                    Expiry             = durationMs > 0 ? DateTime.UtcNow.AddMilliseconds(durationMs) : DateTime.MaxValue,
                     SpeedStatUpPct     = speedStatUpPct,
                     PreBuffMovSpeed    = buffTarget.MovementSpeed,
                     MaxHpDelta         = maxHpStatUpDelta,
@@ -757,7 +867,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     AtkSpeedStatUpDeltaVal   = atkSpeedStatUpDelta,
                     IsSanctuary              = template.Effects?.HasSanctuary == true,
                     HitCountRemaining        = (template.Effects?.AlwaysBlockCount ?? 0) + (template.Effects?.AlwaysDodgeCount ?? 0) + (template.Effects?.AlwaysParryCount ?? 0),
-                    IsNoDeathPenalty         = template.Effects?.HasNoresurrectPenalty == true,
+                    AlwaysResistCountRemaining = template.Effects?.AlwaysResistCount ?? 0,
+                    IsNoDeathPenalty         = template.Effects?.HasNoresurrectPenalty == true || template.Effects?.HasNoDeathPenalty == true,
                     RegenHpPctDeltaVal       = regenHpStatUpPct,
                     RegenMpPctDeltaVal       = regenMpStatUpPct,
                     RegenFpPctDeltaVal       = regenFpStatUpPct,
@@ -765,6 +876,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     RegenMpAddDeltaVal       = regenMpAddDelta,
                     DRBoostDeltaVal          = drBoostDelta,
                     APBoostDeltaVal          = apBoostDelta,
+                    BoostDropRateDeltaVal    = boostDropRateDelta,
                     CcResistAllDeltaVal      = ccResistAllDelta,
                     BoostHatePctDeltaVal     = boostHateDelta,
                     FlyTimePctDeltaVal       = flyTimePctDelta,
@@ -772,6 +884,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     FlySpeedStatUpPct        = flySpeedStatUpPct,
                     PreBuffFlySpeedPct       = buffTarget is Player flySpeedBuff ? flySpeedBuff.BonusFlySpeedPct : 0,
                     HealSkillBoostPct        = healSkillBoostPct,
+                    BoostSkillCostPct        = boostSkillCostPct,
                     HuntingXpBoostPct        = huntingXpBoostPct,
                     GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
                     PvpAtkRatioDelta         = pvpAtkRatioDelta,
@@ -796,6 +909,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     OnetimeAtkCountRemaining  = template.Effects?.OnetimeAtkCount ?? 0,
                     OnetimeAtkBoostPct        = template.Effects?.OnetimeAtkPct   ?? 0,
                     OnetimeAtkBoostIsPhysical = string.Equals(template.Effects?.OnetimeAtkType, "PHYSICAL", StringComparison.OrdinalIgnoreCase),
+                    ShieldHitValue            = shieldHitVal,
+                    IsShieldPercent           = isShieldPct,
+                    ShieldPoolRemaining       = shieldPool,
+                    MpShieldHitValue          = mpShieldHitVal,
+                    IsMpShieldPercent         = isMpShieldPct,
+                    MpShieldPoolRemaining     = mpShieldPool,
                 };
                 buffTarget.AddEffect(effect);
 
@@ -896,6 +1015,56 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     });
                 }
 
+                // M370: <heal>/<mpheal> BUFF-path tickers — for BUFF/CHANT-subtype skills with HoT elements (NPC area heals, Stigma Penance, etc.)
+                // HEAL-subtype skills already handled above (isHealSkill path → HotEffects); this path covers remaining BUFF-subtype cases
+                var buffHotFx = template?.Effects?.HotEffects;
+                if (buffHotFx is { Count: > 0 })
+                {
+                    foreach (var thFx in buffHotFx)
+                    {
+                        var thEffect   = effect;
+                        var thTarget   = buffTarget;
+                        var thInterval = thFx.CheckTimeMs;
+                        int thTick     = Math.Max(1, thFx.BaseValue + thFx.Delta * Math.Max(1, _level - 1));
+                        string thType  = thFx.HealType;
+                        int thSkillId  = _spellId;
+                        _ = Task.Run(async () =>
+                        {
+                            while (!thTarget.IsAlreadyDead && DateTime.UtcNow < thEffect.Expiry)
+                            {
+                                await Task.Delay(thInterval);
+                                if (thTarget.IsAlreadyDead || DateTime.UtcNow >= thEffect.Expiry) break;
+                                if (thType == "hp")
+                                {
+                                    int actual = Math.Min(thTick, thTarget.MaxHp - thTarget.CurrentHp);
+                                    if (actual > 0)
+                                    {
+                                        thTarget.CurrentHp += actual;
+                                        var hotPkt = new SM_ATTACK_STATUS(thTarget, SM_ATTACK_STATUS.AttackType.NaturalHp, thSkillId, actual, SM_ATTACK_STATUS.LogId.Heal);
+                                        int hotWorld = thTarget.Position.WorldId;
+                                        foreach (var c in _connRegistry.GetAll())
+                                            if (c.ActivePlayer?.Position.WorldId == hotWorld)
+                                                try { await c.SendAsync(hotPkt); } catch { }
+                                    }
+                                }
+                                else if (thType == "mp")
+                                {
+                                    int actual = Math.Min(thTick, thTarget.MaxMp - thTarget.CurrentMp);
+                                    if (actual > 0)
+                                    {
+                                        thTarget.CurrentMp += actual;
+                                        var hotPkt = new SM_ATTACK_STATUS(thTarget, SM_ATTACK_STATUS.AttackType.NaturalMp, thSkillId, actual, SM_ATTACK_STATUS.LogId.MpHeal);
+                                        int hotWorld = thTarget.Position.WorldId;
+                                        foreach (var c in _connRegistry.GetAll())
+                                            if (c.ActivePlayer?.Position.WorldId == hotWorld)
+                                                try { await c.SendAsync(hotPkt); } catch { }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
                 // M286b: <aura> — periodic AoE on caster's group/self in range. Tick = 6500ms (Java AuraTask).
                 if (template?.Effects?.HasAura == true && buffTarget is Player auraCaster && template.Effects.AuraEffects is { Count: > 0 } auraList)
                 {
@@ -978,7 +1147,49 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (c.ActivePlayer?.Position.WorldId == buffWorldId)
                         try { await c.SendAsync(abnormal, ct); } catch { }
 
+                // M375: apply instant heals bundled with BUFF skills (e.g. Second Wind I — 35% HP instant + 60s MaxHP boost)
+                var buffHealFx = template?.Effects?.HealEffects;
+                if (buffHealFx is { Count: > 0 })
+                {
+                    float bhMult = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
+                    if (player.PassiveBonusHealSkillBoostPct > 0) bhMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
+                    if (player.BonusHealSkillBoostPct > 0)        bhMult *= 1f + player.BonusHealSkillBoostPct / 100f;
+                    foreach (var bhe in buffHealFx)
+                    {
+                        int bhVal  = bhe.BaseValue + bhe.Delta * _level;
+                        int bhHeal = bhe.IsPercent
+                            ? (bhe.HealType == "hp" ? buffTarget.MaxHp : buffTarget.MaxMp) * bhVal / 100
+                            : bhVal;
+                        bhHeal = (int)(bhHeal * bhMult);
+                        if (buffTarget.HealReceivedPct != 0)
+                            bhHeal = Math.Max(0, (int)(bhHeal * (100 + buffTarget.HealReceivedPct) / 100f));
+                        if (bhe.HealType == "hp")
+                        {
+                            bhHeal = Math.Min(bhHeal, buffTarget.MaxHp - buffTarget.CurrentHp);
+                            if (bhHeal <= 0) continue;
+                            buffTarget.CurrentHp += bhHeal;
+                            var bhHpPkt = new SM_ATTACK_STATUS(buffTarget, SM_ATTACK_STATUS.AttackType.NaturalHp, _spellId, bhHeal, SM_ATTACK_STATUS.LogId.Heal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == buffWorldId)
+                                    try { await c.SendAsync(bhHpPkt, ct); } catch { }
+                        }
+                        else if (bhe.HealType == "mp")
+                        {
+                            bhHeal = Math.Min(bhHeal, buffTarget.MaxMp - buffTarget.CurrentMp);
+                            if (bhHeal <= 0) continue;
+                            buffTarget.CurrentMp += bhHeal;
+                            var bhMpPkt = new SM_ATTACK_STATUS(buffTarget, SM_ATTACK_STATUS.AttackType.NaturalMp, _spellId, bhHeal, SM_ATTACK_STATUS.LogId.MpHeal);
+                            foreach (var c in _connRegistry.GetAll())
+                                if (c.ActivePlayer?.Position.WorldId == buffWorldId)
+                                    try { await c.SendAsync(bhMpPkt, ct); } catch { }
+                        }
+                    }
+                }
+
                 // Schedule expiry — remove effect and re-broadcast to target's current zone
+                // M367: capture delayedskill list + caster ref before the Task.Run
+                var buffDelayedSkillFx = template?.Effects?.DelayedSkillEffects;
+                var buffCaster         = player;
                 var expiryEffect = effect;
                 var expiryTarget = buffTarget;
                 _ = Task.Run(async () =>
@@ -1067,6 +1278,94 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var c in _connRegistry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == revWorld)
                                 try { await c.SendAsync(revealPkt); } catch { }
+                    }
+
+                    // M367: delayedskill/delayedskillz — fire child skill effects on the (still-alive) target when the debuff expires
+                    if (buffDelayedSkillFx is { Count: > 0 } && !expiryTarget.IsAlreadyDead)
+                    {
+                        foreach (var ds in buffDelayedSkillFx)
+                        {
+                            if (expiryTarget.IsAlreadyDead) break;
+                            var childTpl = _dataManager.Skills.GetTemplate(ds.ChildSkillId);
+                            if (childTpl?.Effects is null) continue;
+
+                            int childDur = childTpl.Effects.EffectDuration > 0 ? childTpl.Effects.EffectDuration : 3000;
+                            var childCc  = childTpl.Effects.CcFlags;
+
+                            // Apply CC flags (stun, root, fear, snare, etc.)
+                            if (childCc != AbnormalCcFlags.None)
+                            {
+                                var dsChildState = new AbnormalState
+                                {
+                                    SkillId        = ds.ChildSkillId,
+                                    SkillLevel     = 1,
+                                    EffectorId     = expiryEffect.EffectorId,
+                                    Expiry         = DateTime.UtcNow.AddMilliseconds(childDur),
+                                    CcFlags        = childCc,
+                                    IsDebuff       = true,
+                                    DispelCategory = childTpl.DispelCategory,
+                                    ReqDispelLevel = childTpl.ReqDispelLevel,
+                                };
+                                expiryTarget.AddEffect(dsChildState);
+                                var dsAbnPkt = new SM_ABNORMAL_EFFECT(expiryTarget.ObjectId, buffTargetIsPlayer, expiryTarget.GetActiveEffects());
+                                foreach (var c in _connRegistry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == expWorldId)
+                                        try { await c.SendAsync(dsAbnPkt); } catch { }
+                                var dsRemState  = dsChildState;
+                                var dsRemTarget = expiryTarget;
+                                _ = Task.Run(async () =>
+                                {
+                                    await Task.Delay(childDur);
+                                    dsRemTarget.RemoveEffectBySkillId(dsRemState.SkillId);
+                                    var dsExpPkt = new SM_ABNORMAL_EFFECT(dsRemTarget.ObjectId, buffTargetIsPlayer, dsRemTarget.GetActiveEffects());
+                                    int dsExpW = dsRemTarget.Position.WorldId;
+                                    foreach (var c in _connRegistry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == dsExpW)
+                                            try { await c.SendAsync(dsExpPkt); } catch { }
+                                });
+                            }
+
+                            // Apply instant damage (procatk_instant, spellatkinstant, noreducespellatk)
+                            var childDmgFx      = childTpl.Effects.DamageEffects;
+                            var childNoReduceFx = childTpl.Effects.NoReduceEffects;
+                            if ((childDmgFx is { Count: > 0 } || childNoReduceFx is { Count: > 0 }) && !expiryTarget.IsAlreadyDead)
+                            {
+                                int cdBase;
+                                bool cdNoReduce = false;
+                                if (childDmgFx is { Count: > 0 })
+                                    cdBase = childDmgFx[0].BaseValue;
+                                else
+                                {
+                                    var nr = childNoReduceFx![0];
+                                    cdBase     = nr.IsPercent ? expiryTarget.MaxHp * nr.BaseValue / 100 : nr.BaseValue;
+                                    cdNoReduce = true;
+                                }
+                                int cdDmg;
+                                if (cdNoReduce)
+                                {
+                                    cdDmg = Math.Max(1, cdBase);
+                                }
+                                else
+                                {
+                                    int cdMAtk = 100 + buffCaster.MainHandMagicalAtk + buffCaster.BonusMagicAtk
+                                                     + buffCaster.MagicAtkDebuffDelta + buffCaster.MagicAtkStatUpDelta;
+                                    int cdSupp = expiryTarget is Player cdPvpT
+                                        ? cdPvpT.BonusMagicSuppression + cdPvpT.MagicSuppressionDelta
+                                        : expiryTarget is Npc cdNpcT ? (cdNpcT.Template.Stats?.MBResist ?? 0) : 0;
+                                    float cdMb = 1.0f + Math.Max(0, buffCaster.BonusMagicBoost + buffCaster.MagicBoostDelta - cdSupp) / 1000f;
+                                    int cdRaw  = (int)((cdMAtk + cdBase) * cdMb);
+                                    int cdMDef = expiryTarget is Player cdDefP
+                                        ? cdDefP.MagicDefense + cdDefP.MagicDefDelta
+                                        : expiryTarget is Npc cdDefN ? (cdDefN.Template.Stats?.MBResist ?? 0) : 0;
+                                    cdDmg = cdMDef > 0 ? Math.Max(1, cdRaw * 1000 / (1000 + cdMDef)) : Math.Max(1, cdRaw);
+                                }
+                                await expiryTarget.ApplyDamageAndPublishAsync(buffCaster, cdDmg, DamageKind.MagicalSkill, ds.ChildSkillId, _eventBus);
+                                var cdPkt = new SM_ATTACK_STATUS(expiryTarget, SM_ATTACK_STATUS.AttackType.Damage, ds.ChildSkillId, cdDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
+                                foreach (var c in _connRegistry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == expWorldId)
+                                        try { await c.SendAsync(cdPkt); } catch { }
+                            }
+                        }
                     }
                 });
             }
@@ -1269,6 +1568,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                     // M258: skip resist/dodge when damage effect carries noresist="true"
                     bool gAoeNoResist = gAoeDmgFx is { Count: > 0 } && gAoeDmgFx[0].IsNoResist;
+                    // M360: alwaysresist — force magical resist if target has active auto-resist charges
+                    if (spellIsMagical && !gAoeNoResist && target.TryConsumeResistCharge())
+                    {
+                        var arPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                        foreach (var c in registry.GetAll())
+                            if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                                try { await c.SendAsync(arPkt); } catch { }
+                        continue;
+                    }
                     // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
                     if (spellIsMagical && !gAoeNoResist)
                     {
@@ -1481,12 +1789,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                             var dotEffect  = new AbnormalState
                             {
-                                SkillId    = spellId,
-                                SkillLevel = dotLvG,
-                                EffectorId = player.ObjectId,
-                                Expiry     = dotExpiry,
-                                DotInfo    = dot,
-                                IsDebuff   = true,
+                                SkillId        = spellId,
+                                SkillLevel     = dotLvG,
+                                EffectorId     = player.ObjectId,
+                                Expiry         = dotExpiry,
+                                DotInfo        = dot,
+                                IsDebuff       = true,
+                                DispelCategory = template?.DispelCategory ?? "NONE",
+                                ReqDispelLevel = template?.ReqDispelLevel ?? 0,
                             };
                             target.AddEffect(dotEffect);
                             bool dotTargetIsPlayer = target is Player;
@@ -1548,11 +1858,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             if (subDurAoe <= 0) continue;
                             target.AddEffect(new AbnormalState
                             {
-                                SkillId    = sub.SkillId,
-                                EffectorId = player.ObjectId,
-                                CcFlags    = subCcAoe,
-                                Expiry     = DateTime.UtcNow.AddMilliseconds(subDurAoe),
-                                IsDebuff   = true,
+                                SkillId        = sub.SkillId,
+                                EffectorId     = player.ObjectId,
+                                CcFlags        = subCcAoe,
+                                Expiry         = DateTime.UtcNow.AddMilliseconds(subDurAoe),
+                                IsDebuff       = true,
+                                DispelCategory = subTplAoe.DispelCategory,
+                                ReqDispelLevel = subTplAoe.ReqDispelLevel,
                             });
                             bool subAoeIsPlayer = target is Player;
                             var subAoeAbnPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, subAoeIsPlayer, target.GetActiveEffects());
@@ -1710,6 +2022,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
+                // M360: alwaysresist — force magical resist if target has active auto-resist charges
+                if (spellIsMagical && !stNoResist && target.TryConsumeResistCharge())
+                {
+                    var arPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, spellId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(arPkt); } catch { }
+                    return;
+                }
                 // Magic resist check (Java calculateMagicalResistRate) / physical dodge check (calculatePhysicalDodgeRate)
                 if (spellIsMagical && !stNoResist)
                 {
@@ -2056,11 +2377,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (subDurMs <= 0) continue;
                         target.AddEffect(new AbnormalState
                         {
-                            SkillId    = sub.SkillId,
-                            EffectorId = player.ObjectId,
-                            CcFlags    = subCc,
-                            Expiry     = DateTime.UtcNow.AddMilliseconds(subDurMs),
-                            IsDebuff   = true,
+                            SkillId        = sub.SkillId,
+                            EffectorId     = player.ObjectId,
+                            CcFlags        = subCc,
+                            Expiry         = DateTime.UtcNow.AddMilliseconds(subDurMs),
+                            IsDebuff       = true,
+                            DispelCategory = subTpl.DispelCategory,
+                            ReqDispelLevel = subTpl.ReqDispelLevel,
                         });
                         bool subIsPlayer = target is Player;
                         var subAbnPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, subIsPlayer, target.GetActiveEffects());
@@ -2482,8 +2805,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // (a) DEBUFF subtype with template.Duration > 0, OR
                 // (b) ATTACK/other subtype with tslot=DEBUFF and effect elements have a duration2
                 // Java: AttackSkill effects (slow/statdown etc.) apply via EffectController alongside damage
-                int debuffDurationMs = template?.Duration > 0 ? template.Duration
-                                     : (template?.Effects?.EffectDuration ?? 0);
+                // M379: use max(template.Duration, EffectDuration) — some DEBUFF skills (e.g. Chain of Suffering: duration=2000 cast time)
+                //       carry their real buff duration in the effect's duration2 (resurrectbase.duration2=120000); for most debuffs
+                //       EffectDuration==0 so max(templateDur, 0) == templateDur — no behaviour change for existing debuffs.
+                int debuffEffectDur  = template?.Effects?.EffectDuration ?? 0;
+                int debuffDurationMs = Math.Max(template?.Duration ?? 0, debuffEffectDur);
                 bool isDebuffSkill = template?.SubType == SkillSubType.DEBUFF
                                   || (string.Equals(template?.TSlot, "DEBUFF",
                                           StringComparison.OrdinalIgnoreCase) && debuffDurationMs > 0);
@@ -2590,6 +2916,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int  snareResistDebuff  = template?.Effects?.SnareResistDelta      ?? 0;
                     int  fearResistDebuff   = template?.Effects?.FearResistDelta       ?? 0;
                     int  openAerialResistDb = template?.Effects?.OpenAerialResistDelta ?? 0;
+                    // M379: resurrectbase — auto-revive target at bind point on death (Chain of Suffering I-VII)
+                    int  resurrectBaseSkillId = template?.Effects?.ResurrectBaseSkillId ?? 0;
+                    // M380: carry dispel_category + req_dispel_level so targeted cleanse effects (physical/mental) can filter correctly
+                    string debuffDispelCategory = template?.DispelCategory ?? "NONE";
+                    int    debuffReqDispelLevel  = template?.ReqDispelLevel ?? 0;
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -2644,6 +2975,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         SnareResistDelta         = snareResistDebuff,
                         FearResistDelta          = fearResistDebuff,
                         OpenAerialResistDelta    = openAerialResistDb,
+                        ResurrectBaseSkillId     = resurrectBaseSkillId,
+                        DispelCategory           = debuffDispelCategory,
+                        ReqDispelLevel           = debuffReqDispelLevel,
                     };
                     target.AddEffect(debuffEffect);
 
@@ -2792,12 +3126,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                         var dotEffect  = new AbnormalState
                         {
-                            SkillId    = spellId,
-                            SkillLevel = skillLv,
-                            EffectorId = player.ObjectId,
-                            Expiry     = dotExpiry,
-                            DotInfo    = dot,
-                            IsDebuff   = true,
+                            SkillId        = spellId,
+                            SkillLevel     = skillLv,
+                            EffectorId     = player.ObjectId,
+                            Expiry         = dotExpiry,
+                            DotInfo        = dot,
+                            IsDebuff       = true,
+                            DispelCategory = template?.DispelCategory ?? "NONE",
+                            ReqDispelLevel = template?.ReqDispelLevel ?? 0,
                         };
                         target.AddEffect(dotEffect);
 

@@ -121,10 +121,12 @@ public sealed class AbnormalState
     // Non-zero when this buff adds flat MP per regen tick (M352: REGEN_MP ADD; e.g. Breath of Nature I +20, III +35).
     public int RegenMpAddDeltaVal { get; init; }
 
-    // Non-zero when this buff increases drop rate (DR_BOOST ADD: e.g. 20 = +20% item drop chance).
+    // Non-zero when this buff increases death rank points gain (DR_BOOST ADD: e.g. 20 = +20% DR per kill).
     public int DRBoostDeltaVal { get; init; }
     // Non-zero when this buff increases AP gain (AP_BOOST ADD: e.g. 20 = +20% AP reward per kill).
     public int APBoostDeltaVal { get; init; }
+    // Non-zero when this buff increases item drop rate (BOOST_DROP_RATE ADD; value is in per-mille: 10000 = +100%).
+    public int BoostDropRateDeltaVal { get; init; }
     // Non-zero when this buff increases CC resist (ABNORMAL_RESISTANCE_ALL ADD; 0–10000 scale, where 10000 = 100% CC immune).
     public int CcResistAllDeltaVal { get; init; }
     // Non-zero when this buff changes hate generation rate (BOOST_HATE PERCENT; positive = more hate, negative = less).
@@ -135,6 +137,15 @@ public sealed class AbnormalState
     public int FlyTimeAddDeltaVal { get; init; }
     // Non-zero when this buff increases HEAL_SKILL_BOOST by percent (onetimeboostheal; e.g. 100 = +100% healing output).
     public int HealSkillBoostPct { get; init; }
+    // Non-zero when this buff modifies skill MP cost (boostskillcost; e.g. 100 = free, 50 = half, -10 = 10% more expensive).
+    public int BoostSkillCostPct { get; init; }
+    // Non-zero when this debuff auto-revives the target at bind point on death (resurrectbase); value = revival skill_id (e.g. 8293).
+    public int ResurrectBaseSkillId { get; init; }
+    // M380: dispel category from the debuff's skill template (DEBUFF_PHYSICAL, DEBUFF_MENTAL, ALL, NONE, ...).
+    // Determines which dispel effects can remove this debuff (physical-only, mental-only, or all-category cleanse).
+    public string DispelCategory  { get; init; } = "NONE";
+    // M380: minimum dispel_level a cleansing skill must carry to remove this debuff (Java req_dispel_level; usually 0 or 1).
+    public int    ReqDispelLevel  { get; init; }
     // Non-zero when this buff increases solo-kill XP gain (BOOST_HUNTING_XP_RATE ADD; e.g. 30 = +30% solo XP per kill).
     public int HuntingXpBoostPct { get; init; }
     // Non-zero when this buff increases group-kill XP gain (BOOST_GROUP_HUNTING_XP_RATE ADD; e.g. 30 = +30% group XP per kill).
@@ -181,6 +192,25 @@ public sealed class AbnormalState
 
     // Mutable hit counter for alwaysblock/alwaysdodge — decremented per hit; buff removed when it reaches 0.
     public int HitCountRemaining { get; set; }
+
+    // M360: counter for alwaysresist charges — decremented each time an incoming magical attack is auto-resisted.
+    // Buff removed when count reaches 0 (follows AlwaysBlock/Dodge/Parry pattern but for magical skills).
+    public int AlwaysResistCountRemaining { get; set; }
+
+    // M359: damage-absorbing shield (<shield> effect element; Java ShieldEffect shieldType=2).
+    // ShieldHitValue: max per-hit absorb at this skill level (0 when not a shield buff).
+    // ShieldPoolRemaining: mutable total pool; decremented as damage is absorbed; buff removed when reaches 0.
+    // IsShieldPercent: when true, absorbs ShieldHitValue% of incoming damage instead of flat cap.
+    public int  ShieldHitValue      { get; init; }
+    public bool IsShieldPercent     { get; init; }
+    public int  ShieldPoolRemaining { get; set; }
+
+    // MpShieldHitValue: max per-hit damage absorbed (= MP drained) at this skill level (0 when not an mpshield buff).
+    // MpShieldPoolRemaining: mutable total pool; decremented as damage is absorbed; buff removed when reaches 0.
+    // IsMpShieldPercent: when true, absorbs MpShieldHitValue% of incoming damage.
+    public int  MpShieldHitValue      { get; init; }
+    public bool IsMpShieldPercent     { get; init; }
+    public int  MpShieldPoolRemaining { get; set; }
 
     public bool IsExpired   => DateTime.UtcNow >= Expiry;
     public int  RemainingMs => IsExpired ? 0 : (int)Math.Min((Expiry - DateTime.UtcNow).TotalMilliseconds, int.MaxValue);

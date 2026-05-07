@@ -18,6 +18,10 @@ public sealed class SkillTemplate
     [XmlAttribute("cooldown")]   public int       Cooldown   { get; set; }
     [XmlAttribute("duration")]   public int       Duration   { get; set; }
     [XmlAttribute("tslot")]      public string    TSlot      { get; set; } = "";
+    // M380: debuff category that dispel effects match against (DEBUFF_PHYSICAL, DEBUFF_MENTAL, ALL, NONE, BUFF, ...)
+    [XmlAttribute("dispel_category")] public string DispelCategory { get; set; } = "NONE";
+    // M380: minimum dispel_level a cleansing skill must carry to remove this debuff
+    [XmlAttribute("req_dispel_level")] public int   ReqDispelLevel { get; set; }
 
     [XmlElement("properties")]      public SkillProperties?      Properties      { get; set; }
     [XmlElement("startconditions")] public SkillStartConditions? StartConditions { get; set; }
@@ -82,6 +86,18 @@ public sealed class SkillTemplate
             return (h.Value, h.Delta, h.IsRatio);
         }
     }
+
+    /// <summary>M371: MP cost consumed on cast; Value=0 means no cost. Source: &lt;actions&gt;&lt;mpuse value="V" delta="D" ratio="true"/&gt;.
+    /// Flat cost = Value + Delta*(level-1); if IsRatio, treat as percent of MaxMp.</summary>
+    public (int Value, int Delta, bool IsRatio) MpUseCost
+    {
+        get
+        {
+            var m = Actions?.MpUse;
+            if (m is null) return (0, 0, false);
+            return (m.Value, m.Delta, m.IsRatio);
+        }
+    }
 }
 
 /// <summary>M269+M270: skill startconditions block — &lt;weapon&gt;, &lt;chain&gt;.</summary>
@@ -103,11 +119,12 @@ public sealed class SkillChainCondition
     [XmlAttribute("category")] public string Category { get; set; } = string.Empty;
 }
 
-/// <summary>M316: &lt;actions&gt; block — DP and HP cast costs.</summary>
+/// <summary>M316+M371: &lt;actions&gt; block — DP, HP, and MP cast costs.</summary>
 public sealed class SkillActions
 {
     [XmlElement("dpuse")] public SkillDpUse? DpUse { get; set; }
     [XmlElement("hpuse")] public SkillHpUse? HpUse { get; set; }
+    [XmlElement("mpuse")] public SkillMpUse? MpUse { get; set; }
 }
 
 public sealed class SkillDpUse
@@ -117,8 +134,15 @@ public sealed class SkillDpUse
 
 public sealed class SkillHpUse
 {
-    [XmlAttribute("value")] public int Value   { get; set; }
-    [XmlAttribute("delta")] public int Delta   { get; set; }
+    [XmlAttribute("value")] public int  Value   { get; set; }
+    [XmlAttribute("delta")] public int  Delta   { get; set; }
+    [XmlAttribute("ratio")] public bool IsRatio { get; set; }
+}
+
+public sealed class SkillMpUse
+{
+    [XmlAttribute("value")] public int  Value   { get; set; }
+    [XmlAttribute("delta")] public int  Delta   { get; set; }
     [XmlAttribute("ratio")] public bool IsRatio { get; set; }
 }
 
@@ -217,6 +241,13 @@ public readonly record struct SkillMagicCounterAtkInfo(
     int MaxDmg      // maxdmg attribute — cap on self-damage per cast
 );
 
+/// <summary>M376: hate-on-attacked descriptor parsed from &lt;changehateonattacked value1="A" value2="B"/&gt; (Java ChangeHateOnAttackedEffect).
+/// When the buffed player is attacked by an NPC, NPC hate towards them is changed by Value1+Value2 (negative = reduce hate).</summary>
+public readonly record struct SkillChangeHateOnAtkInfo(
+    int Value1,    // additive hate delta at level 1 (e.g. -300)
+    int Value2     // secondary additive delta (e.g. -5700); finalHate = Value1+Value2
+);
+
 /// <summary>M297: delayed magical damage descriptor parsed from &lt;delaydamage&gt; (Java DelayedSpellAttackInstantEffect).</summary>
 public readonly record struct SkillDelayDamageInfo(
     int    DelayMs,    // delay= attribute in milliseconds
@@ -225,11 +256,27 @@ public readonly record struct SkillDelayDamageInfo(
     string Element     // element= — e.g. "FIRE", "WIND", etc.
 );
 
+/// <summary>M367: timed debuff that fires a child skill on the target when its duration expires (Java DelayedSkillEffect).</summary>
+public readonly record struct SkillDelayedSkillInfo(
+    int ChildSkillId,  // skill_id= attribute — the skill template to apply on expiry
+    int DurationMs     // duration2= (or time_delay_to_hit= for delayedskillz) — delay before firing
+);
+
+/// <summary>M369: conditional self-heal buff — heals the buffed creature once when HP drops at or below CondPercent% of MaxHp (Java CaseHealEffect, ObserverType.ATTACKED).</summary>
+public readonly record struct SkillCaseHealInfo(
+    bool   IsHp,         // type="HP" (true) or type="MP" (false)
+    int    CondPercent,  // cond_value= — HP/MP threshold % (e.g. 50 = heal when HP ≤ 50%)
+    int    Value,        // value= — base heal amount at skill level 1
+    int    Delta,        // delta= — per-level scaling
+    bool   IsPercent     // percent="true" — value is % of MaxHp/MaxMp instead of flat
+);
+
 /// <summary>"Damage reflector" descriptor parsed from &lt;reflector&gt; (Java ReflectorEffect).
 /// When the buffed creature is hit, attacker takes HitValue + HitDelta * SkillLevel damage back if within Radius.</summary>
 public readonly record struct SkillReflectorInfo(
-    int   HitValue,   // base reflect damage at level 1
-    int   HitDelta,   // per-level scaling
+    int   HitValue,   // base reflect damage at level 1 (minimum reflected)
+    int   HitDelta,   // per-level scaling for hitvalue
+    int   Value,      // reflection % of incoming damage (0 = flat hitvalue only; Java totalHit)
     float Radius      // max distance from buffed creature for reflect to fire (0 = no range gate)
 );
 
@@ -242,10 +289,23 @@ public readonly record struct SkillConvertHealInfo(
 );
 
 /// <summary>"Damage shield" descriptor parsed from &lt;shield&gt; (Java ShieldEffect).
-/// Absorbs HitValue + HitDelta * SkillLevel damage per incoming hit.</summary>
+/// Absorbs HitValue + HitDelta * SkillLevel damage per incoming hit, up to a total pool of Value + Delta * SkillLevel.</summary>
 public readonly record struct SkillShieldInfo(
-    int HitValue,    // damage absorbed per hit at level 1
-    int HitDelta     // per-level scaling
+    int  HitValue,    // damage absorbed per hit at level 1
+    int  HitDelta,    // per-level scaling for hitvalue
+    int  Value,       // total shield pool at level 1
+    int  Delta,       // per-level scaling for pool
+    bool IsPercent    // true = HitValue is % of incoming damage
+);
+
+/// <summary>"MP-drain shield" descriptor parsed from &lt;mpshield&gt; (Java MpShieldEffect, shieldType=9).
+/// Absorbs HitValue + HitDelta * SkillLevel incoming damage per hit (up to a pool of Value + Delta * SkillLevel) and drains that amount from target MP instead.</summary>
+public readonly record struct SkillMpShieldInfo(
+    int  HitValue,   // damage absorbed (= MP drained) per hit at level 1
+    int  HitDelta,   // per-level scaling for hitvalue
+    int  Value,      // total pool at level 1
+    int  Delta,      // per-level scaling for pool
+    bool IsPercent   // true = HitValue is % of incoming damage
 );
 
 /// <summary>"Damage protect" descriptor parsed from &lt;protect&gt; (Java ProtectEffect, shieldType=8).
@@ -351,8 +411,38 @@ public sealed class SkillEffects
         Elements?.Aggregate(AbnormalCcFlags.None, (acc, e) => acc | ElementToCcFlag(e.LocalName))
         ?? AbnormalCcFlags.None;
 
-    public bool HasDispelDebuff => Elements?.Any(e => e.LocalName is "dispeldebuff" or "dispeldebuffphysical" or "dispeldebuffmental" or "dispelnpcdebuff" or "dispel") == true;
-    public bool HasDispelBuff   => Elements?.Any(e => e.LocalName is "dispelbuff" or "dispelnpcbuff" or "dispelbuffcounteratk") == true;
+    public bool HasDispelDebuff         => Elements?.Any(e => e.LocalName is "dispeldebuff" or "dispeldebuffphysical" or "dispeldebuffmental" or "dispelnpcdebuff" or "dispel") == true;
+    public bool HasDispelDebuffPhysical => Elements?.Any(e => e.LocalName == "dispeldebuffphysical") == true;
+    public bool HasDispelDebuffMental   => Elements?.Any(e => e.LocalName == "dispeldebuffmental")   == true;
+    public bool HasDispelBuff           => Elements?.Any(e => e.LocalName is "dispelbuff" or "dispelnpcbuff" or "dispelbuffcounteratk") == true;
+
+    /// <summary>M380: (value, delta, dispelLevel) of first &lt;dispeldebuffphysical&gt; element; (0,0,0) when absent.</summary>
+    public (int Value, int Delta, int DispelLevel) DispelDebuffPhysicalInfo
+    {
+        get
+        {
+            var el = Elements?.FirstOrDefault(e => e.LocalName == "dispeldebuffphysical");
+            if (el is null) return (0, 0, 0);
+            int.TryParse(el.GetAttribute("value"),       out int v);
+            int.TryParse(el.GetAttribute("delta"),       out int d);
+            int.TryParse(el.GetAttribute("dispel_level"),out int l);
+            return (v, d, l);
+        }
+    }
+
+    /// <summary>M380: (value, delta, dispelLevel) of first &lt;dispeldebuffmental&gt; element; (0,0,0) when absent.</summary>
+    public (int Value, int Delta, int DispelLevel) DispelDebuffMentalInfo
+    {
+        get
+        {
+            var el = Elements?.FirstOrDefault(e => e.LocalName == "dispeldebuffmental");
+            if (el is null) return (0, 0, 0);
+            int.TryParse(el.GetAttribute("value"),       out int v);
+            int.TryParse(el.GetAttribute("delta"),       out int d);
+            int.TryParse(el.GetAttribute("dispel_level"),out int l);
+            return (v, d, l);
+        }
+    }
     public bool HasHostileUp    => Elements?.Any(e => e.LocalName == "hostileup")    == true;
     public bool HasSanctuary    => Elements?.Any(e => e.LocalName == "sanctuary")    == true;
 
@@ -446,13 +536,29 @@ public sealed class SkillEffects
         get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysparry"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
     }
 
+    /// <summary>M360: hit count and duration for alwaysresist (Java AlwaysResistEffect — value charges, duration2 ms).</summary>
+    public int AlwaysResistCount
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysresist"); return el is not null && int.TryParse(el.GetAttribute("value"), out int v) ? v : 0; }
+    }
+    public int AlwaysResistDurationMs
+    {
+        get { var el = Elements?.FirstOrDefault(e => e.LocalName == "alwaysresist"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
+    }
+
     /// <summary>M331: noresurrectpenalty — while active, death does not apply soul sickness (Java NoresurrectpenaltyEffect).</summary>
     public bool HasNoresurrectPenalty => Elements?.Any(e => e.LocalName == "noresurrectpenalty") == true;
+    /// <summary>M365: nodeathpenalty — while active, death does not apply soul sickness or XP loss (Java NoDeathPenaltyEffect). Same flag as noresurrectpenalty for our death-penalty suppression.</summary>
+    public bool HasNoDeathPenalty => Elements?.Any(e => e.LocalName == "nodeathpenalty") == true;
+    /// <summary>M365: switchhpmp — instant effect that swaps target's current HP and MP values (Java SwitchHpMpEffect).</summary>
+    public bool HasSwitchHpMp => Elements?.Any(e => e.LocalName == "switchhpmp") == true;
 
     /// <summary>M282: flight-ban debuff — buffed creature loses fly capability (Java NoFlyEffect). Behavior needs flight-state subsystem.</summary>
     public bool HasNoFly        => Elements?.Any(e => e.LocalName == "nofly")        == true;
     /// <summary>M285: provoker buff — buffed NPC auto-targets last attacker (Java ProvokerEffect ATTACK observer).</summary>
-    public bool HasProvoker     => Elements?.Any(e => e.LocalName == "provoker")     == true;
+    public bool HasProvoker          => Elements?.Any(e => e.LocalName == "provoker")          == true;
+    /// <summary>M376: changehateonattacked buff — reduces NPC hate on hit (Java ChangeHateOnAttackedEffect ATTACKED observer).</summary>
+    public bool HasChangeHateOnAtk   => Elements?.Any(e => e.LocalName == "changehateonattacked") == true;
 
     /// <summary>M304: closeaerial — removes the OpenAerial (aerial launch) effect from the target on hit (Java CloseAerialEffect removes skill 8224).</summary>
     public bool HasCloseAerial  => Elements?.Any(e => e.LocalName == "closeaerial")  == true;
@@ -2851,8 +2957,11 @@ public sealed class SkillEffects
     private static readonly HashSet<string> MagicCounterAtkEffectNames = ["magiccounteratk"];
     private static readonly HashSet<string> ReflectorEffectNames = ["reflector"];
     private static readonly HashSet<string> ConvertHealEffectNames = ["convertheal"];
-    private static readonly HashSet<string> ShieldEffectNames = ["shield"];
+    private static readonly HashSet<string> ShieldEffectNames   = ["shield"];
+    private static readonly HashSet<string> MpShieldEffectNames = ["mpshield"];
     private static readonly HashSet<string> ProtectEffectNames = ["protect"];
+    private static readonly HashSet<string> DelayedSkillEffectNames = ["delayedskill", "delayedskillz"];
+    private static readonly HashSet<string> CaseHealEffectNames     = ["caseheal"];
     // Elements that carry effect durations via their duration2 attribute
     // M305: CC element names; M358: buff effect names (shield/protect/nofly/xpboost/hostileup/etc.)
     private static readonly HashSet<string> EffectDurNames    = [
@@ -2863,7 +2972,20 @@ public sealed class SkillEffects
         "mpattack",
         "curse",
         "shield", "protect", "nofly", "xpboost", "skillxpboost", "hostileup",
-        "dispeldebuff", "dispelbuff", "sanctuary", "boostskillcastingtime"
+        "dispeldebuff", "dispelbuff", "sanctuary", "boostskillcastingtime",
+        "alwaysresist", "reflector", "convertheal",
+        "drboost", "apboost", "boostdroprate",
+        "nodeathpenalty", "noresurrectpenalty", "mpshield",
+        "delayedskill", "delayedskillz",
+        "caseheal",
+        "heal", "mpheal", "dpheal", "fpheal",
+        "provoker",          // M373: provoker effects have duration2; AbnormalState must exist for ProvokerHandler to find it
+        "healcastoronatk",   // M374: "Healing Conduit" debuff — caster heals on hit; needs AbnormalState for HealCastorOnAttackedHandler
+        "healcastorontargetdead", // M374: "Blood Healing" debuff — caster heals when marked enemy dies; needs AbnormalState for HealCastorOnTargetDeadHandler
+        "magiccounteratk",   // M374: "Curse of Weakness" debuff — reflects magic damage; needs AbnormalState for MagicCounterAtkHandler
+        "changehateonattacked", // M376: "Blessing of Peace" buff — needs AbnormalState for ChangeHateOnAttackedHandler to reduce NPC hate on hit
+        "boostskillcost",       // M378: "Grace of Empyrean Lord"/"Lumiel's Wisdom" — needs AbnormalState to track cost reduction while buff is active
+        "resurrectbase"         // M379: "Chain of Suffering I-VII" — needs AbnormalState for ResurrectBaseHandler to auto-revive on death; duration2=120000 is the real debuff duration
     ];
 
     public IReadOnlyList<SkillHealInfo> HealEffects
@@ -3063,6 +3185,23 @@ public sealed class SkillEffects
         }
     }
 
+    public IReadOnlyList<SkillChangeHateOnAtkInfo> ChangeHateOnAtkEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillChangeHateOnAtkInfo>();
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "changehateonattacked") continue;
+                int.TryParse(e.GetAttribute("value1"), out int v1);
+                int.TryParse(e.GetAttribute("value2"), out int v2);
+                list.Add(new(v1, v2));
+            }
+            return list;
+        }
+    }
+
     public IReadOnlyList<SkillReflectorInfo> ReflectorEffects
     {
         get
@@ -3074,9 +3213,10 @@ public sealed class SkillEffects
                 if (!ReflectorEffectNames.Contains(e.LocalName)) continue;
                 int.TryParse(e.GetAttribute("hitvalue"), out int hit);
                 int.TryParse(e.GetAttribute("hitdelta"), out int hitDlt);
+                int.TryParse(e.GetAttribute("value"),    out int val);
                 float radius = 0f;
                 float.TryParse(e.GetAttribute("radius"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out radius);
-                list.Add(new(hit, hitDlt, radius));
+                list.Add(new(hit, hitDlt, val, radius));
             }
             return list;
         }
@@ -3111,7 +3251,30 @@ public sealed class SkillEffects
                 if (!ShieldEffectNames.Contains(e.LocalName)) continue;
                 int.TryParse(e.GetAttribute("hitvalue"), out int hit);
                 int.TryParse(e.GetAttribute("hitdelta"), out int hitDlt);
-                list.Add(new(hit, hitDlt));
+                int.TryParse(e.GetAttribute("value"),    out int val);
+                int.TryParse(e.GetAttribute("delta"),    out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(hit, hitDlt, val, dlt, pct));
+            }
+            return list;
+        }
+    }
+
+    public IReadOnlyList<SkillMpShieldInfo> MpShieldEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillMpShieldInfo>();
+            foreach (var e in Elements)
+            {
+                if (!MpShieldEffectNames.Contains(e.LocalName)) continue;
+                int.TryParse(e.GetAttribute("hitvalue"), out int hit);
+                int.TryParse(e.GetAttribute("hitdelta"), out int hitDlt);
+                int.TryParse(e.GetAttribute("value"),    out int val);
+                int.TryParse(e.GetAttribute("delta"),    out int dlt);
+                bool pct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(hit, hitDlt, val, dlt, pct));
             }
             return list;
         }
@@ -3131,6 +3294,57 @@ public sealed class SkillEffects
                 float radius = 0f;
                 float.TryParse(e.GetAttribute("radius"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out radius);
                 list.Add(new(hit, pct, radius));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M367: parsed &lt;delayedskill skill_id="X" duration2="Y"/&gt; and &lt;delayedskillz skill_id="X" time_delay_to_hit="Y"/&gt; elements.
+    /// When the parent debuff expires after DurationMs, the child skill (ChildSkillId) is applied to the target.</summary>
+    public IReadOnlyList<SkillDelayedSkillInfo> DelayedSkillEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillDelayedSkillInfo>();
+            foreach (var e in Elements)
+            {
+                if (!DelayedSkillEffectNames.Contains(e.LocalName)) continue;
+                if (!int.TryParse(e.GetAttribute("skill_id"), out int childId) || childId <= 0) continue;
+                int dur = 0;
+                if (e.LocalName == "delayedskillz")
+                {
+                    if (!int.TryParse(e.GetAttribute("time_delay_to_hit"), out dur) || dur <= 0)
+                        int.TryParse(e.GetAttribute("duration2"), out dur);
+                }
+                else
+                {
+                    int.TryParse(e.GetAttribute("duration2"), out dur);
+                }
+                if (dur <= 0) continue;
+                list.Add(new(childId, dur));
+            }
+            return list;
+        }
+    }
+
+    /// <summary>M369: parsed &lt;caseheal type="HP" cond_value="50" value="V" delta="D"/&gt; elements.
+    /// Each entry describes a conditional heal that fires when the buffed target's HP (or MP) is at or below cond_value% of max.</summary>
+    public IReadOnlyList<SkillCaseHealInfo> CaseHealEffects
+    {
+        get
+        {
+            if (Elements is null) return [];
+            var list = new List<SkillCaseHealInfo>();
+            foreach (var e in Elements)
+            {
+                if (!CaseHealEffectNames.Contains(e.LocalName)) continue;
+                bool isHp = !string.Equals(e.GetAttribute("type"), "MP", StringComparison.OrdinalIgnoreCase);
+                int.TryParse(e.GetAttribute("cond_value"), out int condPct);
+                int.TryParse(e.GetAttribute("value"), out int val);
+                int.TryParse(e.GetAttribute("delta"), out int dlt);
+                bool isPct = string.Equals(e.GetAttribute("percent"), "true", StringComparison.OrdinalIgnoreCase);
+                list.Add(new(isHp, condPct, val, dlt, isPct));
             }
             return list;
         }
@@ -3304,7 +3518,26 @@ public sealed class SkillEffects
         }
     }
 
-    /// <summary>M332: sum of ADD DR_BOOST changes from statup/statboost elements (positive = % drop-rate increase, e.g. 20 = +20%).</summary>
+    /// <summary>M379: True when any effect element is a &lt;resurrectbase&gt; (Java ResurrectBaseEffect — auto-revives target on death).</summary>
+    public bool HasResurrectBase => Elements?.Any(e => e.LocalName == "resurrectbase") == true;
+
+    /// <summary>M379: The skill_id attribute of the first &lt;resurrectbase&gt; element, or 0 if absent.</summary>
+    public int ResurrectBaseSkillId
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            foreach (var e in Elements)
+                if (e.LocalName == "resurrectbase")
+                {
+                    int.TryParse(e.GetAttribute("skill_id"), out int sid);
+                    return sid;
+                }
+            return 0;
+        }
+    }
+
+    /// <summary>M332/M364: sum of ADD DR_BOOST changes from statup/statboost/drboost elements (positive = % DR-gain increase, e.g. 20 = +20%).</summary>
     public int DRBoostAddDelta
     {
         get
@@ -3313,7 +3546,7 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup" or "drboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
@@ -3327,7 +3560,7 @@ public sealed class SkillEffects
         }
     }
 
-    /// <summary>M332: sum of ADD AP_BOOST changes from statup/statboost elements (positive = % AP-gain increase, e.g. 20 = +20%).</summary>
+    /// <summary>M332/M364: sum of ADD AP_BOOST changes from statup/statboost/apboost elements (positive = % AP-gain increase, e.g. 20 = +20%).</summary>
     public int APBoostAddDelta
     {
         get
@@ -3336,13 +3569,36 @@ public sealed class SkillEffects
             int total = 0;
             foreach (var e in Elements)
             {
-                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup")) continue;
+                if (e.LocalName is not ("statup" or "statboost" or "weaponstatup" or "apboost")) continue;
                 foreach (XmlNode child in e.ChildNodes)
                 {
                     if (child is not XmlElement ce) continue;
                     if (ce.LocalName != "change") continue;
                     if (!string.Equals(ce.GetAttribute("stat"), "AP_BOOST", StringComparison.OrdinalIgnoreCase)) continue;
                     if (!string.Equals(ce.GetAttribute("func"), "ADD",      StringComparison.OrdinalIgnoreCase)) continue;
+                    if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
+                }
+            }
+            return total;
+        }
+    }
+
+    /// <summary>M364: sum of ADD BOOST_DROP_RATE changes from boostdroprate elements (positive = % item-drop-rate increase, e.g. 10000 = +100%).</summary>
+    public int BoostDropRateAddDelta
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "boostdroprate") continue;
+                foreach (XmlNode child in e.ChildNodes)
+                {
+                    if (child is not XmlElement ce) continue;
+                    if (ce.LocalName != "change") continue;
+                    if (!string.Equals(ce.GetAttribute("stat"), "BOOST_DROP_RATE", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(ce.GetAttribute("func"), "ADD",             StringComparison.OrdinalIgnoreCase)) continue;
                     if (int.TryParse(ce.GetAttribute("value"), out int v)) total += v;
                 }
             }
@@ -3519,6 +3775,24 @@ public sealed class SkillEffects
     public int OnetimeBoostHealDurationMs
     {
         get { var el = Elements?.FirstOrDefault(e => e.LocalName == "onetimeboostheal"); return el is not null && int.TryParse(el.GetAttribute("duration2"), out int v) ? v : 0; }
+    }
+
+    /// <summary>M378: percent cost reduction from &lt;boostskillcost value="N"/&gt; (Java BoostSkillCostEffect SKILLUSE observer).
+    /// Positive = reduce MP cost by N% per cast (100 = free). Negative = increase cost by |N|%.
+    /// Formula mirrors Java MpUseAction: mpCost = mpCost - mpCost / (100 / boostPct).</summary>
+    public int BoostSkillCostPct
+    {
+        get
+        {
+            if (Elements is null) return 0;
+            int total = 0;
+            foreach (var e in Elements)
+            {
+                if (e.LocalName != "boostskillcost") continue;
+                if (int.TryParse(e.GetAttribute("value"), out int v)) total += v;
+            }
+            return total;
+        }
     }
 
     /// <summary>M336: BOOST_HUNTING_XP_RATE ADD from xpboost elements (positive = % more XP from solo NPC kills, e.g. 30 = +30%).</summary>

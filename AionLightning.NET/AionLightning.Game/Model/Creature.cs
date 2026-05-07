@@ -192,6 +192,33 @@ public abstract class Creature : VisibleObject
         }
     }
 
+    // M380: Remove up to maxCount debuffs whose DispelCategory matches dispelCat and whose ReqDispelLevel <= dispelLevel.
+    // dispelCat "ALL" matches DEBUFF_PHYSICAL, DEBUFF_MENTAL, and ALL-category debuffs.
+    // Specific categories (DEBUFF_PHYSICAL / DEBUFF_MENTAL) also match debuffs tagged ALL.
+    // Permanent effects (Expiry == DateTime.MaxValue) are never dispellable.
+    public void ClearDebuffsByCategory(string dispelCat, int maxCount, int dispelLevel)
+    {
+        lock (_effectsLock)
+        {
+            int removed = 0;
+            for (int i = _activeEffects.Count - 1; i >= 0 && removed < maxCount; i--)
+            {
+                var e = _activeEffects[i];
+                if (!e.IsDebuff) continue;
+                if (e.Expiry == DateTime.MaxValue) continue;
+                if (e.ReqDispelLevel > dispelLevel) continue;
+                bool catMatch = dispelCat == "ALL"
+                    ? e.DispelCategory is "ALL" or "DEBUFF_PHYSICAL" or "DEBUFF_MENTAL"
+                    : e.DispelCategory == "ALL" || e.DispelCategory == dispelCat;
+                if (!catMatch) continue;
+                ReverseEffectDeltas(e);
+                _activeEffects.RemoveAt(i);
+                removed++;
+            }
+            ActiveCcFlags = RebuildCcFlags();
+        }
+    }
+
     public void ClearBuffs()
     {
         lock (_effectsLock)
@@ -281,9 +308,11 @@ public abstract class Creature : VisibleObject
             int fpCapAdd = Math.Max(1, flyTimeAddApply.EffectiveMaxFp);
             if (flyTimeAddApply.CurrentFp > fpCapAdd) flyTimeAddApply.CurrentFp = fpCapAdd;
         }
-        if (e.HealSkillBoostPct      != 0 && this is Player healBoostApply) healBoostApply.BonusHealSkillBoostPct += e.HealSkillBoostPct;
+        if (e.HealSkillBoostPct      != 0 && this is Player healBoostApply) healBoostApply.BonusHealSkillBoostPct   += e.HealSkillBoostPct;
+        if (e.BoostSkillCostPct      != 0 && this is Player costBoostApply) costBoostApply.BonusSkillCostBoostPct   += e.BoostSkillCostPct;
         if (e.HuntingXpBoostPct      != 0 && this is Player xpApply)        xpApply.BonusHuntingXpPct            += e.HuntingXpBoostPct;
         if (e.GroupHuntingXpBoostPct != 0 && this is Player grpXpApply)     grpXpApply.BonusGroupHuntingXpPct    += e.GroupHuntingXpBoostPct;
+        if (e.BoostDropRateDeltaVal  != 0 && this is Player dropApply)      dropApply.BonusDropRatePct            += e.BoostDropRateDeltaVal;
     }
 
     internal void ReverseEffectDeltas(AbnormalState e)
@@ -359,9 +388,11 @@ public abstract class Creature : VisibleObject
             int fpCapAddRev = Math.Max(1, flyTimeAddRev.EffectiveMaxFp);
             if (flyTimeAddRev.CurrentFp > fpCapAddRev) flyTimeAddRev.CurrentFp = fpCapAddRev;
         }
-        if (e.HealSkillBoostPct      != 0 && this is Player healBoostRev) healBoostRev.BonusHealSkillBoostPct -= e.HealSkillBoostPct;
+        if (e.HealSkillBoostPct      != 0 && this is Player healBoostRev) healBoostRev.BonusHealSkillBoostPct   -= e.HealSkillBoostPct;
+        if (e.BoostSkillCostPct      != 0 && this is Player costBoostRev) costBoostRev.BonusSkillCostBoostPct   -= e.BoostSkillCostPct;
         if (e.HuntingXpBoostPct      != 0 && this is Player xpRev)        xpRev.BonusHuntingXpPct            -= e.HuntingXpBoostPct;
         if (e.GroupHuntingXpBoostPct != 0 && this is Player grpXpRev)     grpXpRev.BonusGroupHuntingXpPct    -= e.GroupHuntingXpBoostPct;
+        if (e.BoostDropRateDeltaVal  != 0 && this is Player dropRev)      dropRev.BonusDropRatePct            -= e.BoostDropRateDeltaVal;
     }
 
     /// <summary>M334: consume one onetimecrit charge; returns (flatBoost, pctBoost) or (0, 0) when no active buff.</summary>
@@ -400,6 +431,87 @@ public abstract class Creature : VisibleObject
             }
             return 0;
         }
+    }
+
+    // M360: consume one alwaysresist charge when an incoming magical spell would land.
+    // Returns true if the spell is auto-resisted (caller must skip damage). Removes buff when last charge consumed.
+    public bool TryConsumeResistCharge()
+    {
+        int shieldSkillId = -1;
+        bool consumed = false;
+        lock (_effectsLock)
+        {
+            var effect = _activeEffects.FirstOrDefault(e => !e.IsExpired && e.AlwaysResistCountRemaining > 0);
+            if (effect is null) return false;
+            consumed = true;
+            effect.AlwaysResistCountRemaining--;
+            if (effect.AlwaysResistCountRemaining <= 0)
+                shieldSkillId = effect.SkillId;
+        }
+        if (shieldSkillId >= 0)
+            RemoveEffectBySkillId(shieldSkillId);
+        return consumed;
+    }
+
+    // M359: absorb incoming damage through an active shield buff. Returns post-absorption damage.
+    // Absorbs up to ShieldHitValue (or ShieldHitValue% when IsShieldPercent) per hit, capped by remaining pool.
+    // Removes the shield buff when pool reaches 0.
+    public int TryAbsorbShield(int damage) => TryAbsorbShield(damage, out _);
+
+    public int TryAbsorbShield(int damage, out int absorbingSkillId)
+    {
+        absorbingSkillId = -1;
+        int removeSkillId = -1;
+        int absorbed = 0;
+        lock (_effectsLock)
+        {
+            var shield = _activeEffects.FirstOrDefault(e => !e.IsExpired && e.ShieldPoolRemaining > 0);
+            if (shield is null) return damage;
+
+            int cap = shield.IsShieldPercent
+                ? damage * shield.ShieldHitValue / 100
+                : Math.Min(shield.ShieldHitValue, damage);
+            absorbed = Math.Min(cap, shield.ShieldPoolRemaining);
+            if (absorbed <= 0) return damage;
+
+            absorbingSkillId = shield.SkillId;
+            shield.ShieldPoolRemaining -= absorbed;
+            if (shield.ShieldPoolRemaining <= 0)
+                removeSkillId = shield.SkillId;
+        }
+        if (removeSkillId >= 0)
+            RemoveEffectBySkillId(removeSkillId);
+        return Math.Max(0, damage - absorbed);
+    }
+
+    /// <summary>M366: intercept incoming damage with an active mpshield buff; the absorbed amount is drained from the
+    /// target's MP instead of HP. Returns remaining damage after absorption and sets absorbingSkillId.</summary>
+    public int TryAbsorbMpShield(int damage, out int absorbingSkillId)
+    {
+        absorbingSkillId = -1;
+        int removeSkillId = -1;
+        int absorbed = 0;
+        lock (_effectsLock)
+        {
+            var shield = _activeEffects.FirstOrDefault(e => !e.IsExpired && e.MpShieldPoolRemaining > 0);
+            if (shield is null) return damage;
+
+            int cap = shield.IsMpShieldPercent
+                ? damage * shield.MpShieldHitValue / 100
+                : Math.Min(shield.MpShieldHitValue, damage);
+            absorbed = Math.Min(cap, shield.MpShieldPoolRemaining);
+            if (absorbed <= 0) return damage;
+
+            absorbingSkillId = shield.SkillId;
+            shield.MpShieldPoolRemaining -= absorbed;
+            if (shield.MpShieldPoolRemaining <= 0)
+                removeSkillId = shield.SkillId;
+        }
+        if (removeSkillId >= 0)
+            RemoveEffectBySkillId(removeSkillId);
+        if (this is Player mpDrainPlayer)
+            mpDrainPlayer.CurrentMp = Math.Max(0, mpDrainPlayer.CurrentMp - absorbed);
+        return Math.Max(0, damage - absorbed);
     }
 
     public List<AbnormalState> GetActiveEffects()
