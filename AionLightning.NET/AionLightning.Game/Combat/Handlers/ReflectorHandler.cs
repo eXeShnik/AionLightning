@@ -8,10 +8,10 @@ using AionLightning.Game.Network.Aion.ServerPackets;
 namespace AionLightning.Game.Combat.Handlers;
 
 /// <summary>
-/// M263: Handles &lt;reflector&gt; — when the buffed creature is hit, attacker takes
-/// HitValue + HitDelta * SkillLevel damage back. Range-gated by Radius.
-/// Java analog: ReflectorEffect (AttackShieldObserver pre-damage). Our simplified post-damage
-/// approximation reflects equivalent damage AFTER the original hit lands.
+/// M263/M361: Handles &lt;reflector&gt; — when the buffed creature is hit, attacker takes damage back.
+/// Flat mode (value=0): reflects HitValue + HitDelta * SkillLevel flat damage.
+/// Percent mode (value&gt;0): reflects max(DamageAmount * Value / 100, hitFlat). Range-gated by Radius.
+/// Java analog: ReflectorEffect (AttackShieldObserver shieldType=1). Post-damage approximation.
 /// </summary>
 public sealed class ReflectorHandler(
     IDataManager             dataManager,
@@ -39,12 +39,16 @@ public sealed class ReflectorHandler(
 
             foreach (var fx in fxList)
             {
-                if (fx.HitValue <= 0) continue;
+                if (fx.HitValue <= 0 && fx.Value <= 0) continue;
 
                 // Range gate: attacker must be within Radius of target for reflect to fire
                 if (fx.Radius > 0f && attacker.Position.DistanceTo(target.Position) > fx.Radius) continue;
 
-                int reflectDmg = fx.HitValue + fx.HitDelta * Math.Max(1, ab.SkillLevel);
+                int hitFlat = fx.HitValue + fx.HitDelta * Math.Max(1, ab.SkillLevel);
+                // M361: percent mode — reflect max(damage * value%, hitFlat); flat mode — reflect hitFlat
+                int reflectDmg = fx.Value > 0
+                    ? Math.Max(e.DamageAmount * fx.Value / 100, hitFlat)
+                    : hitFlat;
                 if (reflectDmg <= 0) continue;
                 reflectDmg = Math.Min(reflectDmg, attacker.CurrentHp); // can't take below 0
                 if (reflectDmg <= 0) continue;

@@ -7,11 +7,12 @@ using AionLightning.Game.Network.Aion.ServerPackets;
 namespace AionLightning.Game.Combat.Handlers;
 
 /// <summary>
-/// M265/M362: Handles &lt;shield&gt; via DamageReceivingEvent (pre-damage). Delegates absorption
-/// to Creature.TryAbsorbShield which tracks the pool and removes the effect when exhausted.
-/// Java analog: ShieldEffect with AttackShieldObserver (shieldType=2).
+/// M366: Handles &lt;mpshield&gt; via DamageReceivingEvent (pre-damage). Absorbed damage is drained
+/// from the target's MP instead of HP. Delegates to Creature.TryAbsorbMpShield which tracks the
+/// pool and removes the effect when exhausted.
+/// Java analog: MpShieldEffect with AttackShieldObserver (shieldType=9).
 /// </summary>
-public sealed class ShieldHandler(
+public sealed class MpShieldHandler(
     PlayerConnectionRegistry connRegistry)
     : IEventHandler<DamageReceivingEvent>
 {
@@ -23,8 +24,8 @@ public sealed class ShieldHandler(
         if (target.IsAlreadyDead) return;
 
         int original  = e.Damage.Value;
-        int remaining = target.TryAbsorbShield(original, out int shieldSkillId);
-        if (remaining == original) return; // no active shield or nothing absorbed
+        int remaining = target.TryAbsorbMpShield(original, out int shieldSkillId);
+        if (remaining == original) return; // no active mpshield or nothing absorbed
 
         e.Damage.Value = remaining;
         int absorbed   = original - remaining;

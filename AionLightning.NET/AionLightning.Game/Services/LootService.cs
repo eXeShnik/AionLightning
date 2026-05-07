@@ -62,6 +62,8 @@ public sealed class LootService
                     if (dropPct != 100) effectiveChance = effectiveChance * dropPct / 100.0;
                     if (killer.DRBoostDelta != 0)
                         effectiveChance = Math.Min(100.0, effectiveChance * (100 + killer.DRBoostDelta) / 100.0);
+                    if (killer.BonusDropRatePct != 0)
+                        effectiveChance = Math.Min(100.0, effectiveChance * (10000 + killer.BonusDropRatePct) / 10000.0);
                     double roll = Random.Shared.NextDouble() * 100.0;
                     if (roll < effectiveChance)
                     {

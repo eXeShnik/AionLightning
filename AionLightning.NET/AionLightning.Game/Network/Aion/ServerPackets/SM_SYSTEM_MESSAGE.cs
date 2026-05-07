@@ -57,6 +57,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_SKILL_NOT_ENOUGH_HP — "Not enough HP to use this skill." (msg code 1300014)
     public static SM_SYSTEM_MESSAGE NotEnoughHp() => new(1300014);
 
+    // STR_SKILL_NOT_ENOUGH_MP — "Not enough MP to use this skill." (msg code 1300015)
+    public static SM_SYSTEM_MESSAGE NotEnoughMp() => new(1300015);
+
     // STR_REBIRTH_MASSAGE_ME — "You have been revived at the bind point." (msg code 1300738)
     public static SM_SYSTEM_MESSAGE Revived() => new(1300738);
 
