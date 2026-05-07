@@ -27,7 +27,8 @@ public sealed class CM_PLAY : AionClientPacket
     {
         if (_conn.SessionKey?.CheckLogin(_accountId, _loginOk) != true)
         {
-            await _conn.SendAsync(new SM_PLAY_FAIL(AionAuthResponse.SYSTEM_ERROR), ct);
+            await _conn.SendAsync(new SM_LOGIN_FAIL(AionAuthResponse.SYSTEM_ERROR), ct);
+            await _conn.DisposeAsync();
             return;
         }
 

@@ -67,7 +67,7 @@ public sealed class AccountController : IAccountController
             return (AionAuthResponse.GM_ONLY, null);
 
         if (account.Activated < 0)
-            return (AionAuthResponse.BANNED, null);
+            return (AionAuthResponse.IP_BANNED, null);
 
         if (_accountsOnLs.ContainsKey(account.Id) || GameServerTable.IsAccountOnAnyGameServer(account))
             return (AionAuthResponse.ALREADY_LOGGED_IN, null);
