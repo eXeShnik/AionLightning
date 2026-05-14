@@ -55,6 +55,9 @@ public sealed class LoginConnection : AConnection
         var data = new byte[frame.Length];
         frame.CopyTo(data);
 
+        _log.LogDebug("[{IP}] RECV raw frameLen={FrameLen} hex={Hex}",
+            IP, frame.Length, BitConverter.ToString(data));
+
         if (!_crypt.Decrypt(data, 0, data.Length))
         {
             _log.LogWarning("Checksum mismatch from {IP} — dropping packet", IP);
@@ -74,15 +77,26 @@ public sealed class LoginConnection : AConnection
         await packet.RunAsync(ct);
     }
 
+    public override async ValueTask DisposeAsync()
+    {
+        var ip = IP;
+        await base.DisposeAsync();
+        _log.LogInformation("[{IP}] Login connection closed (state={State}, joinedGs={GsId})",
+            ip, State, JoinedGs?.Id.ToString() ?? "none");
+    }
+
     public async ValueTask SendAsync(AionServerPacket packet, CancellationToken ct = default)
     {
         var bodyBuf = new ArrayBufferWriter<byte>();
         var w = new PacketWriter(bodyBuf);
         packet.Write(ref w);
 
-        // Java formula: encrypt receives buf.limit()-2 = (opcode+body)-2 = body-1 as initial length,
-        // then adds 4 (checksum/XOR space) and aligns to 8. Replicated here exactly.
-        int encLen = ((bodyBuf.WrittenCount - 1 + 4 + 7) / 8) * 8;
+        // Java: size = b.limit()-2 = body-1. First packet gets +4 extra for EncXorPass ecx tail.
+        bool isFirstPacket = _crypt.IsFirstPacket;
+        int encLen = bodyBuf.WrittenCount - 1;
+        encLen += 4;
+        if (isFirstPacket) encLen += 4;
+        encLen += 8 - encLen % 8;
 
         byte[] enc = new byte[encLen];
         enc[0] = (byte)packet.Opcode;
@@ -96,5 +110,8 @@ public sealed class LoginConnection : AConnection
         enc.CopyTo(wire.AsSpan(2));
 
         await WriteRawAsync(wire, ct);
+
+        _log.LogDebug("[{IP}] SEND opcode=0x{Op:X2} bodyLen={BodyLen} encLen={EncLen} wire={Wire}",
+            IP, (byte)packet.Opcode, bodyBuf.WrittenCount, encLen, BitConverter.ToString(wire));
     }
 }

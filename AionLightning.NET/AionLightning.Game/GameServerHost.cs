@@ -85,7 +85,7 @@ public sealed class GameServerHost : BackgroundService
         _spawnService.SpawnAll();
 
         var lsTask   = RunLsConnectionLoopAsync(ct);
-        var csTask   = RunCsConnectionLoopAsync(ct);
+        var csTask   = _csOpts.Enabled ? RunCsConnectionLoopAsync(ct) : Task.CompletedTask;
         var aionTask = RunAionListenerAsync(ct);
         await Task.WhenAll(lsTask, csTask, aionTask);
     }
@@ -210,6 +210,7 @@ public sealed class GameServerHost : BackgroundService
             while (!ct.IsCancellationRequested)
             {
                 Socket socket = await listener.AcceptSocketAsync(ct);
+                _log.LogInformation("Aion client TCP connect from {EP}", socket.RemoteEndPoint);
                 var conn = _aionFactory.Create(socket, ct);
                 _ = conn.RunAsync(ct).ContinueWith(
                     t => _log.LogError(t.Exception!.GetBaseException(), "Aion client connection error"),
@@ -217,6 +218,11 @@ public sealed class GameServerHost : BackgroundService
             }
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _log.LogCritical(ex, "Aion listener fatal error — port {Port} is now CLOSED", _networkOpts.GamePort);
+            throw;
+        }
         finally
         {
             listener.Stop();

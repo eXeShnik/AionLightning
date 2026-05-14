@@ -16,6 +16,6 @@ public sealed class Account
     public SessionKey? SessionKey { get; set; }
     public global::AionLightning.Login.GameServerInfo? GameServerInfo { get; set; }
     public long? Toll { get; set; }
-    public sbyte LastServer { get; set; } = -1;
+    public sbyte LastServer { get; set; } = 0;
     public string? IpForce { get; set; }
 }

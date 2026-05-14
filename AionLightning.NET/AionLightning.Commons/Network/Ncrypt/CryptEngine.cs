@@ -13,6 +13,8 @@ public sealed class CryptEngine
     private BlowfishCipher _cipher;
     private bool _firstPacket = true;
 
+    public bool IsFirstPacket => _firstPacket;
+
     public CryptEngine() : this(DefaultKey) { }
 
     public CryptEngine(byte[] key)

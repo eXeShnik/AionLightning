@@ -15,6 +15,7 @@ public sealed class GsConnection : AConnection
 
     public GsState State { get; set; } = GsState.CONNECTED;
     public GameServerInfo? GameServerInfo { get; set; }
+    public ILogger Log => _log;
 
     public enum GsState { CONNECTED, AUTHED }
 
