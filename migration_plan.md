@@ -3841,3 +3841,31 @@ only a real client run proves the flow).
     or depend on C2/C3 systems (SM_NEARBY_QUESTS needs a server-side npc→quest index;
     SM_PLAY_MOVIE needs quest handlers; SM_PLAYER_MOVE/SM_FORCED_MOVE need geodata-backed
     movement validation). Next: C2 quest engine depth.
+
+#### C2 progress (2026-07-11) — quest engine
+Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
+- Data-driven template handlers cover ~4,332 quests from `quest_script_data/*.xml`:
+  item_collecting ~1,961, monster_hunt ~1,607, report_to ~487, report_to_many ~84,
+  kill_in_world ~48, + work_order 574 entries. Porting ItemCollecting+MonsterHunt+ReportTo
+  covers ~4,000 quests before touching any hand-written script.
+- Hand-written per-quest scripts (1,493 files) are Phase 5, via the Roslyn Scripts/ pattern.
+- QuestVars encoding (6 vars x 6 bits base-64 packed into `step`) — C# QuestEntry already matches.
+- Dialog protocol contract: client DialogAction ids (31 select, 1002 accept, 1009 reward-select)
+  vs server response dialog ids (4, 5+rewardIdx, 1003/1004, 1011, 1352, 2375) — port the full
+  enum instead of today's scattered magic numbers; include the reward-window status guard
+  (Java refuses SELECT_QUEST_REWARD unless status==REWARD) to prevent reward duping.
+
+- [x] **C2 Phase 0: QuestStatus wire/DB compatibility fix (critical)** — C# enum was
+  START=1/REWARD=2/COMPLETE=3; the 4.6 client and Java DB expect NONE=0/START=3/REWARD=4/
+  COMPLETE=5/LOCKED=6. Values flow into player_quests.status and SM_QUEST_ACTION/SM_QUEST_LIST.
+  Fixed enum (all 17 usages are symbolic) + V35__quest_status_java_values.sql migrates existing
+  rows (single CASE, pre-update values) and changes the column default to 3.
+- [ ] **C2 Phase 1**: QuestEngine singleton + npc→quest indexes (QuestNpc), QuestEnv,
+  QuestHandlerBase (dialog helpers), QuestScriptData loader, ItemCollecting template handler,
+  QuestEngineHostedService; re-route CM_DIALOG_SELECT quest cases + QuestService hooks; then
+  SM_NEARBY_QUESTS becomes buildable.
+- [ ] **C2 Phase 2**: MonsterHunt (multi-var kill spans) + ReportTo templates (~2,100 quests).
+- [ ] **C2 Phase 3**: ReportToMany, KillInWorld, KillSpawned, WorkOrders/ItemOrders.
+- [ ] **C2 Phase 4**: reward templates (CraftingRewards/RelicRewards/FountainRewards/SkillUse/
+  MentorMonsterHunt) + XmlQuest condition/operation mini-DSL.
+- [ ] **C2 Phase 5**: hand-written quest scripts via Roslyn Scripts/ runtime-compile pattern.

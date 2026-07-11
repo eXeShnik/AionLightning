@@ -1,10 +1,14 @@
 namespace AionLightning.Game.Model.Quest;
 
+// Numeric values are load-bearing: persisted to player_quests.status AND written to the
+// wire in SM_QUEST_ACTION — the 4.6 client validates them (Java QuestStatus parity).
 public enum QuestStatus : byte
 {
-    START    = 1,
-    REWARD   = 2,
-    COMPLETE = 3,
+    NONE     = 0,
+    START    = 3,
+    REWARD   = 4,
+    COMPLETE = 5,
+    LOCKED   = 6,
 }
 
 public sealed class QuestEntry
