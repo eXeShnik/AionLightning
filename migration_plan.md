@@ -4762,3 +4762,10 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   parity. Ported Ishalgen 2136 (Lost Axe — object-use spawns the turn-in NPC Rhoo). Probe: 18/18.
   Fleet convention now covers dialog/kill/item-get/item-use/skill-use/level-up/zone-mission/
   movie-end/enter-world hooks + finishQuest-index + spawn.
+
+- [x] **C2 Phase 5 Ishalgen near-complete** (2026-07-11): 15/17 ported (2000/2001/2003/2004/2005/
+  2006/2100/2106/2114/2122/2123/2125/2132/2135/2136). Only the two large branch-heavy "Where's
+  Rae" quests remain: 2002 (279L) + 2007 (237L) — left for fleet. Probe: 29 scripts total
+  (14 Poeta + 15 Ishalgen) compile and discover. Common gotcha for fleet: scripts using
+  Model.Player in a private helper param need an explicit `using AionLightning.Game.Model;`
+  (ImplicitUsings is off for ad-hoc Roslyn compile).
