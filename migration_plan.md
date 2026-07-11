@@ -4065,3 +4065,77 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   Game-side CsConnection gets the same treatment when the Game writer slot is free.
 - Deferred lows: CM_CS_AUTH doesn't validate gsId/address (single-GS fine); token SHA256 hashes
   full UTF-8 login bytes vs Java's char-length truncation (chat-internal, client never validates).
+
+- [x] **C2 Phase 3**: ReportToMany, KillInWorld, KillSpawned, WorkOrders templates (ItemOrders
+  deferred to Phase 4/5 alongside the other remaining `XMLQuest` subtypes).
+  - `Model/Templates/Quest/Script/QuestScriptData.cs`: added `ReportToManyScriptEntry` (+
+    `ReportToManyNpcInfo` for `<npc_infos npc_id/var/quest_dialog/close_dialog/movie>`),
+    `KillInWorldScriptEntry`, `KillSpawnedScriptEntry` (+ `SpawnedMonsterEntry` for
+    `<spawned_monster var/end_var/npc_ids/spawner_object>`), and `WorkOrderScriptEntry` (+
+    `give_component` reusing the existing `CollectItem` model — same `item_id`/`count` XSD shape).
+    Attribute names verified against `quest_script_data.xsd`'s `ReportToManyData`/`KillInWorldData`/
+    `KillSpawnedData`/`WorkOrdersData`/`NpcInfos`/`SpawnedMonster` complex types (not the Java
+    model annotations — same stale-name class of issue Phase 1/2 already found). `work_order.xml`
+    (574 `<work_order>` entries) lives in `quest_script_data/`, not `quest_data/`, so it's picked up
+    by the existing directory scan with no extra load step. Also extended
+    `Model/Templates/Quest/QuestTemplate.cs` with `QuestWorkItems` (`<quest_work_items>
+    <quest_work_item item_id count>`, reusing `CollectItem` again) since `quest_data.xml`'s
+    work-order entries (id 5000+) declare it and WorkOrders needs it for accept-time leftover
+    cleanup — `QuestData.cs`'s loader needed no changes since it already deserializes into
+    `QuestTemplate` directly.
+  - `QuestEngine/Handlers/Templates/ReportToManyHandler.cs`: ports the sequential
+    talk-to-npc-1-then-2-then-3 flow (one quest var tracks the current step, capped at
+    `maxVar` = highest `npc_infos` `var`); dialog/closeDialog/movie-continuation branching mirrors
+    Java's `onDialogEvent` almost verbatim, with one safety deviation: the `closeDialog in
+    {1009,20002,34}` early-return branch now always persists the REWARD transition first (Java's
+    literal `return sendQuestDialog(env, 5)` skips `updateQuestStatus` there, which looks like an
+    unintentional data-loss bug on relog/crash for that rare combination). Not ported: the 5-entry
+    `start_item_id` alternate start trigger (Java's `onItemUseEvent` — `CM_USE_ITEM` has no generic
+    "fire a quest dialog event" hook, only hardcoded per-item-type dispatch) and the per-step movie
+    follow-up dialog (no `SM_MOVIE`-equivalent packet exists yet, same gap as the already-unused
+    `Movie` fields on `ItemCollectingScriptEntry`/`MonsterHuntScriptEntry`). Both are parsed for data
+    completeness; the `start_item_id` count is logged as a warning from `QuestScriptData.Load`.
+  - `QuestEngine/Handlers/Templates/KillInWorldHandler.cs`: **documented capability gap, per the
+    task's "implement the NPC-kill part, log/skip the rest" rule** — traced Java's
+    `onKillInWorldEvent` to its actual call site (`PvpService.notifyKillQuests`, called only from
+    the player-kills-opposing-race-player path) and confirmed KillInWorld has **no NPC-kill part at
+    all** in Java (unlike KillSpawned/MonsterHunt); its entire kill-count objective is PvP-kill-
+    driven via `QuestEngine.onKillInWorld(worldId)`, an event pipeline this engine doesn't have and
+    which is out of scope to build this phase. The handler registers start/end NPC dialog hooks
+    (accept/turn-in work normally) but the kill counter (quest var 0) never advances — quests can be
+    accepted but not completed through normal play. `invasion_world` (Rift/Vortex auto-start) is
+    parsed but not wired, same reason as MonsterHunt's aggro/invasion fields (no RiftService/
+    VortexService port yet).
+  - `QuestEngine/Handlers/Templates/KillSpawnedHandler.cs`: full port — talking to a "spawner
+    object" NPC (`USE_OBJECT` dialog) spawns its associated monster via the already-existing
+    `SpawnService.SpawnNpcAt`, at the spawner's own live position rather than Java's static
+    `SPAWNS_DATA2.getFirstSpawnByNpcId` lookup (simpler, and always instance-correct for the exact
+    object interacted with); killing it (routed through the existing `OnKillAsync`/NPC-kill path)
+    increments the matching `spawned_monster`'s var and transitions to REWARD once every group is
+    satisfied, mirroring Java's `onKillEvent` exactly.
+  - `QuestEngine/Handlers/Templates/WorkOrdersHandler.cs`: full port of the crafting work-order
+    flow — accept validates the recipe is new to the player and gives its `give_component` items
+    (bag-full aborts before creating the quest entry, ReportToHandler-style, instead of Java's
+    silent give-failure-but-still-start-quest quirk), then teaches the recipe; turn-in re-checks the
+    crafted product is in the bag (shared `QuestService.IsRewardReady` against `quest_data.xml`'s
+    `collect_items`), strips any leftover `quest_work_items` materials, drops the taught recipe, and
+    transitions to REWARD — actual grant + `collect_items` consumption happens generically via
+    `QuestRewardService.GrantAndCompleteAsync` on the follow-up `SELECT_QUEST_REWARD` click (that
+    service already validates+consumes `collect_items` for every template, so the handler must NOT
+    also remove them itself, unlike `quest_work_items`/recipe which are WorkOrders-specific cleanup
+    with no shared home). Collapses Java's 2-3 click completion round trip into the same one-shot
+    "transition then grant" shape already established by ItemCollecting/MonsterHunt/ReportTo. Ported
+    literally: Java's NONE-status switch only reacts to `QUEST_SELECT`/`QUEST_ACCEPT_1` (no generic
+    accept/refuse fallback like the other three templates use). Not ported: `max_repeat_count="255"`
+    quest-repeat — pre-existing gap shared by every template handler (see `QuestEngine.
+    ComputeNearbyQuests` remarks), not WorkOrders-specific, so left alone this phase.
+  - `QuestEngineHostedService.cs`: now also takes `IRecipeDao` and `SpawnService` (both already
+    DI-registered); registers all four new template types alongside the Phase 1/2 three; startup log
+    reports per-type counts for all seven.
+  - Data check (standalone loader run, bypassing the DB-config requirement that blocks a full server
+    boot in a sandbox without MySQL configured): loaded counts match the on-disk element counts
+    exactly — 84 `report_to_many`, 48 `kill_in_world`, 14 `kill_spawned`, 574 `work_order` (plus the
+    unchanged 1,957/1,538/468 item_collecting/monster_hunt/report_to from Phase 1/2, and the same
+    `growth.xml` skip already known from Phase 1). 5 of the 84 `report_to_many` entries use
+    `start_item_id` (logged, see above).
+  - Build: 0 warnings, 0 errors.

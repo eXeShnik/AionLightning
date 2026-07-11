@@ -17,7 +17,9 @@ public sealed class QuestEngineHostedService(
     IDataManager dataManager,
     IQuestDao questDao,
     IItemDao itemDao,
+    IRecipeDao recipeDao,
     QuestRewardService rewardService,
+    SpawnService spawnService,
     ILogger<QuestEngineHostedService> log) : IHostedService
 {
     public Task StartAsync(CancellationToken ct)
@@ -31,10 +33,25 @@ public sealed class QuestEngineHostedService(
         foreach (var data in dataManager.QuestScripts.ReportTo)
             engine.AddQuestHandler(new ReportToHandler(data, dataManager, questDao, rewardService, itemDao));
 
+        foreach (var data in dataManager.QuestScripts.ReportToMany)
+            engine.AddQuestHandler(new ReportToManyHandler(data, dataManager, questDao, rewardService, itemDao));
+
+        foreach (var data in dataManager.QuestScripts.KillInWorld)
+            engine.AddQuestHandler(new KillInWorldHandler(data, dataManager, questDao, rewardService));
+
+        foreach (var data in dataManager.QuestScripts.KillSpawned)
+            engine.AddQuestHandler(new KillSpawnedHandler(data, dataManager, questDao, rewardService, spawnService));
+
+        foreach (var data in dataManager.QuestScripts.WorkOrders)
+            engine.AddQuestHandler(new WorkOrdersHandler(data, dataManager, questDao, rewardService, itemDao, recipeDao));
+
         log.LogInformation(
-            "QuestEngine: registered {Count} quest handler(s) ({ItemCollecting} item_collecting, {MonsterHunt} monster_hunt, {ReportTo} report_to)",
+            "QuestEngine: registered {Count} quest handler(s) ({ItemCollecting} item_collecting, {MonsterHunt} monster_hunt, " +
+            "{ReportTo} report_to, {ReportToMany} report_to_many, {KillInWorld} kill_in_world, {KillSpawned} kill_spawned, {WorkOrders} work_order)",
             engine.HandlerCount, dataManager.QuestScripts.ItemCollecting.Count,
-            dataManager.QuestScripts.MonsterHunt.Count, dataManager.QuestScripts.ReportTo.Count);
+            dataManager.QuestScripts.MonsterHunt.Count, dataManager.QuestScripts.ReportTo.Count,
+            dataManager.QuestScripts.ReportToMany.Count, dataManager.QuestScripts.KillInWorld.Count,
+            dataManager.QuestScripts.KillSpawned.Count, dataManager.QuestScripts.WorkOrders.Count);
 
         // Must run after every handler above has registered its NPCs, so the per-NPC
         // OnQuestStart index is complete before it's joined against the spawn table.

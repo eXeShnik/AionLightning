@@ -11,9 +11,18 @@ public sealed class QuestTemplate
     [XmlAttribute("race_permitted")]     public string Race         { get; set; } = "PC_ALL";
     [XmlAttribute("cannot_share")]       public bool   CannotShare  { get; set; } = false;
 
-    [XmlElement("collect_items")]        public CollectItemsHolder? CollectItems { get; set; }
-    [XmlElement("rewards")]              public QuestRewards?       Rewards      { get; set; }
-    [XmlElement("quest_kill")]           public List<QuestKill>     QuestKills   { get; set; } = new();
+    [XmlElement("collect_items")]        public CollectItemsHolder?    CollectItems   { get; set; }
+    [XmlElement("rewards")]              public QuestRewards?          Rewards        { get; set; }
+    [XmlElement("quest_kill")]           public List<QuestKill>        QuestKills     { get; set; } = new();
+    // Leftover crafting components (WorkOrders template) to strip from the player's bag on
+    // completion — distinct from CollectItems, which holds the crafted product being turned in.
+    [XmlElement("quest_work_items")]     public QuestWorkItemsHolder?  QuestWorkItems { get; set; }
+}
+
+public sealed class QuestWorkItemsHolder
+{
+    [XmlElement("quest_work_item")]
+    public List<CollectItem> Items { get; set; } = new();
 }
 
 public sealed class CollectItemsHolder

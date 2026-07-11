@@ -1,11 +1,14 @@
 using System.Xml.Serialization;
+using AionLightning.Game.Model.Templates.Quest;
 
 namespace AionLightning.Game.Model.Templates.Quest.Script;
 
 /// <summary>
 /// Root of a <c>quest_script_data/*.xml</c> file. Java's XSD interleaves many sibling element
-/// types (report_to, monster_hunt, ...); Phase 1 only maps &lt;item_collecting&gt; — other
-/// elements are simply skipped by <see cref="XmlSerializer"/>.
+/// types (report_to, monster_hunt, ...); Phase 1-3 map item_collecting/monster_hunt/report_to/
+/// report_to_many/kill_in_world/kill_spawned/work_order — other elements are simply skipped by
+/// <see cref="XmlSerializer"/>. <c>work_order.xml</c> lives in this same directory (not
+/// quest_data/), so it is picked up by the existing directory scan with no extra load step.
 /// </summary>
 [XmlRoot("quest_scripts")]
 public sealed class QuestScriptsXml
@@ -18,6 +21,18 @@ public sealed class QuestScriptsXml
 
     [XmlElement("report_to")]
     public List<ReportToScriptEntry> ReportTo { get; set; } = new();
+
+    [XmlElement("report_to_many")]
+    public List<ReportToManyScriptEntry> ReportToMany { get; set; } = new();
+
+    [XmlElement("kill_in_world")]
+    public List<KillInWorldScriptEntry> KillInWorld { get; set; } = new();
+
+    [XmlElement("kill_spawned")]
+    public List<KillSpawnedScriptEntry> KillSpawned { get; set; } = new();
+
+    [XmlElement("work_order")]
+    public List<WorkOrderScriptEntry> WorkOrders { get; set; } = new();
 }
 
 /// <summary>Shared space-separated-id-list parser for the new (Phase 2) entry types below.</summary>
@@ -158,4 +173,139 @@ public sealed class ReportToScriptEntry
     /// <summary>End (turn-in) NPC ids. Always explicitly declared per the XSD (Java has no start-npc fallback here).</summary>
     [XmlIgnore]
     public HashSet<int> EndNpcIds => _endNpcIds ??= QuestScriptIds.Parse(EndNpcIdsRaw);
+}
+
+/// <summary>
+/// Port of Java <c>ReportToManyData</c> (questEngine.handlers.models) — sequential multi-NPC
+/// "report to each in turn" quests. Each &lt;npc_infos&gt; child pins one NPC to a specific step
+/// (<c>var</c>); the player must visit them in ascending order before the end NPC(s) accept turn-in.
+/// Attribute names verified against quest_script_data.xsd — <c>start_dialog_id</c> (default 1011,
+/// applied in the handler, not here) not the Java model's stale <c>HACTION_QUEST_SELECT_id</c>.
+/// </summary>
+public sealed class ReportToManyScriptEntry
+{
+    [XmlAttribute("id")]              public int    Id              { get; set; }
+    [XmlAttribute("start_npc_ids")]   public string StartNpcIdsRaw   { get; set; } = "0";
+    [XmlAttribute("start_item_id")]   public int    StartItemId      { get; set; }
+    [XmlAttribute("start_dialog_id")] public int    StartDialogId    { get; set; }
+    [XmlAttribute("end_dialog_id")]   public int    EndDialogId      { get; set; }
+    [XmlAttribute("end_npc_ids")]     public string EndNpcIdsRaw     { get; set; } = "0";
+
+    [XmlElement("npc_infos")] public List<ReportToManyNpcInfo> NpcInfos { get; set; } = new();
+
+    private HashSet<int>? _startNpcIds;
+    private HashSet<int>? _endNpcIds;
+
+    [XmlIgnore]
+    public HashSet<int> StartNpcIds => _startNpcIds ??= QuestScriptIds.Parse(StartNpcIdsRaw);
+
+    [XmlIgnore]
+    public HashSet<int> EndNpcIds => _endNpcIds ??= QuestScriptIds.Parse(EndNpcIdsRaw);
+
+    /// <summary>Highest npc_infos <c>var</c> (Java's <c>maxVar</c>) — the "reported to everyone" threshold.</summary>
+    [XmlIgnore]
+    public int MaxVar => NpcInfos.Count == 0 ? 0 : NpcInfos.Max(n => n.Var);
+}
+
+/// <summary>Port of Java <c>NpcInfos</c> — one step-npc within a &lt;report_to_many&gt; sequence.</summary>
+public sealed class ReportToManyNpcInfo
+{
+    [XmlAttribute("npc_id")]       public int NpcId       { get; set; }
+    [XmlAttribute("var")]          public int Var         { get; set; }
+    [XmlAttribute("quest_dialog")] public int QuestDialog  { get; set; }
+    [XmlAttribute("close_dialog")] public int CloseDialog  { get; set; }
+    // Parsed for data completeness only — no SM_MOVIE-equivalent packet exists yet in this port
+    // (same gap already noted for MonsterHuntScriptEntry/ItemCollectingScriptEntry's Movie fields).
+    [XmlAttribute("movie")]        public int Movie        { get; set; }
+}
+
+/// <summary>
+/// Port of Java <c>KillInWorldData</c> (questEngine.handlers.models) — "kill N while in these
+/// worlds" daily/repeatable quests. See
+/// <see cref="AionLightning.Game.QuestEngine.Handlers.Templates.KillInWorldHandler"/> remarks for
+/// why the kill-count objective itself isn't wired in this phase. <c>worlds="0"</c> (or omitted)
+/// means "every world map" (Java expands it against WorldMapTemplate at register time); parsed here
+/// as an empty set, matching the same 0-is-a-placeholder convention used by every id-list attribute.
+/// </summary>
+public sealed class KillInWorldScriptEntry
+{
+    [XmlAttribute("id")]             public int    Id             { get; set; }
+    [XmlAttribute("start_npc_ids")]  public string StartNpcIdsRaw  { get; set; } = "0";
+    [XmlAttribute("end_npc_ids")]    public string EndNpcIdsRaw    { get; set; } = "0";
+    [XmlAttribute("amount")]         public int    Amount          { get; set; }
+    [XmlAttribute("worlds")]         public string WorldIdsRaw     { get; set; } = "0";
+    [XmlAttribute("invasion_world")] public int    InvasionWorld   { get; set; }
+
+    private HashSet<int>? _startNpcIds;
+    private HashSet<int>? _endNpcIds;
+    private HashSet<int>? _worldIds;
+
+    [XmlIgnore]
+    public HashSet<int> StartNpcIds => _startNpcIds ??= QuestScriptIds.Parse(StartNpcIdsRaw);
+
+    /// <summary>End (turn-in) NPC ids; falls back to <see cref="StartNpcIds"/> when not declared (Java parity).</summary>
+    [XmlIgnore]
+    public HashSet<int> EndNpcIds => _endNpcIds ??= QuestScriptIds.Parse(EndNpcIdsRaw) is { Count: > 0 } explicitEnds
+        ? explicitEnds
+        : new HashSet<int>(StartNpcIds);
+
+    [XmlIgnore]
+    public HashSet<int> WorldIds => _worldIds ??= QuestScriptIds.Parse(WorldIdsRaw);
+}
+
+/// <summary>
+/// Port of Java <c>KillSpawnedData</c> (questEngine.handlers.models) — talk to a spawner object to
+/// spawn a mob, then kill it. Extends Java's MonsterHuntData in the XSD, but KillSpawned.java's own
+/// handler only ever reads start/end npcs and the spawned_monster list, so only those are modeled.
+/// </summary>
+public sealed class KillSpawnedScriptEntry
+{
+    [XmlAttribute("id")]            public int    Id             { get; set; }
+    [XmlAttribute("start_npc_ids")] public string StartNpcIdsRaw  { get; set; } = "0";
+    [XmlAttribute("end_npc_ids")]   public string EndNpcIdsRaw    { get; set; } = "0";
+
+    [XmlElement("spawned_monster")] public List<SpawnedMonsterEntry> SpawnedMonsters { get; set; } = new();
+
+    private HashSet<int>? _startNpcIds;
+    private HashSet<int>? _endNpcIds;
+
+    [XmlIgnore]
+    public HashSet<int> StartNpcIds => _startNpcIds ??= QuestScriptIds.Parse(StartNpcIdsRaw);
+
+    /// <summary>End (turn-in) NPC ids; falls back to <see cref="StartNpcIds"/> when not declared (Java parity).</summary>
+    [XmlIgnore]
+    public HashSet<int> EndNpcIds => _endNpcIds ??= QuestScriptIds.Parse(EndNpcIdsRaw) is { Count: > 0 } explicitEnds
+        ? explicitEnds
+        : new HashSet<int>(StartNpcIds);
+}
+
+/// <summary>One spawner-object -> spawned-mob kill-goal pair within a &lt;kill_spawned&gt; entry (Java <c>SpawnedMonster</c>).</summary>
+public sealed class SpawnedMonsterEntry
+{
+    [XmlAttribute("var")]            public int    Var           { get; set; }
+    [XmlAttribute("end_var")]        public int    EndVar        { get; set; }
+    [XmlAttribute("npc_ids")]        public string NpcIdsRaw      { get; set; } = "0";
+    [XmlAttribute("spawner_object")] public int    SpawnerObject  { get; set; }
+
+    private HashSet<int>? _npcIds;
+    [XmlIgnore]
+    public HashSet<int> NpcIds => _npcIds ??= QuestScriptIds.Parse(NpcIdsRaw);
+}
+
+/// <summary>
+/// Port of Java <c>WorkOrdersData</c> (questEngine.handlers.models) — crafting "work order" quests:
+/// accept teaches the recipe and gives its components, turn-in consumes the crafted product
+/// (quest_data.xml's collect_items). Lives in quest_script_data/work_order.xml, not quest_data/.
+/// </summary>
+public sealed class WorkOrderScriptEntry
+{
+    [XmlAttribute("id")]            public int    Id             { get; set; }
+    [XmlAttribute("start_npc_ids")] public string StartNpcIdsRaw  { get; set; } = "0";
+    [XmlAttribute("recipe_id")]     public int    RecipeId        { get; set; }
+
+    [XmlElement("give_component")] public List<CollectItem> GiveComponents { get; set; } = new();
+
+    private HashSet<int>? _startNpcIds;
+    [XmlIgnore]
+    public HashSet<int> StartNpcIds => _startNpcIds ??= QuestScriptIds.Parse(StartNpcIdsRaw);
 }
