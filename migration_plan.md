@@ -4490,7 +4490,7 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   scripting language. Game csproj already has the Scripts copy-not-compile pattern.
 - CRITICAL build-model change: ScriptService compiles one ALC per file — must add a folder→
   single-assembly batch compile (extend CSharpCompilerService to N syntax trees) before scaling.
-- [ ] **Phase 5 Batch 0 (blocking)**: OnLevelUp (399 quests) + OnZoneMissionEnd (192) hooks,
+- [x] **Phase 5 Batch 0 (blocking)**: OnLevelUp (399 quests) + OnZoneMissionEnd (192) hooks,
   port helper set (defaultCloseDialog x1366 uses, defaultOnKillEvent, checkQuestItems,
   useQuestObject, playQuestMovie+SM_PLAY_MOVIE, give/removeQuestItem, start/end dialog
   overloads), QuestService startMission/LOCKED flow, complete DialogAction SETPROn coverage,
@@ -4557,4 +4557,163 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   - Removed now-dead `RateOptions`/`_rates` plumbing from `CM_ATTACK`/`CM_CASTSPELL` (constructors,
     `GsPacketHandlerFactory` call sites) — it was only ever read inside the block that moved to
     `PvpKillHandler`, which takes its own DI-injected `RateOptions`.
+  - Build: `dotnet build AionLightning.NET/AionLightning.NET.sln` — 0 warnings, 0 errors.
+
+- [x] **Phase 5 Batch 0** (2026-07-11): implemented the blocking prerequisites identified by the
+  scoping study above — new engine hooks, the `SM_PLAY_MOVIE` packet, a `QuestHandlerBase` helper
+  expansion, mission-start plumbing, a batch quest-script compile mode, and 3 hand-ported Poeta
+  quests as the pattern exemplar for the zone-batch agents that follow.
+  - **New `QuestEngine` hooks** (same flat-index + dispatch shape as the existing
+    `OnKillAsync`/`OnPlayerKillAsync`):
+    - `RegisterOnLevelUp`/`OnLevelUpAsync(Player, conn, ct)` — wired from
+      `ExperienceService.HandleLevelUpAsync`, called *before* the `SM_NEARBY_QUESTS` send (Java
+      ordering: `onLvlUp()` then `updateNearbyQuests()`) so a mission that just (un)locked shows up
+      in the same packet. Skips quests already at `COMPLETE`, matching Java's
+      `qs.getStatus() != COMPLETE` guard.
+    - `RegisterOnZoneMissionEnd`/`OnZoneMissionEndAsync(QuestEnv, conn, ct)` — **the actual Java
+      trigger was confirmed by reading the 3 real call sites, not assumed**: Java's
+      `QuestEngine.onEnterZoneMissionEnd` is *never* called generically from a "quest completed"
+      broadcast anywhere in `QuestService`/`PlayerController`. The only caller in the whole
+      codebase is `quest.poeta._1100KaliosCall.onDialogEvent`, which — right before it turns itself
+      in (`SELECTED_QUEST_NOREWARD` while its own status is `REWARD`) — loops a hardcoded array of
+      dependent quest ids (`{1001,1002,1003,1004,1005}`) and calls
+      `QuestEngine.getInstance().onEnterZoneMissionEnd(new QuestEnv(target, player, id, dialogId))`
+      once per id. So the "hook" is really: a zone-mission quest's own script explicitly pokes each
+      of its dependents when it turns itself in; the engine method itself just re-validates that
+      the supplied id is actually registered before dispatching to that id's own handler. Ported
+      exactly that way — `OnZoneMissionEndAsync` takes the poked quest id via `env.QuestId` (no
+      generic "any quest completed" broadcast exists, so none was invented) — and documented at
+      the call site so future zone-mission scripts (quest 1100 itself, ported in the Poeta batch)
+      call it the same way `_1100KaliosCall` does. **Not** wired into `QuestRewardService` — that
+      would have fabricated a trigger Java doesn't have.
+    - `RegisterOnQuestMovieEnd(movieId, questId)`/`OnMovieEndAsync(Player, movieId, conn, ct)` —
+      wired from `CM_PLAY_MOVIE_END` (previously a stub `RunAsync` that read and discarded the
+      packet; now takes `GsClientConnection`/`QuestEngine` via constructor injection like every
+      other `CM_*` handler and calls the dispatcher). Stops at the first handler that reports
+      `true`, matching Java's early-return.
+    - `RegisterOnEnterWorld(questId)`/`OnEnterWorldAsync(Player, conn, ct)` — **not** one of the 3
+      hooks the scoping study called out, added alongside them because the golden `_1000Prologue`
+      exemplar structurally needs one (Java starts/plays-movie on first login). Bridged from the
+      already-existing `PlayerEnteredWorldEvent` (published by `CM_LEVEL_READY` after the full
+      enter-world packet sequence) via a new `QuestEngine/QuestEnterWorldHandler.cs :
+      IEventHandler<PlayerEnteredWorldEvent>`, registered in `Program.cs` next to `PvpKillHandler`
+      — same event-bus-to-engine bridging pattern, since the event only carries `Player` and the
+      connection has to be looked up via `PlayerConnectionRegistry`.
+  - **`SM_PLAY_MOVIE`** (`Network/Aion/ServerPackets/SM_PLAY_MOVIE.cs`, opcode `0x69`): ported
+    Java's `writeC(type)+writeD(objectId)+writeD(id)+writeH(movieId)+writeD(restrictionId)` layout
+    and all 3 constructor overloads (2/4/5-arg). `QuestHandlerBase.PlayQuestMovieAsync(conn,
+    player, movieId, ct)` always uses `type=0` (Java's `playQuestMovie` helper does the same); a
+    script that needs `type=1` (the "CutSceneMovies" intro category — see `_1000Prologue`) sends
+    `SM_PLAY_MOVIE` directly instead of going through the helper, exactly like Java's own
+    `_1000Prologue.onEnterWorldEvent` does.
+  - **`QuestHandlerBase` helper expansion** (ported from Java `QuestHandler`, collapsing each
+    method's overload fan-out down to the 2-3 shapes actually needed rather than replicating every
+    Java overload 1:1 — `ct` stays a required trailing parameter everywhere, matching this
+    codebase's existing convention, so C# optional-parameter chains weren't an option):
+    `DefaultCloseDialogAsync` (no-item + item-give/remove-via-`IItemDao` overloads),
+    `DefaultOnKillEventAsync` (flat span-increment + reward-flip-at-exact-var overloads — distinct
+    from `MonsterHuntHandler`'s packed multi-group spans), `DefaultOnLvlUpEventAsync` /
+    `DefaultOnZoneMissionEndEventAsync` (see `StartMissionAsync` below), `CheckQuestItemsAsync`
+    (validates + consumes quest_data.xml `<collect_items>`, Java's `QuestService.collectItemCheck`
+    inlined since it wasn't already a reusable method), `GiveQuestItemAsync`/`RemoveQuestItemAsync`
+    (promoted from the inline private methods `ReportToHandler` had — same give-the-shortfall /
+    remove-and-maybe-delete logic, now `protected` on the base and reused directly by the golden
+    scripts), `UseQuestObjectAsync` (immediate-apply only — see deviations below),
+    `PlayQuestMovieAsync`, `SendQuestSelectionDialogAsync` (page 10 shorthand).
+  - **`StartMissionAsync(conn, player, status, ct)`**: ports `QuestService.startMission` — creates
+    the entry at `LOCKED` or `START` only if the player has no state for the quest yet, persists,
+    and sends the `Accept`-type `SM_QUEST_ACTION`. Used by both `DefaultOnLvlUpEventAsync` and
+    `DefaultOnZoneMissionEndEventAsync`.
+  - **Simplified vs Java in the mission-start helpers** (documented at each method): only race +
+    minimum level + "every precondition quest id is COMPLETE" are checked. Java's
+    `QuestService.checkMissionStatConditions` (class/gender/combine-skill gates) and
+    `XMLStartCondition` (`<start_condition>` XML rules) have no equivalent infra in this port yet —
+    every quest_data.xml entry that relies on either would need that ported first; none of the 3
+    golden quests do.
+  - **DialogAction completeness** (deliverable 5): diffed every member name in Java
+    `model/DialogAction.java` (197 entries) against the ported `QuestEngine/Model/DialogAction.cs`
+    — **already 1:1**, including the full `SETPRO1..SETPRO41` run and every `SELECT_ACTION_*`/
+    `SELECTED_QUEST_REWARD*` member. No changes needed; this had already been ported completely in
+    an earlier session.
+  - **Batch compile mode**: `CSharpCompilerService.CompileFolder(folder, name)` — parses every
+    `*.cs` under `folder` (recursive) into one `CSharpCompilation`/one collectible `ALC`, sharing
+    the same reference-gathering and emit/diagnostics logic as the existing per-file `Compile`
+    (factored into a private `CompileTrees` helper). The existing per-file mode is untouched byte
+    for byte apart from that extraction. `ScriptService` (the `IScript`-based hot-reload path) was
+    **not** touched — its per-file model fits `Scripts/sample/*` hot-reload scripts; the new batch
+    mode is a separate, additive capability consumed directly by `QuestEngineHostedService`, not
+    routed through `ScriptService`.
+  - **Script-authoring convention** (`QuestEngineHostedService.LoadHandWrittenScripts`, doc'd in
+    the XML remarks there too): every hand-written quest script must
+    1. subclass `QuestHandlerBase`,
+    2. hardcode its quest id as a `private const int` passed to the base constructor (Java's own
+       `private static final int questId` + `super(questId)`, just without a DI container to
+       thread deps through), and
+    3. expose **exactly one public constructor** shaped
+       `(IDataManager dataManager, IQuestDao questDao, QuestRewardService rewardService, IItemDao
+       itemDao)` — the same dependencies template handlers that touch items receive (e.g.
+       `ReportToHandler`), minus the XML data-row argument scripts don't have. Scripts that don't
+       touch items still declare (and simply ignore) `IItemDao` — the host needs one fixed
+       parameter list it can resolve by reflection across every script uniformly, so there's no
+       per-script variance to special-case.
+
+    At startup, `QuestEngineHostedService.LoadHandWrittenScripts` batch-compiles
+    `Scripts/quest/**` (skipped entirely, with a log line, if the folder doesn't exist), reflects
+    over the resulting assembly for non-abstract `QuestHandlerBase` subclasses, resolves each
+    one's 4-arg constructor (logging a warning and skipping any type that doesn't have exactly
+    that shape), invokes it, and registers the handler via the existing `engine.AddQuestHandler`
+    — which already logs a warning on a duplicate quest id (`_log.LogWarning("QuestEngine:
+    duplicate handler registered for quest {QuestId}", ...)`), so id-disjointness between
+    template-populated and script-populated quests (deliverable 7) was already covered by
+    existing code; no change was needed there.
+  - **Golden scripts** (`Scripts/quest/poeta/_1000Prologue.cs`, `_1002RequestoftheElim.cs`,
+    `_1003IllegalLogging.cs`, ported from the matching Java files 1:1 for structure): scripts must
+    explicitly `using System.Threading;`/`using System.Threading.Tasks;` (and `System.Linq` if they
+    use LINQ) — unlike the project-level build, the ad-hoc `CSharpCompilation` used for batch
+    compilation does **not** get the csproj's `ImplicitUsings`, so these can't be omitted the way
+    they can everywhere else in the solution. Found this the hard way via the probe below (it
+    failed on `CancellationToken`/`ValueTask<>`/`Contains` until the usings were added) — worth
+    calling out for the fleet agents writing the next ~1,490 scripts.
+    - `_1000Prologue`: full port — `OnEnterWorldAsync` starts the quest for Elyos players and
+      plays movie 1 (`SM_PLAY_MOVIE(1, 1)` directly, not via the helper — see above);
+      `OnMovieEndAsync` completes it via `QuestRewardService.GrantAndCompleteAsync`.
+    - `_1003IllegalLogging`: full port — dialog chain at NPC 203081 (`SETPRO1`/`SETPRO2` share a
+      case exactly like Java's fallthrough) + a flat kill counter for 9 "woodcutter" mobs
+      (`DefaultOnKillEventAsync` span overload) + a 10th boss mob with its own two-behavior
+      var-range/reward-flip case (written inline, since Java's single `if/else if` block doesn't
+      match either helper shape alone — same "bespoke when it doesn't fit a helper" precedent
+      `KillInWorldHandler` already set).
+    - `_1002RequestoftheElim`: ported the full reachable dialog tree (Ampeis → Noah incl. the
+      evidence-item give/remove + `SELECT_ACTION_1353` cutscene → Sleeping Elder object-use →
+      Daminu → Kalio reward). **Intentionally not ported** (documented in the file's own header,
+      since this is the pattern future agents will copy):
+      - Java's `SETPRO5` case teleports into instance zone `310010000` via
+        `InstanceService.getNextAvailableInstance` + `TeleportService2.teleportTo` (var 13→20),
+        and Java's `onEnterWorldEvent` override then sends `SM_ASCENSION_MORPH` inside that zone
+        and corrects var 20→13 on leaving it. Neither `InstanceService`, `TeleportService2`, nor
+        `SM_ASCENSION_MORPH` exist in this port. Rather than leave a dead branch, `SETPRO5` now
+        transitions var 13→14 directly (the same var both paths eventually reach), so the quest
+        stays completable end-to-end; `OnEnterWorldAsync` isn't overridden at all for this quest.
+      - The var==20 dialog case at Belpartan (205000) — Java's 43s scheduled flight-teleport via
+        `ThreadPoolManager` — is unreachable once var never reaches 20, so it's omitted (NPC
+        205000 is still registered for `OnTalk` parity with Java's own npc list, it just has no
+        case that handles it).
+      - The Sleeping Elder's `getController().scheduleRespawn()`/`.onDelete()` npc-despawn/respawn
+        calls are skipped (no Npc AI/controller subsystem in this port yet) — the underlying var
+        transition (2→4→5) is still ported via `UseQuestObjectAsync` so this doesn't block
+        progress, just drops a visual.
+      - Java's `onCanAct` override (an extra gate on Sleeping Elder interactivity) has no
+        equivalent hook in this port's `IQuestHandler` and was omitted — `UseQuestObjectAsync`'s
+        own var-equality check already prevents out-of-order use.
+      - Java's two `useQuestObject` calls for var 2 vs var 4 differ in whether the surrounding
+        `if`/`else if` branch `return`s the call's boolean result (var==2 silently discards it —
+        reads like an upstream Java bug, not an intentional asymmetry); this port returns both
+        uniformly.
+  - **Probe**: a scratchpad console app referencing the built `AionLightning.Commons`/
+    `AionLightning.Game` projects called `CSharpCompilerService.CompileFolder` directly against
+    the *built output*'s `bin/Debug/net10.0/Scripts/quest` folder (proving the copy-not-compile
+    csproj wiring and the batch-compile mode both work end-to-end against what actually ships) —
+    all 3 `.cs` files compiled into one assembly, and reflecting for `QuestHandlerBase` subclasses
+    with the 4-arg constructor found and discovered all 3 (`_1000Prologue`=1000,
+    `_1002RequestoftheElim`=1002, `_1003IllegalLogging`=1003).
   - Build: `dotnet build AionLightning.NET/AionLightning.NET.sln` — 0 warnings, 0 errors.

@@ -226,6 +226,11 @@ public sealed class ExperienceService
         await conn.SendAsync(new SM_LEVEL_UPDATE(player.ObjectId, 0, player.Level), ct);
         await conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
         await conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
+
+        // Re-check every level-up-gated mission's start preconditions before computing nearby
+        // quests, so a newly-started/locked mission shows up in the same level-up's packet
+        // (Java ordering: QuestEngine.onLvlUp() runs before updateNearbyQuests()).
+        await _questEngine.OnLevelUpAsync(player, conn, ct);
         await conn.SendAsync(new SM_NEARBY_QUESTS(_questEngine.ComputeNearbyQuests(player)), ct);
 
         // At level 9 with a starting class, show class selection dialog so player can ascend

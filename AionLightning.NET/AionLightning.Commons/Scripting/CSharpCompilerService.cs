@@ -9,16 +9,33 @@ namespace AionLightning.Commons.Scripting;
 public sealed class CSharpCompilerService(ILogger<CSharpCompilerService> log)
 {
     public (AssemblyLoadContext Alc, Assembly Assembly)? Compile(string sourceCode, string name)
-    {
-        var tree = CSharpSyntaxTree.ParseText(sourceCode);
+        => CompileTrees([CSharpSyntaxTree.ParseText(sourceCode)], name);
 
+    /// <summary>
+    /// Batch-compile mode: parses every *.cs file under <paramref name="folder"/> (recursively)
+    /// into a single <see cref="CSharpCompilation"/> — one assembly, one collectible ALC — instead
+    /// of the per-file isolation <see cref="Compile"/> uses. Lets a folder of hand-written scripts
+    /// (e.g. quest handlers) reference each other and be discovered together via reflection.
+    /// Returns null if the folder has no *.cs files or the batch fails to compile.
+    /// </summary>
+    public (AssemblyLoadContext Alc, Assembly Assembly)? CompileFolder(string folder, string name)
+    {
+        var files = Directory.GetFiles(folder, "*.cs", SearchOption.AllDirectories);
+        if (files.Length == 0) return null;
+
+        var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(f), path: f));
+        return CompileTrees(trees, name);
+    }
+
+    private (AssemblyLoadContext Alc, Assembly Assembly)? CompileTrees(IEnumerable<SyntaxTree> trees, string name)
+    {
         var refs = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
             .Select(a => MetadataReference.CreateFromFile(a.Location));
 
         var compilation = CSharpCompilation.Create(
             assemblyName: name,
-            syntaxTrees: [tree],
+            syntaxTrees: trees,
             references: refs,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 

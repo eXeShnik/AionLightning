@@ -54,6 +54,8 @@ builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HpUpdateHandler>(
 builder.Services.AddTransient<IEventHandler<DeathEvent>, HealCastorOnTargetDeadHandler>();
 builder.Services.AddTransient<IEventHandler<DeathEvent>, ResurrectBaseHandler>(); // M379
 builder.Services.AddTransient<IEventHandler<DeathEvent>, PvpKillHandler>(); // PvP Phase 1 — after ResurrectBaseHandler so a Chain-of-Suffering revive is visible via IsAlreadyDead
+// Phase 5 Batch 0: bridges CM_LEVEL_READY's PlayerEnteredWorldEvent into QuestEngine.OnEnterWorldAsync
+builder.Services.AddTransient<IEventHandler<PlayerEnteredWorldEvent>, QuestEnterWorldHandler>();
 // M265+: pre-damage handlers (mutate MutableDamage to absorb)
 builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, SanctuaryHandler>(); // sanctuary first — full immunity short-circuits everything else
 builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, AlwaysResistHandler>(); // M276 — magic-only immunity, runs before partial-absorb handlers

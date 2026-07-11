@@ -25,4 +25,16 @@ public interface IQuestHandler
 
     /// <summary>PvP Phase 1 (Java onKillInWorldEvent): a registered kill_in_world quest's world was the scene of a player kill.</summary>
     ValueTask<bool> OnPlayerKillAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onLvlUpEvent: the player leveled up; re-check this quest's mission-start preconditions.</summary>
+    ValueTask<bool> OnLevelUpAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onZoneMissionEndEvent: a related zone-mission quest was just turned in; re-check this quest's mission-start preconditions.</summary>
+    ValueTask<bool> OnZoneMissionEndAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onMovieEndEvent: a cutscene registered against this quest finished playing.</summary>
+    ValueTask<bool> OnMovieEndAsync(QuestEnv env, int movieId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onEnterWorldEvent: the player just finished loading into the world (login or zone-in).</summary>
+    ValueTask<bool> OnEnterWorldAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }

@@ -103,6 +103,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_EXTEND_INVENTORY_CANT_EXTEND_MORE — "You cannot expand the cube any further." (msg code 1300430)
     public static SM_SYSTEM_MESSAGE CannotExpandCubeMore() => new(1300430);
 
+    // STR_CAN_NOT_GET_LORE_ITEM — "You cannot have this item as you already have the limited possession item %0%." (msg code 1300422)
+    public static SM_SYSTEM_MESSAGE CanNotGetLoreItem(string itemName) => new(1300422, itemName);
+
     // STR_EXTEND_INVENTORY — "%0 slots have been added to the cube." (msg code 1300431)
     public static SM_SYSTEM_MESSAGE CubeExpanded(int slots) => new(1300431, slots.ToString());
 

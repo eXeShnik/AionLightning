@@ -1,5 +1,7 @@
+using AionLightning.Commons.Scripting;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
+using AionLightning.Game.QuestEngine.Handlers;
 using AionLightning.Game.QuestEngine.Handlers.Templates;
 using AionLightning.Game.Services;
 using Microsoft.Extensions.Hosting;
@@ -9,8 +11,10 @@ namespace AionLightning.Game.QuestEngine;
 
 /// <summary>
 /// Boots the quest engine at server start: builds one template handler per data-driven
-/// quest_script_data entry and registers it into <see cref="QuestEngine"/>'s npc/quest indexes.
-/// Must run before the game server starts accepting connections.
+/// quest_script_data entry and registers it into <see cref="QuestEngine"/>'s npc/quest indexes,
+/// then batch-compiles any hand-written quest scripts under Scripts/quest/** (see
+/// <see cref="LoadHandWrittenScripts"/> for the script-authoring convention). Must run before the
+/// game server starts accepting connections.
 /// </summary>
 public sealed class QuestEngineHostedService(
     QuestEngine engine,
@@ -21,6 +25,7 @@ public sealed class QuestEngineHostedService(
     ISkillDao skillDao,
     QuestRewardService rewardService,
     SpawnService spawnService,
+    CSharpCompilerService compiler,
     ILogger<QuestEngineHostedService> log) : IHostedService
 {
     public Task StartAsync(CancellationToken ct)
@@ -74,11 +79,79 @@ public sealed class QuestEngineHostedService(
             dataManager.QuestScripts.FountainRewards.Count, dataManager.QuestScripts.SkillUse.Count,
             dataManager.QuestScripts.MentorMonsterHunt.Count);
 
-        // Must run after every handler above has registered its NPCs, so the per-NPC
-        // OnQuestStart index is complete before it's joined against the spawn table.
+        LoadHandWrittenScripts();
+
+        // Must run after every handler above (and every script handler) has registered its NPCs,
+        // so the per-NPC OnQuestStart index is complete before it's joined against the spawn table.
         engine.BuildWorldQuestIndex(dataManager.Spawns, dataManager.Quests);
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Batch-compiles every *.cs file under Scripts/quest/** (if the folder exists) into one
+    /// assembly and registers every discovered <see cref="QuestHandlerBase"/> subclass.
+    /// </summary>
+    /// <remarks>
+    /// <b>Script-authoring convention</b> (mirrors Java hand-written quests, which hardcode their
+    /// own <c>questId</c> as a <c>private static final int</c> and pass it to
+    /// <c>super(questId)</c> — no DI container in Java, just a singleton <c>QuestEngine</c>
+    /// lookup): every script class must
+    /// <list type="bullet">
+    /// <item>subclass <see cref="QuestHandlerBase"/>,</item>
+    /// <item>declare its quest id as a compile-time constant passed to the base constructor, and</item>
+    /// <item>expose exactly one public constructor with the parameter list
+    /// <c>(IDataManager, IQuestDao, QuestRewardService, IItemDao)</c> — the same dependencies the
+    /// data-driven template handlers that need item give/remove receive (e.g.
+    /// <see cref="Templates.ReportToHandler"/>), minus the XML data-row argument scripts don't
+    /// have. Scripts that don't touch items simply declare and ignore the <c>IItemDao</c>
+    /// parameter — every script must match this one fixed shape so the host can resolve it
+    /// uniformly.</item>
+    /// </list>
+    /// This host resolves that fixed 4-parameter constructor by reflection and invokes it directly
+    /// (no per-script DI container walk); a script needing another dependency isn't supported by
+    /// this convention yet — extend the fixed parameter list here (and in the doc above) if a
+    /// later batch needs one. Scripts with no matching constructor are skipped with a warning.
+    /// </remarks>
+    private void LoadHandWrittenScripts()
+    {
+        string scriptsFolder = Path.Combine(AppContext.BaseDirectory, "Scripts", "quest");
+        if (!Directory.Exists(scriptsFolder))
+        {
+            log.LogInformation("QuestEngine: no Scripts/quest folder found, skipping hand-written script batch-compile.");
+            return;
+        }
+
+        var compiled = compiler.CompileFolder(scriptsFolder, "QuestScripts");
+        if (compiled is null)
+        {
+            log.LogWarning("QuestEngine: Scripts/quest batch-compile produced no assembly (empty folder or compile errors — see above).");
+            return;
+        }
+
+        var (_, asm) = compiled.Value;
+        var ctorParamTypes = new[] { typeof(IDataManager), typeof(IQuestDao), typeof(QuestRewardService), typeof(IItemDao) };
+        int discovered = 0;
+
+        foreach (var type in asm.GetExportedTypes())
+        {
+            if (type.IsAbstract || !type.IsAssignableTo(typeof(QuestHandlerBase))) continue;
+
+            var ctor = type.GetConstructor(ctorParamTypes);
+            if (ctor is null)
+            {
+                log.LogWarning("QuestEngine: script type {Type} has no ({Params}) constructor, skipping.",
+                    type.FullName, string.Join(", ", ctorParamTypes.Select(t => t.Name)));
+                continue;
+            }
+
+            var handler = (QuestHandlerBase)ctor.Invoke([dataManager, questDao, rewardService, itemDao]);
+            engine.AddQuestHandler(handler);
+            discovered++;
+        }
+
+        log.LogInformation("QuestEngine: batch-compiled {Discovered} hand-written script handler(s) from {Folder}",
+            discovered, scriptsFolder);
     }
 
     public Task StopAsync(CancellationToken ct) => Task.CompletedTask;

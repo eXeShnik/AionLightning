@@ -21,6 +21,10 @@ public sealed class QuestEngine
     private readonly Dictionary<int, List<int>>     _itemGetIndex = new();
     private readonly Dictionary<int, List<int>>     _skillUseIndex = new();
     private readonly Dictionary<int, List<int>>     _killInWorldIndex = new();
+    private readonly List<int>                      _levelUpIndex = new();
+    private readonly List<int>                      _zoneMissionEndIndex = new();
+    private readonly Dictionary<int, List<int>>     _movieEndIndex = new();
+    private readonly List<int>                      _enterWorldIndex = new();
     private readonly ILogger<QuestEngine>           _log;
 
     // worldId -> quests startable there (Java parity: WorldMapInstance.questIds, populated
@@ -82,6 +86,40 @@ public sealed class QuestEngine
         {
             quests = [];
             _killInWorldIndex[worldId] = quests;
+        }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Registers a quest for level-up re-checks (Java registerOnLevelUp).</summary>
+    public void RegisterOnLevelUp(int questId)
+    {
+        if (!_levelUpIndex.Contains(questId)) _levelUpIndex.Add(questId);
+    }
+
+    /// <summary>Registers a quest for zone-mission-end pokes (Java registerOnEnterZoneMissionEnd).</summary>
+    public void RegisterOnZoneMissionEnd(int questId)
+    {
+        if (!_zoneMissionEndIndex.Contains(questId)) _zoneMissionEndIndex.Add(questId);
+    }
+
+    /// <summary>
+    /// Registers a quest for enter-world notifications (Java registerOnEnterWorld). Not one of
+    /// this batch's 3 required hooks, but added alongside them because the golden
+    /// <c>_1000Prologue</c> exemplar needs it (Java's own onEnterWorldEvent starts the quest and
+    /// plays its intro movie the first time an Elyos player logs in) — see migration_plan.md.
+    /// </summary>
+    public void RegisterOnEnterWorld(int questId)
+    {
+        if (!_enterWorldIndex.Contains(questId)) _enterWorldIndex.Add(questId);
+    }
+
+    /// <summary>Registers a quest as wanting a callback once <paramref name="movieId"/> finishes playing (Java registerOnMovieEndQuest).</summary>
+    public void RegisterOnQuestMovieEnd(int movieId, int questId)
+    {
+        if (!_movieEndIndex.TryGetValue(movieId, out var quests))
+        {
+            quests = [];
+            _movieEndIndex[movieId] = quests;
         }
         if (!quests.Contains(questId)) quests.Add(questId);
     }
@@ -200,6 +238,108 @@ public sealed class QuestEngine
             await handler.OnPlayerKillAsync(env with { QuestId = questId }, killerConn, ct);
         }
         return any;
+    }
+
+    /// <summary>
+    /// Dispatches a level-up event (Java <c>onLvlUp</c>, wired from
+    /// <c>ExperienceService.HandleLevelUpAsync</c>) to every quest registered via
+    /// <see cref="RegisterOnLevelUp"/> whose state isn't already COMPLETE — lets a handler
+    /// re-check its mission preconditions (see <c>QuestHandlerBase.DefaultOnLvlUpEventAsync</c>)
+    /// and start or (re)lock itself.
+    /// </summary>
+    public async ValueTask OnLevelUpAsync(Player player, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in _levelUpIndex)
+            {
+                var existing = player.Quests.Get(questId);
+                if (existing is { Status: QuestStatus.COMPLETE }) continue;
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+
+                await handler.OnLevelUpAsync(new QuestEnv(null, player, questId, 0), conn, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnLevelUpAsync");
+        }
+    }
+
+    /// <summary>
+    /// Dispatches a zone-mission-end poke (Java <c>onEnterZoneMissionEnd</c>) for a single
+    /// dependent quest id, supplied by the caller via <paramref name="env"/>.QuestId. Unlike the
+    /// other dispatchers there is no generic "any quest completed" broadcast in Java — the
+    /// trigger is always an explicit per-quest call made by the zone mission's own completing
+    /// dialog handler (e.g. Java <c>_1100KaliosCall.onDialogEvent</c> loops a hardcoded array of
+    /// dependent quest ids and calls <c>QuestEngine.onEnterZoneMissionEnd</c> once per id right
+    /// before finishing itself). Golden/hand-written scripts that represent a zone mission should
+    /// call this once per dependent quest id from their own <c>OnDialogAsync</c> at that same
+    /// point, mirroring that pattern; see migration_plan.md for the confirmed trigger analysis.
+    /// </summary>
+    public async ValueTask<bool> OnZoneMissionEndAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_zoneMissionEndIndex.Contains(env.QuestId)) return false;
+            if (!_handlers.TryGetValue(env.QuestId, out var handler)) return false;
+
+            return await handler.OnZoneMissionEndAsync(env, conn, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnZoneMissionEndAsync (questId={QuestId})", env.QuestId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Dispatches a movie-finished event (Java <c>onMovieEnd</c>, wired from
+    /// <c>CM_PLAY_MOVIE_END</c>) to every quest registered against this movie id via
+    /// <see cref="RegisterOnQuestMovieEnd"/>, stopping at the first handler that reports it
+    /// handled the event (Java parity: <c>onMovieEnd</c> returns as soon as one handler's
+    /// <c>onMovieEndEvent</c> is true).
+    /// </summary>
+    public async ValueTask<bool> OnMovieEndAsync(Player player, int movieId, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_movieEndIndex.TryGetValue(movieId, out var questIds)) return false;
+
+            foreach (int questId in questIds)
+            {
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+                if (await handler.OnMovieEndAsync(new QuestEnv(null, player, questId, 0), movieId, conn, ct))
+                    return true;
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnMovieEndAsync (movieId={MovieId})", movieId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Dispatches the enter-world event (Java <c>onEnterWorld</c>) to every quest registered via
+    /// <see cref="RegisterOnEnterWorld"/>, unconditionally (Java parity — unlike level-up, there is
+    /// no COMPLETE-status pre-filter here; each handler decides for itself).
+    /// </summary>
+    public async ValueTask OnEnterWorldAsync(Player player, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in _enterWorldIndex)
+            {
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+                await handler.OnEnterWorldAsync(new QuestEnv(null, player, questId, 0), conn, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnEnterWorldAsync");
+        }
     }
 
     /// <summary>
