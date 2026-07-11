@@ -2221,6 +2221,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool stSuppress = target is Player stPvp && _duelService.GetOpponent(player.ObjectId) == stPvp.ObjectId;
                 await target.ApplyDamageAndPublishAsync(player, damage, stKind, spellId, _eventBus, ct, suppressDeathEvent: stSuppress);
 
+                // C1: skill-hit result with damage number + HP pcts (Java SM_CASTSPELL_RESULT at hit time)
+                {
+                    byte stTargetHpPct   = (byte)Math.Clamp(target.MaxHp > 0 ? 100 * target.CurrentHp / target.MaxHp : 0, 0, 100);
+                    byte stAttackerHpPct = (byte)Math.Clamp(player.MaxHp > 0 ? 100 * player.CurrentHp / player.MaxHp : 0, 0, 100);
+                    var stResult = new SM_CASTSPELL_RESULT(player.ObjectId, stAttackerHpPct,
+                        _targetType, target.ObjectId, _x, _y, _z, spellId, _level, cooldown: 0, _hitTime,
+                        [new SM_CASTSPELL_RESULT.ResultHit(target.ObjectId, stTargetHpPct, damage, (byte)SM_ATTACK.HitResult.Normal)]);
+                    foreach (var c in registry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == castWorldId)
+                            try { await c.SendAsync(stResult, ct); } catch { }
+                }
+
                 // M304: closeaerial — remove aerial-launch (OpenAerial) effect from target on hit (Java CloseAerialEffect removes skill 8224)
                 if (template?.Effects?.HasCloseAerial == true && target.CurrentHp > 0)
                 {

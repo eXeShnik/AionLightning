@@ -3819,3 +3819,15 @@ only a real client run proves the flow).
     with the Java DEC_ITEM_USE update) and CM_EQUIP_ITEM stigma-shard partial consumption
     (previously sent no packet — stale shard count until relog).
   - Build: 0 warnings, 0 errors.
+- [x] **C1 batch 4: SM_CASTSPELL_RESULT (0x2B)** — skill-hit result packet (damage number,
+  per-target HP pct, hit status) broadcast at hit time; previously the client only inferred
+  skill damage from SM_ATTACK_STATUS.
+  - Common-path port: dashStatus=0, spellStatus=0, no shield/reflect sub-blocks (extend later);
+    statusFlag H: 16 no-damage / 32 regular per Java comment; cooldown D written 0 because
+    SM_SKILL_COOLDOWN is already sent at cast start.
+  - Wired at the single-target skill damage site in CM_CASTSPELL. AoE loop deliberately NOT wired
+    yet — pending real-client verification of the packet layout first (one bad 0x2B would crash
+    the client on every skill).
+  - Also skipped after audit: SM_FRIEND_UPDATE and SM_LEARN_RECIPE/SM_RECIPE_DELETE — C# already
+    covers those flows with full-list refreshes (SM_FRIEND_LIST / SM_RECIPE_LIST), no functional gap.
+  - Build: 0 warnings, 0 errors.
