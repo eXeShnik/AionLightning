@@ -4746,3 +4746,12 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   PlayerClass.GetStartingClassFor helper (Java parity). All 14/14 Poeta scripts compile +
   discover via probe. Skips: 1114 omits the Seirenia aggro side-effect (handler has no
   NpcAiService), quest still completes. Elyos starter zone done — Ishalgen next (fleet).
+
+- [x] **C2 Phase 5 Ishalgen start** (2026-07-11): ported 2000 (Prologue — enter-world movie),
+  2100 (Order of the Captain — Asmodian campaign opener, 2001-2007 chain), 2132 (A New Skill —
+  mirror of 1205). Probe: 17/17 total discovered.
+- NOTE for fleet — **Batch 0.2 needed**: some quests (e.g. Ishalgen 2136 Lost Axe) call
+  QuestService.addNewSpawn to spawn the turn-in NPC. The fixed 4-arg script ctor has no
+  SpawnService. Add a spawn primitive to the script convention (either a 5th ctor param or a
+  QuestHandlerBase.SpawnNpcAsync helper backed by a static SpawnService set at engine startup)
+  before porting spawn-dependent quests. 2136 deferred until then.
