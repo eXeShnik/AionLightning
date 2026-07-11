@@ -6,6 +6,7 @@ using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Events;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Ai;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
@@ -439,21 +440,30 @@ public sealed class CM_ATTACK : AionClientPacket
 
             _world.Remove(deadNpc);
 
+            // C3 Phase 2 (Java AIQuestion.SHOULD_REWARD): NoAction/Interaction/Trap NPCs never
+            // grant XP/loot/AP — only Aggressive/General/Guard do (NpcController.doReward is
+            // entirely gated by the same poll in Java).
+            bool shouldReward = AiNameRegistry.ShouldReward(deadNpc.Template.Ai);
+
             // Generate drops keyed by the NPC's objectId (now removed from world)
-            _lootService.GenerateDrops(deadNpc, player);
+            if (shouldReward)
+                _lootService.GenerateDrops(deadNpc, player);
 
             // Update quest kill progress for active quests
             await _questService.HandleNpcKillAsync(player, deadNpc, _conn, ct);
 
             // Award XP — level-diff scaling and group distribution handled inside AddGroupExpAsync
-            long xpBase = deadNpc.Template.Stats?.MaxXp > 0
-                ? deadNpc.Template.Stats.MaxXp
-                : deadNpc.Level * 50L;
-            await _expService.AddGroupExpAsync(player, xpBase, deadNpc.Level, ct);
+            if (shouldReward)
+            {
+                long xpBase = deadNpc.Template.Stats?.MaxXp > 0
+                    ? deadNpc.Template.Stats.MaxXp
+                    : deadNpc.Level * 50L;
+                await _expService.AddGroupExpAsync(player, xpBase, deadNpc.Level, ct);
+            }
 
             // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately
-            if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
-                || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
+            if (shouldReward && (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
+                || deadNpc.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase)))
             {
                 int ap = AbyssRankService.CalculateNpcApReward(deadNpc.Level);
                 if (player.APBoostDelta != 0)

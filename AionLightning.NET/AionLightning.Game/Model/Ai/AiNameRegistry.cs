@@ -19,26 +19,38 @@ public static class AiNameRegistry
         ["quest_use_item"] = AiArchetype.Interaction,
         ["chest"]          = AiArchetype.Interaction,
         ["book"]           = AiArchetype.Interaction,
-        ["trap"]           = AiArchetype.Interaction,
 
-        // Guard family — Phase 1 treats guards as aggressive-with-leash (they scan/wander/retaliate
-        // like Aggressive). A dedicated Guard archetype (post assist radius, no-leash return rules)
-        // is Phase 2 per the survey's port order.
-        ["simple_abyssguard"]  = AiArchetype.Aggressive,
-        ["artifact_protector"] = AiArchetype.Aggressive,
-        ["siege_protector"]    = AiArchetype.Aggressive,
-        ["guard"]              = AiArchetype.Aggressive,
+        // C3 Phase 2: traps fire a skill once when an enemy enters range, then despawn — never
+        // reward XP/loot (Java TrapNpcAI2.pollInstance: SHOULD_REWARD/SHOULD_DECAY/SHOULD_RESPAWN
+        // all NEGATIVE). See NpcAiService's dedicated Trap tick path.
+        ["trap"]           = AiArchetype.Trap,
+
+        // Guard family — proactively aggro-scans/fights/retaliates like Aggressive, but never
+        // random-wanders away from its post (NpcAiService gates canWander=false for Guard).
+        ["simple_abyssguard"]  = AiArchetype.Guard,
+        ["artifact_protector"] = AiArchetype.Guard,
+        ["siege_protector"]    = AiArchetype.Guard,
+        ["guard"]              = AiArchetype.Guard,
     };
 
     /// <summary>
     /// Resolves an ai-name to its archetype. Case-insensitive. Any unregistered name containing
-    /// "guard" falls back to Aggressive; anything else unknown falls back to General — the safe
+    /// "guard" falls back to Guard; anything else unknown falls back to General — the safe
     /// default, since it retaliates when attacked but never proactively aggros.
     /// </summary>
     public static AiArchetype Resolve(string aiName)
     {
         if (string.IsNullOrEmpty(aiName)) return AiArchetype.General;
         if (Names.TryGetValue(aiName, out var archetype)) return archetype;
-        return aiName.Contains("guard", StringComparison.OrdinalIgnoreCase) ? AiArchetype.Aggressive : AiArchetype.General;
+        return aiName.Contains("guard", StringComparison.OrdinalIgnoreCase) ? AiArchetype.Guard : AiArchetype.General;
     }
+
+    /// <summary>
+    /// Java AIQuestion.SHOULD_REWARD (see NpcController.doReward, gated by the same poll): only
+    /// Aggressive/General/Guard NPCs grant XP/loot/AP on death. NoAction, Interaction, and Trap
+    /// NPCs never do — matches TrapNpcAI2.pollInstance's explicit SHOULD_REWARD == NEGATIVE and the
+    /// non-combat nature of dialog/dummy NPCs.
+    /// </summary>
+    public static bool ShouldReward(string aiName)
+        => Resolve(aiName) is AiArchetype.Aggressive or AiArchetype.General or AiArchetype.Guard;
 }

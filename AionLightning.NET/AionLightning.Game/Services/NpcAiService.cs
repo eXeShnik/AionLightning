@@ -21,9 +21,11 @@ namespace AionLightning.Game.Services;
 /// Combat mechanics (crit/parry/block/DoT/AoE/NPC skills) are the same for every NPC; WHETHER an
 /// NPC proactively aggro-scans, wanders/patrols, or retaliates when attacked is decided by its
 /// <see cref="AiArchetype"/> (see <see cref="AiNameRegistry"/> and <see cref="ResolveArchetype"/>):
-/// Aggressive scans + wanders + retaliates, General only retaliates + wanders, NoAction/Interaction
-/// are fully inert. NPCs chase targets: move toward the player when outside melee range, attack
-/// when within range.
+/// Aggressive scans + wanders + retaliates, General only retaliates + wanders, Guard scans + fights
+/// + retaliates like Aggressive but never random-wanders off its post (walker routes still apply),
+/// NoAction/Interaction are fully inert, and Trap runs its own proximity-trigger tick (see
+/// <see cref="TickTrapAsync"/>) instead of the aggro/combat/wander pipeline below. NPCs chase
+/// targets: move toward the player when outside melee range, attack when within range.
 /// </summary>
 public sealed class NpcAiService : BackgroundService
 {
@@ -69,6 +71,9 @@ public sealed class NpcAiService : BackgroundService
     private readonly Dictionary<string, AiArchetype> _archetypeCache  = new(StringComparer.OrdinalIgnoreCase);
     // C3 Phase 1: most-hated retarget throttle — NPC objectId → last re-evaluation time (Java lastChangeTargetTimeDelta, >5s)
     private readonly Dictionary<int, DateTime>    _lastRetargetTime   = new();
+    // C3 Phase 2: Trap archetype — NPC objectId → already fired (awaiting despawn). ConcurrentDictionary
+    // because the despawn continuation runs on a background Task (fire-and-forget), not the tick thread.
+    private readonly ConcurrentDictionary<int, byte> _trapTriggered   = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus)
@@ -116,11 +121,13 @@ public sealed class NpcAiService : BackgroundService
         if (counts.Count == 0) return;
 
         _log.LogInformation(
-            "NpcAiService: archetype distribution — Aggressive={Aggressive} General={General} NoAction={NoAction} Interaction={Interaction}",
+            "NpcAiService: archetype distribution — Aggressive={Aggressive} General={General} NoAction={NoAction} Interaction={Interaction} Guard={Guard} Trap={Trap}",
             counts.GetValueOrDefault(AiArchetype.Aggressive),
             counts.GetValueOrDefault(AiArchetype.General),
             counts.GetValueOrDefault(AiArchetype.NoAction),
-            counts.GetValueOrDefault(AiArchetype.Interaction));
+            counts.GetValueOrDefault(AiArchetype.Interaction),
+            counts.GetValueOrDefault(AiArchetype.Guard),
+            counts.GetValueOrDefault(AiArchetype.Trap));
     }
 
     private async Task TickAsync(CancellationToken ct)
@@ -154,16 +161,29 @@ public sealed class NpcAiService : BackgroundService
                 _attackBegunNpcs.Remove(npc.ObjectId);
                 _lastRegenTime.Remove(npc.ObjectId);
                 _lastRetargetTime.Remove(npc.ObjectId);
+                _trapTriggered.TryRemove(npc.ObjectId, out _);
                 npc.Target = null;
                 continue;
             }
 
             // C3 Phase 1: archetype gates WHETHER this NPC aggro-scans/wanders/fights;
             // NpcAiService below still executes the mechanics identically for every archetype.
-            var archetype     = ResolveArchetype(npc);
-            bool canAggroScan = archetype == AiArchetype.Aggressive;
-            bool canFight     = archetype is AiArchetype.Aggressive or AiArchetype.General;
+            var archetype = ResolveArchetype(npc);
+
+            // C3 Phase 2: Trap runs its own proximity-trigger tick instead of the aggro/combat/
+            // wander pipeline below (Java TrapNpcAI2 isMoveSupported=false; only reacts to a
+            // creature entering its range, then fires a skill once and despawns).
+            if (archetype == AiArchetype.Trap)
+            {
+                await TickTrapAsync(npc, players, ct);
+                continue;
+            }
+
+            bool canAggroScan = archetype is AiArchetype.Aggressive or AiArchetype.Guard;
+            bool canFight     = archetype is AiArchetype.Aggressive or AiArchetype.General or AiArchetype.Guard;
             bool canWander    = archetype is AiArchetype.Aggressive or AiArchetype.General;
+            // Guard holds its post: no random wander, but it still walks an assigned patrol route.
+            bool patrolOnly   = archetype == AiArchetype.Guard;
 
             // Out-of-combat HP regen — Java LifeStatsRestoreService: MaxHp/4 every 6s, 1.7s initial delay
             if (!_npcTargets.ContainsKey(npc.ObjectId) && npc.CurrentHp < npc.MaxHp && npc.MaxHp > 0)
@@ -286,9 +306,13 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
 
-            // Wander when idle (Aggressive/General only — NoAction/Interaction never move)
-            if (target is null && canWander)
-                await WanderAsync(npc, ct);
+            // Wander when idle (Aggressive/General only — NoAction/Interaction never move).
+            // Guard never random-wanders off its post, but still walks an assigned patrol route.
+            if (target is null)
+            {
+                if (canWander) await WanderAsync(npc, ct);
+                else if (patrolOnly && !string.IsNullOrEmpty(npc.WalkerId)) await WanderAsync(npc, ct);
+            }
 
             if (target is null) continue;
 
@@ -555,7 +579,16 @@ public sealed class NpcAiService : BackgroundService
         if (Random.Shared.Next(100) >= entry.Probability) return;
 
         _lastSkillTime[npc.ObjectId] = now;
+        await CastSkillEntryAsync(npc, target, entry, now, worldId, ct);
+    }
 
+    // C3 Phase 2: shared skill-cast dispatch, factored out of TryCastNpcSkillAsync so the Trap
+    // archetype's one-shot trigger (TickTrapAsync) gets the exact same SM_CASTSPELL / effect
+    // application / SM_SKILL_ACTIVATION handling as any other NPC skill cast, instead of a parallel
+    // implementation.
+    private async Task CastSkillEntryAsync(Npc npc, Player target, NpcSkillData.NpcSkillEntry entry,
+        DateTime now, int worldId, CancellationToken ct)
+    {
         var castPkt = new SM_CASTSPELL(npc.ObjectId, entry.SkillId, entry.SkillLevel, 3, target.ObjectId, 0);
         foreach (var conn in _connRegistry.GetAll())
             if (conn.ActivePlayer?.Position.WorldId == worldId)
@@ -1196,6 +1229,53 @@ public sealed class NpcAiService : BackgroundService
         });
     }
 
+    // C3 Phase 2: Trap archetype tick (Java TrapNpcAI2.tryActivateTrap). Traps don't aggro-scan,
+    // wander, or chase — they scan for the first enemy player within (aggro range + 2) each tick
+    // and, once triggered, cast a skill and despawn. No leash/chase/retaliation semantics apply.
+    private async Task TickTrapAsync(Npc npc, List<Player> players, CancellationToken ct)
+    {
+        if (_trapTriggered.ContainsKey(npc.ObjectId)) return; // already fired, awaiting despawn
+
+        float triggerRange = npc.Template.AggroRange + 2f; // Java: isInRange(creature, getOwner().getAggroRange() + 2)
+        Player? victim = null;
+        foreach (var player in players)
+        {
+            if (player.IsAlreadyDead || player.IsHidden) continue;
+            if (player.Position.WorldId != npc.Position.WorldId) continue;
+            if (!_dataManager.Tribes.IsAggressiveToPlayer(npc.Template.Tribe, player.Race)) continue;
+            if (npc.Position.DistanceTo(player.Position) > triggerRange) continue;
+            victim = player;
+            break;
+        }
+        if (victim is null) return;
+
+        if (!_trapTriggered.TryAdd(npc.ObjectId, 0)) return;
+        npc.Target = victim;
+
+        var skills = _dataManager.NpcSkills.GetSkills(npc.Template.NpcId);
+        if (skills is { Count: > 0 })
+        {
+            var entry = skills[Random.Shared.Next(skills.Count)];
+            await CastSkillEntryAsync(npc, victim, entry, DateTime.UtcNow, npc.Position.WorldId, ct);
+        }
+
+        // Java TrapDelete: AI2Actions.deleteOwner after a short delay — no loot/XP/respawn
+        // (SHOULD_REWARD/SHOULD_RESPAWN/SHOULD_DECAY are all NEGATIVE for traps).
+        const int TrapDespawnDelayMs = 1000;
+        var despawnNpc   = npc;
+        var despawnWorld = npc.Position.WorldId;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TrapDespawnDelayMs);
+            _world.Remove(despawnNpc);
+            _trapTriggered.TryRemove(despawnNpc.ObjectId, out _);
+            var del = new SM_DELETE(despawnNpc.ObjectId);
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer?.Position.WorldId == despawnWorld)
+                    try { await conn.SendAsync(del); } catch { }
+        });
+    }
+
     private async Task ChaseAsync(Npc npc, Player target, CancellationToken ct)
     {
         float dx = target.Position.X - npc.Position.X;
@@ -1396,11 +1476,12 @@ public sealed class NpcAiService : BackgroundService
     {
         if (npc.IsAlreadyDead) return;
         if (player.IsHidden) return; // M301: hidden players do not trigger NPC aggro
-        // C3 Phase 1: NoAction/Interaction NPCs never fight back, even when hit directly.
+        // C3 Phase 1/2: NoAction/Interaction never fight back; Trap only triggers via its own
+        // proximity scan (TickTrapAsync), never via melee retaliation.
         // Uses the static registry directly (not the tick-thread-owned _archetypeCache) since
         // ForceEngage is invoked from packet-handler threads, not the tick thread.
         var archetype = AiNameRegistry.Resolve(npc.Template.Ai);
-        if (archetype is AiArchetype.NoAction or AiArchetype.Interaction) return;
+        if (archetype is AiArchetype.NoAction or AiArchetype.Interaction or AiArchetype.Trap) return;
         npc.LastCombatTime = DateTime.UtcNow; // refresh on every hit so idle timeout resets
         // M333: scale baseline hate by BOOST_HATE (from active buffs + passive Aggravation skills)
         int boostHatePct = player.BoostHatePct + PassiveBoostHateHelper.ComputePct(player, _dataManager);
@@ -1437,7 +1518,8 @@ public sealed class NpcAiService : BackgroundService
             if (ally.IsAlreadyDead) continue;
             if (ally.Position.WorldId != worldId) continue;
             if (_npcTargets.ContainsKey(ally.ObjectId)) continue;
-            if (ResolveArchetype(ally) != AiArchetype.Aggressive) continue; // ally-assist is proactive aggro
+            // ally-assist is proactive aggro — Guard scans/assists like Aggressive, everything else doesn't
+            if (ResolveArchetype(ally) is not (AiArchetype.Aggressive or AiArchetype.Guard)) continue;
             if (!_dataManager.Tribes.IsSupport(ally.Template.Tribe, aggressor.Template.Tribe)) continue;
 
             float checkRange = ally.Template.AggroRange > 0 ? ally.Template.AggroRange : MeleeRange * 4;

@@ -18,9 +18,25 @@ public enum AiArchetype
     NoAction,
 
     /// <summary>
-    /// Dialog-only NPCs (portal/useitem/quest_use_item/chest/book/trap). Inert like NoAction in
-    /// Phase 1 — kept distinct so a dedicated interaction layer can be added later without another
-    /// registry pass.
+    /// Dialog-only NPCs (portal/useitem/quest_use_item/chest/book). Inert like NoAction — no aggro,
+    /// no wander, no combat ticks or retaliation; CM_DIALOG_SELECT handles these independently of
+    /// the AI tick.
     /// </summary>
     Interaction,
+
+    /// <summary>
+    /// Post guards (simple_abyssguard/artifact_protector/siege_protector/"guard"): proactively
+    /// aggro-scans, fights, and retaliates exactly like Aggressive, but never random-wanders away
+    /// from its spawn post — it only moves along an assigned walker route (if any) and returns
+    /// straight to <see cref="Npc.HomePosition"/> after combat like every other archetype.
+    /// </summary>
+    Guard,
+
+    /// <summary>
+    /// Static trigger NPC (Java "trap" ai, e.g. <c>TrapNpcAI2</c>): never aggro-scans, wanders, or
+    /// fights through the normal tick. Instead it scans for an enemy within its aggro range each
+    /// tick and, on first trigger, casts a skill once and despawns — see
+    /// <see cref="AionLightning.Game.Services.NpcAiService"/>'s dedicated Trap tick path.
+    /// </summary>
+    Trap,
 }
