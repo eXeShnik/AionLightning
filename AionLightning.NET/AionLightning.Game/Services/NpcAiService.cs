@@ -5,6 +5,7 @@ using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Events;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Ai;
 using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -17,9 +18,12 @@ namespace AionLightning.Game.Services;
 
 /// <summary>
 /// Background service that ticks every 2 seconds, handles NPC aggro/combat and idle wander.
-/// Aggressive NPCs (AggroRange > 0, Ai != "dummy") engage nearby players; idle NPCs wander
-/// within WanderRadius units of their spawn point.
-/// NPCs chase targets: move toward the player when outside melee range, attack when within range.
+/// Combat mechanics (crit/parry/block/DoT/AoE/NPC skills) are the same for every NPC; WHETHER an
+/// NPC proactively aggro-scans, wanders/patrols, or retaliates when attacked is decided by its
+/// <see cref="AiArchetype"/> (see <see cref="AiNameRegistry"/> and <see cref="ResolveArchetype"/>):
+/// Aggressive scans + wanders + retaliates, General only retaliates + wanders, NoAction/Interaction
+/// are fully inert. NPCs chase targets: move toward the player when outside melee range, attack
+/// when within range.
 /// </summary>
 public sealed class NpcAiService : BackgroundService
 {
@@ -61,6 +65,10 @@ public sealed class NpcAiService : BackgroundService
     private readonly HashSet<int>                 _attackBegunNpcs    = new();
     // Out-of-combat HP regen: NPC objectId → last regen timestamp
     private readonly Dictionary<int, DateTime>    _lastRegenTime      = new();
+    // C3 Phase 1: ai-name → archetype cache (tick thread owned; AiNameRegistry itself is a static, read-only lookup)
+    private readonly Dictionary<string, AiArchetype> _archetypeCache  = new(StringComparer.OrdinalIgnoreCase);
+    // C3 Phase 1: most-hated retarget throttle — NPC objectId → last re-evaluation time (Java lastChangeTargetTimeDelta, >5s)
+    private readonly Dictionary<int, DateTime>    _lastRetargetTime   = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus)
@@ -77,11 +85,42 @@ public sealed class NpcAiService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         _log.LogInformation("NpcAiService started (2-second tick)");
+        LogArchetypeDistribution();
         using var timer = new PeriodicTimer(Interval);
         while (await timer.WaitForNextTickAsync(ct))
         {
             await TickAsync(ct);
         }
+    }
+
+    // C3 Phase 1: resolves and memoizes an NPC's behavioral archetype by its template ai-name.
+    // Tick-thread owned — safe as a plain Dictionary since only TickAsync (and methods it calls
+    // synchronously, like AlertNearbyAllies) touch it.
+    private AiArchetype ResolveArchetype(Npc npc)
+    {
+        string aiName = npc.Template.Ai;
+        if (_archetypeCache.TryGetValue(aiName, out var cached)) return cached;
+        var archetype = AiNameRegistry.Resolve(aiName);
+        _archetypeCache[aiName] = archetype;
+        return archetype;
+    }
+
+    private void LogArchetypeDistribution()
+    {
+        var counts = new Dictionary<AiArchetype, int>();
+        foreach (var template in _dataManager.Npcs.All)
+        {
+            var archetype = AiNameRegistry.Resolve(template.Ai);
+            counts[archetype] = counts.GetValueOrDefault(archetype) + 1;
+        }
+        if (counts.Count == 0) return;
+
+        _log.LogInformation(
+            "NpcAiService: archetype distribution — Aggressive={Aggressive} General={General} NoAction={NoAction} Interaction={Interaction}",
+            counts.GetValueOrDefault(AiArchetype.Aggressive),
+            counts.GetValueOrDefault(AiArchetype.General),
+            counts.GetValueOrDefault(AiArchetype.NoAction),
+            counts.GetValueOrDefault(AiArchetype.Interaction));
     }
 
     private async Task TickAsync(CancellationToken ct)
@@ -95,6 +134,7 @@ public sealed class NpcAiService : BackgroundService
             _chaseState.Clear();
             _returnState.Clear();
             _attackBegunNpcs.Clear();
+            _lastRetargetTime.Clear();
             return;
         }
 
@@ -113,10 +153,17 @@ public sealed class NpcAiService : BackgroundService
                 _lastIdleShoutTime.Remove(npc.ObjectId);
                 _attackBegunNpcs.Remove(npc.ObjectId);
                 _lastRegenTime.Remove(npc.ObjectId);
+                _lastRetargetTime.Remove(npc.ObjectId);
                 npc.Target = null;
                 continue;
             }
-            bool isDummy = string.Equals(npc.Template.Ai, "dummy", StringComparison.OrdinalIgnoreCase);
+
+            // C3 Phase 1: archetype gates WHETHER this NPC aggro-scans/wanders/fights;
+            // NpcAiService below still executes the mechanics identically for every archetype.
+            var archetype     = ResolveArchetype(npc);
+            bool canAggroScan = archetype == AiArchetype.Aggressive;
+            bool canFight     = archetype is AiArchetype.Aggressive or AiArchetype.General;
+            bool canWander    = archetype is AiArchetype.Aggressive or AiArchetype.General;
 
             // Out-of-combat HP regen — Java LifeStatsRestoreService: MaxHp/4 every 6s, 1.7s initial delay
             if (!_npcTargets.ContainsKey(npc.ObjectId) && npc.CurrentHp < npc.MaxHp && npc.MaxHp > 0)
@@ -152,9 +199,9 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
 
-            // Aggro + combat
+            // Aggro + combat — gated to Aggressive/General; NoAction/Interaction never fight (bug #2 fix)
             Player? target = null;
-            if (!isDummy && npc.Template.AggroRange > 0)
+            if (canFight)
             {
                 // Validate locked target — clear if dead, wrong world, out of chase range, NPC too far from home, or idle timeout
                 if (_npcTargets.TryGetValue(npc.ObjectId, out int lockedId))
@@ -176,6 +223,7 @@ public sealed class NpcAiService : BackgroundService
                         await StopChaseAsync(npc, ct);
                         _npcTargets.TryRemove(npc.ObjectId, out _);
                         _attackBegunNpcs.Remove(npc.ObjectId);
+                        _lastRetargetTime.Remove(npc.ObjectId);
                         npc.Target = null;
                         await BroadcastAttackEndShoutAsync(npc, ct);
 
@@ -189,7 +237,8 @@ public sealed class NpcAiService : BackgroundService
                 }
 
                 // No locked target — scan from NPC's current position for nearest player in aggro range
-                if (target is null)
+                // (only Aggressive archetype scans proactively; General is retaliate-only)
+                if (target is null && canAggroScan && npc.Template.AggroRange > 0)
                 {
                     float minDist = float.MaxValue;
                     foreach (var player in players)
@@ -237,11 +286,40 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
 
-            // Wander when idle (no aggro target and not a dummy)
-            if (target is null && !isDummy)
+            // Wander when idle (Aggressive/General only — NoAction/Interaction never move)
+            if (target is null && canWander)
                 await WanderAsync(npc, ct);
 
             if (target is null) continue;
+
+            // C3 Phase 1 bug #1 fix: retarget to the most-hated attacker at most every 5s
+            // (Java lastChangeTargetTimeDelta), instead of sticking with whichever player was
+            // originally acquired. Leash/return semantics are untouched — this only swaps which
+            // in-range player the NPC is chasing/attacking.
+            if (npc.HateList.Count > 0)
+            {
+                var retargetNow = DateTime.UtcNow;
+                if (!_lastRetargetTime.TryGetValue(npc.ObjectId, out var lastRetarget)
+                    || (retargetNow - lastRetarget).TotalSeconds > 5)
+                {
+                    _lastRetargetTime[npc.ObjectId] = retargetNow;
+                    int topHateId = npc.TopHateObjectId();
+                    if (topHateId != 0 && topHateId != target.ObjectId)
+                    {
+                        var mostHated = players.FirstOrDefault(p => p.ObjectId == topHateId);
+                        if (mostHated is not null
+                            && !mostHated.IsAlreadyDead
+                            && mostHated.Position.WorldId == npc.Position.WorldId
+                            && npc.Position.DistanceTo(mostHated.Position) <= ChaseTargetRange)
+                        {
+                            target = mostHated;
+                            _npcTargets[npc.ObjectId] = mostHated.ObjectId;
+                            npc.Target = mostHated;
+                            _chaseState.Remove(npc.ObjectId); // recompute chase path toward the new target next tick
+                        }
+                    }
+                }
+            }
 
             // Advance any ongoing chase — update NPC position on arrival
             if (_chaseState.TryGetValue(npc.ObjectId, out var cs) && DateTime.UtcNow >= cs.ArrivalTime)
@@ -1318,6 +1396,11 @@ public sealed class NpcAiService : BackgroundService
     {
         if (npc.IsAlreadyDead) return;
         if (player.IsHidden) return; // M301: hidden players do not trigger NPC aggro
+        // C3 Phase 1: NoAction/Interaction NPCs never fight back, even when hit directly.
+        // Uses the static registry directly (not the tick-thread-owned _archetypeCache) since
+        // ForceEngage is invoked from packet-handler threads, not the tick thread.
+        var archetype = AiNameRegistry.Resolve(npc.Template.Ai);
+        if (archetype is AiArchetype.NoAction or AiArchetype.Interaction) return;
         npc.LastCombatTime = DateTime.UtcNow; // refresh on every hit so idle timeout resets
         // M333: scale baseline hate by BOOST_HATE (from active buffs + passive Aggravation skills)
         int boostHatePct = player.BoostHatePct + PassiveBoostHateHelper.ComputePct(player, _dataManager);
@@ -1354,7 +1437,7 @@ public sealed class NpcAiService : BackgroundService
             if (ally.IsAlreadyDead) continue;
             if (ally.Position.WorldId != worldId) continue;
             if (_npcTargets.ContainsKey(ally.ObjectId)) continue;
-            if (string.Equals(ally.Template.Ai, "dummy", StringComparison.OrdinalIgnoreCase)) continue;
+            if (ResolveArchetype(ally) != AiArchetype.Aggressive) continue; // ally-assist is proactive aggro
             if (!_dataManager.Tribes.IsSupport(ally.Template.Tribe, aggressor.Template.Tribe)) continue;
 
             float checkRange = ally.Template.AggroRange > 0 ? ally.Template.AggroRange : MeleeRange * 4;

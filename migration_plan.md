@@ -3984,3 +3984,43 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
 - Blocked on other systems: FEAR/flee (skill effects), FOLLOWING (summons), geo LoS/Z-clamp.
 - Timing risk: fixed 2s tick caps attack cadence regardless of adelay — consider per-NPC attack
   timers during the refactor. Thread rule: all non-target state stays on the tick thread.
+
+#### C3 Phase 1 (2026-07-11) — pluggable archetype layer + hate-retarget fix
+- Added `Model/Ai/AiArchetype.cs` (enum: Aggressive, General, NoAction, Interaction) and
+  `Model/Ai/AiNameRegistry.cs` (static, case-insensitive ai-name → archetype map seeded from the
+  C3 survey table above). Unknown ai names fall back to General (retaliate-only, safe default);
+  unregistered names containing "guard" fall back to Aggressive. `npc_templates.xml` distribution
+  under this mapping: Aggressive ~32,276 (incl. simple_abyssguard/artifact_protector/
+  siege_protector/*guard*), General ~11,261 (incl. everything not explicitly listed —
+  servant/artifact/resurrect/siege_mine/summoner/etc.), NoAction ~1,565 (noaction+dummy),
+  Interaction ~1,828 (portal/useitem/quest_use_item/chest/book/trap). NpcAiService logs the live
+  count via `LogArchetypeDistribution()` at startup from loaded `NpcData`.
+- Did NOT build the full `INpcAi`/`AbstractNpcAi`/`Archetypes/{...}` class hierarchy from the
+  survey's port-order note — Phase 1 keeps the archetype as a plain enum resolved once per NPC
+  (`NpcAiService.ResolveArchetype`, memoized by ai-name) and gates existing NpcAiService blocks
+  directly. A polymorphic `INpcAi` layer is deferred to when the Guard archetype (Phase 2, assist
+  radius + no-leash-return-to-post) actually needs behavior beyond boolean gates — avoids
+  speculative abstraction for 4 archetypes that currently only need 3 yes/no flags.
+- NpcAiService gates (mechanics untouched — same crit/parry/block/DoT/AoE/NPC-skill math runs
+  for every archetype once a target exists):
+  - Aggro-scan (bug #2 fix): scan-for-nearest-player block now requires
+    `canAggroScan (archetype == Aggressive) && AggroRange > 0`, was `Ai != "dummy" && AggroRange > 0`.
+  - Locked-target validation/retaliation: now gated on `canFight` (Aggressive or General) instead
+    of `Ai != "dummy" && AggroRange > 0` — this also fixes General/AggroRange==0 NPCs never being
+    able to retaliate via `ForceEngage` (their `_npcTargets` entry was previously never read back).
+  - Wander/patrol: gated on `canWander` (Aggressive or General); NoAction/Interaction never move.
+  - `ForceEngage` (CM_ATTACK retaliation path): returns immediately for NoAction/Interaction
+    archetypes (resolved via `AiNameRegistry.Resolve` directly, not the tick-thread cache, since
+    it runs on the packet-handler thread) — these NPCs never acquire a combat target even when hit.
+  - `AlertNearbyAllies` (tribe-assist): now requires the ally to resolve to Aggressive (previously
+    only excluded `Ai == "dummy"`) — ally-assist is a proactive-aggro trigger, so General/NoAction/
+    Interaction NPCs no longer get pulled into fights they didn't start.
+- Bug #1 fix (HIGH, most-hated targeting): after a target is confirmed each tick, if
+  `npc.HateList.Count > 0` and more than 5s have passed since the last check for that NPC
+  (`_lastRetargetTime`, tick-thread-owned `Dictionary<int, DateTime>`, cleared alongside the
+  existing per-NPC dictionaries on death/target-loss/no-players), look up `npc.TopHateObjectId()`;
+  if it differs from the current target and the new target is alive, same world, and within
+  `ChaseTargetRange`, swap `_npcTargets`/`npc.Target` to it and drop `_chaseState` so the chase
+  path recomputes toward the new target next tick. Leash/return-home logic is untouched — only
+  which in-range player is being chased/attacked can change.
+- Build: `dotnet build AionLightning.NET.sln` — 0 warnings, 0 errors.
