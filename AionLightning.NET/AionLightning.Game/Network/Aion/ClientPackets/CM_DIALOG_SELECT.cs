@@ -1,14 +1,15 @@
 using AionLightning.Commons.Network;
-using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.QuestEngine.Model;
 using AionLightning.Game.Services;
 using Microsoft.Extensions.Logging;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -95,10 +96,10 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly IMailDao                  _mailDao;
     private readonly ISkillDao                 _skillDao;
     private readonly ILegionDao                _legionDao;
-    private readonly ExperienceService         _expService;
     private readonly PlayerConnectionRegistry  _connRegistry;
     private readonly RepurchaseService         _repurchaseService;
-    private readonly RateOptions               _rates;
+    private readonly QuestEngineType _questEngine;
+    private readonly QuestRewardService        _questRewardService;
     private readonly ILogger<CM_DIALOG_SELECT> _log;
 
     private int _targetObjectId;
@@ -108,24 +109,25 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
-        IMailDao mailDao, ISkillDao skillDao, ILegionDao legionDao, ExperienceService expService,
+        IMailDao mailDao, ISkillDao skillDao, ILegionDao legionDao,
         PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
-        RateOptions rates, ILogger<CM_DIALOG_SELECT> log)
+        QuestEngineType questEngine, QuestRewardService questRewardService,
+        ILogger<CM_DIALOG_SELECT> log)
     {
-        _conn              = conn;
-        _world             = world;
-        _dataManager       = dataManager;
-        _questDao          = questDao;
-        _itemDao           = itemDao;
-        _playerDao         = playerDao;
-        _mailDao           = mailDao;
-        _skillDao          = skillDao;
-        _legionDao         = legionDao;
-        _expService        = expService;
-        _connRegistry      = connRegistry;
-        _repurchaseService = repurchaseService;
-        _rates             = rates;
-        _log               = log;
+        _conn                = conn;
+        _world               = world;
+        _dataManager         = dataManager;
+        _questDao            = questDao;
+        _itemDao             = itemDao;
+        _playerDao           = playerDao;
+        _mailDao             = mailDao;
+        _skillDao            = skillDao;
+        _legionDao           = legionDao;
+        _connRegistry        = connRegistry;
+        _repurchaseService   = repurchaseService;
+        _questEngine         = questEngine;
+        _questRewardService  = questRewardService;
+        _log                 = log;
     }
 
     public override void Read(ref PacketReader r)
@@ -360,6 +362,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var npc = _world.GetNpcByObjectId(_targetObjectId);
         if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
+        var env = new QuestEnv(npc, player, _questId, QUEST_SELECT);
+        if (await _questEngine.OnDialogAsync(env, _conn, ct)) return;
+
         var template = _dataManager.Quests.GetTemplate(_questId);
         if (template is null) return;
 
@@ -388,6 +393,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var npc = _world.GetNpcByObjectId(_targetObjectId);
         if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
+        var env = new QuestEnv(npc, player, _questId, _dialogId);
+        if (await _questEngine.OnDialogAsync(env, _conn, ct)) return;
+
         var template = _dataManager.Quests.GetTemplate(_questId);
         if (template is null) return;
         if (player.Level < template.MinLevel) return;
@@ -414,185 +422,16 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         var npc = _world.GetNpcByObjectId(_targetObjectId);
         if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
+        var env = new QuestEnv(npc, player, _questId, SELECT_QUEST_REWARD, _rewardIndex);
+        if (await _questEngine.OnDialogAsync(env, _conn, ct)) return;
+
         var entry = player.Quests.Get(_questId);
         if (entry is null || entry.Status == QuestStatus.COMPLETE) return;
 
         var template = _dataManager.Quests.GetTemplate(_questId);
         if (template is null) return;
 
-        // When status is START, validate objectives here (REWARD state was already validated at transition)
-        if (entry.Status == QuestStatus.START)
-        {
-            foreach (var kill in template.QuestKills)
-                if (entry.GetVar(kill.Seq) < kill.Count) return;
-
-            if (template.CollectItems is { Items.Count: > 0 })
-                foreach (var req in template.CollectItems.Items)
-                {
-                    var chk = player.Inventory.FindByItemId(req.ItemId);
-                    if (chk is null || chk.Count < req.Count) return;
-                }
-        }
-
-        // Validate and consume collect_item requirements
-        if (template.CollectItems is { Items.Count: > 0 })
-        {
-            foreach (var req in template.CollectItems.Items)
-            {
-                var item = player.Inventory.FindByItemId(req.ItemId);
-                if (item is null || item.Count < req.Count) return;
-            }
-
-            var partiallyConsumed = new List<Model.Item.Item>();
-            foreach (var req in template.CollectItems.Items)
-            {
-                var item = player.Inventory.FindByItemId(req.ItemId);
-                if (item is null) continue;
-                item.Count -= req.Count;
-                if (item.Count <= 0)
-                {
-                    player.Inventory.Remove(item.UniqueId);
-                    await _itemDao.DeleteAsync(item.UniqueId, ct);
-                    await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
-                }
-                else
-                {
-                    partiallyConsumed.Add(item);
-                }
-            }
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            if (partiallyConsumed.Count > 0)
-                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
-        }
-
-        // Award experience (quest rate applied inside AddQuestExpAsync)
-        long expReward = template.Rewards?.Exp ?? 0;
-        if (expReward > 0)
-            await _expService.AddQuestExpAsync(player, expReward, _conn, ct);
-
-        // Award selected reward item
-        var selectableItems = template.Rewards?.SelectableItems;
-        if (selectableItems is { Count: > 0 } && _rewardIndex >= 0 && _rewardIndex < selectableItems.Count)
-        {
-            var reward  = selectableItems[_rewardIndex];
-            int maxStk  = _dataManager.Items.GetTemplate(reward.ItemId)?.MaxStackCount ?? 1;
-            if (player.Inventory.CanReceive(reward.ItemId, maxStk))
-            {
-                var existed = player.Inventory.FindByItemId(reward.ItemId);
-                Item rewardItem;
-                if (existed is not null)
-                {
-                    existed.Count += reward.Count;
-                    rewardItem = existed;
-                }
-                else
-                {
-                    long uid = await _itemDao.NextUniqueIdAsync(ct);
-                    rewardItem = new Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
-                    player.Inventory.Add(rewardItem);
-                }
-                await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([rewardItem]), ct);
-            }
-        }
-
-        // Award fixed reward items (always given, no selection)
-        var fixedItems = template.Rewards?.RewardItems;
-        if (fixedItems is { Count: > 0 })
-        {
-            var granted = new List<Item>();
-            foreach (var reward in fixedItems)
-            {
-                int maxStk = _dataManager.Items.GetTemplate(reward.ItemId)?.MaxStackCount ?? 1;
-                if (!player.Inventory.CanReceive(reward.ItemId, maxStk)) continue;
-
-                var existed = player.Inventory.FindByItemId(reward.ItemId);
-                if (existed is not null)
-                {
-                    existed.Count += reward.Count;
-                    granted.Add(existed);
-                }
-                else
-                {
-                    long uid = await _itemDao.NextUniqueIdAsync(ct);
-                    var item = new Item { UniqueId = uid, ItemId = reward.ItemId, Count = reward.Count, Slot = -1 };
-                    player.Inventory.Add(item);
-                    granted.Add(item);
-                }
-            }
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            if (granted.Count > 0)
-                await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(granted), ct);
-        }
-
-        // Award kinah (gold attribute)
-        long gold = template.Rewards?.Gold ?? 0;
-        if (_rates.QuestKinahRate != 1.0f)
-            gold = (long)(gold * _rates.QuestKinahRate);
-        if (gold > 0)
-        {
-            var kinah = player.Inventory.FindByItemId(KinahItemId);
-            if (kinah is not null)
-            {
-                kinah.Count += gold;
-            }
-            else
-            {
-                long uid = await _itemDao.NextUniqueIdAsync(ct);
-                kinah = new Item { UniqueId = uid, ItemId = KinahItemId, Count = gold, Slot = -1 };
-                player.Inventory.Add(kinah);
-            }
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
-        }
-
-        // Award abyss points
-        int apReward = template.Rewards?.RewardAbyssPoint ?? 0;
-        if (apReward > 0)
-        {
-            bool questRankUp = AbyssRankService.AddAp(player, apReward);
-            await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
-            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
-            if (questRankUp)
-            {
-                var rankUpdatePkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);
-                try { await _conn.SendAsync(rankUpdatePkt, ct); } catch { }
-                int rankWorldId = player.Position.WorldId;
-                foreach (var c in _connRegistry.GetAll())
-                {
-                    if (c == _conn || c.ActivePlayer?.Position.WorldId != rankWorldId) continue;
-                    try { await c.SendAsync(rankUpdatePkt, ct); } catch { }
-                }
-            }
-        }
-
-        // Award title (auto-equip; mirrors Java TitleList.addTitle(id, true, 0))
-        int titleReward = template.Rewards?.Title ?? -1;
-        if (titleReward >= 0)
-        {
-            player.TitleId = titleReward;
-            await _playerDao.UpdateTitleAsync(player.ObjectId, titleReward, ct);
-            await _conn.SendAsync(SM_TITLE_INFO.ActiveTitle(titleReward), ct);
-            int titleWorldId = player.Position.WorldId;
-            foreach (var c in _connRegistry.GetAll())
-            {
-                if (c == _conn || c.ActivePlayer?.Position.WorldId != titleWorldId) continue;
-                try { await c.SendAsync(SM_TITLE_INFO.BroadcastTitle(player.ObjectId, titleReward), ct); } catch { }
-            }
-        }
-
-        // Mark complete
-        entry.Status        = QuestStatus.COMPLETE;
-        entry.CompleteCount = Math.Min(entry.CompleteCount + 1, 127);
-        await _questDao.UpsertAsync(player.ObjectId, entry, ct);
-
-        await _conn.SendAsync(new SM_QUEST_ACTION(entry.QuestId,
-            SM_QUEST_ACTION.ActionType.StepUpdate, (byte)QuestStatus.COMPLETE, entry.Step), ct);
-        await _conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
-        await _conn.SendAsync(new SM_QUEST_COMPLETED_LIST(player.Quests.Completed), ct);
-
-        _log.LogInformation("Player {Name} completed quest {QuestId} ({QuestName}), exp={Exp}",
-            player.Name, _questId, template.Name, expReward);
+        await _questRewardService.GrantAndCompleteAsync(_conn, player, entry, template, _rewardIndex, ct);
     }
 
     private async ValueTask HandleExpandCubeAsync(Model.Player player, CancellationToken ct)

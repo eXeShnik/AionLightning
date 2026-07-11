@@ -3860,12 +3860,65 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   COMPLETE=5/LOCKED=6. Values flow into player_quests.status and SM_QUEST_ACTION/SM_QUEST_LIST.
   Fixed enum (all 17 usages are symbolic) + V35__quest_status_java_values.sql migrates existing
   rows (single CASE, pre-update values) and changes the column default to 3.
-- [ ] **C2 Phase 1**: QuestEngine singleton + npc→quest indexes (QuestNpc), QuestEnv,
+- [x] **C2 Phase 1**: QuestEngine singleton + npc→quest indexes (QuestNpc), QuestEnv,
   QuestHandlerBase (dialog helpers), QuestScriptData loader, ItemCollecting template handler,
   QuestEngineHostedService; re-route CM_DIALOG_SELECT quest cases + QuestService hooks; then
   SM_NEARBY_QUESTS becomes buildable.
+  - `QuestEngine/` (new): `QuestEngine.cs` (npc/item indexes + OnDialogAsync/OnKillAsync/
+    OnItemGetAsync dispatchers, `HasHandler` for fallback gating), `QuestNpc.cs`,
+    `Model/QuestEnv.cs` (record; `RewardIndex` added beyond the original 4-field sketch —
+    matches Java's `extendedRewardIndex`, needed for SELECT_QUEST_REWARD payout),
+    `Model/DialogAction.cs` (full Java enum port, all ~150 members, same numeric ids;
+    `DialogActionLookup.FromId` mirrors `getActionByDialogId`, first-declared wins on the one
+    duplicate id 57), `Handlers/IQuestHandler.cs`, `Handlers/QuestHandlerBase.cs`,
+    `Handlers/Templates/ItemCollectingHandler.cs`, `QuestEngineHostedService.cs`.
+  - `Model/Templates/Quest/Script/QuestScriptData.cs` + `DataHolders/QuestScriptData.cs`: parses
+    `<item_collecting>` from every `quest_script_data/*.xml` (root `quest_scripts`, sibling
+    element types e.g. report_to/monster_hunt are simply skipped by XmlSerializer). Real attribute
+    names are `start_dialog_id`/`start_dialog_id2` per the shipped XSD — the Java
+    `ItemCollectingData` model's `HACTION_QUEST_SELECT_id` annotation is stale/does not match the
+    data on disk, so the C# attributes follow the XSD, not the Java field names.
+  - Reward payout extracted from `CM_DIALOG_SELECT.HandleQuestRewardAsync` into a new
+    `Services/QuestRewardService.GrantAndCompleteAsync` (exp/items/gold/AP/title + COMPLETE
+    transition), called by both the legacy inline path and `QuestHandlerBase.SendQuestEndDialogAsync`
+    — avoids duplicating ~180 lines. `QuestService.IsRewardReady` made `internal` and reused by
+    `ItemCollectingHandler` instead of re-implementing the collect-item check.
+  - Rerouted: `CM_DIALOG_SELECT` quest-select/accept/reward cases call `QuestEngine.OnDialogAsync`
+    first, fall back to the existing inline logic on `false`. `QuestService.ProcessKillForPlayerAsync`
+    / `HandleItemAcquiredAsync` call `QuestEngine.OnKillAsync`/`OnItemGetAsync` first, then skip any
+    quest id already owned by a registered handler (`HasHandler`) before running legacy logic.
+  - Deviation: used dialog page **4** (`ASK_QUEST_ACCEPT_WINDOW`, per Java `DialogPage`) for the
+    not-yet-started quest-select response in the new engine path, not the `1007` the pre-existing
+    fallback code sends — `1007` is a `DialogAction` id, not a `DialogPage` id; `4` is Java-correct.
+    Left the fallback's `1007` untouched (out of scope / don't break what already works).
+  - Data check: 1,961 `<item_collecting>` elements exist on disk; the loader parses 1,957 — one
+    file (`growth.xml`) has a different root element (`<quest_XMLs>`, `quest_XML_data.xsd`) and is
+    skipped with a warning rather than crashing the whole load (its 4 entries likely belong to the
+    Phase 5 hand-written `xml_quest` system, not this template).
+  - Build: 0 warnings, 0 errors.
 - [ ] **C2 Phase 2**: MonsterHunt (multi-var kill spans) + ReportTo templates (~2,100 quests).
 - [ ] **C2 Phase 3**: ReportToMany, KillInWorld, KillSpawned, WorkOrders/ItemOrders.
 - [ ] **C2 Phase 4**: reward templates (CraftingRewards/RelicRewards/FountainRewards/SkillUse/
   MentorMonsterHunt) + XmlQuest condition/operation mini-DSL.
 - [ ] **C2 Phase 5**: hand-written quest scripts via Roslyn Scripts/ runtime-compile pattern.
+
+#### C3 survey (2026-07-11) — NPC AI (Java ai2)
+- Java ai2: event-driven state machine (9 states, 27 event types, 9 poll questions), behavior in
+  static handler/manager classes; ~457 per-content AI script classes atop 3 core archetypes.
+  No pathfinding anywhere — straight-line movement; geodata used only for LoS + Z clamp.
+- Coverage: ai="aggressive" 30,323 NPCs + "general" 8,592 = ~85% of combat NPCs; "noaction" 1,500;
+  guard family ~1,947; interaction AIs (portal/useitem/quest_use_item/trap/chest) are non-combat.
+- Port decision: KEEP NpcAiService as tick driver/combat executor (M194-M380 combat parity lives
+  there); add a pluggable INpcAi archetype layer (Model/Ai/: AiState, INpcAi, AbstractNpcAi,
+  AiNameRegistry, Archetypes/{NoAction,GeneralNpc,AggressiveNpc,Guard,Portal,UseItem,Trap}).
+  Port order: Aggressive+General (85%) → NoAction → Guard family → interaction AIs → registry
+  fallback for the rest. Do NOT port the 457 script classes.
+- Bugs found in current NpcAiService (fix during archetype refactor):
+  1. HIGH: tick targets nearest player; Npc.TopHateObjectId exists but is never used — taunt/
+     multi-attacker priority wrong. Fix: most-hated targeting with Java's >5s retarget throttle.
+  2. MED: only "dummy" ai name is special-cased — noaction/portal/trap/useitem NPCs wrongly
+     aggro-scan and wander.
+  3. LOW: no geo LoS gate on aggro (acceptable Java-without-geodata fallback; document).
+- Blocked on other systems: FEAR/flee (skill effects), FOLLOWING (summons), geo LoS/Z-clamp.
+- Timing risk: fixed 2s tick caps attack cadence regardless of adelay — consider per-NPC attack
+  timers during the refactor. Thread rule: all non-target state stays on the tick thread.

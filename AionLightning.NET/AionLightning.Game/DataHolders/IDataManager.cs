@@ -14,6 +14,7 @@ public interface IDataManager
     TeleportData          Teleports     { get; }
     RecipeData            Recipes       { get; }
     QuestData             Quests        { get; }
+    QuestScriptData        QuestScripts  { get; }
     DropData              Drops         { get; }
     GatherableData        Gatherables   { get; }
     NpcSkillData                   NpcSkills   { get; }

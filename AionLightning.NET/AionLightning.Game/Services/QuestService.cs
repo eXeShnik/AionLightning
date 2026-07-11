@@ -5,6 +5,8 @@ using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Templates.Quest;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.QuestEngine.Model;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Services;
 
@@ -14,12 +16,14 @@ public sealed class QuestService
     private readonly IQuestDao                _questDao;
     private readonly IDataManager             _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly QuestEngineType          _questEngine;
 
-    public QuestService(IQuestDao questDao, IDataManager dataManager, PlayerConnectionRegistry connRegistry)
+    public QuestService(IQuestDao questDao, IDataManager dataManager, PlayerConnectionRegistry connRegistry, QuestEngineType questEngine)
     {
         _questDao     = questDao;
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
+        _questEngine  = questEngine;
     }
 
     /// <summary>
@@ -47,9 +51,14 @@ public sealed class QuestService
 
     private async ValueTask ProcessKillForPlayerAsync(Player player, Npc deadNpc, GsClientConnection conn, CancellationToken ct)
     {
+        // Data-driven templates (registered against this NPC's OnKill index) get first crack;
+        // the legacy loop below then skips any quest id the engine already owns.
+        await _questEngine.OnKillAsync(new QuestEnv(deadNpc, player, 0, 0), conn, ct);
+
         foreach (var entry in player.Quests.Active)
         {
             if (entry.Status != QuestStatus.START) continue;
+            if (_questEngine.HasHandler(entry.QuestId)) continue;
 
             var template = _dataManager.Quests.GetTemplate(entry.QuestId);
             if (template is null || template.QuestKills.Count == 0) continue;
@@ -89,9 +98,12 @@ public sealed class QuestService
     /// </summary>
     public async ValueTask HandleItemAcquiredAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct)
     {
+        await _questEngine.OnItemGetAsync(player, itemId, conn, ct);
+
         foreach (var entry in player.Quests.Active)
         {
             if (entry.Status != QuestStatus.START) continue;
+            if (_questEngine.HasHandler(entry.QuestId)) continue;
 
             var template = _dataManager.Quests.GetTemplate(entry.QuestId);
             if (template?.CollectItems is null or { Items.Count: 0 }) continue;
@@ -109,8 +121,12 @@ public sealed class QuestService
         }
     }
 
-    /// <summary>Returns true when all kill slots and all collect_item requirements are met.</summary>
-    private static bool IsRewardReady(QuestEntry entry, QuestTemplate template, Player player)
+    /// <summary>
+    /// Returns true when all kill slots and all collect_item requirements are met. Internal so the
+    /// quest engine's data-driven handlers (e.g. ItemCollectingHandler) can reuse the same check
+    /// instead of duplicating it.
+    /// </summary>
+    internal static bool IsRewardReady(QuestEntry entry, QuestTemplate template, Player player)
     {
         foreach (var kill in template.QuestKills)
             if (entry.GetVar(kill.Seq) < kill.Count) return false;

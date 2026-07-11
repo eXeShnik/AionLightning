@@ -14,9 +14,11 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Ls;
+using AionLightning.Game.QuestEngine;
 using AionLightning.Game.Services;
 using Microsoft.Extensions.DependencyInjection;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 using Microsoft.Extensions.Hosting;
 
 var builder = AionHostBuilder.CreateAion(args, "AionGame");
@@ -100,6 +102,8 @@ builder.Services.AddSingleton<LootService>();
 builder.Services.AddSingleton<ExchangeService>();
 builder.Services.AddSingleton<GroupService>();
 builder.Services.AddSingleton<QuestService>();
+builder.Services.AddSingleton<QuestRewardService>();
+builder.Services.AddSingleton<QuestEngineType>();
 builder.Services.AddSingleton<DuelService>();
 builder.Services.AddSingleton<LegionService>();
 builder.Services.AddSingleton<GatherService>();
@@ -125,8 +129,9 @@ builder.Services.AddSingleton<PlayerConnectionRegistry>();
 // Aion-client connection factory
 builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnectionFactory>();
 
-// Hosted services: schema migration first, then server
+// Hosted services: schema migration first, then quest engine bootstrap, then server
 builder.Services.AddHostedService<SchemaMigrationHost>();
+builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<GameServerHost>();
 
 await builder.Build().RunAsync();

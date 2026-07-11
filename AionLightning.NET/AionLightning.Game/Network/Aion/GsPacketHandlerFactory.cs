@@ -9,6 +9,7 @@ using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Services;
 using AionLightning.Game.Model.Mail;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -59,6 +60,8 @@ public sealed class GsPacketHandlerFactory
     private readonly PlayerEnterWorldService _enterWorldService;
     private readonly RepurchaseService       _repurchaseService;
     private readonly AuraChildApplier        _auraApplier;
+    private readonly QuestEngineType         _questEngine;
+    private readonly QuestRewardService      _questRewardService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -103,7 +106,9 @@ public sealed class GsPacketHandlerFactory
         NpcAiService npcAi,
         PlayerEnterWorldService enterWorldService,
         RepurchaseService repurchaseService,
-        AuraChildApplier auraApplier)
+        AuraChildApplier auraApplier,
+        QuestEngineType questEngine,
+        QuestRewardService questRewardService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -148,6 +153,8 @@ public sealed class GsPacketHandlerFactory
         _enterWorldService = enterWorldService;
         _repurchaseService = repurchaseService;
         _auraApplier   = auraApplier;
+        _questEngine        = questEngine;
+        _questRewardService = questRewardService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -233,7 +240,7 @@ public sealed class GsPacketHandlerFactory
                 0x110 => new CM_HOUSE_EDIT(),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(),
-                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillDao, _legionDao, _expService, _connRegistry, _repurchaseService, _rates, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
+                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillDao, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
                 0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _connRegistry),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),

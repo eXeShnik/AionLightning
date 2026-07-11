@@ -16,6 +16,7 @@ public sealed class DataManager : IDataManager
     public TeleportData          Teleports     { get; } = new();
     public RecipeData            Recipes       { get; } = new();
     public QuestData             Quests        { get; } = new();
+    public QuestScriptData        QuestScripts  { get; } = new();
     public DropData              Drops         { get; } = new();
     public GatherableData        Gatherables   { get; } = new();
     public NpcSkillData                   NpcSkills   { get; } = new();
@@ -48,6 +49,7 @@ public sealed class DataManager : IDataManager
         Teleports.Load(dataRoot, log);
         Recipes.Load(dataRoot, log);
         Quests.Load(dataRoot, log);
+        QuestScripts.Load(dataRoot, log);
         Drops.Load(dataRoot, log);
         Gatherables.Load(dataRoot, log);
         NpcSkills.Load(dataRoot, log);
