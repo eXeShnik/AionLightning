@@ -40,6 +40,7 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnDialogAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnKillAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnItemGetAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnItemUseAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnSkillUseAsync(Player player, int skillId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnPlayerKillAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnLevelUpAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
@@ -114,6 +115,19 @@ public abstract class QuestHandlerBase : IQuestHandler
         if (template is null) return false;
 
         return await RewardService.GrantAndCompleteAsync(conn, player, entry, template, env.RewardIndex, ct);
+    }
+
+    /// <summary>
+    /// Java QuestHandler.finishQuest(env, rewardIndex): grant a specific reward tier and complete,
+    /// bypassing the SELECT_QUEST_REWARD dialog guard (used when the script has already validated
+    /// the turn-in itself, e.g. multi-option reward quests picking the tier from a quest var).
+    /// </summary>
+    protected async ValueTask<bool> FinishQuestAsync(GsClientConnection conn, Player player, int rewardIndex, CancellationToken ct)
+    {
+        var entry = player.Quests.Get(QuestId);
+        var template = Template;
+        if (entry is null || template is null) return false;
+        return await RewardService.GrantAndCompleteAsync(conn, player, entry, template, rewardIndex, ct);
     }
 
     /// <summary>Sets a quest var and/or transitions to REWARD, then broadcasts the update (Java changeQuestStep).</summary>

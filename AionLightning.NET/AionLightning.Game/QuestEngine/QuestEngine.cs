@@ -19,6 +19,7 @@ public sealed class QuestEngine
     private readonly Dictionary<int, QuestNpc>      _questNpcs = new();
     private readonly Dictionary<int, IQuestHandler> _handlers  = new();
     private readonly Dictionary<int, List<int>>     _itemGetIndex = new();
+    private readonly Dictionary<int, List<int>>     _itemUseIndex = new();
     private readonly Dictionary<int, List<int>>     _skillUseIndex = new();
     private readonly Dictionary<int, List<int>>     _killInWorldIndex = new();
     private readonly List<int>                      _levelUpIndex = new();
@@ -64,6 +65,17 @@ public sealed class QuestEngine
         {
             quests = [];
             _itemGetIndex[itemId] = quests;
+        }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Registers a quest item whose use fires the quest's onItemUse event (Java registerQuestItem).</summary>
+    public void RegisterQuestItem(int itemId, int questId)
+    {
+        if (!_itemUseIndex.TryGetValue(itemId, out var quests))
+        {
+            quests = [];
+            _itemUseIndex[itemId] = quests;
         }
         if (!quests.Contains(questId)) quests.Add(questId);
     }
@@ -197,6 +209,24 @@ public sealed class QuestEngine
             await handler.OnItemGetAsync(player, itemId, conn, ct);
         }
         return any;
+    }
+
+    /// <summary>
+    /// Dispatches an item-use event (Java onItemUseEvent) to every quest registered for this item id.
+    /// Returns true if any registered handler consumed it (used to start/advance quest-item quests).
+    /// </summary>
+    public async ValueTask<bool> OnItemUseAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct)
+    {
+        if (!_itemUseIndex.TryGetValue(itemId, out var questIds)) return false;
+
+        bool handled = false;
+        foreach (int questId in questIds)
+        {
+            if (!_handlers.TryGetValue(questId, out var handler)) continue;
+            try { handled |= await handler.OnItemUseAsync(player, itemId, conn, ct); }
+            catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnItemUseAsync (questId={QuestId})", questId); }
+        }
+        return handled;
     }
 
     /// <summary>

@@ -200,7 +200,7 @@ public sealed class GsPacketHandlerFactory
                 0xC1  => new CM_QUIT(conn),
                 0xC4  => new CM_EQUIP_ITEM(conn, _itemDao, _dataManager, _connRegistry),
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
-                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillDao, _playerTitleDao, _world, _npcAi, _eventBus),
+                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillDao, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine),
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillDao, _spawnService),
                 0xC9  => new CM_EMOTION(conn, _connRegistry),
                 0xCA  => new CM_PLAYER_LISTENER(),

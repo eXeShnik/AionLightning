@@ -21,6 +21,8 @@ public interface IQuestHandler
 
     ValueTask<bool> OnItemGetAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 
+    ValueTask<bool> OnItemUseAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
     ValueTask<bool> OnSkillUseAsync(Player player, int skillId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 
     /// <summary>PvP Phase 1 (Java onKillInWorldEvent): a registered kill_in_world quest's world was the scene of a player kill.</summary>

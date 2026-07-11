@@ -4726,3 +4726,11 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   (onItemUseEvent) and finishQuest-with-reward-index which Batch 0 did not build; that's a small
   Batch 0.1 before finishing the zone. Fleet zone agents blocked until API session limit resets
   (23:10 Kyiv).
+
+- [x] **C2 Phase 5 Batch 0.1** (2026-07-11): added the item-USE quest trigger (Java onItemUseEvent):
+  QuestEngine.RegisterQuestItem + OnItemUseAsync dispatcher + IQuestHandler/QuestHandlerBase
+  OnItemUseAsync member, wired into CM_USE_ITEM (a quest claiming the use short-circuits normal
+  item use). Added QuestHandlerBase.FinishQuestAsync(rewardIndex) wrapping
+  QuestRewardService.GrantAndCompleteAsync (Java finishQuest(env, index)). Ported Poeta 1107
+  (Lost Axe — item-use start) and 1111 (Insomnia Medicine — two-recipe reward-index turn-in).
+  Probe: 9/9 Poeta discovered. Fleet agents now have the item-use + finish-index primitives.

@@ -12,6 +12,7 @@ using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -48,6 +49,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly GameWorld                _world;
     private readonly NpcAiService             _npcAi;
     private readonly IEventBus                _eventBus;
+    private readonly QuestEngineType          _questEngine;
 
     private int _uniqueItemId;
     private int _type;
@@ -55,7 +57,8 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
         IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, ISkillDao skillDao,
-        IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi, IEventBus eventBus)
+        IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi, IEventBus eventBus,
+        QuestEngineType questEngine)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -67,6 +70,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
         _world        = world;
         _npcAi        = npcAi;
         _eventBus     = eventBus;
+        _questEngine  = questEngine;
     }
 
     public override void Read(ref PacketReader r)
@@ -87,6 +91,11 @@ public sealed class CM_USE_ITEM : AionClientPacket
 
         var template = _dataManager.Items.GetTemplate(item.ItemId);
         if (template is null) return;
+
+        // Quest item use (Java onItemUseEvent): a registered quest may claim this item's use
+        // (e.g. start a quest-item quest, play its dialog). If handled, skip normal item use.
+        if (await _questEngine.OnItemUseAsync(player, item.ItemId, _conn, ct))
+            return;
 
         // Dye item used on a target item
         if (_type == 2 && template.Actions?.Dye is not null)
