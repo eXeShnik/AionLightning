@@ -4734,3 +4734,9 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   QuestRewardService.GrantAndCompleteAsync (Java finishQuest(env, index)). Ported Poeta 1107
   (Lost Axe — item-use start) and 1111 (Insomnia Medicine — two-recipe reward-index turn-in).
   Probe: 9/9 Poeta discovered. Fleet agents now have the item-use + finish-index primitives.
+
+- [x] **C2 Phase 5 Poeta delivery quests** (2026-07-11): ported 1118 (Polinia's Ointment),
+  1122 (Delivering Pernos's Robe — 3-robe reward tiers via FinishQuestAsync), 1123 (Where's
+  Tutty — zone-movie via OnEnterWorld). Probe: 12/12 Poeta scripts discovered. Only 1114
+  (The Nymph's Gown, 216L) and 1205 (A New Skill, 182L) remain in Poeta — left for fleet
+  (larger, more branch-heavy). Reminder: fleet zone agents resume after API reset (23:10 Kyiv).
