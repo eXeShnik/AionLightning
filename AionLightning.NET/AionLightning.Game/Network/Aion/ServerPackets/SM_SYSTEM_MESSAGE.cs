@@ -127,6 +127,26 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_MSG_COMBAT_FRIENDLY_DEATH_TO_B — "%0 was killed by %1's attack." (msg code 1350001)
     public static SM_SYSTEM_MESSAGE PlayerKilledByPlayer(string victimName, string killerName) => new(1350001, victimName, killerName);
 
+    // M381: STR_SKILL_SUMMON_ALREADY_HAVE_A_FOLLOWER (msg code 1300072) — master already has an active summon.
+    // Java embeds the summon name via a client-side DescriptionId nameId reference for the below five messages;
+    // this port uses a plain string param instead (simplification — see migration_plan.md M381 note).
+    public static SM_SYSTEM_MESSAGE SummonAlreadyHaveFollower() => new(1300072);
+
+    // STR_SKILL_SUMMON_UNSUMMONED — "%0 has been dismissed." (msg code 1200006)
+    public static SM_SYSTEM_MESSAGE SummonUnsummoned(string summonName) => new(1200006, summonName);
+
+    // STR_SKILL_SUMMON_ATTACK_MODE — "%0 starts to attack the enemy." (msg code 1200008)
+    public static SM_SYSTEM_MESSAGE SummonAttackMode(string summonName) => new(1200008, summonName);
+
+    // STR_SKILL_SUMMON_GUARD_MODE — "%0 is in Guard mode." (msg code 1200009)
+    public static SM_SYSTEM_MESSAGE SummonGuardMode(string summonName) => new(1200009, summonName);
+
+    // STR_SKILL_SUMMON_REST_MODE — "%0 is in Resting mode." (msg code 1200010)
+    public static SM_SYSTEM_MESSAGE SummonRestMode(string summonName) => new(1200010, summonName);
+
+    // STR_SKILL_SUMMON_UNSUMMON_FOLLOWER — "You unsummon %0." (msg code 1200011)
+    public static SM_SYSTEM_MESSAGE SummonUnsummonFollower(string summonName) => new(1200011, summonName);
+
     // STR_GIVE_ITEM_PROC_ENCHANTED_TARGET_ITEM — "Item tuning complete." (msg code 1401626)
     public static SM_SYSTEM_MESSAGE TuningComplete() => new(1401626);
 

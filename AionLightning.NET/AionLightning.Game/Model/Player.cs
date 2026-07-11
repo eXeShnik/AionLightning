@@ -40,6 +40,9 @@ public sealed class Player : Creature
     // Party group — null when not in a group
     public PlayerGroup? Group { get; set; }
 
+    // M381: active Spiritmaster-style summon — one per master (Java rule); null when no summon is out
+    public Summon? Summon { get; set; }
+
     // Legion (guild) — null when not in a legion
     public LegionModel? Legion { get; set; }
 

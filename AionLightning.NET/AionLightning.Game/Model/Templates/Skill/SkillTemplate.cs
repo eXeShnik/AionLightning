@@ -3521,6 +3521,25 @@ public sealed class SkillEffects
     /// <summary>M379: True when any effect element is a &lt;resurrectbase&gt; (Java ResurrectBaseEffect — auto-revives target on death).</summary>
     public bool HasResurrectBase => Elements?.Any(e => e.LocalName == "resurrectbase") == true;
 
+    /// <summary>M381: True when any effect element is a plain &lt;summon npc_id="N" time="T"/&gt; (Java SummonEffect —
+    /// Spiritmaster elemental spirits). Does not match summontrap/summonhoming/summonservant/etc. — those are
+    /// separate effect families deferred past Phase 1.</summary>
+    public bool HasSummonEffect => Elements?.Any(e => e.LocalName == "summon") == true;
+
+    /// <summary>M381: (npcId, time) of the first &lt;summon&gt; element; (0, 0) when absent. Most elemental-spirit
+    /// skills omit time entirely (permanent until released) despite the Java field being marked required.</summary>
+    public (int NpcId, int Time) SummonInfo
+    {
+        get
+        {
+            var el = Elements?.FirstOrDefault(e => e.LocalName == "summon");
+            if (el is null) return (0, 0);
+            int.TryParse(el.GetAttribute("npc_id"), out int npcId);
+            int.TryParse(el.GetAttribute("time"), out int time);
+            return (npcId, time);
+        }
+    }
+
     /// <summary>M379: The skill_id attribute of the first &lt;resurrectbase&gt; element, or 0 if absent.</summary>
     public int ResurrectBaseSkillId
     {

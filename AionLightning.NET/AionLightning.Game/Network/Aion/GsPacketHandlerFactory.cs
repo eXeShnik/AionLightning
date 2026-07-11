@@ -62,6 +62,7 @@ public sealed class GsPacketHandlerFactory
     private readonly AuraChildApplier        _auraApplier;
     private readonly QuestEngineType         _questEngine;
     private readonly QuestRewardService      _questRewardService;
+    private readonly SummonsService          _summonsService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -108,7 +109,8 @@ public sealed class GsPacketHandlerFactory
         RepurchaseService repurchaseService,
         AuraChildApplier auraApplier,
         QuestEngineType questEngine,
-        QuestRewardService questRewardService)
+        QuestRewardService questRewardService,
+        SummonsService summonsService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -155,6 +157,7 @@ public sealed class GsPacketHandlerFactory
         _auraApplier   = auraApplier;
         _questEngine        = questEngine;
         _questRewardService = questRewardService;
+        _summonsService      = summonsService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -214,7 +217,7 @@ public sealed class GsPacketHandlerFactory
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn, _connRegistry),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(conn, _connRegistry),
                 0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus),
-                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus, _auraApplier, _questEngine),
+                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus, _auraApplier, _questEngine, _summonsService),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry),
@@ -284,7 +287,7 @@ public sealed class GsPacketHandlerFactory
                 0x156 => new CM_DELETE_ITEM(conn, _itemDao),
                 0x159 => new CM_BROKER_LIST(conn, _brokerService),
                 0x15A => new CM_PRIVATE_STORE_NAME(conn, _connRegistry),
-                0x15B => new CM_SUMMON_COMMAND(),
+                0x15B => new CM_SUMMON_COMMAND(conn, _summonsService),
                 0x15C => new CM_BUY_BROKER_ITEM(conn, _brokerService),
                 0x15D => new CM_REGISTER_BROKER_ITEM(conn, _brokerService),
                 0x15E => new CM_BROKER_SEARCH(conn, _brokerService),
@@ -296,7 +299,7 @@ public sealed class GsPacketHandlerFactory
                 0x166 => new CM_SHOW_MAP(),
                 0x167 => new CM_APPEARANCE(conn, _playerDao, _connRegistry, _itemDao, _legionDao),
                 0x168 => new CM_SUMMON_EMOTION(),
-                0x169 => new CM_SUMMON_ATTACK(),
+                0x169 => new CM_SUMMON_ATTACK(conn, _world, _summonsService),
                 0x16A => new CM_AUTO_GROUP(),
                 0x16B => new CM_SUMMON_MOVE(),
                 0x16C => new CM_FUSION_WEAPONS(conn, _itemDao, _dataManager),

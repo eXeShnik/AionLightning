@@ -4356,3 +4356,126 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   its `<inventory_items>` (item 186000031, count 1) with `Rewards.Exp` (1500) still intact via the
   fallback.
 - Build: `dotnet build AionLightning.NET.sln` (full solution) — 0 warnings, 0 errors.
+
+#### Summon system survey (2026-07-11) — Spiritmaster spirits
+- Java: <summon> skill effect (64 skills; elemental spirits npc 201010-201034) → SummonsService
+  (one summon per master, modes GUARD/ATTACK/REST/RELEASE, 2-phase release w/ 5s delay + hate
+  transfer to master, DISTANCE/LOGOUT unsummon). Stats come from summon_stats templates keyed by
+  (npcId, level), NOT npc-template stats. Packets: SM_SUMMON_PANEL 0x99, SM_SUMMON_UPDATE 0x9B
+  (current+base stat pairs), SM_SUMMON_PANEL_REMOVE 0x49, SM_SUMMON_OWNER_REMOVE 0x9A,
+  SM_SUMMON_USESKILL 0xA2. C# state: the 5 CM_SUMMON_* readers exist but RunAsync are stubs;
+  no Summon model/service; <summon> effect silently ignored in CM_CASTSPELL.
+- Pre-decisions for Phase 1 (made): wire creatorId/masterName into SM_NPC_INFO for owner linkage
+  (Java does exactly this); summon ticks inside NpcAiService via a dedicated summon pass (follow
+  master in GUARD, chase/attack in ATTACK); MVP credits kills/hate to the MASTER via the existing
+  ForceEngage/kill paths (avoids lifting the hate API from Npc to Creature); interim stats from
+  npc templates (summon_stats fidelity = Phase 3 debt, panel numbers will look off).
+- [ ] Summon Phase 2: CM_SUMMON_CASTSPELL/USESKILL + throttle, CM_SUMMON_MOVE/EMOTION, REST
+  regen, distance/logout release. Phase 3: summon_stats templates, full SM_SUMMON_UPDATE stat
+  pairs, servant/trap/homing/groupgate families.
+
+#### PvP kill pipeline survey (2026-07-11)
+- C# already handles PvP death INLINE in CM_ATTACK + CM_CASTSPELL (AP exchange, announces, rank
+  update, persist) — but: credits last-hitter not most-damage (no aggro list), no group/alliance
+  AP split, no per-victim daily-kill cap (AP farm exploit), CalculatePvPApGained misses Java's
+  winnerRank<=7 rank-diff -5%/rank penalty and maps diff<-3 to x1.20 (Java x1.30), AP loss is not
+  damage-scaled, and there is NO PvP-kill → QuestEngine path (kill_in_world quests unwinnable).
+- Verbatim AP tables (already correct in C#): pointsGained 300..1245, pointsLost 90..311 (ranks
+  1-9); level-diff multipliers: >4→x0.1, ==4→x0.65, ==3→x0.85, ==-2→x1.1, ==-3→x1.2, <-3→x1.3.
+- [ ] **PvP Phase 1**: Combat/Handlers/PvpKillHandler : IEventHandler<DeathEvent> — move the
+  duplicated inline block there (duel-guarded), fix the two formula gaps, add
+  QuestEngine.OnPlayerKillAsync(env, victimWorldId) + world-keyed index so KillInWorldHandler
+  counts kills. Preserve packet order + DAO persistence when relocating.
+- [ ] **PvP Phase 2 (needs AggroList on Creature)**: most-damage attribution, group/alliance
+  damage-proportional split, damage-scaled AP loss, notify all rewarded members' quests.
+- [ ] **PvP Phase 3**: per-victim KillList daily cap (fixes the farm exploit), kill item rewards,
+  serial-killer system.
+
+- [x] **M381: Summon system Phase 1 — Spiritmaster spirits cast, follow, attack-on-command, and
+  dismiss (minimal viable spirit)** — a `<summon npc_id="N" time="T"/>` skill effect (64 elemental
+  spirit skills, npc 201010-201034) was silently ignored in CM_CASTSPELL (fell through to the
+  buff/unknown catch-all); no `Summon` model, `SummonsService`, or World store existed; the 5
+  CM_SUMMON_* client packets were opcode-only stubs; SM_NPC_INFO hardcoded creatorId=0/masterName=""
+  so summons could never be linked to their owner client-side.
+  - **Model**: `Model/Summons/SummonMode.cs` (Attack=0/Guard=1/Rest=2/Release=3, Java wire ids) and
+    `Model/Summons/UnsummonType.cs` (Command/Distance/Logout/Unspecified — Distance reserved for
+    Phase 2). `Model/Summon.cs` — sealed `Summon : Creature`; `Template` (NpcTemplate, reused as-is —
+    interim stats, summon_stats fidelity is Phase 3 debt), `Master` (Player?), `Mode`, `Level` (byte,
+    the *skill* level, distinct from the npc_template level — mirrors Java `Summon.getLevel()`),
+    `LiveTime`. `Model/Player.cs` — added `Summon? Summon` (one per master, Java rule).
+  - **World store**: `World/World.cs` — dedicated `ConcurrentDictionary<int, Summon>` +
+    `Add/Remove/GetSummonByObjectId/GetAllSummons` (kept separate from the NPC store since summons
+    have an owner and a different lifecycle). `Network/Aion/ClientPackets/CM_LEVEL_READY.cs` — zone
+    entry now also sends `SM_NPC_INFO(summon)` for every summon in the entering player's world, next
+    to the existing NPC introduction loop.
+  - **SM_NPC_INFO owner linkage**: `Network/Aion/ServerPackets/SM_NPC_INFO.cs` refactored from a
+    single `Npc _npc` field to precomputed common fields populated by either an `SM_NPC_INFO(Npc)` or
+    a new `SM_NPC_INFO(Summon)` constructor (creatorId=master.ObjectId, masterName=master.Name,
+    level=summon.Level) — same wire format, `Write()` unchanged. Deviation: Java varies npcTypeId
+    per-viewer (SUPPORT vs ATTACKABLE based on the *receiving* player's enemy relation to the master);
+    Phase 1 always reports the peaceful/support type since summons never threaten their own faction —
+    revisit if PvP-visible summons matter later.
+  - **Packets** (new files, exact Java field layouts): `SM_SUMMON_PANEL` (0x99), `SM_SUMMON_UPDATE`
+    (0x9B, current+base stat pairs), `SM_SUMMON_PANEL_REMOVE` (0x49), `SM_SUMMON_OWNER_REMOVE`
+    (0x9A). Fields with no NpcTemplate analog (mDef, mBoost, mAccuracy, mCritical, parry) report 0;
+    mainHandPCritical reuses `Stats.Power` the same way NpcAiService already treats it as an NPC
+    crit-rating proxy elsewhere — Phase 3 debt once summon_stats templates land.
+  - **Skill effect parsing**: `Model/Templates/Skill/SkillTemplate.cs` — additive-only
+    `SkillEffects.HasSummonEffect` / `SummonInfo` (npcId, time) following the existing
+    `Elements?.Any(...)` / `FirstOrDefault(...)` pattern used by `HasResurrectEffect` etc. Verified
+    against skill_templates.xml: all 64 plain `<summon npc_id="…"/>` entries (skillsubtype="SUMMON",
+    first_target="ME", target_relation="FRIEND") omit `time` entirely despite the Java field being
+    marked `required=true` — spirits are permanent until released; `summontrap`/`summonhoming`/
+    `summonservant`/etc. are separate elements, deliberately not matched (out of Phase 1 scope).
+  - **SummonsService** (`Services/SummonsService.cs`, DI singleton): `CreateSummonAsync` (one-per-
+    master guard → msg 1300072 refusal, resolves NpcTemplate from `DataManager.Npcs`, spawns at the
+    master's exact position — Java spawns summons at the caster's literal x/y/z too, the client
+    renders the "at the side" offset itself), `DoModeAsync` (GUARD/ATTACK/REST switches +
+    SM_SUMMON_UPDATE + mode message; RELEASE routes to `ReleaseAsync`), `ReleaseAsync` (2-phase: mode
+    flips to RELEASE + optional SM_SUMMON_UPDATE now, world removal + SM_DELETE broadcast +
+    SM_SUMMON_OWNER_REMOVE/SM_SUMMON_PANEL_REMOVE to master 5s later, matching Java
+    `ReleaseSummonTask`'s delay), `ReleaseImmediatelyAsync` (LOGOUT-only: immediate removal, zone-wide
+    SM_DELETE, no packets to the (already-disconnected) owner, no 5s delay).
+  - **CM_CASTSPELL insertion point**: new `else if (template?.Effects?.HasSummonEffect == true &&
+    _targetType is 0 or 3 or 4 && (_targetObjectId == 0 || _targetObjectId == player.ObjectId))`
+    branch inserted immediately before the final catch-all `else` (the "Buff, chant, passive, or
+    unknown" branch that previously swallowed SUMMON-subtype casts) — structurally parallel to the
+    HEAL/BUFF/damage branches earlier in the same if/else-if chain, each with its own
+    `SM_SKILL_ACTIVATION` broadcast.
+  - **Client packets**: `CM_SUMMON_COMMAND` (0x15B) and `CM_SUMMON_ATTACK` (0x169) filled in from
+    opcode-only stubs — both resolve `ActivePlayer.Summon`, validate ownership/target, and delegate to
+    `SummonsService.DoModeAsync`. `CM_SUMMON_CASTSPELL`/`CM_SUMMON_EMOTION`/`CM_SUMMON_MOVE` remain
+    stubs (Phase 2).
+  - **AI tick** (`Services/NpcAiService.cs`): new `TickSummonsAsync` pass added to the existing 2s
+    tick, after the NPC loop — summons live in their own World store so this is a parallel pass, not a
+    branch inside the NPC loop. GUARD → `FollowMasterAsync` (distance > 4m triggers a move toward the
+    master); ATTACK → `TickSummonAttackAsync` (chase to melee range, then interim-formula melee hits
+    on a 1.5s cooldown). Kill crediting reuses the CM_ATTACK.cs Npc-death subset (loot/quest/xp) keyed
+    to the **master**, gated by `AiNameRegistry.ShouldReward` — avoids lifting the hate/aggro API from
+    `Npc` onto `Creature` just for this (pre-decision from the 2026-07-11 survey). On melee hit, the
+    target is engaged against the **master** via the existing `ForceEngage`, not the summon, for the
+    same reason. Constructor gained `LootService`/`QuestService`/`SpawnService` (all already
+    registered singletons, no circular DI).
+  - **Deviation — movement model**: follow/chase snap the summon directly to its computed destination
+    within the same 2s tick and broadcast one `SM_MOVE.StartNpcMove` for client-side animation, rather
+    than tracking inter-tick arrival like NPC `ChaseAsync`/`WanderAsync` (`_chaseState`/`_wanderState`).
+    Acceptable for a single always-nearby companion; revisit if summons need believable mid-flight
+    position for other systems (e.g. AoE collision).
+  - **Deviation — system messages**: Java embeds the summon's display name via a client-side
+    `DescriptionId` nameId reference for STR_SKILL_SUMMON_* messages; this port passes the summon's
+    plain `Name` as a string param instead (`SM_SYSTEM_MESSAGE.cs` additions) since the wire protocol
+    has no DescriptionId param-type support yet — text still resolves correctly, just through a
+    different (simpler) client-side substitution path.
+  - **Logout**: `Network/Aion/GsClientConnection.cs` `DisposeAsync` — released via
+    `ReleaseImmediatelyAsync` right after `_world.Remove(player)`/`_connRegistry.Unregister`, so the
+    zone-wide SM_DELETE never reaches the disconnecting owner's own (already-torn-down) connection.
+    Threaded `SummonsService` through `GsConnectionFactory` → `GsClientConnection` (manual DI, no
+    container changes needed).
+  - **Deferred to Phase 2/3** (per the 2026-07-11 survey pre-decisions, unchanged): distance-based
+    auto-release, CM_SUMMON_CASTSPELL/USESKILL + throttle, CM_SUMMON_MOVE/EMOTION, REST-mode HP regen,
+    summon_stats templates (real per-level stats + full SM_SUMMON_UPDATE fidelity),
+    servant/trap/homing/groupgate summon families. Additionally not attempted in Phase 1: NPCs do not
+    yet aggro-scan or retaliate against summons directly (mobs only ever perceive players in
+    `NpcAiService`'s scan), so a summon cannot currently be killed by anything — summon death/respawn
+    handling is unimplemented until that changes.
+  - Build: `dotnet build AionLightning.NET/AionLightning.NET.sln` — 0 warnings, 0 errors.

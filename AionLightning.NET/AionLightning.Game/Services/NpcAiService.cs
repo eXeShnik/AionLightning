@@ -6,6 +6,7 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Ai;
+using AionLightning.Game.Model.Summons;
 using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
@@ -40,6 +41,10 @@ public sealed class NpcAiService : BackgroundService
     private const float ChaseSpeed        = 6.0f;
     private const float MeleeRange        = 2.5f;
     private const int   NpcSkillCooldownMs = 8000;
+    // M381: summon AI tuning — GUARD follow trigger distance, ATTACK melee range, melee attack cadence
+    private const float SummonFollowRange     = 4.0f;
+    private const float SummonMeleeRange      = 2.5f;
+    private const int   SummonAttackCooldownMs = 1500;
 
     private sealed record WanderState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
     private sealed record ChaseState(float Tx, float Ty, float Tz, DateTime ArrivalTime);
@@ -52,6 +57,9 @@ public sealed class NpcAiService : BackgroundService
     private readonly ILogger<NpcAiService> _log;
     private readonly RateOptions _rates;
     private readonly IEventBus _eventBus;
+    private readonly LootService  _lootService;
+    private readonly QuestService _questService;
+    private readonly SpawnService _spawnService;
     private readonly Dictionary<int, DateTime>    _lastAttackTime  = new();
     private readonly Dictionary<int, DateTime>    _lastSkillTime   = new();
     private readonly ConcurrentDictionary<int, int> _npcTargets    = new();
@@ -74,9 +82,12 @@ public sealed class NpcAiService : BackgroundService
     // C3 Phase 2: Trap archetype — NPC objectId → already fired (awaiting despawn). ConcurrentDictionary
     // because the despawn continuation runs on a background Task (fire-and-forget), not the tick thread.
     private readonly ConcurrentDictionary<int, byte> _trapTriggered   = new();
+    // M381: summon AI — objectId → last melee-attack timestamp (ATTACK mode cooldown)
+    private readonly Dictionary<int, DateTime> _summonLastAttackTime = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
-        ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus)
+        ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus,
+        LootService lootService, QuestService questService, SpawnService spawnService)
     {
         _world        = world;
         _connRegistry = connRegistry;
@@ -85,6 +96,9 @@ public sealed class NpcAiService : BackgroundService
         _log          = log;
         _rates        = rates.Value;
         _eventBus     = eventBus;
+        _lootService  = lootService;
+        _questService = questService;
+        _spawnService = spawnService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -561,6 +575,177 @@ public sealed class NpcAiService : BackgroundService
                 }
             }
         }
+
+        // M381: summon AI — GUARD follows the master, ATTACK chases+melees the recorded target.
+        // Kept as its own pass (rather than folded into the NPC loop above) since summons are stored
+        // in a dedicated World store, not the NPC store.
+        await TickSummonsAsync(ct);
+    }
+
+    // M381: one pass per tick over every active summon. GUARD/REST hold position (REST additionally
+    // regenerates in Phase 2); ATTACK chases and melees the recorded target, crediting kills to the
+    // master via the same loot/quest/xp subset CM_ATTACK uses for player kills.
+    private async Task TickSummonsAsync(CancellationToken ct)
+    {
+        foreach (var summon in _world.GetAllSummons())
+        {
+            if (summon.Master is null || summon.IsAlreadyDead) continue;
+
+            switch (summon.Mode)
+            {
+                case SummonMode.Guard:
+                    await FollowMasterAsync(summon, ct);
+                    break;
+                case SummonMode.Attack:
+                    await TickSummonAttackAsync(summon, ct);
+                    break;
+                // Rest/Release: no movement or combat this tick (Phase 2: REST regen)
+            }
+        }
+    }
+
+    // Snap-follow: recomputed every 2s tick, no inter-tick arrival tracking like NPC ChaseAsync —
+    // acceptable simplification for a single always-nearby companion (Phase 1 deviation, see report).
+    private async Task FollowMasterAsync(Summon summon, CancellationToken ct)
+    {
+        var master = summon.Master!;
+        if (master.Position.WorldId != summon.Position.WorldId) return; // Phase 2: cross-zone/teleport re-follow
+
+        float dist = summon.Position.DistanceTo(master.Position);
+        if (dist <= SummonFollowRange) return;
+
+        float dx = master.Position.X - summon.Position.X;
+        float dy = master.Position.Y - summon.Position.Y;
+        float len = MathF.Sqrt(dx * dx + dy * dy);
+        if (len < 0.01f) return;
+
+        float stopDist = Math.Max(0, dist - SummonFollowRange * 0.5f);
+        float tx = summon.Position.X + dx / len * stopDist;
+        float ty = summon.Position.Y + dy / len * stopDist;
+        float tz = master.Position.Z;
+        byte heading = CalcHeading(dx, dy);
+
+        await BroadcastSummonMoveAsync(summon, tx, ty, tz, heading, ct);
+    }
+
+    private async Task TickSummonAttackAsync(Summon summon, CancellationToken ct)
+    {
+        var master = summon.Master!;
+        var target = summon.Target as Npc;
+        if (target is null || target.IsAlreadyDead || target.Position.WorldId != summon.Position.WorldId)
+        {
+            summon.Target = null;
+            summon.Mode   = SummonMode.Guard;
+            return;
+        }
+
+        float dist = summon.Position.DistanceTo(target.Position);
+        if (dist > SummonMeleeRange)
+        {
+            float dx = target.Position.X - summon.Position.X;
+            float dy = target.Position.Y - summon.Position.Y;
+            float len = MathF.Sqrt(dx * dx + dy * dy);
+            if (len < 0.01f) return;
+            float stopDist = Math.Max(0, dist - SummonMeleeRange * 0.8f);
+            float tx = summon.Position.X + dx / len * stopDist;
+            float ty = summon.Position.Y + dy / len * stopDist;
+            float tz = target.Position.Z;
+            byte heading = CalcHeading(dx, dy);
+            await BroadcastSummonMoveAsync(summon, tx, ty, tz, heading, ct);
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if ((now - _summonLastAttackTime.GetValueOrDefault(summon.ObjectId)).TotalMilliseconds < SummonAttackCooldownMs) return;
+        _summonLastAttackTime[summon.ObjectId] = now;
+
+        // Interim damage formula — summon_stats fidelity is Phase 3 debt; falls back to a level-scaled
+        // estimate when the underlying npc_template carries no main_hand_attack (most spirit templates do).
+        int baseAtk = summon.Template.Stats?.MainHandAttack ?? Math.Max(1, summon.Level * 5);
+        int damage  = Math.Max(1, baseAtk + Random.Shared.Next(-2, 3));
+
+        await target.ApplyDamageAndPublishAsync(summon, damage, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
+
+        int worldId   = summon.Position.WorldId;
+        var attackPkt = new SM_ATTACK(summon, target, attackno: 0, time: 0, type: 0, damage);
+        var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
+        foreach (var conn in _connRegistry.GetAll())
+        {
+            if (conn.ActivePlayer?.Position.WorldId != worldId) continue;
+            try { await conn.SendAsync(attackPkt, ct); } catch { }
+            try { await conn.SendAsync(statusPkt, ct); } catch { }
+        }
+
+        // Target retaliates against the master, not the summon — Phase 1 avoids lifting the
+        // hate/aggro API from Npc onto Creature just for summons (documented pre-decision).
+        ForceEngage(target, master);
+
+        if (target.CurrentHp > 0) return;
+        await HandleSummonKillAsync(summon, target, master, worldId, ct);
+    }
+
+    private async Task BroadcastSummonMoveAsync(Summon summon, float tx, float ty, float tz, byte heading, CancellationToken ct)
+    {
+        var movePkt = SM_MOVE.StartNpcMove(summon.ObjectId,
+            summon.Position.X, summon.Position.Y, summon.Position.Z, heading, tx, ty, tz);
+        int worldId = summon.Position.WorldId;
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(movePkt, ct); } catch { }
+
+        // Phase 1 simplification: position is snapped to the destination immediately rather than
+        // interpolated with arrival tracking like NPC ChaseAsync/WanderAsync (_chaseState/_wanderState).
+        // Acceptable for a single always-nearby companion at a 2s tick cadence; revisit if summons ever
+        // need believable mid-flight collision/position for other systems.
+        summon.Position = summon.Position with { X = tx, Y = ty, Z = tz, Heading = heading };
+    }
+
+    // Mirrors the CM_ATTACK.cs Npc-death branch's reward subset (loot/quest/xp), credited to the
+    // summon's master rather than the summon itself — summons have no player connection of their own.
+    private async Task HandleSummonKillAsync(Summon summon, Npc deadNpc, Player master, int worldId, CancellationToken ct)
+    {
+        deadNpc.State |= CreatureState.Dead;
+        var diePkt = new SM_EMOTION(deadNpc, EmotionType.DIE);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer?.Position.WorldId == worldId)
+                try { await conn.SendAsync(diePkt, ct); } catch { }
+
+        _world.Remove(deadNpc);
+        _npcTargets.TryRemove(deadNpc.ObjectId, out _);
+
+        bool shouldReward = AiNameRegistry.ShouldReward(deadNpc.Template.Ai);
+        if (shouldReward)
+            _lootService.GenerateDrops(deadNpc, master);
+
+        var masterConn = _connRegistry.Get(master.ObjectId);
+        if (masterConn is not null)
+            await _questService.HandleNpcKillAsync(master, deadNpc, masterConn, ct);
+
+        if (shouldReward)
+        {
+            long xpBase = deadNpc.Template.Stats?.MaxXp > 0 ? deadNpc.Template.Stats.MaxXp : deadNpc.Level * 50L;
+            await _expService.AddGroupExpAsync(master, xpBase, deadNpc.Level, ct);
+        }
+
+        var pendingDrops = _lootService.GetLoot(deadNpc.ObjectId);
+        int decayMs = pendingDrops is null ? 5_000 : pendingDrops.Count == 0 ? 90_000 : 300_000;
+
+        var registry = _connRegistry;
+        var lootSvc  = _lootService;
+        var spawnSvc = _spawnService;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(decayMs);
+            var del = new SM_DELETE(deadNpc.ObjectId);
+            foreach (var c in registry.GetAll())
+                if (c.ActivePlayer?.Position.WorldId == worldId)
+                    try { await c.SendAsync(del); } catch { }
+            lootSvc.ClearLoot(deadNpc.ObjectId);
+            spawnSvc.ScheduleRespawn(deadNpc);
+        });
+
+        summon.Target = null;
+        summon.Mode   = SummonMode.Guard;
     }
 
     private async Task TryCastNpcSkillAsync(Npc npc, Player target, DateTime now, int worldId, CancellationToken ct)

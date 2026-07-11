@@ -26,12 +26,14 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
     private readonly GroupService  _groupService;
     private readonly DuelService   _duelService;
     private readonly LegionService _legionService;
+    private readonly SummonsService _summonsService;
 
     public GsConnectionFactory(ILoggerFactory loggerFactory, GsPacketHandlerFactory factory,
         LsConnectionHolder ls, CsConnectionHolder cs, GameAccountRegistry registry,
         IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao, ISocialDao socialDao,
         ILegionDao legionDao, GameWorld world, PlayerConnectionRegistry connRegistry,
-        GroupService groupService, DuelService duelService, LegionService legionService)
+        GroupService groupService, DuelService duelService, LegionService legionService,
+        SummonsService summonsService)
     {
         _loggerFactory = loggerFactory;
         _factory       = factory;
@@ -48,9 +50,10 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
         _groupService  = groupService;
         _duelService   = duelService;
         _legionService = legionService;
+        _summonsService = summonsService;
     }
 
     public GsClientConnection Create(Socket socket, CancellationToken ct)
         => new(socket, _loggerFactory.CreateLogger<GsClientConnection>(),
-               _factory, _ls, _cs, _registry, _playerDao, _itemDao, _questDao, _socialDao, _legionDao, _world, _connRegistry, _groupService, _duelService, _legionService);
+               _factory, _ls, _cs, _registry, _playerDao, _itemDao, _questDao, _socialDao, _legionDao, _world, _connRegistry, _groupService, _duelService, _legionService, _summonsService);
 }

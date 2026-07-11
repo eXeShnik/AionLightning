@@ -32,6 +32,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly IEventBus _eventBus;
     private readonly AuraChildApplier _auraApplier;
     private readonly QuestEngineType _questEngine;
+    private readonly SummonsService _summonsService;
 
     private int _spellId;
     private int _level;
@@ -45,7 +46,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         ExperienceService expService, SpawnService spawnService, LootService lootService,
         QuestService questService, DuelService duelService, NpcAiService npcAi,
         IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus,
-        AuraChildApplier auraApplier, QuestEngineType questEngine)
+        AuraChildApplier auraApplier, QuestEngineType questEngine, SummonsService summonsService)
     {
         _conn         = conn;
         _world        = world;
@@ -63,6 +64,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _eventBus     = eventBus;
         _auraApplier  = auraApplier;
         _questEngine  = questEngine;
+        _summonsService = summonsService;
     }
 
     public override void Read(ref PacketReader r)
@@ -3567,6 +3569,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     spawnSvc.ScheduleRespawn(deadNpc);
                 }
             });
+        }
+        // M381: <summon npc_id="N" time="T"/> — Spiritmaster elemental spirits (SUMMON subtype, self-cast:
+        // first_target="ME", target_relation="FRIEND"). Was previously silently ignored by falling into the
+        // catch-all branch below.
+        else if (template?.Effects?.HasSummonEffect == true && _targetType is 0 or 3 or 4
+                 && (_targetObjectId == 0 || _targetObjectId == player.ObjectId))
+        {
+            var (summonNpcId, summonTime) = template.Effects.SummonInfo;
+            if (summonNpcId > 0)
+                await _summonsService.CreateSummonAsync(player, _conn, summonNpcId, _spellId, _level, summonTime, ct);
+
+            await BroadcastAsync(new SM_SKILL_ACTIVATION(_spellId), ct);
         }
         else
         {

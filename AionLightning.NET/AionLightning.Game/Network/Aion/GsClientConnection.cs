@@ -35,6 +35,7 @@ public sealed class GsClientConnection : AConnection
     private readonly GroupService _groupService;
     private readonly DuelService  _duelService;
     private readonly LegionService _legionService;
+    private readonly SummonsService _summonsService;
     private readonly GsCrypt _crypt = new();
 
     public AionState State { get; set; } = AionState.CONNECTED;
@@ -49,7 +50,8 @@ public sealed class GsClientConnection : AConnection
         GsPacketHandlerFactory factory, LsConnectionHolder ls, CsConnectionHolder cs,
         GameAccountRegistry registry, IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao,
         ISocialDao socialDao, ILegionDao legionDao, GameWorld world, PlayerConnectionRegistry connRegistry,
-        GroupService groupService, DuelService duelService, LegionService legionService)
+        GroupService groupService, DuelService duelService, LegionService legionService,
+        SummonsService summonsService)
         : base(socket)
     {
         _log           = log;
@@ -67,6 +69,7 @@ public sealed class GsClientConnection : AConnection
         _groupService  = groupService;
         _duelService   = duelService;
         _legionService = legionService;
+        _summonsService = summonsService;
     }
 
     protected override async ValueTask OnConnectedAsync(CancellationToken ct)
@@ -194,6 +197,13 @@ public sealed class GsClientConnection : AConnection
         int worldId = player.Position.WorldId;
         _connRegistry.Unregister(player.ObjectId);
         _world.Remove(player);
+
+        // M381: LOGOUT unsummon — delete silently (no packets to the now-gone owner), SM_DELETE to zone
+        if (player.Summon is { } activeSummon)
+        {
+            try { await _summonsService.ReleaseImmediatelyAsync(activeSummon); }
+            catch (Exception ex) { _log.LogError(ex, "Failed to release summon for {Name} on logout", player.Name); }
+        }
 
         var deletePkt = new SM_DELETE(player.ObjectId);
         foreach (var conn in _connRegistry.GetAll())

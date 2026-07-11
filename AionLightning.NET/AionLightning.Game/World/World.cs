@@ -9,6 +9,7 @@ public sealed class World
     private readonly ConcurrentDictionary<string, Player>   _byName     = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<int, Npc>         _npcs       = new();
     private readonly ConcurrentDictionary<int, Gatherable>  _gatherables = new();
+    private readonly ConcurrentDictionary<int, Summon>      _summons    = new();
 
     // --- Players ---
 
@@ -37,6 +38,13 @@ public sealed class World
     public Npc? GetNpcByObjectId(int objectId) => _npcs.GetValueOrDefault(objectId);
     public IEnumerable<Npc> GetAllNpcs()       => _npcs.Values;
     public int NpcCount                        => _npcs.Count;
+
+    // --- Summons (M381) ---
+
+    public bool Add(Summon summon)    => _summons.TryAdd(summon.ObjectId, summon);
+    public bool Remove(Summon summon) => _summons.TryRemove(summon.ObjectId, out _);
+    public Summon? GetSummonByObjectId(int objectId) => _summons.GetValueOrDefault(objectId);
+    public IEnumerable<Summon> GetAllSummons() => _summons.Values;
 
     // --- Gatherables ---
 
