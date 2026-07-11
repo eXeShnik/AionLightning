@@ -52,8 +52,17 @@ public sealed class CsConnection : AConnection
         var packet = _factory.Resolve(opcode, State, this);
         if (packet is null) return;
 
-        var reader = new PacketReader(body);
-        packet.Read(ref reader);
+        // Tolerate short/malformed reads like Java BaseClientPacket — don't drop the chat link.
+        try
+        {
+            var reader = new PacketReader(body);
+            packet.Read(ref reader);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "[CS] Malformed packet 0x{Op:X2} — skipped", opcode);
+            return;
+        }
         await packet.RunAsync(ct);
     }
 

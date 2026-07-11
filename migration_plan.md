@@ -4139,3 +4139,9 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
     `growth.xml` skip already known from Phase 1). 5 of the 84 `report_to_many` entries use
     `start_item_id` (logged, see above).
   - Build: 0 warnings, 0 errors.
+- [x] **C4 Phase 0** (2026-07-11): World/Geo/IGeoService + DummyGeoService registered in DI —
+  exact Java-with-geo-disabled fallbacks (GetZ→z, CanSee→true, GetClosestCollision→target,
+  IsInBounds bounds math). Future AI/skill/movement consumers call this stable API; the real
+  engine slots in behind it if a .geo dataset is ever sourced.
+- [x] **CsConnection packet tolerance** (2026-07-11): Game-side chat link now log-and-skips
+  malformed packets like the two chat-side connections (completes the audit fix).

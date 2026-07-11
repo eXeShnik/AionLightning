@@ -62,6 +62,9 @@ builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, ProtectHandle
 // World
 builder.Services.AddSingleton<GameWorld>();
 
+// Geodata facade — Dummy = Java-with-geo-disabled parity; real engine deferred (C4 survey)
+builder.Services.AddSingleton<AionLightning.Game.World.Geo.IGeoService, AionLightning.Game.World.Geo.DummyGeoService>();
+
 // Data
 builder.Services.AddSingleton<IDataManager, DataManager>();
 
