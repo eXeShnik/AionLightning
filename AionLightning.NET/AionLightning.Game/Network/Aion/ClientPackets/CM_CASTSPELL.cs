@@ -1068,6 +1068,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // M286b: <aura> — periodic AoE on caster's group/self in range. Tick = 6500ms (Java AuraTask).
                 if (template?.Effects?.HasAura == true && buffTarget is Player auraCaster && template.Effects.AuraEffects is { Count: > 0 } auraList)
                 {
+                    // C1: mantra visual on aura start (Java AuraEffect.startEffect → SM_MANTRA_EFFECT broadcast)
+                    var mantraPkt   = new SM_MANTRA_EFFECT(auraCaster.ObjectId, _spellId);
+                    int mantraWorld = auraCaster.Position.WorldId;
+                    foreach (var c in _connRegistry.GetAll())
+                        if (c.ActivePlayer?.Position.WorldId == mantraWorld)
+                            try { await c.SendAsync(mantraPkt, ct); } catch { }
+
                     foreach (var aura in auraList)
                     {
                         var childTpl = _dataManager.Skills.GetTemplate(aura.ChildSkillId);

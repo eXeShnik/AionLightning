@@ -3831,3 +3831,13 @@ only a real client run proves the flow).
   - Also skipped after audit: SM_FRIEND_UPDATE and SM_LEARN_RECIPE/SM_RECIPE_DELETE — C# already
     covers those flows with full-list refreshes (SM_FRIEND_LIST / SM_RECIPE_LIST), no functional gap.
   - Build: 0 warnings, 0 errors.
+- [x] **C1 batch 5: SM_SELL_ITEM (0x3E) + SM_MANTRA_EFFECT (0xD0)**
+  - `SM_SELL_ITEM` — TRADE_SELL_LIST dialog now opens the proper vendor sell window (Java
+    DialogService SELL case, no-purchase-template variant) instead of a generic SM_DIALOG_WINDOW.
+  - `SM_MANTRA_EFFECT` — chanter aura/mantra visual broadcast to the zone when an aura skill
+    starts (Java AuraEffect.startEffect parity), wired at the M286 aura block in CM_CASTSPELL.
+  - C1 status after 5 batches: the wireable core-adjacent set is done. Remaining missing SM_*
+    packets either belong to deferred feature clusters (housing/siege/alliance/shop/pets/summons)
+    or depend on C2/C3 systems (SM_NEARBY_QUESTS needs a server-side npc→quest index;
+    SM_PLAY_MOVIE needs quest handlers; SM_PLAYER_MOVE/SM_FORCED_MOVE need geodata-backed
+    movement validation). Next: C2 quest engine depth.

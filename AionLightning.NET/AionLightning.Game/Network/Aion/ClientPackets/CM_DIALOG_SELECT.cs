@@ -189,7 +189,8 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
             }
 
             case TRADE_SELL_LIST:
-                await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dialogId: 21), ct);
+                // Java DialogService SELL case — opens the vendor sell window
+                await _conn.SendAsync(new SM_SELL_ITEM(_targetObjectId), ct);
                 break;
 
             case WAREHOUSE_OPEN:
