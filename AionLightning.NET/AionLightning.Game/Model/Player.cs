@@ -273,14 +273,14 @@ public sealed class Player : Creature
     // M302: active transform model ID (0 = no transform); set by shapechange/polymorph/deform buffs
     public int TransformModelId { get; set; }
 
-    // Item use cooldowns: delayId → expiry UTC time (mirrors Java addItemCoolDown / isItemUseDisabled)
-    public Dictionary<int, DateTime> ItemCooldowns { get; } = new();
+    // Item use cooldowns: delayId → (expiry UTC, original delay ms) (mirrors Java ItemCooldown)
+    public Dictionary<int, (DateTime Expiry, int DelayMs)> ItemCooldowns { get; } = new();
 
     public bool IsItemOnCooldown(int delayId) =>
-        ItemCooldowns.TryGetValue(delayId, out var expiry) && DateTime.UtcNow < expiry;
+        ItemCooldowns.TryGetValue(delayId, out var cd) && DateTime.UtcNow < cd.Expiry;
 
     public void SetItemCooldown(int delayId, int delayMs) =>
-        ItemCooldowns[delayId] = DateTime.UtcNow.AddMilliseconds(delayMs);
+        ItemCooldowns[delayId] = (DateTime.UtcNow.AddMilliseconds(delayMs), delayMs);
 
     // Skill cooldowns: effectiveCooldownId → expiry UTC time (mirrors Java skillCoolDowns FastMap)
     // Effective cooldown ID = template.CooldownId > 0 ? template.CooldownId : template.SkillId

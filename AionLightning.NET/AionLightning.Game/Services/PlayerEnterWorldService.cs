@@ -392,6 +392,8 @@ public sealed class PlayerEnterWorldService
         await conn.SendAsync(new SM_CHARACTER_SELECT(0), ct);
         await conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills), ct);
         await conn.SendAsync(new SM_SKILL_COOLDOWN(_dataManager.Skills, player.SkillCooldowns), ct);
+        if (player.ItemCooldowns.Count > 0)
+            await conn.SendAsync(new SM_ITEM_COOLDOWN(player.ItemCooldowns), ct);
         await conn.SendAsync(new SM_QUEST_COMPLETED_LIST(player.Quests.Completed), ct);
         await conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
         await conn.SendAsync(SM_TITLE_INFO.ActiveTitle(player.TitleId), ct);

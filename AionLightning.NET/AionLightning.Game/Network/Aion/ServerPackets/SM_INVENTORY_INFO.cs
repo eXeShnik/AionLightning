@@ -41,7 +41,11 @@ public sealed class SM_INVENTORY_INFO : AionServerPacket
         w.WriteD((int)item.UniqueId);
         w.WriteD(item.ItemId);
         w.WriteD(0); // nameId
+        WriteItemBlob(ref w, item);
+    }
 
+    internal static void WriteItemBlob(ref PacketWriter w, Item item)
+    {
         short itemMask = (short)(item.EnchantLevel > 0 ? 0x40 : 0);
 
         w.WriteC(0x00);       // blob type: GENERAL_INFO

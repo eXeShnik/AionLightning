@@ -211,12 +211,16 @@ public sealed class NpcAiService : BackgroundService
                         npc.Target = target;
                         AlertNearbyAllies(npc, target);
 
-                        // Transition to combat stance
+                        // Transition to combat stance + face the target (Java Npc.setTarget → SM_LOOKATOBJECT)
                         int engageWorld = npc.Position.WorldId;
                         var attackMode  = new SM_EMOTION(npc, EmotionType.ATTACKMODE);
+                        var lookAt      = new SM_LOOKATOBJECT(npc);
                         foreach (var conn in _connRegistry.GetAll())
                             if (conn.ActivePlayer?.Position.WorldId == engageWorld)
+                            {
                                 try { await conn.SendAsync(attackMode, ct); } catch { }
+                                try { await conn.SendAsync(lookAt, ct); } catch { }
+                            }
 
                         // SEE shout — NPC has just spotted a player
                         var shout = _dataManager.NpcShouts.GetRandomShout(
@@ -1323,14 +1327,18 @@ public sealed class NpcAiService : BackgroundService
         {
             npc.Target = player;
 
-            // Broadcast combat stance — fire-and-forget since ForceEngage is sync
+            // Broadcast combat stance + face the target — fire-and-forget since ForceEngage is sync
             int engageWorld = npc.Position.WorldId;
             var attackMode  = new SM_EMOTION(npc, EmotionType.ATTACKMODE);
+            var lookAt      = new SM_LOOKATOBJECT(npc);
             _ = Task.Run(async () =>
             {
                 foreach (var conn in _connRegistry.GetAll())
                     if (conn.ActivePlayer?.Position.WorldId == engageWorld)
+                    {
                         try { await conn.SendAsync(attackMode); } catch { }
+                        try { await conn.SendAsync(lookAt); } catch { }
+                    }
             });
         }
     }

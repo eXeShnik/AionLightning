@@ -250,8 +250,11 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
             {
                 var dispTpl = _dataManager.Items.GetTemplate(displaced.ItemId);
                 if (dispTpl?.Stigma is { } dispStigma)
-                    foreach (var (_, skillId) in dispStigma.GetSkills())
+                    foreach (var (skillLevel, skillId) in dispStigma.GetSkills())
+                    {
                         player.Skills.RemoveStigmaSkill(skillId);
+                        try { await _conn.SendAsync(new SM_SKILL_REMOVE(skillId, skillLevel, isStigma: true), ct); } catch { }
+                    }
                 displaced.Slot       = -1;
                 displaced.IsEquipped = false;
             }
@@ -270,7 +273,10 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
                     await _itemDao.DeleteAsync(shardItem.UniqueId, ct);
                 }
                 else
+                {
                     shardItem.Count -= stigma.Shard;
+                    try { await _conn.SendAsync(new SM_INVENTORY_UPDATE_ITEM(shardItem, SM_INVENTORY_UPDATE_ITEM.UpdateType.DecItemUse), ct); } catch { }
+                }
             }
 
             // Grant stigma skills and collect the newly added entries for the response packet
@@ -289,8 +295,11 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         }
         else // unequip
         {
-            foreach (var (_, skillId) in stigma.GetSkills())
+            foreach (var (skillLevel, skillId) in stigma.GetSkills())
+            {
                 player.Skills.RemoveStigmaSkill(skillId);
+                try { await _conn.SendAsync(new SM_SKILL_REMOVE(skillId, skillLevel, isStigma: true), ct); } catch { }
+            }
 
             item.Slot       = -1;
             item.IsEquipped = false;

@@ -45,6 +45,7 @@ builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ConvertHealHandle
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ProvokerHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, CaseHealHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ChangeHateOnAttackedHandler>(); // M376
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HpUpdateHandler>(); // C1: SM_STATUPDATE_HP to damaged players
 // M287: death event handlers
 builder.Services.AddTransient<IEventHandler<DeathEvent>, HealCastorOnTargetDeadHandler>();
 builder.Services.AddTransient<IEventHandler<DeathEvent>, ResurrectBaseHandler>(); // M379

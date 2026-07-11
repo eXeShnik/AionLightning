@@ -114,6 +114,7 @@ public sealed class RegenService : BackgroundService
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalHp, 0, actual,
                     SM_ATTACK_STATUS.LogId.RegularHeal);
                 await conn.SendAsync(pkt, ct);
+                try { await conn.SendAsync(new SM_STATUPDATE_HP(player.CurrentHp, player.MaxHp), ct); } catch { }
                 foreach (var peer in _connRegistry.GetAll())
                     if (peer != conn && peer.ActivePlayer?.Position.WorldId == worldId)
                         try { await peer.SendAsync(pkt, ct); } catch { }
@@ -130,6 +131,7 @@ public sealed class RegenService : BackgroundService
                 var pkt = new SM_ATTACK_STATUS(player, SM_ATTACK_STATUS.AttackType.NaturalMp, 0, actual,
                     SM_ATTACK_STATUS.LogId.MpHeal);
                 await conn.SendAsync(pkt, ct);
+                try { await conn.SendAsync(new SM_STATUPDATE_MP(player.CurrentMp, player.MaxMp), ct); } catch { }
                 foreach (var peer in _connRegistry.GetAll())
                     if (peer != conn && peer.ActivePlayer?.Position.WorldId == worldId)
                         try { await peer.SendAsync(pkt, ct); } catch { }

@@ -137,8 +137,8 @@ public sealed class CM_CRAFT : AionClientPacket
                 partiallyConsumed.Add(item);
             }
         }
-        if (partiallyConsumed.Count > 0)
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
+        foreach (var consumed in partiallyConsumed)
+            try { await _conn.SendAsync(new SM_INVENTORY_UPDATE_ITEM(consumed, SM_INVENTORY_UPDATE_ITEM.UpdateType.DecItemUse), ct); } catch { }
 
         if (!craftSuccess)
         {

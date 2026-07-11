@@ -44,6 +44,8 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         var motionBroadcast  = SM_MOTION.Broadcast(player.ObjectId, player.ActiveMotions);
         var selfAbnormal     = new SM_ABNORMAL_EFFECT(player.ObjectId, isPlayer: true, player.GetActiveEffects());
         await _conn.SendAsync(selfAbnormal, ct);
+        // Own buff bar with remaining durations (Java PlayerEffectController → SM_ABNORMAL_STATE)
+        try { await _conn.SendAsync(new SM_ABNORMAL_STATE(player.GetActiveEffects()), ct); } catch { }
 
         // Introduce each already-online player in the same zone to the newcomer and vice versa
         int worldId        = player.Position.WorldId;
