@@ -4145,3 +4145,117 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   engine slots in behind it if a .geo dataset is ever sourced.
 - [x] **CsConnection packet tolerance** (2026-07-11): Game-side chat link now log-and-skips
   malformed packets like the two chat-side connections (completes the audit fix).
+
+#### C3 Phase 2 (2026-07-11) — Guard archetype + Trap trigger + SHOULD_REWARD gating
+- Added `AiArchetype.Guard` and `AiArchetype.Trap` (`Model/Ai/AiArchetype.cs`). `AiNameRegistry`
+  remaps `simple_abyssguard`/`artifact_protector`/`siege_protector`/`guard`/unregistered
+  `*guard*` names from Aggressive → Guard, and `trap` from Interaction → Trap.
+- **Guard**: same aggro-scan/fight/retaliate/ally-assist gates as Aggressive (`canAggroScan`,
+  `canFight` in `NpcAiService.TickAsync`, plus the `AlertNearbyAllies` ally check), but
+  `canWander=false` — a new `patrolOnly` gate lets it still walk an assigned `WalkerId` route
+  (`WanderAsync` already branches Patrol-vs-Random on `WalkerId`; Guard just never falls through to
+  `WanderRandomAsync`). Leash/return-home (`StopChaseAsync`/`ReturnState`) and chase ranges
+  (`ChaseTargetRange`/`ChaseHomeRange`) are untouched — Guard reuses the same `canFight` code path,
+  so it already re-anchors to `Npc.HomePosition` exactly like Aggressive/General. Java evidence:
+  `AbyssGuardSimpleAI2`/`ArtifactProtectorAI2`/`SiegeProtectorNpcAI2` all extend
+  `AggressiveNpcAI2`/`SiegeNpcAI2` (no distinct combat gating in the subclasses); the "no random
+  wander off post" behavior mirrors `WalkManager.startRandomWalking`'s spawn-level `randomWalk`
+  flag, simplified here to an archetype-level flag since spawn-level `randomWalk` isn't modeled yet
+  (documented deviation — acceptable since Phase 2 scope is the archetype gate, not spawn data).
+- **Trap**: new `AiArchetype.Trap` skips the aggro/combat/wander pipeline entirely — `TickAsync`
+  branches to a dedicated `NpcAiService.TickTrapAsync` for it. Ported from
+  `AL-Game/data/scripts/system/handlers/ai/TrapNpcAI2.java`'s `tryActivateTrap`: scans world players
+  each tick for the first alive, non-hidden, tribe-aggressive one within `AggroRange + 2` (exact
+  Java formula), and on first trigger (`_trapTriggered`, a `ConcurrentDictionary<int,byte>` since
+  the despawn continuation runs on a background `Task`, not the tick thread) casts one skill at the
+  victim and despawns ~1s later (`_world.Remove` + `SM_DELETE` broadcast — no loot/respawn
+  scheduling, matching `TrapNpcAI2.pollInstance`'s `SHOULD_REWARD`/`SHOULD_DECAY`/`SHOULD_RESPAWN`
+  all `NEGATIVE`). The skill-cast dispatch (`SM_CASTSPELL` → per-subtype effect application →
+  `SM_SKILL_ACTIVATION`) was extracted out of `TryCastNpcSkillAsync` into a shared
+  `CastSkillEntryAsync` so Trap reuses the identical path instead of a parallel implementation.
+  `ForceEngage` (CM_ATTACK melee retaliation) now also short-circuits for Trap — traps only ever
+  fire through `TickTrapAsync`'s proximity scan, never via being hit.
+  - Deviations from the literal Java source (documented, not silent): (1) picks a *random* known
+    skill (`skills[Random.Shared.Next(...)]`) rather than a literal "first skill", matching
+    `getSkillList().getRandomSkill()`'s actual behavior in Java, not the task brief's "first known
+    skill" wording. (2) Java's trigger-enemy check is `creator.isEnemy(creature)` (the trap's
+    summoner's enemy list); this port has no "creator/summoner" concept for spawned NPCs yet, so it
+    reuses the same tribe-aggressiveness check (`Tribes.IsAggressiveToPlayer`) already used for
+    ordinary aggro-scanning — a reasonable stand-in per the minimal-port instruction. (3) skipped the
+    two hardcoded npcId special cases (749248/749249/749250/749251 → longer 4500/5000ms despawn) —
+    one-off content exceptions, not core Trap-archetype behavior; all traps use the general 1000ms
+    delay. (4) a trap killed directly via melee (CM_ATTACK) before it fires still goes through the
+    normal decay/respawn scheduling in CM_ATTACK.cs (XP/loot are correctly suppressed via
+    `AiNameRegistry.ShouldReward`, but Java's `SHOULD_RESPAWN=NEGATIVE` for traps isn't threaded
+    into that respawn scheduling) — accepted as a rare edge case out of this phase's explicit scope.
+- **Interaction dialogs verified unaffected**: `CM_DIALOG_SELECT.cs` has zero references to
+  `AiArchetype`/`AiNameRegistry` — its dialog flow runs entirely independent of the AI tick gates
+  (confirmed by reading, no changes made).
+- **SHOULD_REWARD gating** (Java `AIQuestion.SHOULD_REWARD`, `NpcController.doReward`/`onDie` —
+  the entire XP+DP+AP+loot-registration flow is gated by one poll): added
+  `AiNameRegistry.ShouldReward(string aiName)` (Aggressive/General/Guard → true, else false) and
+  used it in `CM_ATTACK.cs`'s NPC-death branch to gate `_lootService.GenerateDrops`,
+  `_expService.AddGroupExpAsync`, and the Abyss/ABYSS_GUARD AP-award block. Quest kill-credit
+  (`_questService.HandleNpcKillAsync`) was deliberately left ungated — Java's `QuestEngine.onKill`
+  call happens to live inside the same `doReward()` method, but gating quest credit is out of this
+  phase's explicit "XP + loot" scope and `QuestEngine/**` belongs to a different in-flight agent;
+  flagged here rather than touched. **Known gap**: `CM_CASTSPELL.cs` has three duplicate
+  `AddGroupExpAsync`/`GenerateDrops` call sites (primary-target kill, AoE splash kill, and a third
+  kill path) that need the identical `AiNameRegistry.ShouldReward` gate — not applied here since
+  `CM_CASTSPELL.cs` is owned by the concurrent QuestEngine/CM_CASTSPELL agent; needs a follow-up
+  pass (either by that agent or a short Phase 2b).
+- Build: `dotnet build AionLightning.NET.sln` was blocked during this phase by concurrent,
+  in-progress `World/Geo/**` edits from another agent (`CollisionResult.cs`/`BoundingVolume.cs`
+  referencing not-yet-added `Scene`/`Bounding`/`Geometry` types) — confirmed unrelated to this
+  phase's files (no error referenced `Model/Ai/**`, `NpcAiService.cs`, or `CM_ATTACK.cs` across
+  three consecutive build attempts). Re-run the full-solution build once the Geo work lands.
+
+#### C4 Phases 1-2 (2026-07-11) — real geo engine ported behind IGeoService, selectable by config
+- Full faithful port of the Java `geoEngine` package (`AL-Game/src/.../geoEngine/**` +
+  `world/geo/GeoService.java`) into `World/Geo/{Math,Bounding,Collision,Collision/Bih,Scene,
+  Models,Loader}/**`, wired up as `RealGeoService : IGeoService`, selectable via the existing
+  `IGeoService` facade from C4 Phase 0. `Configs/Options/GeoDataOptions.cs` adds
+  `GameServer:GeoData:{Enable=false, DataPath="data/geo"}`; `Program.cs` now registers
+  `RealGeoService` always (cheap) but only resolves it as `IGeoService` and only registers
+  `GeoLoadHostedService` (loads `meshs.geo` + every `{worldId}.geo` at startup) when
+  `GeoData:Enable=true` — default stays `DummyGeoService`, unchanged from Phase 0.
+- Math/Bounding/Collision/BIH ported line-for-line from the JME-derived Java originals
+  (`Vector3f`/`Matrix3f`/`Matrix4f`/`Ray`/`Triangle`/`Plane`/`FastMath`, `BoundingBox`/
+  `BoundingVolume`/`Intersection`, `BIHNode`/`BIHTree` — same median-ish-split build algorithm,
+  same ray-space BIH traversal). `Scene/Mesh.cs` collapses Java's `VertexBuffer`/
+  `IndexByteBuffer`/`IndexShortBuffer`/`IndexIntBuffer`/`GLObject` GPU-upload abstraction (needed
+  in Java to share code with the renderer) down to plain `float[]` positions + one `int[]` index
+  buffer, per the port plan — there is no renderer here, so the genericity had no purpose.
+  `Models/GeoMap.cs` ports `getZ`/`getClosestCollision`/`canSee`/the bilinear 2-triangle terrain
+  sampler verbatim (renamed Java's `terraionCollision` typo to `TerrainCollision`).
+- `Loader/GeoWorldLoader.cs` reads `meshs.geo`/`{worldId}.geo` with `BinaryReader` over a
+  `FileStream` (not `MemoryMappedFile` — simpler, same little-endian semantics; .NET's
+  `BinaryReader` is little-endian-native on every .NET-supported architecture, matching Java's
+  explicit `ByteOrder.LITTLE_ENDIAN`) — exact byte layout per the task: name-prefixed strings,
+  vertex/index/collision-flags per model (skipping `MOVEABLE`), terrain flag byte, and
+  loc+3x3-matrix+scale per instance.
+- **Deliberately not ported / stubbed (Phase 3, per task instructions):** doors
+  (`DoorGeometry`, `GeoMap.doors`/`getDoorName` — `SetDoorState` is a no-op) and material zones
+  (`ZoneService.createMaterialZoneTemplate` — loader still walks `child\d+_<name>` sibling
+  geometries and gives each its own instance transform, just without registering a zone). Both
+  match Java's own `GEO_DOORS_ENABLE=false`/`GEO_MATERIALS_ENABLE=false` defaults, which is how
+  this repo has always run.
+- **Other documented deviations:** `BoundingSphere` not ported — never instantiated anywhere in
+  the mesh/geometry pipeline (a mesh's bound always defaults to and stays a `BoundingBox`), so
+  `Type.Sphere` is unreachable; `Eigen3f`/`Array3f`/`Vector2f` and the Java object-factory/recycle
+  pool (`GEO_OBJECT_FACTORY_ENABLE`) dropped as unused-in-scope or GC-unnecessary. Java's
+  `BIHNode.intersectBrute` and the `Collidable`-vs-`BoundingBox` overload of `intersectWhere` were
+  already dead code in the original (commented-out call site / always-zero collision count) and
+  are not ported. `RealGeoService`'s per-world grid partition size (256-unit sub-nodes) uses a
+  fixed 3072 for every world — matches Java's own `GeoService.getWorldSize()`, which is *also*
+  hardcoded to 3072 regardless of the real per-map `WorldMapTemplate` size; wiring the real
+  per-map size back in is future work, out of scope here.
+- Synthetic-data verification (no real `.geo` files exist in this repo — see prior C4 survey):
+  fabricated a `meshs.geo` (one triangle "wall", `CollisionIntention.Physical`) + a `999.geo`
+  (flat single-height terrain, one instance placement) with the exact binary layout, then drove
+  `GeoWorldLoader`/`GeoMap` via reflection (both are `internal`) from a throwaway console app in
+  the scratchpad — not added to the repo. All 4 assertions passed: `GetZ` returns the terrain
+  height (not the input z), `CanSee` across the wall triangle → false, `CanSee` in open space →
+  true, `GetClosestCollision` clamps just short of the wall instead of reaching the far target.
+- Build: `dotnet build AionLightning.NET.sln` (full solution, `--no-incremental`) — 0 warnings, 0
+  errors.

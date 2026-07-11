@@ -16,6 +16,7 @@ using AionLightning.Game.Network.Cs;
 using AionLightning.Game.Network.Ls;
 using AionLightning.Game.QuestEngine;
 using AionLightning.Game.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using GameWorld = AionLightning.Game.World.World;
 using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
@@ -31,7 +32,8 @@ builder.Services
     .AddAionOptions<GameServerInfoOptions>("GameServer:Info")
     .AddAionOptions<WorldOptions>("GameServer:World")
     .AddAionOptions<RateOptions>("GameServer:Rates")
-    .AddAionOptions<GsOptions>("GameServer:Gs");
+    .AddAionOptions<GsOptions>("GameServer:Gs")
+    .AddAionOptions<GeoDataOptions>("GameServer:GeoData");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -62,8 +64,16 @@ builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, ProtectHandle
 // World
 builder.Services.AddSingleton<GameWorld>();
 
-// Geodata facade — Dummy = Java-with-geo-disabled parity; real engine deferred (C4 survey)
-builder.Services.AddSingleton<AionLightning.Game.World.Geo.IGeoService, AionLightning.Game.World.Geo.DummyGeoService>();
+// Geodata: real engine when GeoData:Enable=true (config default false — no .geo dataset ships
+// with this repo yet, see migration_plan.md C4 survey), Dummy = Java-with-geo-disabled parity.
+// The load-at-startup hosted service is only registered when the real engine is selected.
+var geoDataEnabled = builder.Configuration.GetValue<bool>("GameServer:GeoData:Enable");
+builder.Services.AddSingleton<AionLightning.Game.World.Geo.RealGeoService>();
+builder.Services.AddSingleton<AionLightning.Game.World.Geo.IGeoService>(sp => geoDataEnabled
+    ? sp.GetRequiredService<AionLightning.Game.World.Geo.RealGeoService>()
+    : new AionLightning.Game.World.Geo.DummyGeoService());
+if (geoDataEnabled)
+    builder.Services.AddHostedService<AionLightning.Game.World.Geo.GeoLoadHostedService>();
 
 // Data
 builder.Services.AddSingleton<IDataManager, DataManager>();
