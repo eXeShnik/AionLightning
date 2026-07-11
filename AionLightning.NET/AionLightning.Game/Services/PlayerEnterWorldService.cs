@@ -5,6 +5,7 @@ using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Services;
 
@@ -29,6 +30,7 @@ public sealed class PlayerEnterWorldService
     private readonly ISkillDao                _skillDao;
     private readonly IManastoneDao            _manastoneDao;
     private readonly IPlayerTitleDao          _titleDao;
+    private readonly QuestEngineType          _questEngine;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -48,7 +50,8 @@ public sealed class PlayerEnterWorldService
         IMotionDao motionDao,
         ISkillDao skillDao,
         IManastoneDao manastoneDao,
-        IPlayerTitleDao titleDao)
+        IPlayerTitleDao titleDao,
+        QuestEngineType questEngine)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -68,6 +71,7 @@ public sealed class PlayerEnterWorldService
         _skillDao      = skillDao;
         _manastoneDao  = manastoneDao;
         _titleDao      = titleDao;
+        _questEngine   = questEngine;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -396,6 +400,7 @@ public sealed class PlayerEnterWorldService
             await conn.SendAsync(new SM_ITEM_COOLDOWN(player.ItemCooldowns), ct);
         await conn.SendAsync(new SM_QUEST_COMPLETED_LIST(player.Quests.Completed), ct);
         await conn.SendAsync(new SM_QUEST_LIST(player.Quests.Active), ct);
+        await conn.SendAsync(new SM_NEARBY_QUESTS(_questEngine.ComputeNearbyQuests(player)), ct);
         await conn.SendAsync(SM_TITLE_INFO.ActiveTitle(player.TitleId), ct);
         await conn.SendAsync(SM_TITLE_INFO.BonusTitle(player.BonusTitleId), ct);
         await conn.SendAsync(SM_MOTION.OwnList(player.ActiveMotions), ct);

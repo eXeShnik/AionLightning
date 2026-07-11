@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using AionLightning.Game;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Services;
 
@@ -17,15 +18,18 @@ public sealed class ExperienceService
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly GameWorld _world;
     private readonly RateOptions _rates;
+    private readonly QuestEngineType _questEngine;
 
     public ExperienceService(IDataManager dataManager, ILogger<ExperienceService> log,
-        PlayerConnectionRegistry connRegistry, GameWorld world, IOptions<RateOptions> rates)
+        PlayerConnectionRegistry connRegistry, GameWorld world, IOptions<RateOptions> rates,
+        QuestEngineType questEngine)
     {
         _dataManager  = dataManager;
         _log          = log;
         _connRegistry = connRegistry;
         _world        = world;
         _rates        = rates.Value;
+        _questEngine  = questEngine;
     }
 
     /// <summary>
@@ -222,6 +226,7 @@ public sealed class ExperienceService
         await conn.SendAsync(new SM_LEVEL_UPDATE(player.ObjectId, 0, player.Level), ct);
         await conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
         await conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
+        await conn.SendAsync(new SM_NEARBY_QUESTS(_questEngine.ComputeNearbyQuests(player)), ct);
 
         // At level 9 with a starting class, show class selection dialog so player can ascend
         if (player.Level == 9 && player.PlayerClass.IsStartingClass())

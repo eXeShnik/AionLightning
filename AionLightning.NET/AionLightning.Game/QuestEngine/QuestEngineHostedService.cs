@@ -36,6 +36,10 @@ public sealed class QuestEngineHostedService(
             engine.HandlerCount, dataManager.QuestScripts.ItemCollecting.Count,
             dataManager.QuestScripts.MonsterHunt.Count, dataManager.QuestScripts.ReportTo.Count);
 
+        // Must run after every handler above has registered its NPCs, so the per-NPC
+        // OnQuestStart index is complete before it's joined against the spawn table.
+        engine.BuildWorldQuestIndex(dataManager.Spawns, dataManager.Quests);
+
         return Task.CompletedTask;
     }
 
