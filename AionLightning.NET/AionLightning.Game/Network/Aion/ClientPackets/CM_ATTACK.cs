@@ -1,7 +1,6 @@
 using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
 using AionLightning.Game.Combat;
-using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Events;
@@ -27,7 +26,6 @@ public sealed class CM_ATTACK : AionClientPacket
     private readonly NpcAiService _npcAi;
     private readonly IPlayerDao _playerDao;
     private readonly ILegionDao _legionDao;
-    private readonly RateOptions _rates;
     private readonly IEventBus _eventBus;
 
     private int _targetObjectId;
@@ -38,7 +36,7 @@ public sealed class CM_ATTACK : AionClientPacket
         ExperienceService expService,
         SpawnService spawnService, LootService lootService, QuestService questService,
         DuelService duelService, NpcAiService npcAi,
-        IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus)
+        IPlayerDao playerDao, ILegionDao legionDao, IEventBus eventBus)
     {
         _conn         = conn;
         _world        = world;
@@ -52,7 +50,6 @@ public sealed class CM_ATTACK : AionClientPacket
         _npcAi        = npcAi;
         _playerDao    = playerDao;
         _legionDao    = legionDao;
-        _rates        = rates;
         _eventBus     = eventBus;
     }
 
@@ -392,34 +389,10 @@ public sealed class CM_ATTACK : AionClientPacket
                 }
             }
 
-            // PvP AP exchange — only in Abyss/Balaurea maps AND opposing factions
-            if (AbyssRankService.IsPvPMap(player.Position.WorldId) && player.Race != deadPlayer.Race)
-            {
-                int apGain = AbyssRankService.CalculatePvPApGained(player, deadPlayer);
-                if (_rates.ApPlayerGainRate != 1.0f)
-                    apGain = Math.Max(1, (int)(apGain * _rates.ApPlayerGainRate));
-                if (player.APBoostDelta != 0)
-                    apGain = Math.Max(1, apGain * (100 + player.APBoostDelta) / 100);
-                int apLoss = AbyssRankService.CalculatePvPApLost(player, deadPlayer);
-                bool killerRankUp = AbyssRankService.AddAp(player, apGain);
-                AbyssRankService.LoseAp(deadPlayer, apLoss);
-                AbyssRankService.TrackPvPKill(player, apGain);
-
-                await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
-                if (killerRankUp)
-                    await BroadcastAsync(new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank), ct);
-                if (targetConn is not null)
-                    try { await targetConn.SendAsync(SM_ABYSS_RANK.ForPlayer(deadPlayer), ct); } catch { }
-
-                await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
-                await _playerDao.UpdateAbyssAsync(deadPlayer.ObjectId, deadPlayer.AbyssPoints, deadPlayer.AbyssRank, ct);
-                await _playerDao.UpdateAbyssKillStatsAsync(player.ObjectId,
-                    player.AbyssAllKill, player.AbyssMaxRank,
-                    player.AbyssDailyKill, player.AbyssDailyAp,
-                    player.AbyssWeeklyKill, player.AbyssWeeklyAp,
-                    player.AbyssLastKill, player.AbyssLastAp, ct);
-                await AwardLegionContributionAsync(player, apGain, ct);
-            }
+            // PvP Phase 1: AP exchange/rank/persist/legion/quest-notify moved to
+            // Combat/Handlers/PvpKillHandler.cs (subscribes to DeathEvent, published by
+            // ApplyDamageAndPublishAsync above). The victim's own death packets stay here because
+            // that publish already happened before this point — see PvpKillHandler's remarks.
         }
         else if (target is Npc deadNpc)
         {

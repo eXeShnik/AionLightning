@@ -22,7 +22,6 @@ public sealed class GsPacketHandlerFactory
     private readonly GameServerInfoOptions _gsInfo;
     private readonly NetworkOptions _network;
     private readonly CsConnectionOptions _csOpts;
-    private readonly RateOptions _rates;
     private readonly IPlayerDao _playerDao;
     private readonly IPlayerAppearanceDao _appearanceDao;
     private readonly IItemDao _itemDao;
@@ -70,7 +69,6 @@ public sealed class GsPacketHandlerFactory
         IOptions<GameServerInfoOptions> gsInfo,
         IOptions<NetworkOptions> network,
         IOptions<CsConnectionOptions> csOpts,
-        IOptions<RateOptions> rates,
         IPlayerDao playerDao,
         IPlayerAppearanceDao appearanceDao,
         IItemDao itemDao,
@@ -117,7 +115,6 @@ public sealed class GsPacketHandlerFactory
         _gsInfo        = gsInfo.Value;
         _network       = network.Value;
         _csOpts        = csOpts.Value;
-        _rates         = rates.Value;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
         _itemDao       = itemDao;
@@ -216,8 +213,8 @@ public sealed class GsPacketHandlerFactory
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(conn, _legionService),
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn, _connRegistry),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(conn, _connRegistry),
-                0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus),
-                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _rates, _eventBus, _auraApplier, _questEngine, _summonsService),
+                0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus),
+                0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus, _auraApplier, _questEngine, _summonsService),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry),

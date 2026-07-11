@@ -13,31 +13,33 @@ namespace AionLightning.Game.QuestEngine.Handlers.Templates;
 /// <c>questEngine.handlers.template.KillInWorld</c> port) — covers &lt;kill_in_world&gt; entries.
 /// </summary>
 /// <remarks>
-/// Java's kill-count objective (<c>onKillInWorldEvent</c>, incrementing quest var 0 up to
-/// <c>amount</c>) is driven exclusively by <c>PvpService.notifyKillQuests</c> — a player-kills-
-/// opposing-race-player event, dispatched to every nearby group/alliance member via
-/// <c>QuestEngine.onKillInWorld(worldId)</c>. This engine only routes NPC-kill events
-/// (<see cref="IQuestHandler.OnKillAsync"/>, wired from <c>QuestService.HandleNpcKillAsync</c>) —
-/// there is no PvP-kill event pipeline, and building one is out of scope for this phase (per the
-/// task brief: implement the NPC-kill part where one exists, log/skip where it doesn't). Since
-/// KillInWorld has no NPC-kill part at all in Java, entries here register only their start/end NPC
-/// dialog hooks: a player can accept and see the quest, but its kill counter (quest var 0) never
-/// advances, so it can never reach REWARD through normal play — a known, documented limitation.
+/// PvP Phase 1 (2026-07-11 survey): Java's kill-count objective (<c>onKillInWorldEvent</c>,
+/// incrementing quest var 0 up to <c>amount</c>) is driven by <c>PvpService.notifyKillQuests</c> — a
+/// player-kills-opposing-race-player event, dispatched via <c>QuestEngine.onKillInWorld(worldId)</c>.
+/// This is now wired: <c>Combat.Handlers.PvpKillHandler</c> calls
+/// <c>QuestEngine.OnPlayerKillAsync</c> after the AP exchange, which looks up this handler's
+/// world registration (<see cref="Register"/>) and calls <see cref="OnPlayerKillAsync"/> below.
+/// Not yet ported (Phase 2, needs AggroList on Creature): Java also notifies every online
+/// group/alliance member of the killer within range, not just the killer themself.
 /// <c>invasion_world</c> (Java's Rift/Vortex-triggered auto-start via <c>onEnterWorldEvent</c>) is
-/// parsed for data completeness but not wired, for the same reason MonsterHuntScriptEntry's
+/// still parsed for data completeness but not wired, for the same reason MonsterHuntScriptEntry's
 /// aggro/invasion fields aren't (no RiftService/VortexService port yet).
 /// </remarks>
 public sealed class KillInWorldHandler : QuestHandlerBase
 {
     private readonly HashSet<int> _startNpcs;
     private readonly HashSet<int> _endNpcs;
+    private readonly HashSet<int> _worldIds;
+    private readonly int          _killAmount;
 
     public KillInWorldHandler(KillInWorldScriptEntry data, IDataManager dataManager,
         IQuestDao questDao, QuestRewardService rewardService)
         : base(data.Id, dataManager, questDao, rewardService)
     {
-        _startNpcs = data.StartNpcIds;
-        _endNpcs   = data.EndNpcIds;
+        _startNpcs  = data.StartNpcIds;
+        _endNpcs    = data.EndNpcIds;
+        _worldIds   = data.WorldIds;
+        _killAmount = data.Amount;
     }
 
     public override void Register(QuestEngine engine)
@@ -51,6 +53,34 @@ public sealed class KillInWorldHandler : QuestHandlerBase
 
         foreach (int npcId in _endNpcs)
             engine.RegisterQuestNpc(npcId).OnTalk.Add(QuestId);
+
+        foreach (int worldId in _worldIds)
+            engine.RegisterKillInWorld(worldId, QuestId);
+    }
+
+    /// <summary>
+    /// Kill-count objective (Java <c>defaultOnKillRankedEvent(env, 0, killAmount, true)</c>):
+    /// increments quest var 0 by one per qualifying kill until it reaches <c>killAmount - 1</c>, at
+    /// which point the quest flips straight to REWARD (mirrors MonsterHunt's var/persist/
+    /// SM_QUEST_ACTION handling via <see cref="QuestHandlerBase.ChangeQuestStepAsync"/>).
+    /// </summary>
+    public override async ValueTask<bool> OnPlayerKillAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        var entry = env.Player.Quests.Get(QuestId);
+        if (entry is null || entry.Status != QuestStatus.START) return false;
+
+        int var = entry.GetVar(0);
+        if (var < _killAmount - 1)
+        {
+            await ChangeQuestStepAsync(conn, entry, varIdx: 0, newValue: var + 1, toReward: false, ct);
+            return true;
+        }
+        if (var == _killAmount - 1)
+        {
+            await ChangeQuestStepAsync(conn, entry, varIdx: -1, newValue: 0, toReward: true, ct);
+            return true;
+        }
+        return false;
     }
 
     public override async ValueTask<bool> OnDialogAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
@@ -82,7 +112,7 @@ public sealed class KillInWorldHandler : QuestHandlerBase
                 return await SendQuestEndDialogAsync(env, conn, ct);
 
             default:
-                return false; // START: kill counter never advances without PvP-kill event plumbing — see remarks
+                return false; // START: no dialog action here — kill progress advances via OnPlayerKillAsync
         }
     }
 }

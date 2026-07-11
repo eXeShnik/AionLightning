@@ -4479,3 +4479,82 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
     `NpcAiService`'s scan), so a summon cannot currently be killed by anything — summon death/respawn
     handling is unimplemented until that changes.
   - Build: `dotnet build AionLightning.NET/AionLightning.NET.sln` — 0 warnings, 0 errors.
+
+#### C2 Phase 5 scoping (2026-07-11) — the 1,493 hand-written quest scripts
+- These are DISTINCT from the 12 XML-template handlers (they exist because they don't fit
+  templates). Anatomy: median 109 LOC; ~70% boilerplate absorbed by base-class helpers, ~30%
+  bespoke per-quest var→dialogPage tables. Buckets: dialog-only 964 (65%), dialog+kill 262 —
+  top-2 = 1,226 quests (82%); escort/follow 57 + timer 37 sequenced LAST (need infra).
+- DECISION: per-quest Roslyn .cs under Scripts/quest/<zone>/ mirroring Java 1:1 (keep the 12
+  XML templates for their own population). Rejected data-DSL growth — it would reinvent a
+  scripting language. Game csproj already has the Scripts copy-not-compile pattern.
+- CRITICAL build-model change: ScriptService compiles one ALC per file — must add a folder→
+  single-assembly batch compile (extend CSharpCompilerService to N syntax trees) before scaling.
+- [ ] **Phase 5 Batch 0 (blocking)**: OnLevelUp (399 quests) + OnZoneMissionEnd (192) hooks,
+  port helper set (defaultCloseDialog x1366 uses, defaultOnKillEvent, checkQuestItems,
+  useQuestObject, playQuestMovie+SM_PLAY_MOVIE, give/removeQuestItem, start/end dialog
+  overloads), QuestService startMission/LOCKED flow, complete DialogAction SETPROn coverage,
+  batch-compile mode, verify id-disjointness vs template population, then 2-3 hand-ported
+  starter quests as the golden pattern.
+- [ ] **Phase 5 batches**: Poeta (14) → Ishalgen (17) → Verteron (34) → Altgard (38) → Eltnen/
+  Morheim → Heiron/Beluslan → rest; 10-15 quests per agent, zone batches in parallel after
+  Batch 0; golden probe tests per quest (dialog page ids + var/status transitions).
+
+- [x] **PvP Phase 1** (per the 2026-07-11 survey): centralized the duplicated player-kills-player
+  block from CM_ATTACK.cs/CM_CASTSPELL.cs, fixed the two `CalculatePvPApGained` formula gaps, and
+  wired the first PvP-kill → QuestEngine path.
+  - **New**: `Combat/Handlers/PvpKillHandler.cs : IEventHandler<DeathEvent>` (registered in
+    Program.cs right after `ResurrectBaseHandler`, same M287 death-event chain). Guards: killer/
+    victim both `Player`, victim still `IsAlreadyDead` (a Chain-of-Suffering revive earlier in the
+    same handler chain un-does the kill), different `Race`, `AbyssRankService.IsPvPMap`, and a
+    defensive `DuelService.GetOpponent` check (duels already suppress `DeathEvent` at the
+    `ApplyDamageAndPublishAsync` call site via `suppressDeathEvent: true` — this is a second,
+    belt-and-suspenders guard for any future damage path that forgets to set that flag).
+  - **What moved vs what stayed inline**: `ApplyDamageAndPublishAsync` publishes `DeathEvent`
+    synchronously *inside itself*, i.e. before the caller (CM_ATTACK/CM_CASTSPELL) even broadcasts
+    the killing-blow SM_ATTACK/SM_ATTACK_STATUS packets, let alone reaches its own "target died"
+    branch — the existing `ResurrectBaseHandler` already relies on/causes this ordering (its
+    teleport/revive packets fire before the killing hit's own attack-animation packets). Relocating
+    the victim's own death packets (state flag, effect clear, SM_EMOTION DIE, SM_ABNORMAL_EFFECT
+    clear, SM_DIE + "you were killed by") into the handler would reorder them ahead of the attack
+    animation the client just watched for the same hit, so those stay inline at both call sites
+    (duel-check + early-return also stays inline, since it's a "the target didn't really die"
+    branch, not part of the reward path). Moved to `PvpKillHandler`: AP gain/loss, rank update +
+    broadcast, zone kill announcement, group-died notice, DAO persistence (`UpdateAbyssAsync` x2,
+    `UpdateAbyssKillStatsAsync`), legion contribution, and the new quest notify — none of these
+    packets have an ordering dependency on the attack-animation sequence.
+  - **AbyssRankService.CalculatePvPApGained fix** (verified against Java
+    `StatFunctions.calculatePvpApGained`): level-diff `diff < -3` now multiplies by 1.30 (was
+    incorrectly folded into the `diff == -3` → 1.20 bucket, so no level gap ever hit x1.30). Added
+    the missing abyss-rank penalty: `winner.AbyssRank <= 7 && (winnerRank - defeatedRank) > 0` →
+    subtract `rankDiff * 5%` from the already level-adjusted, rounded AP gain (matches Java's
+    round-then-penalize order, not a single combined-float computation). `CalculatePvPApLost` was
+    already correct and untouched.
+  - **QuestEngine**: new `Dictionary<int, List<int>> _killInWorldIndex`, `RegisterKillInWorld(int
+    worldId, int questId)` (mirrors `RegisterItemGet`/`RegisterSkillUse`), and
+    `OnPlayerKillAsync(Player killer, Player victim, GsClientConnection killerConn, ct)` — looks up
+    quests by **victim's** `Position.WorldId` (Java: `int worldId = victim.getWorldId();`), builds
+    one `QuestEnv(victim, killer, 0, 0)` and dispatches to each handler's new
+    `IQuestHandler.OnPlayerKillAsync` (default `false`, added next to `OnSkillUseAsync`;
+    `QuestHandlerBase` got the matching `virtual` no-op so template handlers only override what
+    they use). `PvpKillHandler` calls this dispatcher after the AP award, since same-race kills are
+    already excluded by its own guards (mirrors Java `PvpService.notifyKillQuests`'s own race check
+    being redundant with `doReward`'s).
+  - **KillInWorldHandler**: `Register` now also loops `data.WorldIds` → `engine.RegisterKillInWorld`.
+    `OnPlayerKillAsync` mirrors Java `defaultOnKillRankedEvent(env, 0, killAmount, true)`: reads
+    quest var 0, increments by one via `ChangeQuestStepAsync` while `var < killAmount - 1`, and on
+    the kill that brings it to `killAmount - 1` flips straight to REWARD (var is deliberately left
+    at `killAmount - 1`, not bumped to `killAmount` — Java's `if (reward) qs.setStatus(REWARD)`
+    branch skips the var write entirely, this mirrors that exactly) — same
+    persist+SM_QUEST_ACTION path as `MonsterHuntHandler.OnKillAsync`.
+  - **Deferred to Phase 2** (per the survey, unchanged — needs `AggroList` on `Creature`):
+    most-damage kill credit (currently last-hitter, matching the pre-existing inline behavior, not
+    a regression), group/alliance AP split + quest notification to every rewarded member (Java
+    `notifyKillQuests` walks the killer's whole group/alliance in range; Phase 1 notifies only the
+    killer), damage-scaled AP loss for the victim.
+  - **Deferred to Phase 3** (per the survey, unchanged): per-victim daily-kill cap (`KillList`,
+    closes the repeat-farm exploit), kill item rewards, serial-killer system.
+  - Removed now-dead `RateOptions`/`_rates` plumbing from `CM_ATTACK`/`CM_CASTSPELL` (constructors,
+    `GsPacketHandlerFactory` call sites) — it was only ever read inside the block that moved to
+    `PvpKillHandler`, which takes its own DI-injected `RateOptions`.
+  - Build: `dotnet build AionLightning.NET/AionLightning.NET.sln` — 0 warnings, 0 errors.

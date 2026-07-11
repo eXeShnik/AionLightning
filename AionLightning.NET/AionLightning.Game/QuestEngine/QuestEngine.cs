@@ -20,6 +20,7 @@ public sealed class QuestEngine
     private readonly Dictionary<int, IQuestHandler> _handlers  = new();
     private readonly Dictionary<int, List<int>>     _itemGetIndex = new();
     private readonly Dictionary<int, List<int>>     _skillUseIndex = new();
+    private readonly Dictionary<int, List<int>>     _killInWorldIndex = new();
     private readonly ILogger<QuestEngine>           _log;
 
     // worldId -> quests startable there (Java parity: WorldMapInstance.questIds, populated
@@ -70,6 +71,17 @@ public sealed class QuestEngine
         {
             quests = [];
             _skillUseIndex[skillId] = quests;
+        }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Registers a world id as relevant to a kill_in_world quest (Java registerOnKillInWorld).</summary>
+    public void RegisterKillInWorld(int worldId, int questId)
+    {
+        if (!_killInWorldIndex.TryGetValue(worldId, out var quests))
+        {
+            quests = [];
+            _killInWorldIndex[worldId] = quests;
         }
         if (!quests.Contains(questId)) quests.Add(questId);
     }
@@ -164,6 +176,28 @@ public sealed class QuestEngine
             if (!_handlers.TryGetValue(questId, out var handler)) continue;
             any = true;
             await handler.OnSkillUseAsync(player, skillId, conn, ct);
+        }
+        return any;
+    }
+
+    /// <summary>
+    /// Dispatches a PvP-kill event (Java <c>PvpService.notifyKillQuests</c> → <c>onKillInWorld</c>,
+    /// wired from <c>Combat.Handlers.PvpKillHandler</c> once the AP exchange completes) to every
+    /// kill_in_world quest registered against the victim's world (Java
+    /// <c>registerOnKillInWorld</c>). Group/alliance member notification is Phase 2 (needs
+    /// AggroList) — only the killer's own quest progress advances here.
+    /// </summary>
+    public async ValueTask<bool> OnPlayerKillAsync(Player killer, Player victim, GsClientConnection killerConn, CancellationToken ct)
+    {
+        if (!_killInWorldIndex.TryGetValue(victim.Position.WorldId, out var questIds)) return false;
+
+        bool any = false;
+        var env = new QuestEnv(victim, killer, 0, 0);
+        foreach (int questId in questIds)
+        {
+            if (!_handlers.TryGetValue(questId, out var handler)) continue;
+            any = true;
+            await handler.OnPlayerKillAsync(env with { QuestId = questId }, killerConn, ct);
         }
         return any;
     }

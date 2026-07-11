@@ -53,7 +53,7 @@ public static class AbyssRankService
 
     /// <summary>
     /// AP the winner gains for killing a player; based on the defeated player's rank and level difference.
-    /// Mirrors Java StatFunctions.calculatePvpApGained.
+    /// Mirrors Java StatFunctions.calculatePvpApGained, including the winnerRank&lt;=7 abyss-rank penalty.
     /// </summary>
     public static int CalculatePvPApGained(Model.Player winner, Model.Player defeated)
     {
@@ -64,8 +64,17 @@ public static class AbyssRankService
         else if (diff == 4) points *= 0.65f;
         else if (diff == 3) points *= 0.85f;
         else if (diff == -2) points *= 1.10f;
-        else if (diff <= -3) points *= 1.20f;
-        return Math.Max(1, (int)MathF.Round(points));
+        else if (diff == -3) points *= 1.20f;
+        else if (diff <  -3) points *= 1.30f;
+        int pointsGained = (int)MathF.Round(points);
+
+        // Java: winners at/under rank 7 who outrank the defeated player lose 5% of the gain per rank
+        // of difference (discourages high-rank players farming low-rank ones).
+        int rankDiff = winner.AbyssRank - defeated.AbyssRank;
+        if (winner.AbyssRank <= 7 && rankDiff > 0)
+            pointsGained -= (int)MathF.Round(pointsGained * (rankDiff * 0.05f));
+
+        return Math.Max(1, pointsGained);
     }
 
     /// <summary>
