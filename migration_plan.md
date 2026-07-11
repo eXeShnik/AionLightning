@@ -4785,3 +4785,8 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   Elyos 20s zone (worldId 210020000). 23 deferred: Kaidan Fortress campaign chain (11, need
   per-quest review), 2 largest (1319/1467), + service-dependent (addHandlerSideQuestDrop,
   OnAtDistanceEvent, zone-shape isItemUse gates, quest timer, follow/escort, flight-teleport).
+
+- [x] **C2 Phase 5 Heiron** (2026-07-12, fleet): 19 quests ported, probe 19/19 in isolation.
+  Elyos 30s zone. 36 deferred (Batch 0.3 hooks: onAttackEvent, quest timer, zone-shape/
+  onAtDistance, escort/follow, reward-index dialog helpers + the largest campaign scripts).
+  Heiron is a big zone — a 2nd pass is warranted after Batch 0.3.
