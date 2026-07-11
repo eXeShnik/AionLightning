@@ -1918,11 +1918,17 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
 
                     world.Remove(killed);
-                    _lootService.GenerateDrops(killed, player);
+                    // SHOULD_REWARD poll parity (see CM_ATTACK): trap/static NPCs grant no XP/loot
+                    bool dotKillRewards = Model.Ai.AiNameRegistry.ShouldReward(killed.Template.Ai);
+                    if (dotKillRewards)
+                        _lootService.GenerateDrops(killed, player);
                     await _questService.HandleNpcKillAsync(player, killed, conn, CancellationToken.None);
 
-                    long xpBase = killed.Template.Stats?.MaxXp > 0 ? killed.Template.Stats.MaxXp : killed.Level * 50L;
-                    await _expService.AddGroupExpAsync(player, xpBase, killed.Level, CancellationToken.None);
+                    if (dotKillRewards)
+                    {
+                        long xpBase = killed.Template.Stats?.MaxXp > 0 ? killed.Template.Stats.MaxXp : killed.Level * 50L;
+                        await _expService.AddGroupExpAsync(player, xpBase, killed.Level, CancellationToken.None);
+                    }
 
                     if (killed.Position.WorldId == AbyssRankService.AbyssWorldId
                         || killed.Template.NpcType.Contains("ABYSS", StringComparison.OrdinalIgnoreCase))
@@ -2725,10 +2731,15 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             }
 
                             world.Remove(splash);
-                            _lootService.GenerateDrops(splash, player);
+                            bool splashRewards = Model.Ai.AiNameRegistry.ShouldReward(splash.Template.Ai);
+                            if (splashRewards)
+                                _lootService.GenerateDrops(splash, player);
                             await _questService.HandleNpcKillAsync(player, splash, conn, CancellationToken.None);
-                            long splashXp = splash.Template.Stats?.MaxXp > 0 ? splash.Template.Stats.MaxXp : splash.Level * 50L;
-                            await _expService.AddGroupExpAsync(player, splashXp, splash.Level, CancellationToken.None);
+                            if (splashRewards)
+                            {
+                                long splashXp = splash.Template.Stats?.MaxXp > 0 ? splash.Template.Stats.MaxXp : splash.Level * 50L;
+                                await _expService.AddGroupExpAsync(player, splashXp, splash.Level, CancellationToken.None);
+                            }
 
                             var deadSplash    = splash;
                             var splashDrops   = _lootService.GetLoot(deadSplash.ObjectId);
@@ -3508,16 +3519,21 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                     world.Remove(deadNpc);
 
-                    lootSvc.GenerateDrops(deadNpc, player);
+                    bool skillKillRewards = Model.Ai.AiNameRegistry.ShouldReward(deadNpc.Template.Ai);
+                    if (skillKillRewards)
+                        lootSvc.GenerateDrops(deadNpc, player);
 
                     // Update quest kill progress
                     await questSvc.HandleNpcKillAsync(player, deadNpc, conn, CancellationToken.None);
 
-                    // Award XP — level-diff scaling and group distribution handled inside AddGroupExpAsync
-                    long xpBase = deadNpc.Template.Stats?.MaxXp > 0
-                        ? deadNpc.Template.Stats.MaxXp
-                        : deadNpc.Level * 50L;
-                    await expSvc.AddGroupExpAsync(player, xpBase, deadNpc.Level, CancellationToken.None);
+                    if (skillKillRewards)
+                    {
+                        // Award XP — level-diff scaling and group distribution handled inside AddGroupExpAsync
+                        long xpBase = deadNpc.Template.Stats?.MaxXp > 0
+                            ? deadNpc.Template.Stats.MaxXp
+                            : deadNpc.Level * 50L;
+                        await expSvc.AddGroupExpAsync(player, xpBase, deadNpc.Level, CancellationToken.None);
+                    }
 
                     // Award AP for kills in the Abyss world or against ABYSS_GUARD NPCs; persist immediately
                     if (deadNpc.Position.WorldId == AbyssRankService.AbyssWorldId
