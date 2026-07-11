@@ -4780,3 +4780,8 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
 
 - [x] **C2 Phase 5 Altgard** (2026-07-12, fleet): 33 quests ported, probe 33/33 in isolation
   (orchestrator fixed one long->int cast the agent left). Asmodian 20s zone.
+
+- [x] **C2 Phase 5 Eltnen** (2026-07-12, fleet): 33 quests ported, probe 33/33 in isolation.
+  Elyos 20s zone (worldId 210020000). 23 deferred: Kaidan Fortress campaign chain (11, need
+  per-quest review), 2 largest (1319/1467), + service-dependent (addHandlerSideQuestDrop,
+  OnAtDistanceEvent, zone-shape isItemUse gates, quest timer, follow/escort, flight-teleport).
