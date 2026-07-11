@@ -33,4 +33,17 @@ public static class PlayerClassExtensions
     public static PlayerClass FromId(byte id) => id < 17
         ? (PlayerClass)id
         : throw new ArgumentOutOfRangeException(nameof(id), $"Unknown class id {id}");
+
+    /// <summary>Maps an advanced class to its starting class (Java PlayerClass.getStartingClassFor).
+    /// A starting class maps to itself.</summary>
+    public static PlayerClass GetStartingClassFor(this PlayerClass cls) => cls switch
+    {
+        PlayerClass.GLADIATOR or PlayerClass.TEMPLAR       => PlayerClass.WARRIOR,
+        PlayerClass.ASSASSIN  or PlayerClass.RANGER        => PlayerClass.SCOUT,
+        PlayerClass.SORCERER  or PlayerClass.SPIRIT_MASTER => PlayerClass.MAGE,
+        PlayerClass.CLERIC    or PlayerClass.CHANTER       => PlayerClass.PRIEST,
+        PlayerClass.GUNNER                                 => PlayerClass.ENGINEER,
+        PlayerClass.BARD                                   => PlayerClass.ARTIST,
+        _                                                  => cls,
+    };
 }

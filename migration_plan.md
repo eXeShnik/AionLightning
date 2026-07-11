@@ -4740,3 +4740,9 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   Tutty — zone-movie via OnEnterWorld). Probe: 12/12 Poeta scripts discovered. Only 1114
   (The Nymph's Gown, 216L) and 1205 (A New Skill, 182L) remain in Poeta — left for fleet
   (larger, more branch-heavy). Reminder: fleet zone agents resume after API reset (23:10 Kyiv).
+
+- [x] **C2 Phase 5 Poeta COMPLETE** (2026-07-11): 1114 (Nymph's Gown — two-path branch, item-use
+  start) + 1205 (A New Skill — level-up auto-start, class-keyed reward NPC) ported; added
+  PlayerClass.GetStartingClassFor helper (Java parity). All 14/14 Poeta scripts compile +
+  discover via probe. Skips: 1114 omits the Seirenia aggro side-effect (handler has no
+  NpcAiService), quest still completes. Elyos starter zone done — Ishalgen next (fleet).
