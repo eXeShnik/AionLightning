@@ -4755,3 +4755,10 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   SpawnService. Add a spawn primitive to the script convention (either a 5th ctor param or a
   QuestHandlerBase.SpawnNpcAsync helper backed by a static SpawnService set at engine startup)
   before porting spawn-dependent quests. 2136 deferred until then.
+
+- [x] **C2 Phase 5 Batch 0.2** (2026-07-11): added the spawn primitive to the script convention —
+  QuestHandlerBase.SpawnQuestNpc(worldId, instanceId, npcId, x, y, z, heading) backed by a static
+  SpawnService set once at engine startup (keeps the fixed 4-arg script ctor). Java addNewSpawn
+  parity. Ported Ishalgen 2136 (Lost Axe — object-use spawns the turn-in NPC Rhoo). Probe: 18/18.
+  Fleet convention now covers dialog/kill/item-get/item-use/skill-use/level-up/zone-mission/
+  movie-end/enter-world hooks + finishQuest-index + spawn.

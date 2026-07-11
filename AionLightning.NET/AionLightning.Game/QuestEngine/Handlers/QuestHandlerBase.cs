@@ -32,6 +32,22 @@ public abstract class QuestHandlerBase : IQuestHandler
         RewardService = rewardService;
     }
 
+    // Set once at engine startup (QuestEngineHostedService) so scripts — whose ctor is fixed at
+    // four params for uniform reflection — can still spawn quest NPCs (Java QuestService.addNewSpawn).
+    private static SpawnService? _spawnService;
+    internal static void InitSpawnService(SpawnService spawnService) => _spawnService = spawnService;
+
+    /// <summary>Spawns a quest NPC at a fixed location (Java QuestService.addNewSpawn). No-op with a
+    /// warning-free false if the spawn service isn't wired or the npc template is unknown.</summary>
+    protected bool SpawnQuestNpc(int worldId, int instanceId, int npcId, float x, float y, float z, byte heading)
+    {
+        if (_spawnService is null) return false;
+        var template = DataManager.Npcs.GetTemplate(npcId);
+        if (template is null) return false;
+        _spawnService.SpawnNpcAt(template, new Position(x, y, z, heading, worldId, instanceId));
+        return true;
+    }
+
     /// <summary>The static quest_data.xml template for this quest, or null if not defined there.</summary>
     protected QuestTemplate? Template => DataManager.Quests.GetTemplate(QuestId);
 

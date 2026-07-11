@@ -79,6 +79,8 @@ public sealed class QuestEngineHostedService(
             dataManager.QuestScripts.FountainRewards.Count, dataManager.QuestScripts.SkillUse.Count,
             dataManager.QuestScripts.MentorMonsterHunt.Count);
 
+        // Give hand-written scripts access to spawning (fixed-ctor scripts can't take SpawnService).
+        QuestHandlerBase.InitSpawnService(spawnService);
         LoadHandWrittenScripts();
 
         // Must run after every handler above (and every script handler) has registered its NPCs,
