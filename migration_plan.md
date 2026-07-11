@@ -4777,3 +4777,6 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   1157 (onAttackEvent hook — none exists), + 5 largest (1014/1016/1019/1020/1023, 200L+).
   FLEET FOLLOW-UP (Batch 0.3 candidates): quest-timer hook, onAttackEvent hook, zone-shape
   triggers, follow/escort AI — each unblocks a cluster of deferred quests across all zones.
+
+- [x] **C2 Phase 5 Altgard** (2026-07-12, fleet): 33 quests ported, probe 33/33 in isolation
+  (orchestrator fixed one long->int cast the agent left). Asmodian 20s zone.
