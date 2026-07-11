@@ -4769,3 +4769,11 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   (14 Poeta + 15 Ishalgen) compile and discover. Common gotcha for fleet: scripts using
   Model.Player in a private helper param need an explicit `using AionLightning.Game.Model;`
   (ImplicitUsings is off for ad-hoc Roslyn compile).
+
+- [x] **C2 Phase 5 Verteron** (2026-07-12, fleet): 25 quests ported (1011/1013/1015/1017/1018/
+  1021/1022/1130/1131/1141/1152/1156/1158/1162/1163/1169/1170/1182/1183/1192/1194/1197/1198/
+  1218/1220). Probe: 25/25 discovered in isolation. Verteron worldId = 210030000 (corrected).
+  Deferred (9): 1012 (sensory-zone triggers), 1146 (quest timer), 1149 (escort/follow AI),
+  1157 (onAttackEvent hook — none exists), + 5 largest (1014/1016/1019/1020/1023, 200L+).
+  FLEET FOLLOW-UP (Batch 0.3 candidates): quest-timer hook, onAttackEvent hook, zone-shape
+  triggers, follow/escort AI — each unblocks a cluster of deferred quests across all zones.
