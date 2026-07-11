@@ -51,6 +51,15 @@ public sealed class AccountDaoImpl : IAccountDao
         return rows > 0;
     }
 
+    public async Task<bool> UpdateLastMacAsync(int accountId, string mac, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        var rows = await conn.ExecuteAsync(
+            "UPDATE account_data SET last_mac = @mac WHERE id = @accountId",
+            new { mac, accountId });
+        return rows > 0;
+    }
+
     public async Task<bool> UpdateLastServerAsync(int accountId, sbyte serverId, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);

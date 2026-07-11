@@ -7,12 +7,15 @@ public sealed class SM_SERVER_LIST : AionServerPacket
     private readonly IEnumerable<GameServerInfo> _servers;
     private readonly sbyte _lastServer;
     private readonly string _playerIp;
+    private readonly IReadOnlyDictionary<int, int>? _characterCounts;
 
-    public SM_SERVER_LIST(IEnumerable<GameServerInfo> servers, sbyte lastServer, string playerIp) : base(0x04)
+    public SM_SERVER_LIST(IEnumerable<GameServerInfo> servers, sbyte lastServer, string playerIp,
+        IReadOnlyDictionary<int, int>? characterCounts = null) : base(0x04)
     {
         _servers = servers;
         _lastServer = lastServer;
         _playerIp = playerIp;
+        _characterCounts = characterCounts;
     }
 
     public override void Write(ref PacketWriter w)
@@ -41,6 +44,6 @@ public sealed class SM_SERVER_LIST : AionServerPacket
         w.WriteH((short)(maxId + 1));
         w.WriteC(0x01);
         for (int i = 1; i <= maxId; i++)
-            w.WriteC(0x00);
+            w.WriteC((byte)(_characterCounts != null && _characterCounts.TryGetValue(i, out var count) ? count : 0));
     }
 }

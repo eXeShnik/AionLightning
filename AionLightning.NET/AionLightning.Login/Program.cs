@@ -2,6 +2,7 @@ using AionLightning.Commons.Configuration;
 using AionLightning.Commons.Database;
 using AionLightning.Commons.Hosting;
 using AionLightning.Commons.Network;
+using AionLightning.Commons.Network.Ncrypt;
 using AionLightning.Login;
 using AionLightning.Login.Configs.Options;
 using AionLightning.Login.Controller;

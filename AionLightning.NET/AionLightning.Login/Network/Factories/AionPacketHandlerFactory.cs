@@ -25,7 +25,7 @@ public sealed class AionPacketHandlerFactory
                 return opcode switch
                 {
                     0x07 => new CM_AUTH_GG(conn),
-                    0x08 => new CM_UPDATE_SESSION(conn),
+                    0x08 => new CM_UPDATE_SESSION(conn, _accountCtrl),
                     _ => Unknown(state, opcode),
                 };
             case LoginConnection.LoginState.AUTHED_GG:
@@ -37,7 +37,7 @@ public sealed class AionPacketHandlerFactory
             case LoginConnection.LoginState.AUTHED_LOGIN:
                 return opcode switch
                 {
-                    0x05 => new CM_SERVER_LIST(conn),
+                    0x05 => new CM_SERVER_LIST(conn, _accountCtrl),
                     0x02 => new CM_PLAY(conn),
                     _ => Unknown(state, opcode),
                 };

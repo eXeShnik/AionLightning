@@ -28,15 +28,19 @@ public sealed class GsPacketHandlerFactory
                 return opcode switch
                 {
                     0x00 => new CM_GS_AUTH(conn),
+                    0x0D => new CM_MAC(conn, _accountDao),
                     _ => Unknown(state, opcode),
                 };
             case GsConnection.GsState.AUTHED:
                 return opcode switch
                 {
                     0x01 => new CM_ACCOUNT_AUTH(conn, _accountCtrl),
+                    0x02 => new CM_ACCOUNT_RECONNECT_KEY(conn, _accountCtrl),
                     0x03 => new CM_ACCOUNT_DISCONNECTED(conn),
                     0x04 => new CM_ACCOUNT_LIST(conn, _accountDao),
+                    0x08 => new CM_GS_CHARACTER(conn, _accountCtrl),
                     0x0C => new CM_GS_PONG(),
+                    0x0D => new CM_MAC(conn, _accountDao),
                     _ => Unknown(state, opcode),
                 };
             default:

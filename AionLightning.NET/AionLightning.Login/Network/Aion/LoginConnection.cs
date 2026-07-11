@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Net.Sockets;
 using AionLightning.Commons.Network;
 using AionLightning.Commons.Network.Ncrypt;
+using AionLightning.Login.Controller;
 using AionLightning.Login.Model;
 using AionLightning.Login.Network.Aion.ServerPackets;
 using AionLightning.Login.Network.Factories;
@@ -14,7 +15,8 @@ public sealed class LoginConnection : AConnection
 {
     private readonly ILogger<LoginConnection> _log;
     private readonly AionPacketHandlerFactory _factory;
-    private readonly CryptEngine _crypt = new();
+    private readonly IAccountController _accountCtrl;
+    private readonly CryptEngine _crypt;
     private readonly EncryptedRSAKeyPair _rsaKeyPair;
 
     public int SessionId { get; }
@@ -27,11 +29,13 @@ public sealed class LoginConnection : AConnection
 
     public enum LoginState { CONNECTED, AUTHED_GG, AUTHED_LOGIN }
 
-    public LoginConnection(Socket socket, ILogger<LoginConnection> log, AionPacketHandlerFactory factory)
+    public LoginConnection(Socket socket, ILogger<LoginConnection> log, AionPacketHandlerFactory factory, IAccountController accountCtrl)
         : base(socket)
     {
         _log = log;
         _factory = factory;
+        _accountCtrl = accountCtrl;
+        _crypt = new CryptEngine();
         SessionId = Math.Abs(Random.Shared.Next());
         _rsaKeyPair = KeyGen.GetEncryptedRSAKeyPair();
     }
@@ -80,6 +84,10 @@ public sealed class LoginConnection : AConnection
     public override async ValueTask DisposeAsync()
     {
         var ip = IP;
+        // Java onDisconnect(): keep the account registered only when it joined a GS —
+        // the GS is about to validate the session key via CM_ACCOUNT_AUTH.
+        if (Account != null && JoinedGs == null)
+            _accountCtrl.UnregisterAccount(Account.Id);
         await base.DisposeAsync();
         _log.LogInformation("[{IP}] Login connection closed (state={State}, joinedGs={GsId})",
             ip, State, JoinedGs?.Id.ToString() ?? "none");

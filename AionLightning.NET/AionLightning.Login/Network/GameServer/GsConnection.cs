@@ -36,6 +36,9 @@ public sealed class GsConnection : AConnection
         byte opcode = data[0];
         var body = new ReadOnlySequence<byte>(data, 1, data.Length - 1);
 
+        _log.LogDebug("[GS {IP}] RECV opcode=0x{Op:X2} len={Len} hex={Hex}",
+            IP, opcode, data.Length, BitConverter.ToString(data));
+
         var packet = _factory.Resolve(opcode, State, this);
         if (packet is null) return;
 
@@ -57,6 +60,9 @@ public sealed class GsConnection : AConnection
         BinaryPrimitives.WriteInt16LittleEndian(wire, (short)wireLen);
         wire[2] = (byte)packet.Opcode;
         bodyBuf.WrittenSpan.CopyTo(wire.AsSpan(3));
+
+        _log.LogDebug("[GS {IP}] SEND opcode=0x{Op:X2} len={Len} hex={Hex}",
+            IP, (byte)packet.Opcode, wireLen, BitConverter.ToString(wire));
 
         await WriteRawAsync(wire, ct);
     }
