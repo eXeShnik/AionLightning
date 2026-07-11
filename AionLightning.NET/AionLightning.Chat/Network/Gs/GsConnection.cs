@@ -36,8 +36,17 @@ public sealed class GsConnection : AConnection
         var packet = _factory.Resolve(opcode, State, this);
         if (packet is null) return;
 
-        var reader = new PacketReader(body);
-        packet.Read(ref reader);
+        // Tolerate short/malformed reads like Java BaseClientPacket — don't drop the GS link.
+        try
+        {
+            var reader = new PacketReader(body);
+            packet.Read(ref reader);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "[GS {IP}] Malformed packet 0x{Op:X2} — skipped", IP, opcode);
+            return;
+        }
         await packet.RunAsync(ct);
     }
 

@@ -43,8 +43,18 @@ public sealed class AionClientConnection : AConnection
         var packet = _factory.Resolve(opcode, State, this);
         if (packet is null) return;
 
-        var reader = new PacketReader(body);
-        packet.Read(ref reader);
+        // Java BaseClientPacket tolerates short/malformed reads (logs and continues);
+        // a PacketFormatException must not tear down the whole chat session.
+        try
+        {
+            var reader = new PacketReader(body);
+            packet.Read(ref reader);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "[{IP}] Malformed chat packet 0x{Op:X2} — skipped", IP, opcode);
+            return;
+        }
         await packet.RunAsync(ct);
     }
 

@@ -4034,3 +4034,34 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   path recomputes toward the new target next tick. Leash/return-home logic is untouched — only
   which in-range player is being chased/attacked can change.
 - Build: `dotnet build AionLightning.NET.sln` — 0 warnings, 0 errors.
+
+#### C4 survey verdict (2026-07-11) — geodata: DEFER the engine
+- The runtime dataset does not exist in this repo: zero *.geo files (no meshs.geo, no per-world
+  {worldId}.geo — only one stray client-format .mesh sample the loader cannot read). Even Java's
+  RealGeoData would throw on this checkout; geo has never run here and GeoDataConfig defaults are
+  all off. A real dataset is extracted from client .paks by an external tool (hundreds of MB).
+- Therefore C# already matches Java's de-facto behavior: getZ→input z, canSee→true,
+  getClosestCollision→target unchanged, isInBounds→pure math. Deferring loses exactly nothing
+  vs the working Java setup.
+- [ ] **C4 Phase 0 (cheap, do when Game writer slot free):** World/Geo/ facade — IGeoData +
+  DummyGeoData with the exact fallbacks + real IsInBounds; GeoDataOptions.Enable=false. Gives all
+  future consumers (AI LoS, skills, movement) a stable API.
+- [ ] **C4 Phases 1-2 (blocked on sourcing .geo data):** terrain-only getZ first (no BIH/mesh
+  library needed), then mesh LoS/collision (math+BIH port ~1-2d, scene+loader ~2-3d). Loader is
+  little-endian → BinaryReader/MemoryMappedFile; queries read-only after load (thread-safe);
+  multi-second startup load in an IHostedService; watch LOH for big float[]/int[].
+
+#### Phase B prep (2026-07-11) — Chat wire-format audit result
+- Byte-level audit vs Java AL-Chat: framing (2-byte LE length-inclusive prefix, 1-byte opcode,
+  plaintext — chat has NO blowfish), all client<->chat and GS<->chat packet layouts, UTF-16LE
+  strings, and the 48-byte token round-trip (chat → GS → SM_CHAT_INIT → client echo) all MATCH.
+  No wire-format defects — chat should survive its first real-client test at the protocol level.
+- FALSE POSITIVE worth remembering: ChatChannels.InferType looked broken because its prefix
+  literals embed an invisible U+0001 control char before "public_"/"trade_"/etc. Java builds
+  identifiers as "@" + U+0001 + name + U+0001 + GSID + ".race.AION.KOR", so the StartsWith match
+  is CORRECT as written. Don't "fix" it.
+- [x] Fixed (real finding): short/malformed packets now log-and-skip instead of tearing down the
+  connection (Java BaseClientPacket tolerance) — Chat AionClientConnection + Chat GsConnection.
+  Game-side CsConnection gets the same treatment when the Game writer slot is free.
+- Deferred lows: CM_CS_AUTH doesn't validate gsId/address (single-GS fine); token SHA256 hashes
+  full UTF-8 login bytes vs Java's char-length truncation (chat-internal, client never validates).
