@@ -4717,3 +4717,12 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
     with the 4-arg constructor found and discovered all 3 (`_1000Prologue`=1000,
     `_1002RequestoftheElim`=1002, `_1003IllegalLogging`=1003).
   - Build: `dotnet build AionLightning.NET/AionLightning.NET.sln` — 0 warnings, 0 errors.
+
+- [x] **C2 Phase 5 Poeta batch (partial, 2026-07-11, hand-authored)**: ported quests 1001, 1004,
+  1005, 1100 (campaign chain: kerub kill, odium neutralize, gate finale, Kalio's call opener) +
+  the 3 golden (1000/1002/1003). Batch-compile probe: 7/7 discovered. Skips documented per-file
+  (emotions, zone-polygon start → worldId gate for 1100). Remaining Poeta scripts (1107, 1111,
+  1114, 1118, 1122, 1123, 1205 + more) deferred — several need an item-USE trigger hook
+  (onItemUseEvent) and finishQuest-with-reward-index which Batch 0 did not build; that's a small
+  Batch 0.1 before finishing the zone. Fleet zone agents blocked until API session limit resets
+  (23:10 Kyiv).
