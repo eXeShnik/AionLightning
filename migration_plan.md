@@ -4790,3 +4790,20 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   Elyos 30s zone. 36 deferred (Batch 0.3 hooks: onAttackEvent, quest timer, zone-shape/
   onAtDistance, escort/follow, reward-index dialog helpers + the largest campaign scripts).
   Heiron is a big zone — a 2nd pass is warranted after Batch 0.3.
+
+#### C2 Phase 5 Batch 0.3 spec (2026-07-12) — hooks that unblock ~80+ deferred quests
+Ordered by value/effort (all additive to QuestEngine + QuestHandlerBase, mirror existing OnKill pattern):
+1. **onAttackEvent** (trivial, high value): QuestNpc.OnAttack list + RegisterOnAttack + QuestEngine.OnAttackAsync dispatcher; call from the NPC-damaged path (CM_ATTACK/CM_CASTSPELL player-hits-NPC, before the kill check). IQuestHandler.OnAttackAsync default. Unblocks: 1604 ToCatchASpy, 1157 GaphyrksLove, etc.
+2. **addHandlerSideQuestDrop** (moderate): engine map (npcId → list of (questId,itemId,amount,chance,step)); on NPC kill (both CM_ATTACK + CM_CASTSPELL + summon kill paths), if the killer has the quest at the right step, roll chance and grant the item (SM_INVENTORY_ADD_ITEM). RegisterQuestDrop helper on base. Unblocks kill-to-collect quests (1042 KeeperoftheKaidanKey, many hunts).
+3. **quest timer** (moderate): StartQuestTimerAsync(player, seconds) helper → schedules a Task.Delay that calls QuestEngine.OnQuestTimerEndAsync(env); RegisterOnQuestTimerEnd index + IQuestHandler.OnQuestTimerEndAsync. Unblocks 1354/1373/1146/1063.
+4. **onAtDistance / zone-shape** (harder — needs proximity polling or a zone-shape system): DEFER within 0.3.
+5. **follow/escort AI** (hardest — needs NpcAiService FOLLOWING mode + reach-target/lost-target events): DEFER — pairs with the C3 survey's noted FOLLOWING gap.
+After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 23, Verteron 9, + Morheim/Beluslan pending).
+
+- [x] **C2 Phase 5 Morheim** (2026-07-12, fleet): 29 quests, probe 29/29. Asmodian 20s. 18 deferred.
+- [x] **C2 Phase 5 Beluslan** (2026-07-12, fleet): 20 quests, probe 20/20. Asmodian 30s (worldId
+  220040000). 31 deferred (12 zone-shape, 2 teleport/instance, 2 escort, 1 timer, 14 out-of-batch
+  for a 2nd pass).
+- **Phase 5 zone tally (2026-07-12)**: Poeta 14, Ishalgen 17, Verteron 25, Altgard 33, Eltnen 33,
+  Heiron 19, Morheim 29, Beluslan 20 = 190 hand-written quests committed. Deferred backlog ~140
+  across zones (Batch 0.3 hooks unblock most; largest campaign scripts need per-quest passes).
