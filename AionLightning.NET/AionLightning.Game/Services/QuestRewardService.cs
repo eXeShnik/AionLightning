@@ -53,6 +53,14 @@ public sealed class QuestRewardService
     {
         if (entry.Status == QuestStatus.COMPLETE) return false;
 
+        // Multi-tier quests declare several sibling <rewards> blocks (e.g. relic_rewards' 4
+        // reward_abyss_point tiers); rewardIndex then picks which whole block to use (Java:
+        // template.getRewards().get(reward)). Single/no-tier quests keep using the existing
+        // last-declared-block behavior via the Rewards fallback (no observable change for them).
+        var rewards = template.RewardsList.Count > 1 && rewardIndex >= 0 && rewardIndex < template.RewardsList.Count
+            ? template.RewardsList[rewardIndex]
+            : template.Rewards;
+
         // When status is START, validate objectives here (REWARD state was already validated at transition)
         if (entry.Status == QuestStatus.START)
         {
@@ -61,6 +69,13 @@ public sealed class QuestRewardService
 
             if (template.CollectItems is { Items.Count: > 0 })
                 foreach (var req in template.CollectItems.Items)
+                {
+                    var chk = player.Inventory.FindByItemId(req.ItemId);
+                    if (chk is null || chk.Count < req.Count) return false;
+                }
+
+            if (template.InventoryItems is { Items.Count: > 0 })
+                foreach (var req in template.InventoryItems.Items)
                 {
                     var chk = player.Inventory.FindByItemId(req.ItemId);
                     if (chk is null || chk.Count < req.Count) return false;
@@ -98,13 +113,45 @@ public sealed class QuestRewardService
                 await conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumed), ct);
         }
 
+        // Validate and consume inventory_items requirements (Java's InventoryItems presence-check +
+        // decrease-by-count path — the "coin fountain"-style gate distinct from collect_items)
+        if (template.InventoryItems is { Items.Count: > 0 })
+        {
+            foreach (var req in template.InventoryItems.Items)
+            {
+                var item = player.Inventory.FindByItemId(req.ItemId);
+                if (item is null || item.Count < req.Count) return false;
+            }
+
+            var partiallyConsumedInv = new List<Item>();
+            foreach (var req in template.InventoryItems.Items)
+            {
+                var item = player.Inventory.FindByItemId(req.ItemId);
+                if (item is null) continue;
+                item.Count -= req.Count;
+                if (item.Count <= 0)
+                {
+                    player.Inventory.Remove(item.UniqueId);
+                    await _itemDao.DeleteAsync(item.UniqueId, ct);
+                    await conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+                }
+                else
+                {
+                    partiallyConsumedInv.Add(item);
+                }
+            }
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            if (partiallyConsumedInv.Count > 0)
+                await conn.SendAsync(new SM_INVENTORY_ADD_ITEM(partiallyConsumedInv), ct);
+        }
+
         // Award experience (quest rate applied inside AddQuestExpAsync)
-        long expReward = template.Rewards?.Exp ?? 0;
+        long expReward = rewards?.Exp ?? 0;
         if (expReward > 0)
             await _expService.AddQuestExpAsync(player, expReward, conn, ct);
 
         // Award selected reward item
-        var selectableItems = template.Rewards?.SelectableItems;
+        var selectableItems = rewards?.SelectableItems;
         if (selectableItems is { Count: > 0 } && rewardIndex >= 0 && rewardIndex < selectableItems.Count)
         {
             var reward  = selectableItems[rewardIndex];
@@ -130,7 +177,7 @@ public sealed class QuestRewardService
         }
 
         // Award fixed reward items (always given, no selection)
-        var fixedItems = template.Rewards?.RewardItems;
+        var fixedItems = rewards?.RewardItems;
         if (fixedItems is { Count: > 0 })
         {
             var granted = new List<Item>();
@@ -159,7 +206,7 @@ public sealed class QuestRewardService
         }
 
         // Award kinah (gold attribute)
-        long gold = template.Rewards?.Gold ?? 0;
+        long gold = rewards?.Gold ?? 0;
         if (_rates.QuestKinahRate != 1.0f)
             gold = (long)(gold * _rates.QuestKinahRate);
         if (gold > 0)
@@ -180,7 +227,7 @@ public sealed class QuestRewardService
         }
 
         // Award abyss points
-        int apReward = template.Rewards?.RewardAbyssPoint ?? 0;
+        int apReward = rewards?.RewardAbyssPoint ?? 0;
         if (apReward > 0)
         {
             bool questRankUp = AbyssRankService.AddAp(player, apReward);
@@ -200,7 +247,7 @@ public sealed class QuestRewardService
         }
 
         // Award title (auto-equip; mirrors Java TitleList.addTitle(id, true, 0))
-        int titleReward = template.Rewards?.Title ?? -1;
+        int titleReward = rewards?.Title ?? -1;
         if (titleReward >= 0)
         {
             player.TitleId = titleReward;

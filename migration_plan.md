@@ -4259,3 +4259,100 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
   true, `GetClosestCollision` clamps just short of the wall instead of reaching the far target.
 - Build: `dotnet build AionLightning.NET.sln` (full solution, `--no-incremental`) — 0 warnings, 0
   errors.
+
+#### C2 Phase 4 (2026-07-11) — reward templates: CraftingRewards/RelicRewards/FountainRewards/SkillUse/MentorMonsterHunt
+- New handlers: `QuestEngine/Handlers/Templates/{CraftingRewardsHandler,RelicRewardsHandler,
+  FountainRewardsHandler,SkillUseHandler,MentorMonsterHuntHandler}.cs`. New script-entry models in
+  `Model/Templates/Quest/Script/QuestScriptData.cs`: `CraftingRewardsScriptEntry`,
+  `RelicRewardsScriptEntry`, `FountainRewardsScriptEntry`, `SkillUseScriptEntry` (+
+  `SkillUseGroupEntry` for `<skill ids/start_var/end_var/var_num>`), `MentorMonsterHuntScriptEntry`
+  (reuses the existing `MonsterEntry` for its `<monster var/end_var/npc_ids>` children — same shape
+  as `<monster_hunt>`). Attribute names verified against the actual on-disk XML (not stale Java
+  annotations): `crafting_rewards` uses `movie` (not `quest_movie`); `skill_use`'s `<skill>` child
+  uses `ids`/`end_var` (matches Java's own `QuestSkillData`, unlike the other templates' stale
+  models). `DataHolders/QuestScriptData.cs` and `QuestEngineHostedService.cs` updated with the five
+  new lists/registrations; `QuestEngineHostedService` now also takes `ISkillDao` (already
+  DI-registered in `Program.cs`, not touched here).
+- **`QuestEngine.OnSkillUseAsync` added** (Java `onUseSkillEvent`/`registerQuestSkill` port): new
+  `_skillUseIndex` (skillId → quest ids, mirrors the existing `_itemGetIndex`/`OnItemGetAsync`
+  pattern exactly), `RegisterSkillUse(skillId, questId)`, `OnSkillUseAsync(player, skillId, conn,
+  ct)`. `IQuestHandler`/`QuestHandlerBase` gained a matching default-false `OnSkillUseAsync` member
+  (same shape as `OnItemGetAsync`). Wired from `CM_CASTSPELL.cs`: one `await
+  _questEngine.OnSkillUseAsync(player, _spellId, _conn, ct)` call inserted immediately after the
+  server-side cooldown-enforcement block and before the "Broadcast cast animation" comment (i.e.
+  once every cost/cooldown gate has already passed, so the cast is guaranteed to actually happen) —
+  added a `QuestEngineType questEngine` constructor parameter + field to `CM_CASTSPELL`, and passed
+  the packet factory's existing `_questEngine` field through at its one construction site in
+  `GsPacketHandlerFactory.cs` (that field already existed there for `CM_DIALOG_SELECT`, so no new
+  DI registration was needed). **Not addressed**: the pre-existing flagged gap from C3 Phase 2 about
+  `CM_CASTSPELL.cs`'s three `AiNameRegistry.ShouldReward`-gated kill/loot call sites — out of this
+  phase's scope (quest-engine skill-use tracking only), left for whoever picks up that follow-up.
+- **`QuestTemplate.cs` gained two additions** (both required for these templates' quest_data.xml
+  reward semantics to actually work, not just cosmetic): (1) `RewardsList` (`List<QuestRewards>`,
+  bound to the same `<rewards>` element, which the XSD already declares `maxOccurs="unbounded"`) —
+  `relic_rewards` quests (e.g. id 21281) declare 4 sibling `<rewards reward_abyss_point="..."/>`
+  blocks, one per relic tier; the pre-existing singular `Rewards` property could only ever surface
+  the *last* one (confirmed via a standalone-loader probe: XmlSerializer overwrites the property on
+  each repeated element, never errors). `Rewards` is now a computed `RewardsList[^1]` fallback,
+  preserving that exact prior "last one wins" behavior for the ~69 other already-existing quests
+  that also declare multiple `<rewards>` blocks (a wider pre-existing gap, not fixed here — out of
+  scope) so nothing regresses. (2) `InventoryItemsHolder`/`InventoryItems` (`<inventory_items>
+  <inventory_item item_id count>`) — Java's `InventoryItems`, distinct from `CollectItems`; the
+  "coin fountain" gate (e.g. quest 1717 requires+consumes one `186000031` item with *no*
+  `<collect_items>` at all) has no home in the pre-Phase-4 model. `Services/QuestRewardService.cs`'s
+  `GrantAndCompleteAsync` now (a) resolves `rewards = RewardsList[rewardIndex]` when a quest has
+  more than one tier (Java: `template.getRewards().get(reward)`), falling back to the unchanged
+  `template.Rewards` otherwise — zero behavior change for every single/no-tier quest — and (b)
+  validates + consumes `InventoryItems` the same way it already does `CollectItems`.
+- **`CraftingRewardsHandler`**: accept/turn-in via the standard `SendQuestStartDialogAsync`/
+  `SendQuestEndDialogAsync` convention; grants the skill/level (`player.Skills.AddSkill` +
+  `ISkillDao.UpsertAsync` + `SM_SKILL_LIST`) unconditionally on the `SELECT_QUEST_REWARD` click
+  rather than gating it behind Java's `onMovieEndEvent` (all 28 entries declare a non-zero `movie`
+  attribute; no SM_MOVIE/movie-end callback exists in this port, so a literal port would make the
+  quest unfinishable). `CraftSkillUpdateService`'s expert/master crafting-skill-count cap
+  (`canLearnMoreExpertCraftingSkill`/`...Master...`) is not re-checked — out of this template's
+  scope; only a light "don't regrant an already-known level" guard is kept.
+- **`RelicRewardsHandler`**: Java lets the player pick which of 4 relic item types to submit via 4
+  distinct dialog actions (`SELECT_ACTION_1011/1352/1693/2034`), none of which `CM_DIALOG_SELECT`
+  routes to the quest engine (only `QUEST_SELECT`/`QUEST_ACCEPT(_1)`/`SELECT_QUEST_REWARD` are, the
+  same subset every template handler in this engine relies on) — collapsed into one
+  `SELECT_QUEST_REWARD` click that auto-picks the first relic type the player holds enough of,
+  recording the chosen slot (1-4) in var 0; the follow-up claim click computes `rewardIndex = var -
+  1` and calls `QuestRewardService.GrantAndCompleteAsync` directly (bypassing the base
+  `SendQuestEndDialogAsync` helper, which only recognizes `SELECT_QUEST_REWARD`) — this is a
+  documented behavioral simplification (auto-select vs. player choice), not a 1:1 dialog-id port,
+  but the reward-tier math (`var - 1` → `RewardsList` index) matches Java's
+  `QuestService.finishQuest(env, qs.getQuestVars().getQuestVars() - 1)` exactly.
+- **`FountainRewardsHandler`**: Java's real flow is a single "insert coin" click
+  (`USE_OBJECT`→`SETPRO1`) that starts the quest AND transitions it straight to REWARD in one
+  action — neither Java dialog id is routed to the engine either, so this port re-creates the same
+  "create the entry already in REWARD status" behavior off the routed `QUEST_ACCEPT`/
+  `QUEST_ACCEPT_1` click instead (custom accept logic, not the shared `SendQuestStartDialogAsync`
+  helper, since that always creates a START-status entry). Not ported: `isFullSpecialCube()`
+  (housing-cube-extension check, no such concept in this port).
+- **`SkillUseHandler`**: kill-count-style packed-var bookkeeping identical to
+  `MonsterHuntHandler.ReadGroupTotal`, driven by the new `OnSkillUseAsync` hook instead of
+  `OnKillAsync`. REWARD-status click is gated on every skill group's use-count objective actually
+  being met (Java's own code transitions unconditionally on the click — tightened here to match the
+  completion-gating convention every other template handler already uses).
+- **`MentorMonsterHuntHandler`**: **documented limitation, per the task's "log/skip with a
+  documented limitation" instruction** — Java's `onKillEvent` override gates kill-credit behind a
+  live mentor/mentee group relation (`player.isMentor()` + a same-group member in level range and
+  distance, or the symmetric mentee check). Confirmed by reading `Model/Player.cs` and
+  `Model/Group/PlayerGroup.cs`: this port has **no mentor/mentee concept at all** yet (no `IsMentor`
+  flag, no pairing state) — a pre-existing gap in the player/group model, not introduced by this
+  template. Kill-credit is granted unconditionally instead (functionally identical to a plain
+  `MonsterHuntHandler` hunt); `min_mente_level`/`max_mente_level` are parsed onto the script entry
+  for data completeness but intentionally unused by the handler. Uses a single var per monster
+  group (no 6-bit packed span) since every observed `end_var` in the shipped data is ≤ 9, matching
+  the simpler style already used by `KillSpawnedHandler`.
+- Data check (standalone loader probe, `DataManager` instantiated directly — no DB/DI needed since
+  its constructor only reads static XML — via a throwaway console app referencing
+  `AionLightning.Game.csproj` from the scratchpad, not added to the repo): loaded counts match the
+  on-disk element counts exactly — 28 `crafting_rewards`, 30 `relic_rewards`, 7 `fountain_rewards`,
+  30 `skill_use`, 34 `mentor_monster_hunt` (unchanged Phase 1-3 counts also re-verified: 1957/1538/
+  468/84/48/14/574). Also spot-checked the `RewardsList`/`InventoryItems` additions directly: quest
+  21281 parses all 4 reward tiers (AP 300/600/900/1200) instead of only the last; quest 1717 parses
+  its `<inventory_items>` (item 186000031, count 1) with `Rewards.Exp` (1500) still intact via the
+  fallback.
+- Build: `dotnet build AionLightning.NET.sln` (full solution) — 0 warnings, 0 errors.

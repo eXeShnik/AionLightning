@@ -19,6 +19,7 @@ public sealed class QuestEngine
     private readonly Dictionary<int, QuestNpc>      _questNpcs = new();
     private readonly Dictionary<int, IQuestHandler> _handlers  = new();
     private readonly Dictionary<int, List<int>>     _itemGetIndex = new();
+    private readonly Dictionary<int, List<int>>     _skillUseIndex = new();
     private readonly ILogger<QuestEngine>           _log;
 
     // worldId -> quests startable there (Java parity: WorldMapInstance.questIds, populated
@@ -58,6 +59,17 @@ public sealed class QuestEngine
         {
             quests = [];
             _itemGetIndex[itemId] = quests;
+        }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Registers a skill id as relevant to a quest's onUseSkill event (Java registerQuestSkill).</summary>
+    public void RegisterSkillUse(int skillId, int questId)
+    {
+        if (!_skillUseIndex.TryGetValue(skillId, out var quests))
+        {
+            quests = [];
+            _skillUseIndex[skillId] = quests;
         }
         if (!quests.Contains(questId)) quests.Add(questId);
     }
@@ -133,6 +145,25 @@ public sealed class QuestEngine
             if (!_handlers.TryGetValue(questId, out var handler)) continue;
             any = true;
             await handler.OnItemGetAsync(player, itemId, conn, ct);
+        }
+        return any;
+    }
+
+    /// <summary>
+    /// Dispatches a skill-use event (Java <c>onUseSkillEvent</c>, wired from <c>CM_CASTSPELL</c>
+    /// once a cast succeeds) to every quest registered against this skill id (Java
+    /// <c>registerQuestSkill</c>). Cheap no-op lookup when no quest registers the skill.
+    /// </summary>
+    public async ValueTask<bool> OnSkillUseAsync(Player player, int skillId, GsClientConnection conn, CancellationToken ct)
+    {
+        if (!_skillUseIndex.TryGetValue(skillId, out var questIds)) return false;
+
+        bool any = false;
+        foreach (int questId in questIds)
+        {
+            if (!_handlers.TryGetValue(questId, out var handler)) continue;
+            any = true;
+            await handler.OnSkillUseAsync(player, skillId, conn, ct);
         }
         return any;
     }

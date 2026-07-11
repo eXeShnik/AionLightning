@@ -10,6 +10,7 @@ using AionLightning.Game.Model.Templates.Skill;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -30,6 +31,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly RateOptions _rates;
     private readonly IEventBus _eventBus;
     private readonly AuraChildApplier _auraApplier;
+    private readonly QuestEngineType _questEngine;
 
     private int _spellId;
     private int _level;
@@ -43,7 +45,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         ExperienceService expService, SpawnService spawnService, LootService lootService,
         QuestService questService, DuelService duelService, NpcAiService npcAi,
         IPlayerDao playerDao, ILegionDao legionDao, RateOptions rates, IEventBus eventBus,
-        AuraChildApplier auraApplier)
+        AuraChildApplier auraApplier, QuestEngineType questEngine)
     {
         _conn         = conn;
         _world        = world;
@@ -60,6 +62,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _rates        = rates;
         _eventBus     = eventBus;
         _auraApplier  = auraApplier;
+        _questEngine  = questEngine;
     }
 
     public override void Read(ref PacketReader r)
@@ -184,6 +187,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
             player.SetSkillCooldown(cdId, template.Cooldown);
             await _conn.SendAsync(new SM_SKILL_COOLDOWN(_dataManager.Skills, player.SkillCooldowns), ct);
         }
+
+        // Cast has now passed every cooldown/cost gate, i.e. it will actually happen — notify the
+        // quest engine's SkillUse template handlers (Java QuestEngine.onUseSkillEvent). Cheap no-op
+        // dictionary lookup when no quest currently registers this skill id.
+        await _questEngine.OnSkillUseAsync(player, _spellId, _conn, ct);
 
         // Broadcast cast animation
         var castPacket = _targetType is 1 or 2

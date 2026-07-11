@@ -12,11 +12,33 @@ public sealed class QuestTemplate
     [XmlAttribute("cannot_share")]       public bool   CannotShare  { get; set; } = false;
 
     [XmlElement("collect_items")]        public CollectItemsHolder?    CollectItems   { get; set; }
-    [XmlElement("rewards")]              public QuestRewards?          Rewards        { get; set; }
+    // quest_data.xsd allows multiple sibling <rewards> blocks per quest (maxOccurs="unbounded") —
+    // used by multi-tier exchange quests like relic_rewards (e.g. id 21281 has 4 <rewards
+    // reward_abyss_point="..."/> blocks, one per relic type). Bound as a list so a rewardIndex can
+    // select a specific tier (Java QuestService.finishQuest: `template.getRewards().get(reward)`).
+    [XmlElement("rewards")]              public List<QuestRewards>     RewardsList    { get; set; } = new();
     [XmlElement("quest_kill")]           public List<QuestKill>        QuestKills     { get; set; } = new();
     // Leftover crafting components (WorkOrders template) to strip from the player's bag on
     // completion — distinct from CollectItems, which holds the crafted product being turned in.
     [XmlElement("quest_work_items")]     public QuestWorkItemsHolder?  QuestWorkItems { get; set; }
+    // "Coin fountain"-style presence/consume gate (Java InventoryItems, distinct from CollectItems)
+    // — e.g. quest 1717 requires + consumes one 186000031 coin item, with no <collect_items> at all.
+    [XmlElement("inventory_items")]      public InventoryItemsHolder?  InventoryItems { get; set; }
+
+    /// <summary>
+    /// The quest's single reward block, or the last-declared one when <see cref="RewardsList"/> has
+    /// more than one (matches prior behavior: XmlSerializer only ever kept the last of several
+    /// same-named elements bound to a singular property). New code that needs to pick a specific
+    /// tier by index (multi-`&lt;rewards&gt;` quests) should read <see cref="RewardsList"/> directly.
+    /// </summary>
+    [XmlIgnore]
+    public QuestRewards? Rewards => RewardsList.Count > 0 ? RewardsList[^1] : null;
+}
+
+public sealed class InventoryItemsHolder
+{
+    [XmlElement("inventory_item")]
+    public List<CollectItem> Items { get; set; } = new();
 }
 
 public sealed class QuestWorkItemsHolder

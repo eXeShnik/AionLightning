@@ -18,6 +18,7 @@ public sealed class QuestEngineHostedService(
     IQuestDao questDao,
     IItemDao itemDao,
     IRecipeDao recipeDao,
+    ISkillDao skillDao,
     QuestRewardService rewardService,
     SpawnService spawnService,
     ILogger<QuestEngineHostedService> log) : IHostedService
@@ -45,13 +46,33 @@ public sealed class QuestEngineHostedService(
         foreach (var data in dataManager.QuestScripts.WorkOrders)
             engine.AddQuestHandler(new WorkOrdersHandler(data, dataManager, questDao, rewardService, itemDao, recipeDao));
 
+        foreach (var data in dataManager.QuestScripts.CraftingRewards)
+            engine.AddQuestHandler(new CraftingRewardsHandler(data, dataManager, questDao, rewardService, skillDao));
+
+        foreach (var data in dataManager.QuestScripts.RelicRewards)
+            engine.AddQuestHandler(new RelicRewardsHandler(data, dataManager, questDao, rewardService, itemDao));
+
+        foreach (var data in dataManager.QuestScripts.FountainRewards)
+            engine.AddQuestHandler(new FountainRewardsHandler(data, dataManager, questDao, rewardService));
+
+        foreach (var data in dataManager.QuestScripts.SkillUse)
+            engine.AddQuestHandler(new SkillUseHandler(data, dataManager, questDao, rewardService));
+
+        foreach (var data in dataManager.QuestScripts.MentorMonsterHunt)
+            engine.AddQuestHandler(new MentorMonsterHuntHandler(data, dataManager, questDao, rewardService));
+
         log.LogInformation(
             "QuestEngine: registered {Count} quest handler(s) ({ItemCollecting} item_collecting, {MonsterHunt} monster_hunt, " +
-            "{ReportTo} report_to, {ReportToMany} report_to_many, {KillInWorld} kill_in_world, {KillSpawned} kill_spawned, {WorkOrders} work_order)",
+            "{ReportTo} report_to, {ReportToMany} report_to_many, {KillInWorld} kill_in_world, {KillSpawned} kill_spawned, " +
+            "{WorkOrders} work_order, {CraftingRewards} crafting_rewards, {RelicRewards} relic_rewards, " +
+            "{FountainRewards} fountain_rewards, {SkillUse} skill_use, {MentorMonsterHunt} mentor_monster_hunt)",
             engine.HandlerCount, dataManager.QuestScripts.ItemCollecting.Count,
             dataManager.QuestScripts.MonsterHunt.Count, dataManager.QuestScripts.ReportTo.Count,
             dataManager.QuestScripts.ReportToMany.Count, dataManager.QuestScripts.KillInWorld.Count,
-            dataManager.QuestScripts.KillSpawned.Count, dataManager.QuestScripts.WorkOrders.Count);
+            dataManager.QuestScripts.KillSpawned.Count, dataManager.QuestScripts.WorkOrders.Count,
+            dataManager.QuestScripts.CraftingRewards.Count, dataManager.QuestScripts.RelicRewards.Count,
+            dataManager.QuestScripts.FountainRewards.Count, dataManager.QuestScripts.SkillUse.Count,
+            dataManager.QuestScripts.MentorMonsterHunt.Count);
 
         // Must run after every handler above has registered its NPCs, so the per-NPC
         // OnQuestStart index is complete before it's joined against the spawn table.
