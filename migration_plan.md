@@ -3896,7 +3896,69 @@ Survey findings (Java questEngine, 72 core classes + 1,493 scripted handlers):
     skipped with a warning rather than crashing the whole load (its 4 entries likely belong to the
     Phase 5 hand-written `xml_quest` system, not this template).
   - Build: 0 warnings, 0 errors.
-- [ ] **C2 Phase 2**: MonsterHunt (multi-var kill spans) + ReportTo templates (~2,100 quests).
+- [x] **C2 Phase 2**: MonsterHunt (multi-var kill spans) + ReportTo templates.
+  - `Model/Templates/Quest/Script/QuestScriptData.cs`: added `MonsterHuntScriptEntry` (+ nested
+    `MonsterEntry` for `<monster var/start_var/end_var/npc_ids/npc_seq>`) and `ReportToScriptEntry`.
+    Attribute names verified against `quest_script_data.xsd` and real XML samples (not the Java
+    model annotations): `start_dialog_id`/`end_dialog_id`/`aggro_start_npcs`/`invasion_world` on
+    `<monster_hunt>` (Java's `MonsterHuntData.startDialog` field is annotated
+    `HACTION_QUEST_SELECT_id`, which is stale/does not exist in the shipped XML, same class of bug
+    Phase 1 already found on ItemCollecting). `DataHolders/QuestScriptData.cs` extended to parse
+    both new element types alongside `item_collecting` from the same `quest_scripts` root.
+  - **Bug found and fixed (new code only)**: public get-only `HashSet<int>` convenience properties
+    (`StartNpcIds`, `EndNpcIds`, `NpcIds`, `AggroStartNpcIds`) must carry `[XmlIgnore]`. Without it,
+    `XmlSerializer` treats them as serializable collection members and invokes their getters while
+    building the object graph — before the sibling `XmlAttribute`-bound raw string is assigned —
+    which permanently memoizes an empty parse via the `??=` cache. Confirmed this is a **pre-existing
+    bug in Phase 1's `ItemCollectingScriptEntry`** too (`ItemCollectingHandler._startNpcs` is always
+    empty at runtime, so it never matches any start NPC) — left untouched per this phase's "extend,
+    don't modify Phase 1" constraint, but flagging here since it means `ItemCollecting`'s engine path
+    is currently a no-op in practice; needs the same one-attribute fix applied separately.
+  - `QuestEngine/Handlers/Templates/MonsterHuntHandler.cs`: registers start npcs (OnQuestStart +
+    OnTalk), every `<monster>` group's npc ids (OnKill), end npcs (OnTalk). Kill counting ports
+    Java's do/while span-decode loop exactly: a group's progress is stored across
+    `ceil(log64(end_var+1))` consecutive 6-bit quest vars starting at `var`; on kill, decode the
+    current total, +1, reject (no-op, `OnKillAsync` returns false) if it would exceed `end_var`,
+    else re-encode across the same slots. Verified against the actual worst-case shipped data
+    (gelkmaros/inggison quest 21040: three groups at var 0/2/4 with end_var 329/231/77, using all 6
+    of `QuestEntry`'s var slots) via a standalone bit-packing simulation — 329/231/77 kills decode
+    back correctly, the (329+1)th kill is rejected, and the packed `Step` round-trips through
+    encode/decode unchanged. Dialog flow mirrors `ItemCollectingHandler`'s convention (not Java's
+    literal 3-click SELECT_QUEST_REWARD→SELECTED_QUEST_REWARDx sequence, which
+    `QuestHandlerBase.SendQuestEndDialogAsync` doesn't model): START+QUEST_SELECT checks all monster
+    groups and transitions to REWARD when satisfied, REWARD+SELECT_QUEST_REWARD grants. Added an
+    explicit `player.Level < template.MinLevel` gate in the NONE-state branch (absent from Java's
+    template itself) because the engine-first dispatch in `CM_DIALOG_SELECT` bypasses that packet
+    handler's own level gate when a handler is registered — same reasoning as
+    `ItemCollectingHandler`.
+  - Not ported (documented as a phase limitation, not a defect): `aggro_start_npcs`-driven
+    `onAddAggroListEvent` auto-start and `invasion_world`-driven `onEnterWorldEvent` auto-start
+    (needs RiftService/VortexService, which don't exist yet in the .NET port) — `IQuestHandler` has
+    no aggro-list or enter-world event hooks. Only 6 of 1,538 loaded monster_hunt entries use either
+    attribute; both fields are still parsed into the model for completeness. The REWARD-state aggro
+    dialog gating (10002/"in progress" page) IS ported since it's pure dialog logic needing no new
+    event. Also not ported: `CustomConfig.QUESTDATA_MONSTER_KILLS` npc_seq-to-quest_kill matching —
+    an optional legacy customization (default off) that widens a group's npc set from
+    `quest_data.xml`; the handler always uses the `<monster>` element's own `npc_ids`, matching
+    Java's default (config-disabled) path.
+  - `QuestEngine/Handlers/Templates/ReportToHandler.cs`: registers start/end npcs the same way.
+    ~40% of entries carry an `item_id` — a "quest work item" the handler gives on accept
+    (`IItemDao`/`Player.Inventory`, mirroring `QuestRewardService`'s give/consume pattern) and
+    removes on turn-in, independent of `quest_data.xml`'s `collect_items`. Deviation from Java:
+    the item-give-on-accept applies uniformly to `QUEST_ACCEPT` and `QUEST_ACCEPT_1` (Java only
+    gives the item for `QUEST_ACCEPT_1`/`QUEST_ACCEPT_SIMPLE`, not plain `QUEST_ACCEPT` — an
+    asymmetry that looks like an unintentional quirk in the original, and `QuestHandlerBase`'s
+    shared `SendQuestStartDialogAsync` already treats both the same). Turn-in
+    (START+SELECT_QUEST_REWARD) validates the item count, consumes it, transitions to REWARD, and
+    grants in one click — Java's literal flow needs a second click, but that's the
+    `SELECTED_QUEST_REWARDx` mechanism `QuestHandlerBase` doesn't model (same simplification as
+    MonsterHunt/ItemCollecting).
+  - `QuestEngineHostedService.cs`: now takes `IItemDao` (already DI-registered) and registers both
+    new template types alongside ItemCollecting; startup log reports per-type counts.
+  - Data check: of 1,607 `<monster_hunt>` / 487 `<report_to>` elements on disk, the loader parses
+    1,538 / 468 — the gap is the same `growth.xml` (`<quest_XMLs>` root, different XSD) Phase 1
+    already found and warn-skips rather than crashing the whole load.
+  - Build: 0 warnings, 0 errors.
 - [ ] **C2 Phase 3**: ReportToMany, KillInWorld, KillSpawned, WorkOrders/ItemOrders.
 - [ ] **C2 Phase 4**: reward templates (CraftingRewards/RelicRewards/FountainRewards/SkillUse/
   MentorMonsterHunt) + XmlQuest condition/operation mini-DSL.

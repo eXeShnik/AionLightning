@@ -16,6 +16,7 @@ public sealed class QuestEngineHostedService(
     QuestEngine engine,
     IDataManager dataManager,
     IQuestDao questDao,
+    IItemDao itemDao,
     QuestRewardService rewardService,
     ILogger<QuestEngineHostedService> log) : IHostedService
 {
@@ -24,8 +25,16 @@ public sealed class QuestEngineHostedService(
         foreach (var data in dataManager.QuestScripts.ItemCollecting)
             engine.AddQuestHandler(new ItemCollectingHandler(data, dataManager, questDao, rewardService));
 
-        log.LogInformation("QuestEngine: registered {Count} quest handler(s) ({ItemCollecting} item_collecting)",
-            engine.HandlerCount, dataManager.QuestScripts.ItemCollecting.Count);
+        foreach (var data in dataManager.QuestScripts.MonsterHunt)
+            engine.AddQuestHandler(new MonsterHuntHandler(data, dataManager, questDao, rewardService));
+
+        foreach (var data in dataManager.QuestScripts.ReportTo)
+            engine.AddQuestHandler(new ReportToHandler(data, dataManager, questDao, rewardService, itemDao));
+
+        log.LogInformation(
+            "QuestEngine: registered {Count} quest handler(s) ({ItemCollecting} item_collecting, {MonsterHunt} monster_hunt, {ReportTo} report_to)",
+            engine.HandlerCount, dataManager.QuestScripts.ItemCollecting.Count,
+            dataManager.QuestScripts.MonsterHunt.Count, dataManager.QuestScripts.ReportTo.Count);
 
         return Task.CompletedTask;
     }
