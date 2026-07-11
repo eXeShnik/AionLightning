@@ -17,13 +17,13 @@ The current branch `dot_net_10_migration` is an in-progress port from Java to .N
 AionLightning.NET/
 ├── Directory.Build.props           # sets DotNetVersion=net10.0, ExtensionsVersion=10.0.2
 ├── AionLightning.NET.sln
-├── AionLightning.Commons/          # shared lib (Callbacks, Configuration, Database, Network, Scripting, Services, Utils, TaskManager, Versioning)
-├── AionLightning.Login/            # console app — client auth + gameserver registry
-├── AionLightning.Chat/             # console app — chat packets (skeleton only)
-└── AionLightning.Game/             # console app — main gameplay packets (skeleton only)
+├── AionLightning.Commons/          # shared lib (Configuration, Database, Events, Hosting, Network, Objects, Scripting, Services, TaskManager, Utils, Versioning)
+├── AionLightning.Login/            # console app — client auth + gameserver registry (~90% of Java parity; verified end-to-end with real client)
+├── AionLightning.Chat/             # console app — chat server (~80%; full packet parity, not yet validated against a real client)
+└── AionLightning.Game/             # console app — main gameplay server (~35%; core loop playable, see gaps below)
 ```
 
-Only `AionLightning.Login` currently has migrated logic beyond a `Program.cs` stub. `Chat` and `Game` are empty `Host.CreateDefaultBuilder` scaffolds.
+All four projects carry substantial migrated logic. Game status (as of 2026-07-11): 181 client packet handlers (Java parity), 137/231 server packets, extensive skill-effect coverage (milestones M1–M380+ in `migration_plan.md`), working core loop (login → char CRUD → world → movement → combat → XP → items → groups → legion → loot → craft → broker → quests-basic). Major gaps: geodata engine (absent), scriptable quest engine (basic XML-driven only), instances/sieges/housing (absent/skeletal), NPC AI (single service vs Java `ai2` framework), flight system (partial).
 
 ## Commands
 
@@ -45,33 +45,30 @@ The root-level `.bat` / `unix_build_*.sh` scripts build the **Java** codebase vi
 
 ### Hosting & DI
 Every server project uses `Host.CreateDefaultBuilder(args)` with:
-- An `IHostedService` implementation as the server entrypoint (e.g. `LoginServer : IHostedService` — `AionLightning.Login/LoginServer.cs`).
+- An `IHostedService` implementation as the server entrypoint (e.g. `LoginServerHost` in `AionLightning.Login`).
 - Services registered via `services.AddSingleton<T>()` / `AddHostedService<T>()` in `Program.cs`.
 - Serilog via `.UseSerilog(...)` reading from `appsettings.json` `Serilog` section, writing to console + rolling file in `log/`.
 - `ILogger<T>` injected via constructor — never use a static logger.
 
 ### Configuration
-- `appsettings.json` per-project (see `AionLightning.Login/appsettings.json`). Keys preserve the legacy Java dotted names (`loginserver.network.client.port`, etc.).
-- Legacy-style static config loaders exist (`AionLightning.Login/Configs/Config.cs`) but the migration direction is toward `IConfiguration` + DI.
-- The `Database` section in `appsettings.json` still carries a JDBC-format URL from the Java original — rewrite to a real MySQL connection string when wiring `DatabaseFactory`.
+- `appsettings.json` per-project (see `AionLightning.Login/appsettings.json`), bound to `*Options` records via `AddAionOptions<T>("Section:Key")` and consumed through `IOptions<T>`.
 
 ### Networking
-The Java NIO layer is ported structurally to `AionLightning.Commons/Network/`:
-- `NioServer` — accepts multiple `ServerCfg`s (one per listener, e.g. Aion client + GameServer).
-- `AcceptDispatcherImpl` / `AcceptReadWriteDispatcherImpl` / `Dispatcher` — per-thread accept + r/w loops.
-- `AConnection` / `AionConnection` — connection base classes; `IConnectionFactory` produces them per accepted socket.
-- `AionPacket` / `AionClientPacket` / `AionServerPacket` — packet abstractions; per-server `ClientPackets`/`ServerPackets` folders hold protocol messages.
+`AionLightning.Commons/Network/` holds the shared layer (the Java NIO dispatcher design was **not** ported verbatim):
+- `AConnection` — connection base class (async read loop over a `Socket` accepted by `TcpListener`); `IConnectionFactory<T>` produces connections per accepted socket.
+- `AionPacket` / `AionClientPacket` / `AionServerPacket`, `PacketReader` / `PacketWriter` — packet abstractions; per-server `ClientPackets`/`ServerPackets` folders hold protocol messages.
+- Each server has its own `IHostedService` listener host (`LoginServerHost`, `ChatServerHost`, `GameServerHost`) built on `TcpListener`.
 
-Per `migration_plan.md`, this layer still uses raw `Socket` and must be replaced with `TcpListener`/`TcpClient` before moving forward on Chat/Game.
+Wire-format notes (hard-won, don't rediscover): length prefix is a little-endian int16 **including** the 2 prefix bytes; server→client packets end with a checksum dword; client→server packets carry their checksum at `length-8` with 4 trailing padding bytes; the first server packet (SM_INIT) is EncXorPass'd + static-Blowfish instead of checksummed. The C# login server's output was byte-diff-verified identical to Java's.
 
 ### Scripting
 `AionLightning.Commons/Scripting/CSharpCompilerService.cs` compiles `.cs` sources at runtime via Roslyn (`Microsoft.CodeAnalysis.CSharp`). `FolderListenerService` (`AionLightning.Commons/Services/`) watches a directory with `FileSystemWatcher` for live reload. The `AionLightning.Login.csproj` is configured to **copy** `Scripts/**/*.cs` to output but **remove them from compilation** (`RemoveScriptsFromBuild` target) so scripts remain source files executed at runtime. Replicate that csproj pattern when adding scripting to Chat/Game.
 
 ### Callbacks / AOP
-`AionLightning.Commons/Callbacks/` holds placeholder ports of the Java agent-based AOP (`ICallback`, `IEnhancedObject`, `DotNetAgentEnhancer`). Per `migration_plan.md`, this subsystem is explicitly **under review** — the Java `AgentEnhancer` approach likely won't translate cleanly and may be dropped or replaced with source generators / Castle.Core. Do not build on top of these placeholders without clarifying direction first.
+The Java agent-based AOP (`AgentEnhancer`, `ICallback`) was **dropped** — there is no `Callbacks/` folder in Commons. Events flow through `AionLightning.Commons/Events/` (`IEventBus`) instead. Do not re-port the Java callback system.
 
 ### Database
-`AionLightning.Commons/Database/` contains `DatabaseFactory`, `DB`, `Transaction`, and handler interfaces (`IReadStH`, `IIUStH`, `IParamReadStH`, `ICallReadStH`). Backed by `MySql.Data` (v8.2.0). Per-server DAO classes live under `AionLightning.Login/Dao/`. Services is still TODO per the migration plan.
+Data access uses **`MySqlConnector` + `Dapper`** (not `MySql.Data`). Schema migrations run at startup via **Evolve** (`SchemaMigrationHost`; SQL files like `V2__items.sql` per project). Per-server DAO interfaces + `*DaoImpl` classes live under each project's `Dao/`; register one singleton per DAO in `Program.cs`. Connection strings live in `appsettings.json` `ConnectionStrings` (real MySQL format, not JDBC).
 
 ## Key Dependencies
 
@@ -79,8 +76,8 @@ Set centrally in `Directory.Build.props`:
 - `net10.0` target, `Microsoft.Extensions.*` pinned to `10.0.2`.
 
 Per-project packages of note:
-- Commons: `Microsoft.CodeAnalysis.CSharp` 5.0.0, `BouncyCastle.Cryptography` 2.6.2, `MySql.Data` 8.2.0, `Quartz` 3.15.1.
-- Login: `Serilog.Extensions.Hosting`, `Serilog.Sinks.Console`, `Serilog.Sinks.File`, `Microsoft.Extensions.Hosting.WindowsServices`.
+- Commons: `Microsoft.CodeAnalysis.CSharp` 5.0.0, `BouncyCastle.Cryptography` 2.6.2, `MySqlConnector` 2.3.7, `Dapper` 2.1.35, `Evolve` 3.1.0, `Quartz` 3.15.1, `Serilog.*`.
+- Server projects: `Microsoft.Extensions.Hosting(.WindowsServices)`, `Serilog.Sinks.Console`, `Serilog.Sinks.File`.
 
 Use `BouncyCastle.Cryptography` for all crypto (session keys, blowfish, RSA — see `AionLightning.Login/Network/Ncrypt/`). Do not reach for `System.Security.Cryptography` equivalents when Bouncy already handles the Java original's primitive.
 

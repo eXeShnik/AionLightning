@@ -3733,3 +3733,89 @@
   - **M312a:** `Model/Templates/Skill/SkillTemplate.cs` — added `"movebehind"` and `"backdash"` to `DamageEffectNames`; added both to the physical-type branch in `DamageEffects` (`e.LocalName is "skillatk" or … or "movebehind" or "backdash"`)
   - **M312b:** `Network/Aion/ClientPackets/CM_CASTSPELL.cs` — added `movebehind` block after dash block: if target alive, computes position 1.3 units behind target heading, updates `player.Position`, sends `SM_TELEPORT_LOC` to caster + broadcasts `SM_MOVE` to zone; added `backdash` block: reads `distance` attribute from first `backdash` XML element (default 25), computes position `distance` units opposite caster heading, updates `player.Position`, sends `SM_TELEPORT_LOC` + broadcasts `SM_MOVE`; backdash movement fires regardless of target state (caster always retreats)
   - Build: 0 warnings, 0 errors
+
+---
+
+## Remaining Work Plan (added 2026-07-11, after real-client login verification)
+
+Login verified end-to-end with a real 4.6 client (byte-diff vs Java: identical). Test tooling
+(LoginTestClient, FixedRandomSource/TestMode on both sides) removed after verification.
+Module status at time of writing: Commons ~90%, Login ~90%, Chat ~80%, Game ~35%.
+
+### Phase A — Login to 100% (small, do first)
+- [x] **A1: Character-count roundtrip** (2026-07-11) — ported `loadGSCharactersCount`:
+      `AccountController.RequestServerListAsync` sends SM_GS_CHARACTER_RESPONSE (opcode 8, accountId)
+      to each online GS; new `CM_GS_CHARACTER` handler (GS opcode 8: accountId D + count C) caches
+      counts; SM_SERVER_LIST now carries real per-server character counts and is sent when all GS
+      reply (3s timeout fallback — Java has none and would hang the client on a silent GS).
+      CM_SERVER_LIST also gained the Java NO_GS_REGISTERED(6) close path.
+- [x] **A2: Reconnect flow** (2026-07-11) — `CM_ACCOUNT_RECONNECT_KEY` (GS opcode 2) removes the
+      account from the GS list, stores a `ReconnectingAccount` with a random key, replies
+      `SM_ACCOUNT_RECONNECT_KEY` (opcode 3: accountId + key). `CM_UPDATE_SESSION` (client 0x08)
+      now validates via `AuthReconnectingAccountAsync` (key check → rebind account, new SessionKey,
+      AUTHED_LOGIN, SM_UPDATE_SESSION) and closes on mismatch — full Java parity.
+- [x] **A3 (partial): CM_MAC (13)** (2026-07-11) — updates `account_data.last_mac` via new
+      `IAccountDao.UpdateLastMacAsync`; registered in both CONNECTED and AUTHED states like Java.
+- [ ] **A3 (deferred): admin/premium GS-link packets** — CM_LS_CONTROL(5), CM_BAN(6),
+      CM_ACCOUNT_TOLL_INFO(9), CM_MACBAN_CONTROL(10), CM_PREMIUM_CONTROL(11), CM_PTRANSFER_CONTROL(14).
+      Explicitly deferred: all are admin-tool/in-game-shop/player-transfer features, feature-gated in
+      Java and not part of the core login→play loop. Port when the corresponding Game features land.
+- [ ] **A4: Runtime verification** — real-client pass over A1/A2: character counts visible in server
+      list; logout-to-server-select relogs without password.
+
+### Phase B — Chat validation (verification, not code-first)
+- [ ] **B1:** Run real client + Game + Chat, verify SM_CHAT_INIT token handshake, whisper, LFG/trade channels.
+- [ ] **B2:** Fix whatever B1 surfaces (expect wire-format details like the Login encLen/checksum quirks).
+
+### Phase C — Game gaps (large; keep milestone convention M###)
+Priority order chosen for player-visible impact per unit of work:
+- [ ] **C1: Server-packet audit** — 137/231 SM_* ported. Enumerate the missing 94, classify:
+      needed-for-4.6-core vs siege/housing/event-only. Port the core set.
+- [ ] **C2: Quest engine depth** — current QuestService covers XML kill/collect basics. Port the
+      Java questEngine handler model (per-quest logic; Java has 76 engine files + script handlers)
+      onto the existing Roslyn scripting infra (Scripts/ folder pattern from Login).
+- [ ] **C3: NPC AI** — replace single NpcAiService with a port of the ai2 state machine
+      (idle/patrol/aggro/return, leash, social aggro, flee) — biggest combat-feel gap.
+- [ ] **C4: Geodata** — port geoEngine (43 files) or integrate a minimal Z-lookup + LoS service;
+      prerequisite for correct ranged combat, pathing, and fall damage.
+- [ ] **C5: Instances** — portal/entry flow exists (PortalData, InstanceExitData); add instance
+      world lifecycle (create/destroy per group), then port 4.6 core instances one by one.
+- [ ] **C6: Flight** — fly state is internal-only; wire SM_EMOTION/SM_STATS fly speed, FP drain on
+      flight, no-fly zones.
+- [ ] **C7: Sieges, housing, pets, mail completion** — after C1–C6.
+
+Testing convention going forward: every phase gets verified against the real client before the
+next phase starts (lesson from the login investigation: byte-level correctness is provable, but
+only a real client run proves the flow).
+
+#### C1 progress (2026-07-11)
+- Audit result: 103 SM_* packets missing vs Java 4.6. Classification: ~60 belong to deferred
+  feature clusters (housing 15, siege/abyss 9, alliance/auto-group 4, in-game shop 4, instances
+  scoring 3, fast-track 2, pets 2, summon panel 5, misc/unused ~16); ~40 are core-adjacent.
+- [x] **C1 batch 1: vital-stat + buff-bar self-updates**
+  - `SM_STATUPDATE_HP` (0x03), `SM_STATUPDATE_MP` (0x04), `SM_STATUPDATE_DP` (0x06),
+    `SM_ABNORMAL_STATE` (0x31) created with byte-exact Java layouts.
+  - `HpUpdateHandler` (new, registered on DamageDealtEvent) — SM_STATUPDATE_HP to any damaged
+    player (Java PlayerLifeStats.onReduceHp parity).
+  - `RegenService` — HP/MP regen ticks now also send SM_STATUPDATE_HP/MP to the owner.
+  - `CM_LEVEL_READY` — sends SM_ABNORMAL_STATE (own buff bar with durations) alongside the
+    SM_ABNORMAL_EFFECT zone broadcast on zone-in.
+  - Note: DP sites already send SM_DP_INFO everywhere; SM_STATUPDATE_DP exists for future parity
+    but was not shotgunned into the 6 working DP sites.
+- [x] **C1 batch 2: SM_SKILL_REMOVE (0x2D), SM_LOOKATOBJECT (0x28), SM_ITEM_COOLDOWN (0x67)**
+  - `SM_SKILL_REMOVE` — sent per stigma skill on unequip/displacement in CM_EQUIP_ITEM (Java
+    SkillLearnService.removeSkill parity; profession/stigma/normal byte variants implemented).
+  - `SM_LOOKATOBJECT` — broadcast when an NPC acquires a target (aggro pick + ForceEngage in
+    NpcAiService; Java Npc.setTarget parity) so NPCs visibly face their victim.
+  - `SM_ITEM_COOLDOWN` — Player.ItemCooldowns now stores (expiry, delayMs); packet sent on enter
+    world when cooldowns exist. Note: item cooldowns are not yet DB-persisted, so the login list
+    is only non-empty after a same-session map transfer; persistence is a future milestone.
+  - Build: 0 warnings, 0 errors.
+- [x] **C1 batch 3: SM_INVENTORY_UPDATE_ITEM (0x1D)** — in-place stack/stat item update
+  - Java shape: D(objectId) + nameId block (H 0x24, D nameId, H 0) + item blob + H(updateType mask);
+    `UpdateType` enum ports the sendable Java ItemUpdateType masks (StatsChange, DecItemUse, ...).
+  - `SM_INVENTORY_INFO.WriteItemInfo` refactored: blob body extracted to `WriteItemBlob` and shared.
+  - Wired: CM_CRAFT partial component consumption (replaces the SM_INVENTORY_ADD_ITEM workaround
+    with the Java DEC_ITEM_USE update) and CM_EQUIP_ITEM stigma-shard partial consumption
+    (previously sent no packet — stale shard count until relog).
+  - Build: 0 warnings, 0 errors.
