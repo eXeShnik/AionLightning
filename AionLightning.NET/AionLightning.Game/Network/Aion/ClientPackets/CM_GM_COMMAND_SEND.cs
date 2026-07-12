@@ -19,14 +19,14 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
     private readonly IDataManager             _dataManager;
     private readonly IPlayerDao               _playerDao;
     private readonly IQuestDao                _questDao;
-    private readonly ISkillDao                _skillDao;
+    private readonly SkillLearnService        _skillLearn;
     private readonly SpawnService             _spawnService;
 
     private string _command = string.Empty;
 
     public CM_GM_COMMAND_SEND(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IItemDao itemDao, IDataManager dataManager,
-        IPlayerDao playerDao, IQuestDao questDao, ISkillDao skillDao, SpawnService spawnService)
+        IPlayerDao playerDao, IQuestDao questDao, SkillLearnService skillLearn, SpawnService spawnService)
     {
         _conn         = conn;
         _world        = world;
@@ -35,7 +35,7 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         _dataManager  = dataManager;
         _playerDao    = playerDao;
         _questDao     = questDao;
-        _skillDao     = skillDao;
+        _skillLearn   = skillLearn;
         _spawnService = spawnService;
     }
 
@@ -365,8 +365,7 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
 
     private async ValueTask HandleAddSkill(Player player, int skillId, int skillLevel, CancellationToken ct)
     {
-        player.Skills.AddSkill(skillId, skillLevel);
-        await _skillDao.UpsertAsync(player.ObjectId, skillId, skillLevel, ct);
+        await _skillLearn.LearnSkillAsync(player, skillId, skillLevel, ct: ct);
         await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
     }
 }

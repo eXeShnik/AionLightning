@@ -20,14 +20,14 @@ public sealed class CM_GATHER : AionClientPacket
     private readonly IItemDao                 _itemDao;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExperienceService        _expService;
-    private readonly ISkillDao                _skillDao;
+    private readonly SkillLearnService        _skillLearn;
     private readonly QuestService             _questService;
 
     private int _action;
 
     public CM_GATHER(GsClientConnection conn, GameWorld world, GatherService gatherService,
         SpawnService spawnService, IItemDao itemDao, PlayerConnectionRegistry connRegistry,
-        ExperienceService expService, ISkillDao skillDao, QuestService questService)
+        ExperienceService expService, SkillLearnService skillLearn, QuestService questService)
     {
         _conn          = conn;
         _world         = world;
@@ -36,7 +36,7 @@ public sealed class CM_GATHER : AionClientPacket
         _itemDao       = itemDao;
         _connRegistry  = connRegistry;
         _expService    = expService;
-        _skillDao      = skillDao;
+        _skillLearn    = skillLearn;
         _questService  = questService;
     }
 
@@ -140,10 +140,7 @@ public sealed class CM_GATHER : AionClientPacket
         {
             int currentSkillLevel = player.Skills.GetLevel(harvestSkill);
             if (currentSkillLevel > 0 && currentSkillLevel < target.Template.SkillLevel + SkillAdvanceWindow)
-            {
-                player.Skills.AddSkill(harvestSkill, currentSkillLevel + 1);
-                await _skillDao.UpsertAsync(player.ObjectId, harvestSkill, currentSkillLevel + 1, ct);
-            }
+                await _skillLearn.LearnSkillAsync(player, harvestSkill, currentSkillLevel + 1, ct: ct);
         }
 
         if (target.IsGathered)

@@ -18,7 +18,7 @@ public sealed class CM_CRAFT : AionClientPacket
     private readonly IDataManager             _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExperienceService        _expService;
-    private readonly ISkillDao                _skillDao;
+    private readonly SkillLearnService        _skillLearn;
     private readonly QuestService             _questService;
 
     private int _unk;
@@ -29,7 +29,7 @@ public sealed class CM_CRAFT : AionClientPacket
     private int _craftType;
 
     public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        PlayerConnectionRegistry connRegistry, ExperienceService expService, ISkillDao skillDao,
+        PlayerConnectionRegistry connRegistry, ExperienceService expService, SkillLearnService skillLearn,
         QuestService questService)
     {
         _conn         = conn;
@@ -37,7 +37,7 @@ public sealed class CM_CRAFT : AionClientPacket
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
         _expService   = expService;
-        _skillDao     = skillDao;
+        _skillLearn   = skillLearn;
         _questService = questService;
     }
 
@@ -173,10 +173,7 @@ public sealed class CM_CRAFT : AionClientPacket
         {
             int currentSkillLevel = player.Skills.GetLevel(recipe.SkillId);
             if (currentSkillLevel > 0 && currentSkillLevel < recipe.SkillPoint + SkillAdvanceWindow)
-            {
-                player.Skills.AddSkill(recipe.SkillId, currentSkillLevel + 1);
-                await _skillDao.UpsertAsync(player.ObjectId, recipe.SkillId, currentSkillLevel + 1, ct);
-            }
+                await _skillLearn.LearnSkillAsync(player, recipe.SkillId, currentSkillLevel + 1, ct: ct);
         }
 
         // Success craft update + stop animation (broadcast)

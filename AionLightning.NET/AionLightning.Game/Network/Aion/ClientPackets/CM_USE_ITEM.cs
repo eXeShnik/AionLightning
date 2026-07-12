@@ -44,7 +44,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly IDataManager             _dataManager;
     private readonly IRecipeDao               _recipeDao;
     private readonly PlayerConnectionRegistry _connRegistry;
-    private readonly ISkillDao                _skillDao;
+    private readonly SkillLearnService        _skillLearn;
     private readonly IPlayerTitleDao          _titleDao;
     private readonly GameWorld                _world;
     private readonly NpcAiService             _npcAi;
@@ -56,16 +56,16 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private int _targetItemId;
 
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, ISkillDao skillDao,
-        IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi, IEventBus eventBus,
-        QuestEngineType questEngine)
+        IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, SkillLearnService skillLearn,
+        IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi,
+        IEventBus eventBus, QuestEngineType questEngine)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _recipeDao    = recipeDao;
         _connRegistry = connRegistry;
-        _skillDao     = skillDao;
+        _skillLearn   = skillLearn;
         _titleDao     = titleDao;
         _world        = world;
         _npcAi        = npcAi;
@@ -267,8 +267,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
         if (player.Skills.IsPresent(skillId)) return;
 
         int skillLevel = _dataManager.SkillTree.GetMaxSkillLevel(skillId, player.PlayerClass, player.Race, player.Level);
-        player.Skills.AddSkill(skillId, skillLevel);
-        await _skillDao.UpsertAsync(player.ObjectId, skillId, skillLevel, ct);
+        await _skillLearn.LearnSkillAsync(player, skillId, skillLevel, ct: ct);
 
         string skillName = _dataManager.SkillTree.GetSkillName(skillId) ?? template.Name;
         await _conn.SendAsync(new SM_SKILL_LIST(

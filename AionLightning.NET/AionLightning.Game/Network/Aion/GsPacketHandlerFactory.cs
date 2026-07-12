@@ -47,7 +47,7 @@ public sealed class GsPacketHandlerFactory
     private readonly GatherService       _gatherService;
     private readonly IRecipeDao          _recipeDao;
     private readonly IMotionDao          _motionDao;
-    private readonly ISkillDao           _skillDao;
+    private readonly SkillLearnService   _skillLearn;
     private readonly BrokerService       _brokerService;
     private readonly FindGroupService    _findGroupService;
     private readonly ReconnectRegistry   _reconnectRegistry;
@@ -94,7 +94,7 @@ public sealed class GsPacketHandlerFactory
         GatherService gatherService,
         IRecipeDao recipeDao,
         IMotionDao motionDao,
-        ISkillDao skillDao,
+        SkillLearnService skillLearn,
         BrokerService brokerService,
         FindGroupService findGroupService,
         ReconnectRegistry reconnectRegistry,
@@ -140,7 +140,7 @@ public sealed class GsPacketHandlerFactory
         _gatherService   = gatherService;
         _recipeDao       = recipeDao;
         _motionDao       = motionDao;
-        _skillDao        = skillDao;
+        _skillLearn      = skillLearn;
         _brokerService     = brokerService;
         _findGroupService  = findGroupService;
         _reconnectRegistry = reconnectRegistry;
@@ -200,8 +200,8 @@ public sealed class GsPacketHandlerFactory
                 0xC1  => new CM_QUIT(conn),
                 0xC4  => new CM_EQUIP_ITEM(conn, _itemDao, _dataManager, _connRegistry),
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
-                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillDao, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine),
-                0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillDao, _spawnService),
+                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillLearn, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine),
+                0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillLearn, _spawnService),
                 0xC9  => new CM_EMOTION(conn, _connRegistry),
                 0xCA  => new CM_PLAYER_LISTENER(),
                 0xCC  => new CM_INSTANCE_LEAVE(conn, _world, _dataManager, _connRegistry),
@@ -209,7 +209,7 @@ public sealed class GsPacketHandlerFactory
                 0xCE  => new CM_PING(conn),
                 0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry, _itemDao),
                 0xD0  => new CM_TIME_CHECK(conn),
-                0xD1  => new CM_GATHER(conn, _world, _gatherService, _spawnService, _itemDao, _connRegistry, _expService, _skillDao, _questService),
+                0xD1  => new CM_GATHER(conn, _world, _gatherService, _spawnService, _itemDao, _connRegistry, _expService, _skillLearn, _questService),
                 0xD2  => new CM_LEGION_SEND_EMBLEM_INFO(conn, _legionService),
                 0xE0  => new CM_TOGGLE_SKILL_DEACTIVATE(conn, _connRegistry),
                 0xE1  => new CM_REMOVE_ALTERED_STATE(conn, _connRegistry),
@@ -240,7 +240,7 @@ public sealed class GsPacketHandlerFactory
                 0x110 => new CM_HOUSE_EDIT(),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
-                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillDao, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
+                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
                 0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _connRegistry),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),
@@ -257,7 +257,7 @@ public sealed class GsPacketHandlerFactory
                 0x12A => new CM_GET_MAIL_ATTACHMENT(conn, _mailDao, _itemDao),
                 0x12B => new CM_DELETE_MAIL(conn, _mailDao),
                 0x12C => new CM_CLIENT_COMMAND_LOC(conn),
-                0x12F => new CM_CRAFT(conn, _itemDao, _dataManager, _connRegistry, _expService, _skillDao, _questService),
+                0x12F => new CM_CRAFT(conn, _itemDao, _dataManager, _connRegistry, _expService, _skillLearn, _questService),
                 0x129 => new CM_TITLE_SET(conn, _playerDao, _connRegistry, _dataManager),
                 0x130 => new CM_DUEL_REQUEST(conn, _connRegistry, _duelService, _world, _responseRegistry),
                 0x132 => new CM_FRIEND_DEL(conn, _socialDao, _connRegistry),

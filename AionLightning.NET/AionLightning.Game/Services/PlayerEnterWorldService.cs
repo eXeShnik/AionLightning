@@ -31,6 +31,7 @@ public sealed class PlayerEnterWorldService
     private readonly IManastoneDao            _manastoneDao;
     private readonly IPlayerTitleDao          _titleDao;
     private readonly QuestEngineType          _questEngine;
+    private readonly SkillLearnService        _skillLearn;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -51,7 +52,8 @@ public sealed class PlayerEnterWorldService
         ISkillDao skillDao,
         IManastoneDao manastoneDao,
         IPlayerTitleDao titleDao,
-        QuestEngineType questEngine)
+        QuestEngineType questEngine,
+        SkillLearnService skillLearn)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -72,6 +74,7 @@ public sealed class PlayerEnterWorldService
         _manastoneDao  = manastoneDao;
         _titleDao      = titleDao;
         _questEngine   = questEngine;
+        _skillLearn    = skillLearn;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -110,10 +113,8 @@ public sealed class PlayerEnterWorldService
         conn.ActivePlayer  = player;
         conn.State         = GsClientConnection.AionState.IN_GAME;
 
-        for (int lvl = 1; lvl <= player.Level; lvl++)
-            foreach (var slt in _dataManager.SkillTree.GetTemplatesFor(player.PlayerClass, lvl, player.Race))
-                if (slt.AutoLearn)
-                    player.Skills.AddSkill(slt.SkillId, slt.SkillLevel, slt.Stigma);
+        // Deterministic auto-learn from the skill tree (levels 1..current); re-derived each login, not persisted.
+        _skillLearn.ApplyAutoLearn(player, 1, player.Level);
 
         var persistedSkills = await _skillDao.LoadByPlayerIdAsync(objectId, ct);
         foreach (var (skillId, skillLevel) in persistedSkills)

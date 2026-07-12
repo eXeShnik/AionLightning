@@ -19,10 +19,11 @@ public sealed class ExperienceService
     private readonly GameWorld _world;
     private readonly RateOptions _rates;
     private readonly QuestEngineType _questEngine;
+    private readonly SkillLearnService _skillLearn;
 
     public ExperienceService(IDataManager dataManager, ILogger<ExperienceService> log,
         PlayerConnectionRegistry connRegistry, GameWorld world, IOptions<RateOptions> rates,
-        QuestEngineType questEngine)
+        QuestEngineType questEngine, SkillLearnService skillLearn)
     {
         _dataManager  = dataManager;
         _log          = log;
@@ -30,6 +31,7 @@ public sealed class ExperienceService
         _world        = world;
         _rates        = rates.Value;
         _questEngine  = questEngine;
+        _skillLearn   = skillLearn;
     }
 
     /// <summary>
@@ -216,12 +218,8 @@ public sealed class ExperienceService
             player.MovementSpeed        = tpl.RunSpeed;
         }
 
-        // Auto-learn new skills for the new level
-        foreach (var slt in _dataManager.SkillTree.GetTemplatesFor(player.PlayerClass, player.Level, player.Race))
-        {
-            if (slt.AutoLearn)
-                player.Skills.AddSkill(slt.SkillId, slt.SkillLevel, slt.Stigma);
-        }
+        // Auto-learn new skills for the new level (deterministic from the skill tree; not persisted)
+        _skillLearn.ApplyAutoLearn(player, player.Level, player.Level);
 
         await conn.SendAsync(new SM_LEVEL_UPDATE(player.ObjectId, 0, player.Level), ct);
         await conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);

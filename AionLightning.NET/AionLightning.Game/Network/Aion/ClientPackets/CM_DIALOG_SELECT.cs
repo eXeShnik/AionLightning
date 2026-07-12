@@ -94,7 +94,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly IItemDao                  _itemDao;
     private readonly IPlayerDao                _playerDao;
     private readonly IMailDao                  _mailDao;
-    private readonly ISkillDao                 _skillDao;
+    private readonly SkillLearnService         _skillLearn;
     private readonly ILegionDao                _legionDao;
     private readonly PlayerConnectionRegistry  _connRegistry;
     private readonly RepurchaseService         _repurchaseService;
@@ -109,7 +109,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
     public CM_DIALOG_SELECT(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IQuestDao questDao, IItemDao itemDao, IPlayerDao playerDao,
-        IMailDao mailDao, ISkillDao skillDao, ILegionDao legionDao,
+        IMailDao mailDao, SkillLearnService skillLearn, ILegionDao legionDao,
         PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
         QuestEngineType questEngine, QuestRewardService questRewardService,
         ILogger<CM_DIALOG_SELECT> log)
@@ -121,7 +121,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _itemDao             = itemDao;
         _playerDao           = playerDao;
         _mailDao             = mailDao;
-        _skillDao            = skillDao;
+        _skillLearn          = skillLearn;
         _legionDao           = legionDao;
         _connRegistry        = connRegistry;
         _repurchaseService   = repurchaseService;
@@ -325,17 +325,9 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         player.PlayerClass = newClass;
         await _playerDao.UpdateClassAsync(player.ObjectId, newClass, ct);
 
-        // Grant all skills for the new class from level 1 to current level (addMissingSkills)
-        for (int lvl = 1; lvl <= player.Level; lvl++)
-        {
-            foreach (var slt in _dataManager.SkillTree.GetTemplatesFor(newClass, lvl, player.Race))
-            {
-                if (slt.AutoLearn)
-                    player.Skills.AddSkill(slt.SkillId, slt.SkillLevel, slt.Stigma);
-            }
-        }
-        foreach (var sk in player.Skills.AllSkills)
-            await _skillDao.UpsertAsync(player.ObjectId, sk.SkillId, sk.SkillLevel, ct);
+        // Grant all skills for the new class from level 1 to current level (addMissingSkills), then persist.
+        _skillLearn.ApplyAutoLearn(player, 1, player.Level);
+        await _skillLearn.PersistAllAsync(player, ct);
 
         // Refresh stats for the new class
         var tpl = _dataManager.PlayerStats.GetTemplate(newClass, player.Level);
@@ -542,8 +534,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
 
         kinah.Count -= cost;
         int newLevel = currentLevel + 1;
-        player.Skills.AddSkill(skillId, newLevel, isStigma: false);
-        await _skillDao.UpsertAsync(player.ObjectId, skillId, newLevel, ct);
+        await _skillLearn.LearnSkillAsync(player, skillId, newLevel, ct: ct);
         await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
 
         await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
