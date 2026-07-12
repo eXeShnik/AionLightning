@@ -4852,3 +4852,12 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   factions + both capitals functional. ~20+ latent Java bugs fixed along the way.
 - NOTE for future cleanup: add QuestHandlerBase.DecreaseKinahAsync (5 Sanctum quests each carry a
   private copy); file-write-guard hook false-positives on "secrets" substring (e.g. ASecretSummons).
+
+- [x] **C2 Phase 5 Ascension** (2026-07-12, fleet): 14/16 quests, probe 14/14. Class-ceremony
+  reward quests (1007/2009) + 12 dispatch quests. Fixed the missing-break fallthrough shared by
+  all 12 dispatch quests. 2 deferred: **_1006Ascension / _2008Ascension — the actual class-change
+  quests** (level-10 starting-class → specialization). These need a ClassChangeService
+  (setClass + upgradePlayer) + private instance + flight-teleport combat, NONE of which exist in
+  the port. **GAMEPLAY GAP: no class ascension at all yet** — characters are stuck in their
+  starting class. This is a discrete missing subsystem, not a quest problem; worth a dedicated
+  task (ClassChangeService + the ascension instance flow) since every character hits it at L10.
