@@ -252,11 +252,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
             if (healTarget is not null && !healTarget.IsAlreadyDead)
             {
                 int skillLv = _level;
-                float healBoostMult = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
-                if (player.PassiveBonusHealSkillBoostPct > 0)
-                    healBoostMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
-                if (player.BonusHealSkillBoostPct > 0)
-                    healBoostMult *= 1f + player.BonusHealSkillBoostPct / 100f;
+                // S4c: shared heal-boost multiplier + instant-heal amount extracted to a pure,
+                // unit-testable calculator (Combat/Effects/HealAmountCalculator.cs).
+                float healBoostMult = HealAmountCalculator.BoostMultiplier(player);
                 int healWorldId = player.Position.WorldId;
                 var healEffects = template?.Effects?.HealEffects;
 
@@ -265,21 +263,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // Java AbstractHealEffect.calculate: value + delta*level; percent applies to max stat
                     foreach (var he in healEffects)
                     {
-                        int valueWithDelta = he.BaseValue + he.Delta * skillLv;
-                        int healMaxStat = he.HealType switch
-                        {
-                            "hp" => healTarget.MaxHp,
-                            "mp" => healTarget.MaxMp,
-                            "fp" => healTarget is Player fpHtMax ? fpHtMax.EffectiveMaxFp : 0,
-                            "dp" => 6000, // DP cap (no MaxDp field, mirrors CM_ATTACK / CM_CASTSPELL DP gain caps)
-                            "vp" => 6000, // VP cap (M272 — mirrors DP)
-                            _    => 0,
-                        };
-                        int heal = he.IsPercent ? healMaxStat * valueWithDelta / 100 : valueWithDelta;
-                        heal = (int)(heal * healBoostMult);
-                        // M294: apply target's HEAL_SKILL_DEBOOST modifier (negative = receive less healing)
-                        if (healTarget.HealReceivedPct != 0)
-                            heal = Math.Max(0, (int)(heal * (100 + healTarget.HealReceivedPct) / 100f));
+                        int heal = HealAmountCalculator.ComputeInstant(he, healTarget, skillLv, healBoostMult);
 
                         if (he.HealType == "hp")
                         {
@@ -359,7 +343,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                         foreach (var hot in hotEffects)
                         {
-                            int healPerTick = Math.Max(1, hot.BaseValue + hot.Delta * skillLv);
+                            int healPerTick = HealAmountCalculator.ComputeHotTickBase(hot, skillLv, useLevelMinusOne: false);
                             var tickTarget  = healTarget;
                             var tickEffect  = hotEffect;
                             var tickSpellId = _spellId;
@@ -507,11 +491,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 && template?.Effects?.HealEffects is { Count: > 0 } aoeHealEffects)
             {
                 int aoeSkillLv      = _level;
-                float aoeBoostMult  = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
-                if (player.PassiveBonusHealSkillBoostPct > 0)
-                    aoeBoostMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
-                if (player.BonusHealSkillBoostPct > 0)
-                    aoeBoostMult *= 1f + player.BonusHealSkillBoostPct / 100f;
+                float aoeBoostMult  = HealAmountCalculator.BoostMultiplier(player);
                 int aoeWorldId      = player.Position.WorldId;
                 float aoeR          = template.EffectiveRange;
                 Position aoeCenter  = healTarget?.Position ?? player.Position;
@@ -529,21 +509,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                     foreach (var he in aoeHealEffects)
                     {
-                        int vd = he.BaseValue + he.Delta * aoeSkillLv;
-                        int aoeMaxStat = he.HealType switch
-                        {
-                            "hp" => ally.MaxHp,
-                            "mp" => ally.MaxMp,
-                            "fp" => ally is Player fpAllyMax ? fpAllyMax.EffectiveMaxFp : 0,
-                            "dp" => 6000,
-                            "vp" => 6000,
-                            _    => 0,
-                        };
-                        int h  = he.IsPercent ? aoeMaxStat * vd / 100 : vd;
-                        h = (int)(h * aoeBoostMult);
-                        // M294: apply target's HEAL_SKILL_DEBOOST modifier
-                        if (ally.HealReceivedPct != 0)
-                            h = Math.Max(0, (int)(h * (100 + ally.HealReceivedPct) / 100f));
+                        int h = HealAmountCalculator.ComputeInstant(he, ally, aoeSkillLv, aoeBoostMult);
 
                         if (he.HealType == "hp")
                         {
@@ -887,7 +853,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         var thEffect   = effect;
                         var thTarget   = buffTarget;
                         var thInterval = thFx.CheckTimeMs;
-                        int thTick     = Math.Max(1, thFx.BaseValue + thFx.Delta * Math.Max(1, _level - 1));
+                        int thTick     = HealAmountCalculator.ComputeHotTickBase(thFx, _level, useLevelMinusOne: true);
                         string thType  = thFx.HealType;
                         int thSkillId  = _spellId;
                         _ = Task.Run(async () =>
@@ -1020,18 +986,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var buffHealFx = template?.Effects?.HealEffects;
                 if (buffHealFx is { Count: > 0 })
                 {
-                    float bhMult = 1.0f + (player.BonusHealBoost + player.HealBoostDelta) / 1000f;
-                    if (player.PassiveBonusHealSkillBoostPct > 0) bhMult *= 1f + player.PassiveBonusHealSkillBoostPct / 100f;
-                    if (player.BonusHealSkillBoostPct > 0)        bhMult *= 1f + player.BonusHealSkillBoostPct / 100f;
+                    float bhMult = HealAmountCalculator.BoostMultiplier(player);
                     foreach (var bhe in buffHealFx)
                     {
-                        int bhVal  = bhe.BaseValue + bhe.Delta * _level;
-                        int bhHeal = bhe.IsPercent
-                            ? (bhe.HealType == "hp" ? buffTarget.MaxHp : buffTarget.MaxMp) * bhVal / 100
-                            : bhVal;
-                        bhHeal = (int)(bhHeal * bhMult);
-                        if (buffTarget.HealReceivedPct != 0)
-                            bhHeal = Math.Max(0, (int)(bhHeal * (100 + buffTarget.HealReceivedPct) / 100f));
+                        int bhHeal = HealAmountCalculator.ComputeInstant(bhe, buffTarget, _level, bhMult);
                         if (bhe.HealType == "hp")
                         {
                             bhHeal = Math.Min(bhHeal, buffTarget.MaxHp - buffTarget.CurrentHp);
@@ -1568,9 +1526,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         var gAoeDrainLog = gAoeDmgFx[0].DamageType == "physical"
                             ? SM_ATTACK_STATUS.LogId.SkillAtkDrainInstant
                             : SM_ATTACK_STATUS.LogId.SpellAtkDrainInstant;
+                        var (gAoeHpGain, gAoeMpGain) = DrainCalculator.Compute(damage, gAoeDmgFx[0], player);
                         if (gAoeDmgFx[0].HpPercent != 0)
                         {
-                            int hpGain = Math.Min(damage * gAoeDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
+                            int hpGain = gAoeHpGain;
                             if (hpGain > 0)
                             {
                                 player.CurrentHp += hpGain;
@@ -1582,7 +1541,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         }
                         if (gAoeDmgFx[0].MpPercent != 0)
                         {
-                            int mpGain = Math.Min(damage * gAoeDmgFx[0].MpPercent / 100, player.MaxMp - player.CurrentMp);
+                            int mpGain = gAoeMpGain;
                             if (mpGain > 0)
                             {
                                 player.CurrentMp += mpGain;
@@ -2151,9 +2110,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     var stDrainLog = stDmgFx[0].DamageType == "physical"
                         ? SM_ATTACK_STATUS.LogId.SkillAtkDrainInstant
                         : SM_ATTACK_STATUS.LogId.SpellAtkDrainInstant;
+                    var (stHpGain, stMpGain) = DrainCalculator.Compute(damage, stDmgFx[0], player);
                     if (stDmgFx[0].HpPercent != 0)
                     {
-                        int hpGain = Math.Min(damage * stDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
+                        int hpGain = stHpGain;
                         if (hpGain > 0)
                         {
                             player.CurrentHp += hpGain;
@@ -2165,7 +2125,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                     if (stDmgFx[0].MpPercent != 0)
                     {
-                        int mpGain = Math.Min(damage * stDmgFx[0].MpPercent / 100, player.MaxMp - player.CurrentMp);
+                        int mpGain = stMpGain;
                         if (mpGain > 0)
                         {
                             player.CurrentMp += mpGain;
@@ -2496,9 +2456,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             var splashDrainLog = stDmgFx[0].DamageType == "physical"
                                 ? SM_ATTACK_STATUS.LogId.SkillAtkDrainInstant
                                 : SM_ATTACK_STATUS.LogId.SpellAtkDrainInstant;
+                            var (splashHpGain, splashMpGain) = DrainCalculator.Compute(splashDmg, stDmgFx[0], player);
                             if (stDmgFx[0].HpPercent != 0)
                             {
-                                int hpGain = Math.Min(splashDmg * stDmgFx[0].HpPercent / 100, player.MaxHp - player.CurrentHp);
+                                int hpGain = splashHpGain;
                                 if (hpGain > 0)
                                 {
                                     player.CurrentHp += hpGain;
@@ -2510,7 +2471,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             }
                             if (stDmgFx[0].MpPercent != 0)
                             {
-                                int mpGain = Math.Min(splashDmg * stDmgFx[0].MpPercent / 100, player.MaxMp - player.CurrentMp);
+                                int mpGain = splashMpGain;
                                 if (mpGain > 0)
                                 {
                                     player.CurrentMp += mpGain;

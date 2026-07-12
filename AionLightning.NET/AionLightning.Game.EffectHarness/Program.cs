@@ -109,6 +109,118 @@ foreach (var template in allTemplates)
 
 Console.WriteLine($"HARNESS (DotDamageCalculator): {dotPassed}/{dotTotal} assertions passed, {dotScanned} dot effects scanned, {dotExceptions} exceptions");
 
-int totalPassed = passed + dotPassed, totalAssertions = total + dotTotal, totalExceptions = exceptions + dotExceptions;
-Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {dotScanned} dot effects scanned, {totalExceptions} exceptions");
+// --- HealAmountCalculator / DrainCalculator (S4c) ---
+// Identity check: a non-percent hp heal on an Npc target (HealReceivedPct == 0, default int) with
+// boostMult == 1.0f collapses ComputeInstant to the hand-inlined "flat value + delta*level" formula —
+// no boost multiplier, no HealReceivedPct adjustment, no percent-of-max-stat branch.
+var healCandidates = allTemplates
+    .Where(t => (t.Effects?.HealEffects?.Count ?? 0) > 0
+             && t.Effects!.HealEffects.Any(h => !h.IsPercent && h.HealType == "hp"))
+    .Take(5)
+    .ToList();
+Console.WriteLine($"[HealAmountCalculator] {healCandidates.Count} candidate skill(s) with non-percent hp HealEffects.");
+int healPassed = 0, healTotal = 0;
+foreach (var template in healCandidates)
+{
+    var he = template.Effects!.HealEffects.First(h => !h.IsPercent && h.HealType == "hp");
+    int level = Math.Max(1, template.Level);
+    healTotal++;
+    int expected = he.BaseValue + he.Delta * level;
+    int result = HealAmountCalculator.ComputeInstant(he, MakeNpc(), level, 1.0f);
+    bool ok = result == expected;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" " +
+                      $"result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) healPassed++;
+}
+
+// ComputeHotTickBase: both useLevelMinusOne flag values against the hand-inlined formulas.
+var hotCandidates = allTemplates
+    .Where(t => (t.Effects?.HotEffects?.Count ?? 0) > 0)
+    .Take(5)
+    .ToList();
+Console.WriteLine($"[HealAmountCalculator] {hotCandidates.Count} candidate skill(s) with HotEffects.");
+foreach (var template in hotCandidates)
+{
+    var hot = template.Effects!.HotEffects[0];
+    int level = Math.Max(1, template.Level);
+
+    healTotal++;
+    int expectedA2 = Math.Max(1, hot.BaseValue + hot.Delta * level);
+    int resultA2 = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: false);
+    bool okA2 = resultA2 == expectedA2;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" (A2, level) " +
+                      $"result={resultA2} (expected {expectedA2}) {(okA2 ? "PASS" : "FAIL")}");
+    if (okA2) healPassed++;
+
+    healTotal++;
+    int expectedA5 = Math.Max(1, hot.BaseValue + hot.Delta * Math.Max(1, level - 1));
+    int resultA5 = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: true);
+    bool okA5 = resultA5 == expectedA5;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" (A5, level-1) " +
+                      $"result={resultA5} (expected {expectedA5}) {(okA5 ? "PASS" : "FAIL")}");
+    if (okA5) healPassed++;
+}
+
+// DrainCalculator identity check: HpPercent/MpPercent == 0 always yields 0 gain regardless of caster
+// HP/MP state (matches the original per-pool "if (...Percent != 0)" gate collapsing to no-op).
+var drainCandidates = allTemplates
+    .Where(t => (t.Effects?.DamageEffects?.Count ?? 0) > 0
+             && (t.Effects!.DamageEffects[0].HpPercent != 0 || t.Effects!.DamageEffects[0].MpPercent != 0))
+    .Take(5)
+    .ToList();
+Console.WriteLine($"[DrainCalculator] {drainCandidates.Count} candidate skill(s) with drain DamageEffects.");
+int drainPassed = 0, drainTotal = 0;
+var drainDummyCaster = new Player { MaxHp = 5000, CurrentHp = 4000, MaxMp = 3000, CurrentMp = 2000 };
+foreach (var template in drainCandidates)
+{
+    var fx = template.Effects!.DamageEffects[0];
+    drainTotal++;
+    var (hpGain, mpGain) = DrainCalculator.Compute(1000, fx, drainDummyCaster);
+    int expectedHp = Math.Min(1000 * fx.HpPercent / 100, drainDummyCaster.MaxHp - drainDummyCaster.CurrentHp);
+    int expectedMp = Math.Min(1000 * fx.MpPercent / 100, drainDummyCaster.MaxMp - drainDummyCaster.CurrentMp);
+    bool ok = hpGain == expectedHp && mpGain == expectedMp;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" hp_gain={hpGain} mp_gain={mpGain} " +
+                      $"(expected {expectedHp}/{expectedMp}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) drainPassed++;
+}
+
+// Full-scan: ComputeInstant/ComputeHotTickBase must never throw for any heal/hot effect on any
+// template (Npc target, boostMult 1.0f / 1.5f, level >= 1).
+int healScanned = 0, healExceptions = 0;
+foreach (var template in allTemplates)
+{
+    int level = Math.Max(1, template.Level);
+    foreach (var he in template.Effects?.HealEffects ?? Array.Empty<SkillHealInfo>())
+    {
+        healScanned++;
+        try { _ = HealAmountCalculator.ComputeInstant(he, MakeNpc(), level, 1.5f); }
+        catch (Exception ex)
+        {
+            healExceptions++;
+            Console.WriteLine($"  EXCEPTION skill_id={template.SkillId}: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+    foreach (var hot in template.Effects?.HotEffects ?? Array.Empty<SkillHotInfo>())
+    {
+        healScanned++;
+        try
+        {
+            _ = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: false);
+            _ = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: true);
+        }
+        catch (Exception ex)
+        {
+            healExceptions++;
+            Console.WriteLine($"  EXCEPTION skill_id={template.SkillId}: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+}
+
+Console.WriteLine($"HARNESS (HealAmountCalculator): {healPassed}/{healTotal} assertions passed, {healScanned} heal/hot effects scanned, {healExceptions} exceptions");
+Console.WriteLine($"HARNESS (DrainCalculator): {drainPassed}/{drainTotal} assertions passed");
+
+int totalPassed = passed + dotPassed + healPassed + drainPassed;
+int totalAssertions = total + dotTotal + healTotal + drainTotal;
+int totalExceptions = exceptions + dotExceptions + healExceptions;
+Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {dotScanned} dot effects scanned, {healScanned} heal/hot effects scanned, {totalExceptions} exceptions");
 return totalPassed == totalAssertions && totalExceptions == 0 ? 0 : 1;
