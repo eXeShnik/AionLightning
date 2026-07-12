@@ -5040,3 +5040,17 @@ quests — well over 150 quests total. Building this one hook unblocks the large
 - Net-new gameplay families: summon/trap/servant, resurrect/rebirth (additive, large).
 - VALIDATE the balance-affecting parity fixes in-game (5 damage fixes 968979eb + level-scaling 13a6094f);
   capture one CM_CASTSPELL packet to confirm client echoes a 1-indexed skill level.
+
+## Quest fleet 2 (2026-07-12 evening) — +68 quests
+Ported 6 more zones (instance/dungeon): fort_tiamat 20, esoterrace 12, daevation 10, rentus_base 9,
+silentera_canyon 9, raksang 8. ~18 latent Java bugs fixed (shared-handler-instance data races,
+missing-break fallthroughs, wrong/copy-pasted item ids, a level-bracket `||` tautology, typo npc ids,
+unreachable kill conditions). Total now **855 quest .cs across 33 zones**.
+Instance zones consistently leave 2-3 quests blocked → reinforces onEnterZone/ZoneService as #1 unblocker.
+
+### New infra gap found — class-keyed selectable rewards
+Daevanion-weapon quests (daevation _1989/_1990/_2989/_2990/_80291/_80295 + likely others) use
+`<fighter_selectable_reward>`/`<knight_selectable_reward>`/.../`<rider_selectable_reward>` + `<class_permitted>`
+in quest_data.xml. QuestTemplate/QuestRewardService only model a flat `<selectable_reward_item>` list.
+Need class-keyed selectable-reward support before these can be faithfully ported (else they'd silently
+grant EXP only and drop the gear). Smaller than onEnterZone but real.
