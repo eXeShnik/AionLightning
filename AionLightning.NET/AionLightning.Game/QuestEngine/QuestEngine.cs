@@ -26,6 +26,9 @@ public sealed class QuestEngine
     private readonly List<int>                      _zoneMissionEndIndex = new();
     private readonly Dictionary<int, List<int>>     _movieEndIndex = new();
     private readonly List<int>                      _enterWorldIndex = new();
+    private readonly List<int>                      _questTimerEndIndex = new();
+    // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
+    private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
     private readonly ILogger<QuestEngine>           _log;
 
     // worldId -> quests startable there (Java parity: WorldMapInstance.questIds, populated
@@ -79,6 +82,26 @@ public sealed class QuestEngine
         }
         if (!quests.Contains(questId)) quests.Add(questId);
     }
+
+    /// <summary>Registers a quest for onQuestTimerEnd notifications (Java registerOnQuestTimerEnd).</summary>
+    public void RegisterOnQuestTimerEnd(int questId)
+    {
+        if (!_questTimerEndIndex.Contains(questId)) _questTimerEndIndex.Add(questId);
+    }
+
+    /// <summary>Registers a mob-kill quest-item drop (Java addHandlerSideQuestDrop).</summary>
+    public void RegisterQuestDrop(int npcId, SideQuestDrop drop)
+    {
+        if (!_sideDropIndex.TryGetValue(npcId, out var drops))
+        {
+            drops = [];
+            _sideDropIndex[npcId] = drops;
+        }
+        drops.Add(drop);
+    }
+
+    public IReadOnlyList<SideQuestDrop> GetSideDrops(int npcId)
+        => _sideDropIndex.TryGetValue(npcId, out var drops) ? drops : System.Array.Empty<SideQuestDrop>();
 
     /// <summary>Registers a skill id as relevant to a quest's onUseSkill event (Java registerQuestSkill).</summary>
     public void RegisterSkillUse(int skillId, int questId)
@@ -193,6 +216,33 @@ public sealed class QuestEngine
         {
             _log.LogError(ex, "QuestEngine: exception in OnKillAsync");
             return false;
+        }
+    }
+
+    /// <summary>Dispatches an NPC-attacked event (Java onAttack) to quests on this NPC's OnAttack index.</summary>
+    public async ValueTask<bool> OnAttackAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        var list = GetQuestNpc(env.TargetId).OnAttack;
+        if (list.Count == 0) return false;
+        bool any = false;
+        foreach (int questId in list)
+        {
+            if (!_handlers.TryGetValue(questId, out var handler)) continue;
+            any = true;
+            try { await handler.OnAttackAsync(env with { QuestId = questId }, conn, ct); }
+            catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnAttackAsync (questId={QuestId})", questId); }
+        }
+        return any;
+    }
+
+    /// <summary>Dispatches a quest-timer-expiry event (Java onQuestTimerEnd) to all timer-registered quests.</summary>
+    public async ValueTask OnQuestTimerEndAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        foreach (int questId in _questTimerEndIndex)
+        {
+            if (!_handlers.TryGetValue(questId, out var handler)) continue;
+            try { await handler.OnQuestTimerEndAsync(env with { QuestId = questId }, conn, ct); }
+            catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnQuestTimerEndAsync (questId={QuestId})", questId); }
         }
     }
 
@@ -464,3 +514,6 @@ public sealed class QuestEngine
         return result;
     }
 }
+
+/// <summary>A quest-item drop registered against a mob kill (Java addHandlerSideQuestDrop).</summary>
+public sealed record SideQuestDrop(int QuestId, int ItemId, int Amount, int Chance, int Step);

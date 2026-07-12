@@ -33,9 +33,25 @@ public abstract class QuestHandlerBase : IQuestHandler
     }
 
     // Set once at engine startup (QuestEngineHostedService) so scripts — whose ctor is fixed at
-    // four params for uniform reflection — can still spawn quest NPCs (Java QuestService.addNewSpawn).
+    // four params for uniform reflection — can still spawn quest NPCs (Java QuestService.addNewSpawn)
+    // and schedule quest timers (Java QuestService.questTimerStart).
     private static SpawnService? _spawnService;
+    private static QuestEngine? _engine;
     internal static void InitSpawnService(SpawnService spawnService) => _spawnService = spawnService;
+    internal static void InitEngine(QuestEngine engine) => _engine = engine;
+
+    /// <summary>Schedules a quest-timer expiry (Java QuestService.questTimerStart): fires
+    /// OnQuestTimerEndAsync on all timer-registered quests after <paramref name="seconds"/>.
+    /// The player and target NPC (if any) are carried in the env.</summary>
+    protected void StartQuestTimer(QuestEnv env, GsClientConnection conn, int seconds)
+    {
+        if (_engine is null) return;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(seconds));
+            try { await _engine.OnQuestTimerEndAsync(env, conn, CancellationToken.None); } catch { }
+        });
+    }
 
     /// <summary>Spawns a quest NPC at a fixed location (Java QuestService.addNewSpawn). No-op with a
     /// warning-free false if the spawn service isn't wired or the npc template is unknown.</summary>
@@ -48,6 +64,11 @@ public abstract class QuestHandlerBase : IQuestHandler
         return true;
     }
 
+    /// <summary>Registers a mob-kill quest-item drop for THIS quest (Java addHandlerSideQuestDrop).
+    /// step -1 = any step. Call from Register().</summary>
+    protected void RegisterQuestDrop(QuestEngine engine, int npcId, int itemId, int amount, int chance, int step = -1)
+        => engine.RegisterQuestDrop(npcId, new SideQuestDrop(QuestId, itemId, amount, chance, step));
+
     /// <summary>The static quest_data.xml template for this quest, or null if not defined there.</summary>
     protected QuestTemplate? Template => DataManager.Quests.GetTemplate(QuestId);
 
@@ -55,6 +76,8 @@ public abstract class QuestHandlerBase : IQuestHandler
 
     public virtual ValueTask<bool> OnDialogAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnKillAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnAttackAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnQuestTimerEndAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnItemGetAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnItemUseAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnSkillUseAsync(Player player, int skillId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);

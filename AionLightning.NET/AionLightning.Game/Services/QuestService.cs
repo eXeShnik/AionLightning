@@ -1,6 +1,7 @@
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Item;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Templates.Quest;
 using AionLightning.Game.Network.Aion;
@@ -17,14 +18,23 @@ public sealed class QuestService
     private readonly IDataManager             _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly QuestEngineType          _questEngine;
+    private readonly IItemDao                 _itemDao;
 
-    public QuestService(IQuestDao questDao, IDataManager dataManager, PlayerConnectionRegistry connRegistry, QuestEngineType questEngine)
+    public QuestService(IQuestDao questDao, IDataManager dataManager, PlayerConnectionRegistry connRegistry, QuestEngineType questEngine, IItemDao itemDao)
     {
         _questDao     = questDao;
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
         _questEngine  = questEngine;
+        _itemDao      = itemDao;
     }
+
+    /// <summary>
+    /// Fires the quest onAttack hook when a player damages (but hasn't killed) a quest NPC
+    /// (Java QuestEngine.onAttack). Cheap no-op when the NPC has no OnAttack quest registered.
+    /// </summary>
+    public ValueTask HandleNpcAttackedAsync(Player player, Npc npc, GsClientConnection conn, CancellationToken ct)
+        => new(_questEngine.OnAttackAsync(new QuestEnv(npc, player, 0, 0), conn, ct).AsTask());
 
     /// <summary>
     /// Called when a player kills an NPC. Awards kill credit to the killer and to all group
@@ -54,6 +64,36 @@ public sealed class QuestService
         // Data-driven templates (registered against this NPC's OnKill index) get first crack;
         // the legacy loop below then skips any quest id the engine already owns.
         await _questEngine.OnKillAsync(new QuestEnv(deadNpc, player, 0, 0), conn, ct);
+
+        // Side quest-item drops registered on this mob (Java addHandlerSideQuestDrop): roll chance
+        // and grant to the killer if they hold the quest at the required step.
+        var sideDrops = _questEngine.GetSideDrops(deadNpc.Template.NpcId);
+        if (sideDrops.Count > 0)
+        {
+            foreach (var drop in sideDrops)
+            {
+                var qentry = player.Quests.Get(drop.QuestId);
+                if (qentry is null || qentry.Status != QuestStatus.START) continue;
+                if (drop.Step >= 0 && qentry.GetVar(0) != drop.Step) continue;
+                if (Random.Shared.Next(100) >= drop.Chance) continue;
+
+                var existing = player.Inventory.FindByItemId(drop.ItemId);
+                if (existing is not null)
+                {
+                    existing.Count += drop.Amount;
+                    await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                    try { await conn.SendAsync(new SM_INVENTORY_ADD_ITEM([existing]), ct); } catch { }
+                }
+                else
+                {
+                    long uid = await _itemDao.NextUniqueIdAsync(ct);
+                    var item = new Item { UniqueId = uid, ItemId = drop.ItemId, Count = drop.Amount, Slot = -1 };
+                    player.Inventory.Add(item);
+                    await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                    try { await conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct); } catch { }
+                }
+            }
+        }
 
         foreach (var entry in player.Quests.Active)
         {

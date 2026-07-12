@@ -4807,3 +4807,19 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
 - **Phase 5 zone tally (2026-07-12)**: Poeta 14, Ishalgen 17, Verteron 25, Altgard 33, Eltnen 33,
   Heiron 19, Morheim 29, Beluslan 20 = 190 hand-written quests committed. Deferred backlog ~140
   across zones (Batch 0.3 hooks unblock most; largest campaign scripts need per-quest passes).
+
+- [x] **C2 Phase 5 Batch 0.3** (2026-07-12): 3 quest hooks implemented + wired.
+  - **onAttackEvent**: QuestNpc.OnAttack list + RegisterQuestNpc(id).OnAttack, QuestEngine.OnAttackAsync
+    dispatcher, IQuestHandler/QuestHandlerBase OnAttackAsync default; fired from CM_ATTACK when a
+    player damages a still-alive NPC (QuestService.HandleNpcAttackedAsync — cheap no-op when no
+    quest registers the npc).
+  - **addHandlerSideQuestDrop**: QuestEngine SideQuestDrop record + RegisterQuestDrop/GetSideDrops;
+    QuestHandlerBase.RegisterQuestDrop(engine,npc,item,amount,chance,step) helper; rolled in
+    QuestService.ProcessKillForPlayerAsync on every kill path (grants item to killer at the right
+    step). QuestService gained IItemDao (DI auto-wired).
+  - **quest timer**: QuestEngine.RegisterOnQuestTimerEnd + OnQuestTimerEndAsync dispatcher;
+    QuestHandlerBase.StartQuestTimer(env,conn,seconds) helper (Task.Delay → dispatch) via a static
+    engine ref set at startup (InitEngine). IQuestHandler/base OnQuestTimerEndAsync default.
+  - Build 0/0; all 190 scripts still discover. Deferred within 0.3: onAtDistance/zone-shape,
+    follow/escort AI (pairs with C3 FOLLOWING gap). Unblocks a 2nd fleet pass over the ~140
+    deferred quests that needed onAttack / side-drop / timer.

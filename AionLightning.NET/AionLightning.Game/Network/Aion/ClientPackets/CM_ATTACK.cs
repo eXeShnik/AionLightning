@@ -320,9 +320,12 @@ public sealed class CM_ATTACK : AionClientPacket
             }
         }
 
-        // NPC retaliation: force non-aggressive NPCs to engage the player when hit
+        // NPC retaliation + quest onAttack hook (Java QuestEngine.onAttack) — while the NPC is alive
         if (target is Npc attackedNpc && target.CurrentHp > 0)
+        {
             _npcAi.ForceEngage(attackedNpc, player);
+            await _questService.HandleNpcAttackedAsync(player, attackedNpc, _conn, ct);
+        }
 
         // Update group HP display for player targets (PvP)
         if (target is Player damagedPlayer)
