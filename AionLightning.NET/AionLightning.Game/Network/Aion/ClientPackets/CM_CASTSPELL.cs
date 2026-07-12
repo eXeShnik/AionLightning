@@ -1,6 +1,7 @@
 using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
 using AionLightning.Game.Combat;
+using AionLightning.Game.Combat.Effects;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Events;
@@ -669,155 +670,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                      : template.Effects?.AlwaysResistDurationMs    > 0 ? template.Effects.AlwaysResistDurationMs
                                      : template.Effects?.AlwaysParryDurationMs      > 0 ? template.Effects.AlwaysParryDurationMs
                                      : (template.Effects?.EffectDuration ?? 0);
-                int maxHpStatUpDelta = template.Effects?.MaxHpStatUpDelta ?? 0;
-                // M349: PERCENT MAXHP buffs from statup/statboost (Second Wind, Improved Stamina, Blessing of Health, etc.)
-                int maxHpStatUpPct = template.Effects?.MaxHpPercentStatUpDelta ?? 0;
-                if (maxHpStatUpPct != 0 && buffTarget is Player maxHpPctBuff)
-                    maxHpStatUpDelta += maxHpPctBuff.MaxHp * maxHpStatUpPct / 100;
-                int maxMpStatUpDelta    = template.Effects?.MaxMpStatUpDelta       ?? 0;
-                // M349: PERCENT MAXMP buffs from statup/statboost
-                int maxMpStatUpPct = template.Effects?.MaxMpPercentStatUpDelta ?? 0;
-                if (maxMpStatUpPct != 0 && buffTarget is Player maxMpPctBuff)
-                    maxMpStatUpDelta += maxMpPctBuff.MaxMp * maxMpStatUpPct / 100;
-                int mBoostStatUpDelta   = template.Effects?.MagicBoostStatUpDelta  ?? 0;
-                int healBoostStatUpDelta = template.Effects?.HealBoostStatUpDelta ?? 0;
-                int physAccStatUpDelta   = template.Effects?.PhysAccStatUpDelta   ?? 0;
-                int magicAccStatUpDelta  = template.Effects?.MagicAccStatUpDelta  ?? 0;
-                int parryStatUpDelta     = template.Effects?.ParryStatUpDelta     ?? 0;
-                int blockStatUpDelta     = template.Effects?.BlockStatUpDelta     ?? 0;
-                int physCritStatUpDelta         = template.Effects?.PhysCritStatUpDelta         ?? 0;
-                int magicCritStatUpDelta        = template.Effects?.MagicCritStatUpDelta        ?? 0;
-                int physCritResistStatUpDelta    = template.Effects?.PhysCritResistStatUpDelta    ?? 0;
-                int magicCritResistStatUpDelta   = template.Effects?.MagicCritResistStatUpDelta   ?? 0;
-                int strikeFortitudeStatUpDelta   = template.Effects?.StrikeFortitudeStatUpDelta   ?? 0;
-                int spellFortitudeStatUpDelta    = template.Effects?.SpellFortitudeStatUpDelta    ?? 0;
-                int castTimeStatUpDelta          = (template.Effects?.CastTimeStatUpDelta          ?? 0)
-                                               + (template.Effects?.BoostCastTimePctDelta        ?? 0)
-                                               + (template.Effects?.CastTimeStatUpPctDelta       ?? 0); // M348
-                int concentrationStatUpDelta     = template.Effects?.ConcentrationStatUpDelta     ?? 0;
-                int magicSuppressionStatUpDelta  = template.Effects?.MagicSuppressionStatUpDelta  ?? 0;
-                int pdefStatUpDelta              = template.Effects?.PdefStatUpDelta              ?? 0;
-                int magicDefStatUpDelta          = template.Effects?.MagicDefStatUpDelta          ?? 0;
-                int patkStatUpDelta              = template.Effects?.PhysAtkStatUpDelta           ?? 0;
-                int magicAtkStatUpDelta          = template.Effects?.MagicAtkStatUpDelta          ?? 0;
-                int evasionStatUpDelta           = template.Effects?.EvasionStatUpDelta           ?? 0;
-                int mresistStatUpDelta           = template.Effects?.MResistStatUpDelta           ?? 0;
-                int atkSpeedStatUpDelta          = template.Effects?.AtkSpeedStatUpDelta          ?? 0;
-                int speedStatUpPct               = template.Effects?.SpeedStatUpPct               ?? 0;
-                // M323: PERCENT PHYSICAL_ATTACK and MAGICAL_ATTACK buffs — convert to flat delta
-                int patkStatUpPct    = template.Effects?.PhysAtkStatUpPct    ?? 0;
-                int magicAtkStatUpPct = template.Effects?.MagicAtkStatUpPct ?? 0;
-                if (patkStatUpPct != 0 && buffTarget is Player patkPctBuff)
-                {
-                    int basePatk = patkPctBuff.BasePhysicalAttack
-                                   + (patkPctBuff.MainHandMinDmg + patkPctBuff.MainHandMaxDmg) / 2
-                                   + patkPctBuff.BonusPhysicalAtk;
-                    patkStatUpDelta += basePatk * patkStatUpPct / 100;
-                }
-                if (magicAtkStatUpPct != 0 && buffTarget is Player matkPctBuff)
-                    magicAtkStatUpDelta += (matkPctBuff.MainHandMagicalAtk + matkPctBuff.BonusMagicAtk) * magicAtkStatUpPct / 100;
-                // M324: PERCENT PDEF and ATTACK_SPEED buffs
-                int pdefStatUpPct    = template.Effects?.PdefStatUpPct    ?? 0;
-                int atkSpdStatUpPct  = template.Effects?.AtkSpeedStatUpPct ?? 0;
-                if (pdefStatUpPct   != 0 && buffTarget is Player pdefPctBuff)
-                    pdefStatUpDelta   += pdefPctBuff.PhysicalDefense * pdefStatUpPct / 100;
-                if (atkSpdStatUpPct != 0)
-                    atkSpeedStatUpDelta += buffTarget.CurrentAttackSpeed * atkSpdStatUpPct / 100;
-                // M325: PERCENT MAGICAL_RESIST and EVASION buffs
-                int mresistStatUpPct = template.Effects?.MResistStatUpPct ?? 0;
-                int evasionStatUpPct = template.Effects?.EvasionStatUpPct ?? 0;
-                if (mresistStatUpPct != 0 && buffTarget is Player mresistPctBuff)
-                    mresistStatUpDelta += mresistPctBuff.BonusMagicResist * mresistStatUpPct / 100;
-                if (evasionStatUpPct != 0 && buffTarget is Player evasionPctBuff)
-                    evasionStatUpDelta += (evasionPctBuff.BaseEvasion + evasionPctBuff.BonusEvasion) * evasionStatUpPct / 100;
-                // M327: PERCENT PHYSICAL_CRITICAL and PHYSICAL_ACCURACY buffs
-                int physCritStatUpPct = template.Effects?.PhysCritStatUpPct ?? 0;
-                int physAccStatUpPct  = template.Effects?.PhysAccStatUpPct  ?? 0;
-                if (physCritStatUpPct != 0 && buffTarget is Player physCritPctBuff)
-                    physCritStatUpDelta += (physCritPctBuff.BaseCritRating + physCritPctBuff.BonusPhysicalCritical) * physCritStatUpPct / 100;
-                if (physAccStatUpPct  != 0 && buffTarget is Player physAccPctBuff)
-                    physAccStatUpDelta  += (physAccPctBuff.BasePhysicalAccuracy + physAccPctBuff.BonusPhysicalAccuracy) * physAccStatUpPct / 100;
-                // M328: PERCENT BOOST_MAGICAL_SKILL buff + BLOCK and PARRY PERCENT buffs
-                int mBoostStatUpPct  = template.Effects?.MagicBoostStatUpPct ?? 0;
-                int blockStatUpPct   = template.Effects?.BlockStatUpPct      ?? 0;
-                int parryStatUpPct   = template.Effects?.ParryStatUpPct      ?? 0;
-                if (mBoostStatUpPct != 0 && buffTarget is Player mBoostPctBuff)
-                    mBoostStatUpDelta  += mBoostPctBuff.BonusMagicBoost * mBoostStatUpPct / 100;
-                if (blockStatUpPct  != 0 && buffTarget is Player blockPctBuff)
-                    blockStatUpDelta   += (blockPctBuff.BaseBlock + blockPctBuff.BonusBlock) * blockStatUpPct / 100;
-                if (parryStatUpPct  != 0 && buffTarget is Player parryPctBuff)
-                    parryStatUpDelta   += (parryPctBuff.BaseParry + parryPctBuff.BonusParry) * parryStatUpPct / 100;
-                // M329: PERCENT MAGICAL_DEFEND buff
-                int magicDefStatUpPct = template.Effects?.MagicDefStatUpPct ?? 0;
-                if (magicDefStatUpPct != 0 && buffTarget is Player magicDefPctBuff)
-                    magicDefStatUpDelta += magicDefPctBuff.MagicDefense * magicDefStatUpPct / 100;
-                // M330/M331: REGEN_HP/MP/FP PERCENT buffs — stored as pct delta, applied per-tick in RegenService
-                int regenHpStatUpPct = template.Effects?.RegenHpStatUpPct ?? 0;
-                int regenMpStatUpPct = template.Effects?.RegenMpStatUpPct ?? 0;
-                int regenFpStatUpPct = template.Effects?.RegenFpStatUpPct ?? 0;
-                // M352: REGEN_HP/MP ADD buffs — flat HP/MP added per regen tick (Boost HP I-III, Breath of Nature I-III, etc.)
-                int regenHpAddDelta  = template.Effects?.RegenHpAddDelta  ?? 0;
-                int regenMpAddDelta  = template.Effects?.RegenMpAddDelta  ?? 0;
-                // M332/M364: DR_BOOST, AP_BOOST, and BOOST_DROP_RATE ADD buffs
-                int drBoostDelta       = template.Effects?.DRBoostAddDelta       ?? 0;
-                int apBoostDelta       = template.Effects?.APBoostAddDelta       ?? 0;
-                int boostDropRateDelta = template.Effects?.BoostDropRateAddDelta ?? 0;
-                // M333: ABNORMAL_RESISTANCE_ALL ADD buff and BOOST_HATE PERCENT buff
-                int ccResistAllDelta = template.Effects?.CcResistAllAddDelta ?? 0;
-                int boostHateDelta   = template.Effects?.BoostHateStatPct   ?? 0;
-                // M335: FLY_TIME PERCENT buff — increases player MaxFp by a percentage
-                int flyTimePctDelta       = template.Effects?.FlyTimeStatUpPct      ?? 0;
-                // M354: FLY_TIME ADD buff — increases player MaxFp by a flat amount (GM buffs, consumable scrolls)
-                int flyTimeAddDelta       = template.Effects?.FlyTimeAddDelta       ?? 0;
-                // M351: FLY_SPEED PERCENT buff from statup/statboost (e.g. Flyover Reconnaisance +33%, Charge +60%)
-                int flySpeedStatUpPct     = template.Effects?.FlySpeedStatUpPct     ?? 0;
-                // M336: XP rate buffs — solo and group hunting XP boost
-                int huntingXpBoostPct      = template.Effects?.HuntingXpBoostPct      ?? 0;
-                int groupHuntingXpBoostPct  = template.Effects?.GroupHuntingXpBoostPct  ?? 0;
-                // M337: onetimeboostheal — HEAL_SKILL_BOOST PERCENT timed buff (e.g. Blessed Shield +100%)
-                int healSkillBoostPct       = template.Effects?.OnetimeBoostHealPct     ?? 0;
-                // M378: boostskillcost — skill MP cost modifier (e.g. Grace of Empyrean Lord: 100 = free)
-                int boostSkillCostPct       = template.Effects?.BoostSkillCostPct       ?? 0;
-                // M340: PvP attack/defend ratio ADD buffs (Java ADD; /1000f applied in damage path)
-                int pvpAtkRatioDelta = template.Effects?.PvpAtkRatioDelta ?? 0;
-                int pvpDefRatioDelta = template.Effects?.PvpDefRatioDelta ?? 0;
-                // M339: elemental resistance ADD buffs (scale: 1250 = 100% immune to that element)
-                int fireResistDelta  = template.Effects?.FireResistDelta  ?? 0;
-                int waterResistDelta = template.Effects?.WaterResistDelta ?? 0;
-                int windResistDelta  = template.Effects?.WindResistDelta  ?? 0;
-                int earthResistDelta = template.Effects?.EarthResistDelta ?? 0;
-                // M338: per-CC-type resistance ADD buffs (Java 0–1000 scale)
-                int stunResistDelta       = template.Effects?.StunResistDelta       ?? 0;
-                int stumbleResistDelta    = template.Effects?.StumbleResistDelta    ?? 0;
-                int staggerResistDelta    = template.Effects?.StaggerResistDelta    ?? 0;
-                int spinResistDelta       = template.Effects?.SpinResistDelta       ?? 0;
-                int sleepResistDelta      = template.Effects?.SleepResistDelta      ?? 0;
-                int fearResistDelta       = template.Effects?.FearResistDelta       ?? 0;
-                int openAerialResistDelta = template.Effects?.OpenAerialResistDelta ?? 0;
-                int rootResistDelta       = template.Effects?.RootResistDelta       ?? 0;
-                int snareResistDelta      = template.Effects?.SnareResistDelta      ?? 0;
-                // M341: BUFF-path self-nerfing statdown elements — apply negative stat deltas to buff caster
-                // Java: statdown inside a BUFF skill applies to the effector (caster), not the enemy target
-                int pdefSelfNerfPct = template.Effects?.PdefPercentDebuff ?? 0;
-                if (pdefSelfNerfPct != 0 && buffTarget is Player pdefNerfTgt)
-                    pdefStatUpDelta += pdefNerfTgt.PhysicalDefense * pdefSelfNerfPct / 100;
-                pdefStatUpDelta += template.Effects?.PdefAddDelta ?? 0;
-                int patkSelfNerfPct = template.Effects?.PatkPercentDebuff ?? 0;
-                if (patkSelfNerfPct != 0 && buffTarget is Player patkNerfTgt)
-                    patkStatUpDelta += (patkNerfTgt.BasePhysicalAttack + patkNerfTgt.BonusPhysicalAtk) * patkSelfNerfPct / 100;
-                patkStatUpDelta += template.Effects?.PhysAtkAddDelta ?? 0;
-                int evasionSelfNerfPct = template.Effects?.EvasionPercentDebuff ?? 0;
-                if (evasionSelfNerfPct != 0 && buffTarget is Player evNerfTgt)
-                    evasionStatUpDelta += (evNerfTgt.BaseEvasion + evNerfTgt.BonusEvasion) * evasionSelfNerfPct / 100;
-                evasionStatUpDelta     += template.Effects?.EvasionAddDelta         ?? 0;
-                mresistStatUpDelta     += template.Effects?.MResistAddDelta         ?? 0;
-                physAccStatUpDelta     += template.Effects?.PhysAccAddDelta         ?? 0;
-                concentrationStatUpDelta += template.Effects?.ConcentrationAddDelta ?? 0;
-                physCritStatUpDelta    += template.Effects?.PhysCritAddDelta        ?? 0;
-                // M350: BUFF-path statdown ATTACK_SPEED PERCENT self-nerf (Bravery of the Composed +70%)
-                int atkSpdSelfNerfPct = template.Effects?.StatdownAtkSpeedPct ?? 0;
-                if (atkSpdSelfNerfPct != 0)
-                    atkSpeedStatUpDelta += buffTarget.CurrentAttackSpeed * atkSpdSelfNerfPct / 100;
+                // S4a: buff stat-delta computation extracted to a pure, unit-testable calculator
+                // (Combat/Effects/StatEffectCalculator.cs). See that file for the verbatim formulas.
+                var stat = StatEffectCalculator.Compute(template, buffTarget, _level);
                 // M359: <shield> damage absorption — compute per-hit cap and total pool at current skill level
                 var shieldFx     = template.Effects?.ShieldEffects;
                 int shieldHitVal = 0, shieldPool = 0;
@@ -846,69 +701,69 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     EffectorId         = player.ObjectId,
                     // M373: TOGGLE skills have durationMs=0; use MaxValue for permanent (until CM_TOGGLE_SKILL_DEACTIVATE)
                     Expiry             = durationMs > 0 ? DateTime.UtcNow.AddMilliseconds(durationMs) : DateTime.MaxValue,
-                    SpeedStatUpPct     = speedStatUpPct,
+                    SpeedStatUpPct     = stat.SpeedStatUpPct,
                     PreBuffMovSpeed    = buffTarget.MovementSpeed,
-                    MaxHpDelta         = maxHpStatUpDelta,
-                    MaxMpDelta         = maxMpStatUpDelta,
-                    MagicBoostDeltaVal = mBoostStatUpDelta,
-                    HealBoostDeltaVal  = healBoostStatUpDelta,
-                    PhysAccDeltaVal    = physAccStatUpDelta,
-                    MagicAccDeltaVal   = magicAccStatUpDelta,
-                    ParryDeltaVal      = parryStatUpDelta,
-                    BlockDeltaVal      = blockStatUpDelta,
-                    PhysCritDeltaVal        = physCritStatUpDelta,
-                    MagicCritDeltaVal       = magicCritStatUpDelta,
-                    PhysCritResistDeltaVal   = physCritResistStatUpDelta,
-                    MagicCritResistDeltaVal  = magicCritResistStatUpDelta,
-                    StrikeFortitudeDeltaVal  = strikeFortitudeStatUpDelta,
-                    SpellFortitudeDeltaVal   = spellFortitudeStatUpDelta,
-                    CastTimeDeltaVal         = castTimeStatUpDelta,
-                    ConcentrationDeltaVal    = concentrationStatUpDelta,
-                    MagicSuppressionDeltaVal = magicSuppressionStatUpDelta,
-                    PdefStatUpDeltaVal       = pdefStatUpDelta,
-                    MagicDefDeltaVal         = magicDefStatUpDelta,
-                    PatkStatUpDeltaVal       = patkStatUpDelta,
-                    MagicAtkStatUpDeltaVal   = magicAtkStatUpDelta,
-                    EvasionStatUpDeltaVal    = evasionStatUpDelta,
-                    MResistStatUpDeltaVal    = mresistStatUpDelta,
-                    AtkSpeedStatUpDeltaVal   = atkSpeedStatUpDelta,
+                    MaxHpDelta         = stat.MaxHpDelta,
+                    MaxMpDelta         = stat.MaxMpDelta,
+                    MagicBoostDeltaVal = stat.MagicBoostDeltaVal,
+                    HealBoostDeltaVal  = stat.HealBoostDeltaVal,
+                    PhysAccDeltaVal    = stat.PhysAccDeltaVal,
+                    MagicAccDeltaVal   = stat.MagicAccDeltaVal,
+                    ParryDeltaVal      = stat.ParryDeltaVal,
+                    BlockDeltaVal      = stat.BlockDeltaVal,
+                    PhysCritDeltaVal        = stat.PhysCritDeltaVal,
+                    MagicCritDeltaVal       = stat.MagicCritDeltaVal,
+                    PhysCritResistDeltaVal   = stat.PhysCritResistDeltaVal,
+                    MagicCritResistDeltaVal  = stat.MagicCritResistDeltaVal,
+                    StrikeFortitudeDeltaVal  = stat.StrikeFortitudeDeltaVal,
+                    SpellFortitudeDeltaVal   = stat.SpellFortitudeDeltaVal,
+                    CastTimeDeltaVal         = stat.CastTimeDeltaVal,
+                    ConcentrationDeltaVal    = stat.ConcentrationDeltaVal,
+                    MagicSuppressionDeltaVal = stat.MagicSuppressionDeltaVal,
+                    PdefStatUpDeltaVal       = stat.PdefStatUpDeltaVal,
+                    MagicDefDeltaVal         = stat.MagicDefDeltaVal,
+                    PatkStatUpDeltaVal       = stat.PatkStatUpDeltaVal,
+                    MagicAtkStatUpDeltaVal   = stat.MagicAtkStatUpDeltaVal,
+                    EvasionStatUpDeltaVal    = stat.EvasionStatUpDeltaVal,
+                    MResistStatUpDeltaVal    = stat.MResistStatUpDeltaVal,
+                    AtkSpeedStatUpDeltaVal   = stat.AtkSpeedStatUpDeltaVal,
                     IsSanctuary              = template.Effects?.HasSanctuary == true,
                     HitCountRemaining        = (template.Effects?.AlwaysBlockCount ?? 0) + (template.Effects?.AlwaysDodgeCount ?? 0) + (template.Effects?.AlwaysParryCount ?? 0),
                     AlwaysResistCountRemaining = template.Effects?.AlwaysResistCount ?? 0,
                     IsNoDeathPenalty         = template.Effects?.HasNoresurrectPenalty == true || template.Effects?.HasNoDeathPenalty == true,
-                    RegenHpPctDeltaVal       = regenHpStatUpPct,
-                    RegenMpPctDeltaVal       = regenMpStatUpPct,
-                    RegenFpPctDeltaVal       = regenFpStatUpPct,
-                    RegenHpAddDeltaVal       = regenHpAddDelta,
-                    RegenMpAddDeltaVal       = regenMpAddDelta,
-                    DRBoostDeltaVal          = drBoostDelta,
-                    APBoostDeltaVal          = apBoostDelta,
-                    BoostDropRateDeltaVal    = boostDropRateDelta,
-                    CcResistAllDeltaVal      = ccResistAllDelta,
-                    BoostHatePctDeltaVal     = boostHateDelta,
-                    FlyTimePctDeltaVal       = flyTimePctDelta,
-                    FlyTimeAddDeltaVal       = flyTimeAddDelta,
-                    FlySpeedStatUpPct        = flySpeedStatUpPct,
+                    RegenHpPctDeltaVal       = stat.RegenHpPctDeltaVal,
+                    RegenMpPctDeltaVal       = stat.RegenMpPctDeltaVal,
+                    RegenFpPctDeltaVal       = stat.RegenFpPctDeltaVal,
+                    RegenHpAddDeltaVal       = stat.RegenHpAddDeltaVal,
+                    RegenMpAddDeltaVal       = stat.RegenMpAddDeltaVal,
+                    DRBoostDeltaVal          = stat.DRBoostDeltaVal,
+                    APBoostDeltaVal          = stat.APBoostDeltaVal,
+                    BoostDropRateDeltaVal    = stat.BoostDropRateDeltaVal,
+                    CcResistAllDeltaVal      = stat.CcResistAllDeltaVal,
+                    BoostHatePctDeltaVal     = stat.BoostHatePctDeltaVal,
+                    FlyTimePctDeltaVal       = stat.FlyTimePctDeltaVal,
+                    FlyTimeAddDeltaVal       = stat.FlyTimeAddDeltaVal,
+                    FlySpeedStatUpPct        = stat.FlySpeedStatUpPct,
                     PreBuffFlySpeedPct       = buffTarget is Player flySpeedBuff ? flySpeedBuff.BonusFlySpeedPct : 0,
-                    HealSkillBoostPct        = healSkillBoostPct,
-                    BoostSkillCostPct        = boostSkillCostPct,
-                    HuntingXpBoostPct        = huntingXpBoostPct,
-                    GroupHuntingXpBoostPct   = groupHuntingXpBoostPct,
-                    PvpAtkRatioDelta         = pvpAtkRatioDelta,
-                    PvpDefRatioDelta         = pvpDefRatioDelta,
-                    FireResistDelta          = fireResistDelta,
-                    WaterResistDelta         = waterResistDelta,
-                    WindResistDelta          = windResistDelta,
-                    EarthResistDelta         = earthResistDelta,
-                    StunResistDelta          = stunResistDelta,
-                    StumbleResistDelta       = stumbleResistDelta,
-                    StaggerResistDelta       = staggerResistDelta,
-                    SpinResistDelta          = spinResistDelta,
-                    SleepResistDelta         = sleepResistDelta,
-                    FearResistDelta          = fearResistDelta,
-                    OpenAerialResistDelta    = openAerialResistDelta,
-                    RootResistDelta          = rootResistDelta,
-                    SnareResistDelta         = snareResistDelta,
+                    HealSkillBoostPct        = stat.HealSkillBoostPct,
+                    BoostSkillCostPct        = stat.BoostSkillCostPct,
+                    HuntingXpBoostPct        = stat.HuntingXpBoostPct,
+                    GroupHuntingXpBoostPct   = stat.GroupHuntingXpBoostPct,
+                    PvpAtkRatioDelta         = stat.PvpAtkRatioDelta,
+                    PvpDefRatioDelta         = stat.PvpDefRatioDelta,
+                    FireResistDelta          = stat.FireResistDelta,
+                    WaterResistDelta         = stat.WaterResistDelta,
+                    WindResistDelta          = stat.WindResistDelta,
+                    EarthResistDelta         = stat.EarthResistDelta,
+                    StunResistDelta          = stat.StunResistDelta,
+                    StumbleResistDelta       = stat.StumbleResistDelta,
+                    StaggerResistDelta       = stat.StaggerResistDelta,
+                    SpinResistDelta          = stat.SpinResistDelta,
+                    SleepResistDelta         = stat.SleepResistDelta,
+                    FearResistDelta          = stat.FearResistDelta,
+                    OpenAerialResistDelta    = stat.OpenAerialResistDelta,
+                    RootResistDelta          = stat.RootResistDelta,
+                    SnareResistDelta         = stat.SnareResistDelta,
                     // M334: one-time crit/atk boost charges
                     OnetimeCritCountRemaining = template.Effects?.OnetimeCritCount ?? 0,
                     OnetimeCritBoostFlat      = template.Effects?.OnetimeCritIsPercent == true ? 0 : (template.Effects?.OnetimeCritValue ?? 0),
@@ -1126,7 +981,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
                 }
 
-                if (atkSpeedStatUpDelta != 0)
+                if (stat.AtkSpeedStatUpDeltaVal != 0)
                 {
                     var atkSpdEmo = new SM_EMOTION(buffTarget, EmotionType.START_EMOTE2);
                     int atkSpdWorld = player.Position.WorldId;
@@ -1134,9 +989,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (c.ActivePlayer?.Position.WorldId == atkSpdWorld)
                             try { await c.SendAsync(atkSpdEmo, ct); } catch { }
                 }
-                if (speedStatUpPct != 0)
+                if (stat.SpeedStatUpPct != 0)
                 {
-                    buffTarget.MovementSpeed = Math.Min(12.0f, buffTarget.MovementSpeed * (100 + speedStatUpPct) / 100f);
+                    buffTarget.MovementSpeed = Math.Min(12.0f, buffTarget.MovementSpeed * (100 + stat.SpeedStatUpPct) / 100f);
                     var speedEmo = new SM_EMOTION(buffTarget, EmotionType.START_EMOTE2);
                     int speedWorld = player.Position.WorldId;
                     foreach (var c in _connRegistry.GetAll())
@@ -1144,9 +999,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             try { await c.SendAsync(speedEmo, ct); } catch { }
                 }
                 // M351: apply FLY_SPEED PERCENT buff — additive pct to BonusFlySpeedPct
-                if (flySpeedStatUpPct != 0 && buffTarget is Player flySpeedBuffTarget)
-                    flySpeedBuffTarget.BonusFlySpeedPct += flySpeedStatUpPct;
-                if ((maxHpStatUpDelta != 0 || maxMpStatUpDelta != 0 || mBoostStatUpDelta != 0 || healBoostStatUpDelta != 0 || physAccStatUpDelta != 0 || magicAccStatUpDelta != 0 || parryStatUpDelta != 0 || blockStatUpDelta != 0 || physCritStatUpDelta != 0 || magicCritStatUpDelta != 0 || physCritResistStatUpDelta != 0 || magicCritResistStatUpDelta != 0 || strikeFortitudeStatUpDelta != 0 || spellFortitudeStatUpDelta != 0 || castTimeStatUpDelta != 0 || concentrationStatUpDelta != 0 || magicSuppressionStatUpDelta != 0 || pdefStatUpDelta != 0 || magicDefStatUpDelta != 0 || patkStatUpDelta != 0 || magicAtkStatUpDelta != 0 || evasionStatUpDelta != 0 || mresistStatUpDelta != 0 || atkSpeedStatUpDelta != 0) && buffTarget is Player statUpPlayer)
+                if (stat.FlySpeedStatUpPct != 0 && buffTarget is Player flySpeedBuffTarget)
+                    flySpeedBuffTarget.BonusFlySpeedPct += stat.FlySpeedStatUpPct;
+                if ((stat.MaxHpDelta != 0 || stat.MaxMpDelta != 0 || stat.MagicBoostDeltaVal != 0 || stat.HealBoostDeltaVal != 0 || stat.PhysAccDeltaVal != 0 || stat.MagicAccDeltaVal != 0 || stat.ParryDeltaVal != 0 || stat.BlockDeltaVal != 0 || stat.PhysCritDeltaVal != 0 || stat.MagicCritDeltaVal != 0 || stat.PhysCritResistDeltaVal != 0 || stat.MagicCritResistDeltaVal != 0 || stat.StrikeFortitudeDeltaVal != 0 || stat.SpellFortitudeDeltaVal != 0 || stat.CastTimeDeltaVal != 0 || stat.ConcentrationDeltaVal != 0 || stat.MagicSuppressionDeltaVal != 0 || stat.PdefStatUpDeltaVal != 0 || stat.MagicDefDeltaVal != 0 || stat.PatkStatUpDeltaVal != 0 || stat.MagicAtkStatUpDeltaVal != 0 || stat.EvasionStatUpDeltaVal != 0 || stat.MResistStatUpDeltaVal != 0 || stat.AtkSpeedStatUpDeltaVal != 0) && buffTarget is Player statUpPlayer)
                 {
                     var statsInfoBuff = new SM_STATS_INFO(statUpPlayer, _dataManager.PlayerStats.GetTemplate(statUpPlayer.PlayerClass, statUpPlayer.Level));
                     var statUpConn = _connRegistry.GetAll().FirstOrDefault(c => c.ActivePlayer == statUpPlayer);
