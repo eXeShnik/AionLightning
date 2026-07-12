@@ -4823,3 +4823,7 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   - Build 0/0; all 190 scripts still discover. Deferred within 0.3: onAtDistance/zone-shape,
     follow/escort AI (pairs with C3 FOLLOWING gap). Unblocks a 2nd fleet pass over the ~140
     deferred quests that needed onAttack / side-drop / timer.
+
+- [x] **C2 Phase 5 Theobomos** (2026-07-12, fleet, post-0.3): 22 quests, probe 22/22. Elyos 40s.
+  First zone to use Batch 0.3 hooks live (3057 OnAttack, 3082 SpawnQuestNpc). Fixed 8 latent Java
+  dead-code branches. 22 deferred (escort/zone-shape/instance + a not-reviewed remainder).
