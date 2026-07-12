@@ -4945,8 +4945,16 @@ colliding with the M1–M380 effect-coverage milestones above.
     StatEffectCalculator.Compute -> StatDeltaSet (Combat/Effects/). Behavior-identical relocation,
     verified by scratchpad/sprobe parity harness (3/3 asserts, 10,816 templates, 0 exceptions).
     Harness is the parity oracle for subsequent family extractions.
-  - [ ] **S4b+** remaining families: heal/HoT, DoT, CC, dispel, shield, taunt, signet (same extract-
-    to-calculator + harness pattern); net-new summon/trap/resurrect families last.
+  - [x] **S4b** (commit 97afbe91): DoT per-tick damage extracted to pure DotDamageCalculator.ComputePerTick
+    + shared ElementalResist.Get, de-duplicating 4 inline sites (AoE/ground, splash, main, launcher).
+    The 4 sites were NOT identical — preserved verbatim via two flags. Harness 10/10, 765 dot effects, 0 exc.
+    **Suspected latent DoT inconsistencies (faithful-to-Java review candidates, NOT changed):**
+    (1) main single-target + launcher DoTs omit the PassiveBonusSpellAttackPct multiplier that AoE/splash apply;
+    (2) launcher DoT skips elemental-resist mitigation entirely. Check the Java skillengine before unifying.
+  - [ ] **S4c** (in progress): heal/HoT/drain amount → HealAmountCalculator + DrainCalculator. Note A2 vs A5
+    HoT level asymmetry (A5 uses level-1); A3 fallback stays inline (Random.Shared).
+  - [ ] **S4d** remaining: CC/debuff-stat build → DebuffEffectCalculator (symmetric to StatEffectCalculator);
+    then dispel, shield, taunt, signet; net-new summon/trap/resurrect families last.
 - [ ] **S5 Central periodic scheduler** (DoT/HoT/toggle upkeep; replace fire-and-forget Task.Run).
 - [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
 - [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
