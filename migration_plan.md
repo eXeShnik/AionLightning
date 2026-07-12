@@ -4888,3 +4888,16 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
 
 - [x] **C2 Phase 5 Katalam** (2026-07-12, fleet): 27 quests, probe 27/27. Endgame zone. (Agent hit
   context limit mid-batch; 27 completed files all compile clean, committed as-is.)
+
+- [x] **C2 Phase 5 Reshanta** (2026-07-12, fleet): 37 quests, probe 37/37. The Abyss (PvPvE).
+  (Agent hit context limit mid-batch; 37 completed files all compile clean, committed as-is.)
+- **Phase 5 tally (2026-07-12, end of wave 3, 20 zones)**: 531 hand-written quests committed.
+  Zones: poeta14 ishalgen17 verteron25 altgard33 eltnen33 morheim29 heiron19 beluslan20
+  theobomos22 brusthonin20 gelkmaros36 inggison30 pandaemonium40 sanctum35 ascension14
+  greaterstigma17 danaria14 sarpan28 tiamaranta21 katalam27 reshanta37. Full 1-60 both factions +
+  capitals + Abyss + class progression. ~35+ latent Java bugs fixed.
+  TOP INFRA GAPS (ranked by quests unblocked): (1) zone-shape/onEnterZone polygon system —
+  biggest, recurs everywhere; (2) ClassChangeService + ascension instance (L10 gate, every char);
+  (3) follow/escort AI; (4) repeatable-quest model (canRepeat). Remaining zones: instances
+  (beshmundir/fort_tiamat/many dungeons), events(90), crafting(52), rider(79)/hero(20), + 2nd-pass
+  deferred sweeps.
