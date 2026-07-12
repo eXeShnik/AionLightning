@@ -5054,3 +5054,17 @@ Daevanion-weapon quests (daevation _1989/_1990/_2989/_2990/_80291/_80295 + likel
 in quest_data.xml. QuestTemplate/QuestRewardService only model a flat `<selectable_reward_item>` list.
 Need class-keyed selectable-reward support before these can be faithfully ported (else they'd silently
 grant EXP only and drop the gear). Smaller than onEnterZone but real.
+
+## onEnterZone / ZoneService DONE + quest fleet 3 (2026-07-12 late) — commit c01e8c64
+Built the onEnterZone subsystem (the #1 unblocker): ZoneRegion (polygon/cylinder/sphere, Java-faithful),
+ZoneData loader (runtime confirms 4246 regions across 148 worlds), ZoneService on CM_MOVE,
+QuestEngine.OnEnterZoneAsync + RegisterOnEnterZone, QuestHandlerBase hook. Zone name strings match Java
+ZoneName.get() args (NAME_WORLDID). Quest fleet 3 added 38 more (fenris_fang 9, elementis_forest 8,
+steel_rake 8 stubs, talocs_hollow 7, idian_depths 6). **Total 893 quests across 38 zones.**
+Full stack verified live: Login/Chat/Game up, 893 quests compiled, ZoneService active.
+
+### NEXT: onEnterZone-quest backlog fleet
+Now that the hook exists, port the ~150 previously-skipped zone-gated quests: rider_quests (73, was 0),
+danaria PvP, tiamaranta, katalam bounties (onEnterZone part), heiron 1500s, and the 2-3 skipped in each
+instance zone. Port pattern: Java `registerOnEnterZone(ZoneName.get("X"))` -> `RegisterOnEnterZone(engine,"X")`;
+`onEnterZoneEvent(env,zoneName)` -> override `OnEnterZoneAsync(env, zoneName, conn, ct)` with `if (zoneName=="X")`.
