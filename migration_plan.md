@@ -4861,3 +4861,10 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   the port. **GAMEPLAY GAP: no class ascension at all yet** — characters are stuck in their
   starting class. This is a discrete missing subsystem, not a quest problem; worth a dedicated
   task (ClassChangeService + the ascension instance flow) since every character hits it at L10.
+
+- [x] **C2 Phase 5 Greater Stigma** (2026-07-12, fleet): 17/17 quests (100% of zone), probe 17/17.
+  Stigma-slot unlock quests. Fixed 4 missing-break fallthrough bugs. Notes for future cleanup:
+  (1) SendQuestStartDialogAsync doesn't handle QUEST_ACCEPT_SIMPLE — 4 scripts inline the flow;
+  add it to the base helper. (2) canRepeat() approximated as "no active entry" across ~7 zones
+  now — a real repeatable-quest gap (needs nextRepeatTime + CompleteCount reset). (3) skill-use
+  effects that iterate all world NPCs / delete NPCs are no-ops (no world-NPC-scan API / controller).
