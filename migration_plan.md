@@ -5006,10 +5006,12 @@ creatures, never a reduced formula). Fixed in commit 968979eb:
 - [skip] DM-2: S2/S6 fixed-1.5x crit w/o crit-resist — MOOT (both sites NPC-only; C# reads crit-
   resist/fortitude only from Player targets). Underlying NPC-crit-resist modelling is a separate gap.
 
-### OPEN systemic parity ticket — Delta*(level-1) vs Java Delta*skillLevel
-The ENTIRE C# port scales skill values as `Base + Delta*(_level-1)`; Java DamageEffect/BleedEffect use
-`value + delta*skillLevel`. If Java's skillLevel is 1-indexed the same as C# _level, every skill value
-is under-scaled by one Delta step port-wide (damage, DoT, heal, buff deltas — StatEffectCalculator etc.
-all use level-1). NEEDS a dedicated read-only investigation of Java skillLvl semantics + the
-skill_templates data model (is level 1 == BaseValue, or BaseValue+Delta?) before any change — a
-port-wide fix would be a large, risky behavior change. Do NOT change blindly.
+### [x] RESOLVED — Delta*(level-1) under-scaling (commit 13a6094f)
+Read-only Java investigation returned verdict A: genuine port-wide bug. Java uses `value +
+delta*skillLevel` (1-indexed, never decremented) across all ~40 effect classes + MpUseAction/MpCondition.
+Corroborated by the port's OWN internal inconsistency — DoT/shield/mp-shield/proc/instant-heal already
+used `*_level` (correct). Fixed the 20 `Delta*(_level-1)` sites in CM_CASTSPELL -> `*_level` and unified
+the buff-path HoT. BALANCE: raises affected skill damage/cost by one delta (largest at skillLevel 1);
+restores Java parity. Residual caveat (strongly supported, not packet-verified): client echoes the
+1-indexed learned level in CM_CASTSPELL. StatEffectCalculator buff deltas untouched (per-level templates,
+delta usually 0).
