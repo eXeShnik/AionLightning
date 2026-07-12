@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using AionLightning.Game.Combat.Effects;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Templates.Npc;
 using AionLightning.Game.Model.Templates.Skill;
+using AionLightning.Game.Services;
 
 // Effect-parity harness: the oracle for the S4 effect-engine extraction. Loads the real 4.6 skill
 // data, runs each extracted pure calculator against representative skills, asserts the computed
@@ -385,8 +387,140 @@ int sdPassed = 0, sdTotal = 0;
 
 Console.WriteLine($"HARNESS (SkillDamageCalculator): {sdPassed}/{sdTotal} assertions passed");
 
-int totalPassed = passed + debuffPassed + dotPassed + healPassed + drainPassed + sdPassed;
-int totalAssertions = total + debuffTotal + dotTotal + healTotal + drainTotal + sdTotal;
+// --- EffectTickScheduler (S5a) ---
+// Deterministic scheduler test: drives ProcessDueAsync directly with synthetic timestamps (no real
+// PeriodicTimer/host involved), so tick/stop counts are exact and reproducible. Each scenario gets its
+// own scheduler + dummy Npc pair so counters can't leak between scenarios.
+// Note: Register() stamps NextDueUtc from its own internal DateTime.UtcNow read, which lands a hair
+// after this test's captured `now`. JitterMs is a safety margin (comfortably larger than the
+// sub-millisecond gap between the two calls) so "now + intervalMs" checks are reliably due without
+// making the assertions timing-flaky.
+const int JitterMs = 50;
+
+static Npc MakeAliveNpc()
+{
+    var npc = MakeNpc();
+    npc.MaxHp = 100;
+    npc.CurrentHp = 100;
+    return npc;
+}
+
+int schedPassed = 0, schedTotal = 0;
+var schedLogger = loggerFactory.CreateLogger<EffectTickScheduler>();
+
+void CheckSched(string label, bool ok)
+{
+    schedTotal++;
+    if (ok) schedPassed++;
+    Console.WriteLine($"  [EffectTickScheduler] {label}: {(ok ? "PASS" : "FAIL")}");
+}
+
+// Scenario 1: interval ticks fire on every due wake, then EndUtc stops the slot exactly once.
+{
+    var scheduler = new EffectTickScheduler(schedLogger);
+    var effected = MakeAliveNpc();
+    var effector = MakeAliveNpc();
+    var effect = new AbnormalState { SkillId = 100, Expiry = DateTime.UtcNow.AddSeconds(10) };
+    effected.AddEffect(effect);
+
+    int ticks = 0, stops = 0;
+    var now = DateTime.UtcNow;
+    scheduler.Register(effected, effector, effect, 100, 1000, now.AddMilliseconds(5500 + JitterMs),
+        onTick: _ => { ticks++; return ValueTask.CompletedTask; },
+        onStop: _ => { stops++; return ValueTask.CompletedTask; });
+
+    foreach (var offsetMs in new[] { 1000, 2000, 3000, 4000, 5000 })
+        await scheduler.ProcessDueAsync(now.AddMilliseconds(offsetMs + JitterMs));
+    CheckSched("5 due wakes fire exactly 5 onTick calls", ticks == 5 && stops == 0);
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(6000 + JitterMs));
+    CheckSched("past EndUtc fires onStop exactly once and drops the slot", ticks == 5 && stops == 1);
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(7000 + JitterMs));
+    CheckSched("dropped slot fires nothing further", ticks == 5 && stops == 1);
+}
+
+// Scenario 2: explicit Cancel after 2 ticks stops the slot on the next ProcessDueAsync.
+{
+    var scheduler = new EffectTickScheduler(schedLogger);
+    var effected = MakeAliveNpc();
+    var effector = MakeAliveNpc();
+    var effect = new AbnormalState { SkillId = 101, Expiry = DateTime.UtcNow.AddSeconds(10) };
+    effected.AddEffect(effect);
+
+    int ticks = 0, stops = 0;
+    var now = DateTime.UtcNow;
+    int handle = scheduler.Register(effected, effector, effect, 101, 1000, now.AddSeconds(10),
+        onTick: _ => { ticks++; return ValueTask.CompletedTask; },
+        onStop: _ => { stops++; return ValueTask.CompletedTask; });
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(1000 + JitterMs));
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(2000 + JitterMs));
+    CheckSched("2 ticks fired before cancel", ticks == 2 && stops == 0);
+
+    scheduler.Cancel(handle);
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(3000 + JitterMs));
+    CheckSched("Cancel fires onStop exactly once and no further onTick", ticks == 2 && stops == 1);
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(4000 + JitterMs));
+    CheckSched("cancelled slot stays dropped", ticks == 2 && stops == 1);
+}
+
+// Scenario 3: dispel — the effect is removed from the creature's active-effect list via the real
+// Creature API (RemoveEffectBySkillId, which now also calls CancelForEffect — the S5a wiring under
+// test). Ticking must not resume regardless of which scheduler guard catches the removal first.
+{
+    var scheduler = new EffectTickScheduler(schedLogger);
+    var effected = MakeAliveNpc();
+    var effector = MakeAliveNpc();
+    var effect = new AbnormalState { SkillId = 102, Expiry = DateTime.UtcNow.AddSeconds(10) };
+    effected.AddEffect(effect);
+
+    int ticks = 0;
+    var now = DateTime.UtcNow;
+    scheduler.Register(effected, effector, effect, 102, 1000, now.AddSeconds(10),
+        onTick: _ => { ticks++; return ValueTask.CompletedTask; });
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(1000 + JitterMs));
+    CheckSched("1 tick fired before dispel", ticks == 1);
+
+    effected.RemoveEffectBySkillId(102);
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(2000 + JitterMs));
+    CheckSched("dispel (RemoveEffectBySkillId) stops further ticks", ticks == 1);
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(3000 + JitterMs));
+    CheckSched("dispelled slot stays dropped", ticks == 1);
+}
+
+// Scenario 4: the effected creature dies — the death guard stops the slot on the next ProcessDueAsync.
+{
+    var scheduler = new EffectTickScheduler(schedLogger);
+    var effected = MakeAliveNpc();
+    var effector = MakeAliveNpc();
+    var effect = new AbnormalState { SkillId = 103, Expiry = DateTime.UtcNow.AddSeconds(10) };
+    effected.AddEffect(effect);
+
+    int ticks = 0, stops = 0;
+    var now = DateTime.UtcNow;
+    scheduler.Register(effected, effector, effect, 103, 1000, now.AddSeconds(10),
+        onTick: _ => { ticks++; return ValueTask.CompletedTask; },
+        onStop: _ => { stops++; return ValueTask.CompletedTask; });
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(1000 + JitterMs));
+    CheckSched("1 tick fired before death", ticks == 1 && stops == 0);
+
+    effected.CurrentHp = 0;
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(2000 + JitterMs));
+    CheckSched("death fires onStop exactly once and drops the slot", ticks == 1 && stops == 1);
+
+    await scheduler.ProcessDueAsync(now.AddMilliseconds(3000 + JitterMs));
+    CheckSched("dead-stopped slot stays dropped", ticks == 1 && stops == 1);
+}
+
+Console.WriteLine($"HARNESS (EffectTickScheduler): {schedPassed}/{schedTotal} assertions passed");
+
+int totalPassed = passed + debuffPassed + dotPassed + healPassed + drainPassed + sdPassed + schedPassed;
+int totalAssertions = total + debuffTotal + dotTotal + healTotal + drainTotal + sdTotal + schedTotal;
 int totalExceptions = exceptions + debuffExceptions + dotExceptions + healExceptions;
 Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {debuffScanned} debuff templates scanned, {dotScanned} dot effects scanned, {healScanned} heal/hot effects scanned, {totalExceptions} exceptions");
 return totalPassed == totalAssertions && totalExceptions == 0 ? 0 : 1;

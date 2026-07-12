@@ -1,3 +1,5 @@
+using AionLightning.Game.Services;
+
 namespace AionLightning.Game.Model;
 
 public abstract class Creature : VisibleObject
@@ -129,23 +131,31 @@ public abstract class Creature : VisibleObject
 
     public void RemoveEffect(int skillId, DateTime expiry)
     {
+        List<AbnormalState> removed;
         lock (_effectsLock)
         {
+            removed = _activeEffects.Where(e => e.SkillId == skillId && e.Expiry == expiry).ToList();
             _activeEffects.RemoveAll(e => e.SkillId == skillId && e.Expiry == expiry);
             ActiveCcFlags = RebuildCcFlags();
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     public void RemoveEffectBySkillId(int skillId)
     {
+        var removed = new List<AbnormalState>();
         lock (_effectsLock)
         {
             for (int i = _activeEffects.Count - 1; i >= 0; i--)
                 if (_activeEffects[i].SkillId == skillId)
+                {
                     ReverseEffectDeltas(_activeEffects[i]);
+                    removed.Add(_activeEffects[i]);
+                }
             _activeEffects.RemoveAll(e => e.SkillId == skillId);
             ActiveCcFlags = RebuildCcFlags();
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     // M289: locate first non-expired effect by stack group name (e.g. "SYSTEM_SKILL_SIGNET1")
@@ -159,37 +169,48 @@ public abstract class Creature : VisibleObject
     // M289: remove all effects matching a stack group name and reverse their deltas (idempotent)
     public void RemoveEffectByStack(string stackName)
     {
+        var removed = new List<AbnormalState>();
         lock (_effectsLock)
         {
             for (int i = _activeEffects.Count - 1; i >= 0; i--)
                 if (string.Equals(_activeEffects[i].StackName, stackName, StringComparison.Ordinal))
+                {
                     ReverseEffectDeltas(_activeEffects[i]);
+                    removed.Add(_activeEffects[i]);
+                }
             _activeEffects.RemoveAll(e =>
                 string.Equals(e.StackName, stackName, StringComparison.Ordinal));
             ActiveCcFlags = RebuildCcFlags();
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     public void ClearAllEffects()
     {
+        List<AbnormalState> removed;
         lock (_effectsLock)
         {
+            removed = new List<AbnormalState>(_activeEffects);
             for (int i = _activeEffects.Count - 1; i >= 0; i--)
                 ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.Clear();
             ActiveCcFlags = AbnormalCcFlags.None;
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     public void ClearDebuffs()
     {
+        List<AbnormalState> removed;
         lock (_effectsLock)
         {
+            removed = _activeEffects.Where(e => e.IsDebuff).ToList();
             for (int i = _activeEffects.Count - 1; i >= 0; i--)
                 if (_activeEffects[i].IsDebuff) ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.RemoveAll(e => e.IsDebuff);
             ActiveCcFlags = RebuildCcFlags();
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     // M380: Remove up to maxCount debuffs whose DispelCategory matches dispelCat and whose ReqDispelLevel <= dispelLevel.
@@ -198,10 +219,11 @@ public abstract class Creature : VisibleObject
     // Permanent effects (Expiry == DateTime.MaxValue) are never dispellable.
     public void ClearDebuffsByCategory(string dispelCat, int maxCount, int dispelLevel)
     {
+        var removed = new List<AbnormalState>();
         lock (_effectsLock)
         {
-            int removed = 0;
-            for (int i = _activeEffects.Count - 1; i >= 0 && removed < maxCount; i--)
+            int removedCount = 0;
+            for (int i = _activeEffects.Count - 1; i >= 0 && removedCount < maxCount; i--)
             {
                 var e = _activeEffects[i];
                 if (!e.IsDebuff) continue;
@@ -213,21 +235,26 @@ public abstract class Creature : VisibleObject
                 if (!catMatch) continue;
                 ReverseEffectDeltas(e);
                 _activeEffects.RemoveAt(i);
-                removed++;
+                removed.Add(e);
+                removedCount++;
             }
             ActiveCcFlags = RebuildCcFlags();
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     public void ClearBuffs()
     {
+        List<AbnormalState> removed;
         lock (_effectsLock)
         {
+            removed = _activeEffects.Where(e => !e.IsDebuff && !e.IsSanctuary).ToList();
             for (int i = _activeEffects.Count - 1; i >= 0; i--)
                 if (!_activeEffects[i].IsDebuff && !_activeEffects[i].IsSanctuary) ReverseEffectDeltas(_activeEffects[i]);
             _activeEffects.RemoveAll(e => !e.IsDebuff && !e.IsSanctuary);
             ActiveCcFlags = RebuildCcFlags();
         }
+        foreach (var e in removed) EffectTickScheduler.Instance?.CancelForEffect(e);
     }
 
     internal void ApplyEffectDeltas(AbnormalState e)

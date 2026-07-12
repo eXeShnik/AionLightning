@@ -131,6 +131,8 @@ builder.Services.AddSingleton<SummonsService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NpcAiService>());
+builder.Services.AddSingleton<EffectTickScheduler>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<EffectTickScheduler>());
 builder.Services.AddSingleton<AuraChildApplier>();
 builder.Services.AddSingleton<PlayerEnterWorldService>();
 builder.Services.AddHostedService<AutoSaveService>();

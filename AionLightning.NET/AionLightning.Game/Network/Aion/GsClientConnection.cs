@@ -198,6 +198,10 @@ public sealed class GsClientConnection : AConnection
         _connRegistry.Unregister(player.ObjectId);
         _world.Remove(player);
 
+        // Stop any scheduled effect ticks (DoT/HoT) still running against this player — otherwise they
+        // leak until natural expiry since the player is no longer reachable via the world/registry.
+        EffectTickScheduler.Instance?.CancelAllFor(player);
+
         // M381: LOGOUT unsummon — delete silently (no packets to the now-gone owner), SM_DELETE to zone
         if (player.Summon is { } activeSummon)
         {

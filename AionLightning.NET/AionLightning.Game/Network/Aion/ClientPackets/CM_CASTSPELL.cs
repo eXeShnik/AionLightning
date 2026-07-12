@@ -32,6 +32,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
     private readonly AuraChildApplier _auraApplier;
     private readonly QuestEngineType _questEngine;
     private readonly SummonsService _summonsService;
+    private readonly EffectTickScheduler _effectTickScheduler;
 
     private int _spellId;
     private int _level;
@@ -45,7 +46,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
         ExperienceService expService, SpawnService spawnService, LootService lootService,
         QuestService questService, DuelService duelService, NpcAiService npcAi,
         IPlayerDao playerDao, ILegionDao legionDao, IEventBus eventBus,
-        AuraChildApplier auraApplier, QuestEngineType questEngine, SummonsService summonsService)
+        AuraChildApplier auraApplier, QuestEngineType questEngine, SummonsService summonsService,
+        EffectTickScheduler effectTickScheduler)
     {
         _conn         = conn;
         _world        = world;
@@ -63,6 +65,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
         _auraApplier  = auraApplier;
         _questEngine  = questEngine;
         _summonsService = summonsService;
+        _effectTickScheduler = effectTickScheduler;
     }
 
     public override void Read(ref PacketReader r)
@@ -2716,44 +2719,41 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(dotAbnormal); } catch { }
 
-                        // Schedule periodic ticks then expiry removal
-                        var tickTarget  = target;
-                        var tickEffect  = dotEffect;
-                        var tickCaster  = player;
-                        var tickInfo    = dot;
-                        var tickLogId   = dot.DotType switch
+                        // S5a: scheduled centrally via EffectTickScheduler (replaces the old fire-and-forget
+                        // Task.Run tick loop) so dispel/expiry/death/logout can positively cancel outstanding
+                        // ticks instead of the loop only noticing on its own next wake.
+                        var tickInfo  = dot;
+                        var tickLogId = dot.DotType switch
                         {
                             "bleed"         => SM_ATTACK_STATUS.LogId.Bleed,
                             "spellatk"      => SM_ATTACK_STATUS.LogId.SpellAtk,
                             "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
                             _               => SM_ATTACK_STATUS.LogId.Poison,
                         };
-                        _ = Task.Run(async () =>
-                        {
-                            while (!tickTarget.IsAlreadyDead && DateTime.UtcNow < tickEffect.Expiry)
+                        _effectTickScheduler.Register(target, player, dotEffect, spellId, tickInfo.CheckTimeMs, dotExpiry,
+                            onTick: async ctx =>
                             {
-                                await Task.Delay(tickInfo.CheckTimeMs);
-                                if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
-
-                                await tickTarget.ApplyDamageAndPublishAsync(tickCaster, dmgPerTick, DamageKind.DoTTick, spellId, _eventBus);
+                                await ctx.Effected.ApplyDamageAndPublishAsync(ctx.Effector, dmgPerTick, DamageKind.DoTTick, ctx.SkillId, _eventBus);
                                 if (tickInfo.HpPercent != 0)
-                                    tickCaster.CurrentHp = Math.Min(tickCaster.MaxHp, tickCaster.CurrentHp + dmgPerTick * tickInfo.HpPercent / 100);
+                                    ctx.Effector.CurrentHp = Math.Min(ctx.Effector.MaxHp, ctx.Effector.CurrentHp + dmgPerTick * tickInfo.HpPercent / 100);
                                 if (tickInfo.MpPercent != 0)
-                                    tickCaster.CurrentMp = Math.Min(tickCaster.MaxMp, tickCaster.CurrentMp + dmgPerTick * tickInfo.MpPercent / 100);
-                                var tickPkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dmgPerTick, tickLogId);
-                                int tickWorld = tickTarget.Position.WorldId;
+                                    ctx.Effector.CurrentMp = Math.Min(ctx.Effector.MaxMp, ctx.Effector.CurrentMp + dmgPerTick * tickInfo.MpPercent / 100);
+                                var tickPkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.Damage, ctx.SkillId, dmgPerTick, tickLogId);
+                                int tickWorld = ctx.Effected.Position.WorldId;
                                 foreach (var c in registry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == tickWorld)
                                         try { await c.SendAsync(tickPkt); } catch { }
-                            }
-                            tickTarget.RemoveEffect(tickEffect.SkillId, tickEffect.Expiry);
-                            var expiredDot = new SM_ABNORMAL_EFFECT(tickTarget.ObjectId, dotTargetIsPlayer,
-                                                tickTarget.GetActiveEffects());
-                            int dotExpWorld = tickTarget.Position.WorldId;
-                            foreach (var c in registry.GetAll())
-                                if (c.ActivePlayer?.Position.WorldId == dotExpWorld)
-                                    try { await c.SendAsync(expiredDot); } catch { }
-                        });
+                            },
+                            onStop: async ctx =>
+                            {
+                                ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                var expiredDot = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, dotTargetIsPlayer,
+                                                    ctx.Effected.GetActiveEffects());
+                                int dotExpWorld = ctx.Effected.Position.WorldId;
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == dotExpWorld)
+                                        try { await c.SendAsync(expiredDot); } catch { }
+                            });
                     }
                 }
 
