@@ -4868,3 +4868,13 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   add it to the base helper. (2) canRepeat() approximated as "no active entry" across ~7 zones
   now — a real repeatable-quest gap (needs nextRepeatTime + CompleteCount reset). (3) skill-use
   effects that iterate all world NPCs / delete NPCs are no-ops (no world-NPC-scan API / controller).
+
+- [x] **C2 Phase 5 Danaria** (2026-07-12, fleet): 14/42 quests, probe 14/14. Katalam-region PvP
+  zone (worldId 600060000). Fixed 2 missing-break fallthrough bugs. 28 deferred — heavily
+  zone-shape: **20 identical enter-zone+kill-in-world PvP quests** all blocked on the same missing
+  zone-polygon system. SIGNAL: a zone-shape/onEnterZone subsystem would unblock a very large
+  number of quests across Danaria + many other zones (it's the single most common deferral).
+  Also: agent noted ChangeQuestStepAsync writes nextStep even when reward=true, but Java's
+  changeQuestStep ignores nextStep in the reward branch — minor divergence, only matters when
+  reward=true && nextStep!=step; 2 Danaria scripts port raw var writes to match Java. Consider
+  aligning the shared helper.
