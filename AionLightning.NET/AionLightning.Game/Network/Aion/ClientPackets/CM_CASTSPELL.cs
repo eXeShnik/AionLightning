@@ -1632,29 +1632,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var dot in aoeDotsG)
                         {
                             int dotLvG    = _level;
-                            int rawDotG   = dot.BaseValue + dot.Delta * dotLvG;
-                            int dotTickDmg;
-                            if (dot.DotType == "spellatk")
-                            {
-                                int mAtkDotG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
-                                int dotSuppG = target is Player dotPvpG ? dotPvpG.BonusMagicSuppression + dotPvpG.MagicSuppressionDelta
-                                            : target is Npc dotNpcG ? (dotNpcG.Template.Stats?.MBResist ?? 0) : 0;
-                                float dotMbG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - dotSuppG) / 1000f;
-                                int dotRawG  = (int)((mAtkDotG + rawDotG) * dotMbG);
-                                if (player.PassiveBonusSpellAttackPct > 0)
-                                    dotRawG = (int)(dotRawG * (1f + player.PassiveBonusSpellAttackPct / 100f));
-                                int dotDefG  = target is Player dotDefPvpG ? dotDefPvpG.MagicDefense + dotDefPvpG.MagicDefDelta
-                                            : target is Npc dotDefNpcG ? (dotDefNpcG.Template.Stats?.MBResist ?? 0) : 0;
-                                dotTickDmg = Math.Max(1, dotDefG > 0 ? dotRawG * 1000 / (1000 + dotDefG) : dotRawG);
-                            }
-                            else
-                            {
-                                // M343: elemental resistance for bleed/poison/disease DoT ticks
-                                int gAoeElemDot = GetElementalResist(target, dot.Element);
-                                dotTickDmg = gAoeElemDot > 0
-                                    ? Math.Max(1, (int)(rawDotG * (1f - gAoeElemDot / 1250f)))
-                                    : Math.Max(1, rawDotG);
-                            }
+                            int dotTickDmg = DotDamageCalculator.ComputePerTick(dot, player, target, dotLvG,
+                                applyPassiveSpellAttackBonus: true, applyElementalResist: true);
                             var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                             var dotEffect  = new AbnormalState
                             {
@@ -2615,27 +2594,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             foreach (var dot in splashDots)
                             {
                                 int dotLvSpl   = _level;
-                                int rawDotSpl  = dot.BaseValue + dot.Delta * dotLvSpl;
-                                int dotTickDmg;
-                                if (dot.DotType == "spellatk")
-                                {
-                                    int mAtkDotSpl = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
-                                    int dotSuppSpl = splash.Template.Stats?.MBResist ?? 0;
-                                    float dotMbSpl = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - dotSuppSpl) / 1000f;
-                                    int dotRawSpl  = (int)((mAtkDotSpl + rawDotSpl) * dotMbSpl);
-                                    if (player.PassiveBonusSpellAttackPct > 0)
-                                        dotRawSpl = (int)(dotRawSpl * (1f + player.PassiveBonusSpellAttackPct / 100f));
-                                    int dotDefSpl  = splash.Template.Stats?.MBResist ?? 0;
-                                    dotTickDmg = Math.Max(1, dotDefSpl > 0 ? dotRawSpl * 1000 / (1000 + dotDefSpl) : dotRawSpl);
-                                }
-                                else
-                                {
-                                    // M343: elemental resistance for bleed/poison/disease DoT ticks
-                                    int splElemDot = GetElementalResist(splash, dot.Element);
-                                    dotTickDmg = splElemDot > 0
-                                        ? Math.Max(1, (int)(rawDotSpl * (1f - splElemDot / 1250f)))
-                                        : Math.Max(1, rawDotSpl);
-                                }
+                                int dotTickDmg = DotDamageCalculator.ComputePerTick(dot, player, splash, dotLvSpl,
+                                    applyPassiveSpellAttackBonus: true, applyElementalResist: true);
                                 var dotExpiry   = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                                 var dotEffect   = new AbnormalState
                                 {
@@ -2993,27 +2953,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var dot in dots)
                     {
                         int skillLv   = _level;
-                        int rawDotSt  = dot.BaseValue + dot.Delta * skillLv;
-                        int dmgPerTick;
-                        if (dot.DotType == "spellatk")
-                        {
-                            int mAtkDotSt = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
-                            int dotSuppSt = target is Player dotPvpSt ? dotPvpSt.BonusMagicSuppression + dotPvpSt.MagicSuppressionDelta
-                                          : target is Npc dotNpcSt ? (dotNpcSt.Template.Stats?.MBResist ?? 0) : 0;
-                            float dotMbSt = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - dotSuppSt) / 1000f;
-                            int dotRawSt  = (int)((mAtkDotSt + rawDotSt) * dotMbSt);
-                            int dotDefSt  = target is Player dotDefPvpSt ? dotDefPvpSt.MagicDefense + dotDefPvpSt.MagicDefDelta
-                                          : target is Npc dotDefNpcSt ? (dotDefNpcSt.Template.Stats?.MBResist ?? 0) : 0;
-                            dmgPerTick = Math.Max(1, dotDefSt > 0 ? dotRawSt * 1000 / (1000 + dotDefSt) : dotRawSt);
-                        }
-                        else
-                        {
-                            // M343: elemental resistance for bleed/poison/disease DoT ticks
-                            int stElemDot = GetElementalResist(target, dot.Element);
-                            dmgPerTick = stElemDot > 0
-                                ? Math.Max(1, (int)(rawDotSt * (1f - stElemDot / 1250f)))
-                                : Math.Max(1, rawDotSt);
-                        }
+                        int dmgPerTick = DotDamageCalculator.ComputePerTick(dot, player, target, skillLv,
+                            applyPassiveSpellAttackBonus: false, applyElementalResist: true);
                         var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                         var dotEffect  = new AbnormalState
                         {
@@ -3087,21 +3028,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var lDot in launcherDots)
                         {
                             int lSkillLv    = _level;
-                            int lRawDotVal  = lDot.BaseValue + lDot.Delta * lSkillLv;
-                            int lDmgPerTick;
-                            if (lDot.DotType == "spellatk")
-                            {
-                                int lMAtk   = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
-                                int lSupp   = target is Player lPvpT ? lPvpT.BonusMagicSuppression + lPvpT.MagicSuppressionDelta
-                                            : target is Npc lNpcT   ? (lNpcT.Template.Stats?.MBResist ?? 0) : 0;
-                                float lMb   = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - lSupp) / 1000f;
-                                int lRaw    = (int)((lMAtk + lRawDotVal) * lMb);
-                                int lDef    = target is Player lDefP ? lDefP.MagicDefense + lDefP.MagicDefDelta
-                                            : target is Npc lDefN   ? (lDefN.Template.Stats?.MBResist ?? 0) : 0;
-                                lDmgPerTick = Math.Max(1, lDef > 0 ? lRaw * 1000 / (1000 + lDef) : lRaw);
-                            }
-                            else
-                                lDmgPerTick = Math.Max(1, lRawDotVal);
+                            int lDmgPerTick = DotDamageCalculator.ComputePerTick(lDot, player, target, lSkillLv,
+                                applyPassiveSpellAttackBonus: false, applyElementalResist: false);
 
                             var lDotExpiry = DateTime.UtcNow.AddMilliseconds(lDot.Duration2Ms);
                             var lDotEffect = new AbnormalState
@@ -3467,14 +3395,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
     }
 
     // M339: return the target's elemental resistance value for the given element string (Java scale; 1250 = 100% immune).
-    private static int GetElementalResist(Creature target, string element) => element switch
-    {
-        "FIRE"  => target.FireResist,
-        "WATER" => target.WaterResist,
-        "WIND"  => target.WindResist,
-        "EARTH" => target.EarthResist,
-        _       => 0,
-    };
+    // S4b: delegates to the shared ElementalResist helper (also used by DotDamageCalculator) — no behavior change.
+    private static int GetElementalResist(Creature target, string element) => ElementalResist.Get(target, element);
 
     private static int NpcMagicResist(Model.Npc npc)
     {

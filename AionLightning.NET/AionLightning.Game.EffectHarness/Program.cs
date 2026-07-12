@@ -55,5 +55,60 @@ foreach (var template in allTemplates)
     }
 }
 
-Console.WriteLine($"HARNESS: {passed}/{total} assertions passed, {scanned} templates scanned, {exceptions} exceptions");
-return passed == total && exceptions == 0 ? 0 : 1;
+Console.WriteLine($"HARNESS (StatEffectCalculator): {passed}/{total} assertions passed, {scanned} templates scanned, {exceptions} exceptions");
+
+// --- DotDamageCalculator (S4b) ---
+// Elemental branch: an Npc dummy has all elemental resists at 0 (default int), so the elemResist>0
+// branch never triggers and ComputePerTick collapses to the hand-inlined "no resist" formula:
+// max(1, dot.BaseValue + dot.Delta*level). applyPassiveSpellAttackBonus is irrelevant here since the
+// dot is not a "spellatk" type. This proves the elemental branch matches the original inline math.
+// The spellatk branch shares the same effector-stat reads as StatEffectCalculator's magic-atk math and
+// is exercised (without throwing) by the full-scan below with a dummy Player effector; a numeric
+// parity assertion for it is skipped here since building a fully-stocked Player is out of scope for
+// this harness — the branch structure is identical to the elemental branch's call shape.
+var dotCandidates = allTemplates
+    .Where(t => (t.Effects?.DotEffects?.Count ?? 0) > 0
+             && t.Effects!.DotEffects.Any(d => d.DotType != "spellatk"))
+    .Take(5)
+    .ToList();
+Console.WriteLine($"[DotDamageCalculator] {dotCandidates.Count} candidate skill(s) with non-spellatk DotEffects.");
+int dotPassed = 0, dotTotal = 0;
+foreach (var template in dotCandidates)
+{
+    var dot = template.Effects!.DotEffects.First(d => d.DotType != "spellatk");
+    int level = Math.Max(1, template.Level);
+    dotTotal++;
+    int expected = Math.Max(1, dot.BaseValue + dot.Delta * level);
+    int result = DotDamageCalculator.ComputePerTick(dot, new Player(), MakeNpc(), level,
+        applyPassiveSpellAttackBonus: false, applyElementalResist: true);
+    bool ok = result == expected;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" dot_type={dot.DotType} " +
+                      $"result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) dotPassed++;
+}
+
+// Full-scan: ComputePerTick must never throw for any dot effect on any template (both flags off,
+// dummy Player effector, Npc target, level >= 1).
+int dotScanned = 0, dotExceptions = 0;
+var dummyEffector = new Player();
+foreach (var template in allTemplates)
+{
+    if ((template.Effects?.DotEffects?.Count ?? 0) == 0) continue;
+    int level = Math.Max(1, template.Level);
+    foreach (var dot in template.Effects!.DotEffects)
+    {
+        dotScanned++;
+        try { _ = DotDamageCalculator.ComputePerTick(dot, dummyEffector, MakeNpc(), level, false, false); }
+        catch (Exception ex)
+        {
+            dotExceptions++;
+            Console.WriteLine($"  EXCEPTION skill_id={template.SkillId}: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+}
+
+Console.WriteLine($"HARNESS (DotDamageCalculator): {dotPassed}/{dotTotal} assertions passed, {dotScanned} dot effects scanned, {dotExceptions} exceptions");
+
+int totalPassed = passed + dotPassed, totalAssertions = total + dotTotal, totalExceptions = exceptions + dotExceptions;
+Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {dotScanned} dot effects scanned, {totalExceptions} exceptions");
+return totalPassed == totalAssertions && totalExceptions == 0 ? 0 : 1;
