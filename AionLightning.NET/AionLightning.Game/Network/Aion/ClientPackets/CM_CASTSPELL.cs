@@ -1149,7 +1149,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 int cdBase;
                                 bool cdNoReduce = false;
                                 if (childDmgFx is { Count: > 0 })
-                                    cdBase = childDmgFx[0].BaseValue;
+                                    // Java-parity fix (DM-1): DamageEffect.calculate scales base by delta*level;
+                                    // the child path had dropped the delta term. Use (_level-1) to match the C#
+                                    // port's level convention used at every other damage site.
+                                    cdBase = childDmgFx[0].BaseValue + childDmgFx[0].Delta * (_level - 1);
                                 else
                                 {
                                     var nr = childNoReduceFx![0];
@@ -1259,9 +1262,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     rawDmg = SkillDamageCalculator.ApplyLevelDiffAndPvp(rawDmg, player, npc,
                         applyNpcLevelDiffMod: true, applyPvp: false);
 
+                    // Java-parity fix (DM-4): elemental resist is uniform for magical damage
+                    // (calculateMagicalSkillDamage) — the caster-AoE path had omitted it.
                     int damage = SkillDamageCalculator.ApplyDefenseAndResist(rawDmg, npc, isMagical: true,
                         hasNoReduce: false, noReduceValue: 0, noReduceIsPercent: false,
-                        element: "", applyElementalResist: false);
+                        element: cDmgFx?[0].Element ?? "", applyElementalResist: true);
 
                     await npc.ApplyDamageAndPublishAsync(player, damage, DamageKind.MagicalSkill, spellId, _eventBus, ct);
 
@@ -2295,6 +2300,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             splashRaw = SkillDamageCalculator.ApplyCrit(splashRaw, splash, isMagical: false, splashCritP, useFortitudeCoeff: false);
                         }
 
+                        // Java-parity fix (DM-3): StatFunctions.adjustDamages applies the NPC level-diff
+                        // reduction to every damage calc, splash included — it was missing here (splash used it
+                        // only in its dodge check). applyPvp is ignored for the NPC-only splash targets.
+                        splashRaw = SkillDamageCalculator.ApplyLevelDiffAndPvp(splashRaw, player, splash,
+                            applyNpcLevelDiffMod: true, applyPvp: true);
+
                         // M253: noreducespellatk — defense-bypass damage applies to splash targets too (reuses the
                         // stHasNoReduce/stNoReduceVal/stNoReduceIsPct computed once above for the main-target hit —
                         // same NoReduceEffects, same skill level, so no need to recompute per splash target)
@@ -2676,8 +2687,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var dot in dots)
                     {
                         int skillLv   = _level;
+                        // Java-parity fix (D-1): passive spell-attack bonus is uniform across all DoT ticks
+                        // (StatFunctions.calculateMagicalSkillDamage BOOST_SPELL_ATTACK, applied to every
+                        // magical over-time result) — the single-target path had wrongly omitted it.
                         int dmgPerTick = DotDamageCalculator.ComputePerTick(dot, player, target, skillLv,
-                            applyPassiveSpellAttackBonus: false, applyElementalResist: true);
+                            applyPassiveSpellAttackBonus: true, applyElementalResist: true);
                         var dotExpiry  = DateTime.UtcNow.AddMilliseconds(dot.Duration2Ms);
                         var dotEffect  = new AbnormalState
                         {
@@ -2748,8 +2762,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var lDot in launcherDots)
                         {
                             int lSkillLv    = _level;
+                            // Java-parity fix (D-1/D-2): launcher child DoTs go through the same
+                            // calculateMagicalOverTimeSkillResult pipeline — they get the passive spell-attack
+                            // bonus AND elemental-resist mitigation like every other DoT path.
                             int lDmgPerTick = DotDamageCalculator.ComputePerTick(lDot, player, target, lSkillLv,
-                                applyPassiveSpellAttackBonus: false, applyElementalResist: false);
+                                applyPassiveSpellAttackBonus: true, applyElementalResist: true);
 
                             var lDotExpiry = DateTime.UtcNow.AddMilliseconds(lDot.Duration2Ms);
                             var lDotEffect = new AbnormalState

@@ -9,14 +9,11 @@ namespace AionLightning.Game.Combat.Effects;
 /// main single-target DoT block, and the skill-launcher/child-skill block). BEHAVIOR-IDENTICAL
 /// relocation — every formula below is copied verbatim from the original packet handler.
 ///
-/// The 4 original sites are NOT identical: sites 1 (AoE) and 2 (splash) apply a
-/// <see cref="Player.PassiveBonusSpellAttackPct"/> multiplier in the spellatk branch and site 4
-/// (launcher) additionally skips elemental-resist mitigation entirely in the non-spellatk branch.
-/// Sites 3 (main single-target) and 4 (launcher) historically omit the passive-spell-attack bonus,
-/// and site 4 omits elemental resist; these divergences are preserved verbatim via the
-/// <paramref name="applyPassiveSpellAttackBonus"/>/<paramref name="applyElementalResist"/> flags and
-/// are flagged as suspected latent inconsistencies for a later faithful-to-Java review — do NOT unify
-/// without checking the Java skillengine.
+/// The flags exist because the 4 original call sites historically diverged (main + launcher omitted the
+/// passive spell-attack bonus; launcher also skipped elemental resist). A Java-parity review confirmed
+/// those were port bugs — Java funnels every target through one calculateMagicalOverTimeSkillResult
+/// pipeline — so all 4 sites now pass <c>true, true</c>. The flags are retained for generality (e.g. a
+/// future no-reduce/true-damage DoT) but no live site currently sets them false.
 /// </summary>
 public static class DotDamageCalculator
 {
