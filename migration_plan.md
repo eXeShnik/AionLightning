@@ -4832,3 +4832,12 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   40s (worldId 220050000). Uses Batch 0.3 RegisterQuestDrop (4012) + OnAttack (4077). Fixed 3
   latent Java dead-branch/missing-break bugs. 4 deferred (200L+ Adma campaign chain + 4074
   repeatable Kinah minigame needing decreaseKinah/random-grant helpers).
+
+- [x] **C2 Phase 5 Gelkmaros** (2026-07-12, fleet, post-0.3): 36 quests, probe 36/36. Asmodian 50s.
+  Uses SpawnQuestNpc (21105 random-spawn). Orchestrator added one missing `using System;`.
+- [x] **C2 Phase 5 Inggison** (2026-07-12, fleet, post-0.3): 30 quests, probe 30/30. Elyos 50s
+  (worldId 210050000). Fixed 3 latent Java bugs (11060 unreachable turn-in npc, 11116/11118
+  inverted collect-check condition). 30 deferred (campaign/instance/escort/zone-shape/scope).
+- [x] **C2 Phase 5 Pandaemonium** (2026-07-12, fleet, post-0.3): 40 quests, probe 40/40. Asmodian
+  capital (worldId 120010000). Fixed 3 latent Java bugs (2920/2962 shared reward-index instance
+  field → persisted var; 2938 NPE null-guard). 3 deferred (campaign/zone-shape/escort).
