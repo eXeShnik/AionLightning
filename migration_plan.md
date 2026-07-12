@@ -4827,3 +4827,8 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
 - [x] **C2 Phase 5 Theobomos** (2026-07-12, fleet, post-0.3): 22 quests, probe 22/22. Elyos 40s.
   First zone to use Batch 0.3 hooks live (3057 OnAttack, 3082 SpawnQuestNpc). Fixed 8 latent Java
   dead-code branches. 22 deferred (escort/zone-shape/instance + a not-reviewed remainder).
+
+- [x] **C2 Phase 5 Brusthonin** (2026-07-12, fleet, post-0.3): 20/24 quests, probe 20/20. Asmodian
+  40s (worldId 220050000). Uses Batch 0.3 RegisterQuestDrop (4012) + OnAttack (4077). Fixed 3
+  latent Java dead-branch/missing-break bugs. 4 deferred (200L+ Adma campaign chain + 4074
+  repeatable Kinah minigame needing decreaseKinah/random-grant helpers).
