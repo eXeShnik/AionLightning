@@ -4951,10 +4951,20 @@ colliding with the M1–M380 effect-coverage milestones above.
     **Suspected latent DoT inconsistencies (faithful-to-Java review candidates, NOT changed):**
     (1) main single-target + launcher DoTs omit the PassiveBonusSpellAttackPct multiplier that AoE/splash apply;
     (2) launcher DoT skips elemental-resist mitigation entirely. Check the Java skillengine before unifying.
-  - [ ] **S4c** (in progress): heal/HoT/drain amount → HealAmountCalculator + DrainCalculator. Note A2 vs A5
-    HoT level asymmetry (A5 uses level-1); A3 fallback stays inline (Random.Shared).
-  - [ ] **S4d** remaining: CC/debuff-stat build → DebuffEffectCalculator (symmetric to StatEffectCalculator);
-    then dispel, shield, taunt, signet; net-new summon/trap/resurrect families last.
+  - [x] **S4c** (commit da313345): heal/HoT/drain amount → HealAmountCalculator (BoostMultiplier,
+    ComputeInstant, ComputeHotTickBase) + DrainCalculator, across 7 sites. A2 vs A5 HoT level asymmetry
+    (A5 uses level-1) preserved via flag; A3 fallback stays inline (Random.Shared). Harness 30/30.
+  - [x] **S4d** (commit 116e245e): enemy CC/debuff-stat build → DebuffEffectCalculator + DebuffDeltaSet,
+    symmetric to StatEffectCalculator (~50 locals). Harness 35/35, 0 exc.
+  - [~] **S4e** (in progress): direct skill-damage (6 sites) → SkillDamageCalculator (ComputeRaw /
+    ComputeCritRate / ApplyCrit / ApplyLevelDiffAndPvp / ApplyDefenseAndResist); crit RNG stays in
+    handler (didCrit injected); SignetBurst + DamageModifiers kept at the S4 call site.
+    **Suspected latent damage inconsistencies (faithful-to-Java review candidates, preserved via flags):**
+    (1) S1 child uses BaseValue with no Delta*level; (2) S2 caster-AoE + S6 splash omit crit-resist and use
+    fixed 1.5x crit (vs S3/S4 fortitude coeff); (3) S6 splash omits NpcLevelDiffMod (S3 applies it);
+    (4) S2 omits elemental resist. Mirror the S4b DoT pattern (AoE/splash/child paths simplified vs main).
+  - [ ] **S4f** remaining families: dispel, shield, taunt/hate, signet (mostly already-implemented small
+    reads); net-new summon/trap/servant + resurrect/rebirth families last.
 - [ ] **S5 Central periodic scheduler** (DoT/HoT/toggle upkeep; replace fire-and-forget Task.Run).
 - [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
 - [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
