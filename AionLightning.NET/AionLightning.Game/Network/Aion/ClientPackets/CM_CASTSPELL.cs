@@ -2642,97 +2642,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 if (target.CurrentHp > 0 && isDebuffSkill && debuffDurationMs > 0 && !ccResisted)
                 {
                     bool debuffTargetIsPlayer = target is Player;
-                    int  snareSpeedPct        = template?.Effects?.SnareSpeedPct        ?? 0;
-                    int  statdownSpeedPct     = template?.Effects?.StatdownSpeedPct     ?? 0;
-                    int  combinedMovSpeedPct  = snareSpeedPct + statdownSpeedPct;
-                    int  statdownFlySpeedPct  = template?.Effects?.StatdownFlySpeedPct  ?? 0;
-                    int  slowAtkPct           = (template?.Effects?.SlowAttackSpeedPct ?? 0)
-                                              + (template?.Effects?.StatdownAtkSpeedPct ?? 0); // M350
-                    int  pdefDelta            = template?.Effects?.PdefAddDelta       ?? 0;
-                    int  mresistDelta         = template?.Effects?.MResistAddDelta    ?? 0;
-                    int  patkDelta            = template?.Effects?.PhysAtkAddDelta    ?? 0;
-                    int  evasionDelta         = template?.Effects?.EvasionAddDelta    ?? 0;
-                    int  maxHpDelta           = template?.Effects?.MaxHpAddDelta      ?? 0;
-                    int  magicAtkDelta        = template?.Effects?.MagicAtkAddDelta   ?? 0;
-                    int  atkSpdDelta          = template?.Effects?.AtkSpeedAddDelta   ?? 0;
-                    int  maxMpDelta           = template?.Effects?.MaxMpAddDelta        ?? 0;
-                    int  maxHpPctDelta        = template?.Effects?.MaxHpPercentDelta    ?? 0;
-                    int  maxMpPctDelta        = template?.Effects?.MaxMpPercentDelta    ?? 0;
-                    if (maxHpPctDelta != 0) maxHpDelta += target.MaxHp * maxHpPctDelta / 100;
-                    if (maxMpPctDelta != 0) maxMpDelta += target.MaxMp * maxMpPctDelta / 100;
-                    // M322: PERCENT pdef/mresist debuffs — convert to flat delta against target's current stat
-                    int  pdefPctDebuff    = template?.Effects?.PdefPercentDebuff    ?? 0;
-                    int  mresistPctDebuff = template?.Effects?.MResistPercentDebuff ?? 0;
-                    if (pdefPctDebuff    != 0 && target is Player pdefPctTgt)    pdefDelta    += pdefPctTgt.PhysicalDefense  * pdefPctDebuff    / 100;
-                    if (mresistPctDebuff != 0 && target is Player mresistPctTgt) mresistDelta += mresistPctTgt.BonusMagicResist * mresistPctDebuff / 100;
-                    // M326: PERCENT patk/evasion/matk debuffs — convert to flat delta against target's current stat
-                    int  patkPctDebuff     = template?.Effects?.PatkPercentDebuff     ?? 0;
-                    int  evasionPctDebuff  = template?.Effects?.EvasionPercentDebuff  ?? 0;
-                    int  magicAtkPctDebuff = template?.Effects?.MagicAtkPercentDebuff ?? 0;
-                    if (patkPctDebuff    != 0 && target is Player patkPctTgt)
-                        patkDelta    += (patkPctTgt.BasePhysicalAttack + (patkPctTgt.MainHandMinDmg + patkPctTgt.MainHandMaxDmg) / 2 + patkPctTgt.BonusPhysicalAtk) * patkPctDebuff / 100;
-                    if (evasionPctDebuff != 0 && target is Player evasionPctTgt)
-                        evasionDelta += (evasionPctTgt.BaseEvasion + evasionPctTgt.BonusEvasion) * evasionPctDebuff / 100;
-                    if (magicAtkPctDebuff!= 0 && target is Player matkPctTgt)
-                        magicAtkDelta+= (matkPctTgt.MainHandMagicalAtk + matkPctTgt.BonusMagicAtk) * magicAtkPctDebuff / 100;
-                    int  mBoostDebuffDelta     = template?.Effects?.MagicBoostAddDelta   ?? 0;
-                    // M328: PERCENT BOOST_MAGICAL_SKILL debuff
-                    int  mBoostPctDebuff = template?.Effects?.MagicBoostPctDebuff ?? 0;
-                    if (mBoostPctDebuff != 0 && target is Player mBoostPctTgt)
-                        mBoostDebuffDelta += mBoostPctTgt.BonusMagicBoost * mBoostPctDebuff / 100;
-                    int  physAccDelta          = template?.Effects?.PhysAccAddDelta       ?? 0;
-                    // M327: PERCENT PHYSICAL_ACCURACY debuff — reduce phys acc by pct of target's current accuracy
-                    int  physAccPctDebuff = template?.Effects?.PhysAccPercentDebuff ?? 0;
-                    if (physAccPctDebuff != 0 && target is Player physAccPctTgt)
-                        physAccDelta += (physAccPctTgt.BasePhysicalAccuracy + physAccPctTgt.BonusPhysicalAccuracy) * physAccPctDebuff / 100;
-                    int  magicAccDelta         = template?.Effects?.MagicAccAddDelta      ?? 0;
-                    int  parryDelta            = template?.Effects?.ParryAddDelta         ?? 0;
-                    int  blockDelta            = template?.Effects?.BlockAddDelta         ?? 0;
-                    // M328: PERCENT BLOCK debuff — reduce block rating by pct of target's current block
-                    int  blockPctDebuff = template?.Effects?.BlockPercentDebuff ?? 0;
-                    if (blockPctDebuff != 0 && target is Player blockPctTgt)
-                        blockDelta += (blockPctTgt.BaseBlock + blockPctTgt.BonusBlock) * blockPctDebuff / 100;
-                    int  physCritDelta         = template?.Effects?.PhysCritAddDelta         ?? 0;
-                    int  magicCritDelta        = template?.Effects?.MagicCritAddDelta        ?? 0;
-                    int  physCritResistDelta   = template?.Effects?.PhysCritResistAddDelta    ?? 0;
-                    int  magicCritResistDelta  = template?.Effects?.MagicCritResistAddDelta   ?? 0;
-                    int  strikeFortitudeDelta  = template?.Effects?.StrikeFortitudeAddDelta   ?? 0;
-                    int  spellFortitudeDelta   = template?.Effects?.SpellFortitudeAddDelta    ?? 0;
-                    int  castTimeDelta         = template?.Effects?.CastTimeAddDelta           ?? 0;
-                    int  concentrationDelta    = template?.Effects?.ConcentrationAddDelta      ?? 0;
-                    int  magicSuppressionDelta = template?.Effects?.MagicSuppressionAddDelta   ?? 0;
-                    int  magicDefDelta         = template?.Effects?.MagicDefAddDelta            ?? 0;
-                    int  blindDodgePct         = template?.Effects?.BlindDodgePct               ?? 0;
-                    int  healDeboostPct        = template?.Effects?.HealDeboostPct              ?? 0;
-                    // M353: elemental resist ADD debuffs — ScanStatupAddValue sums statdown negative values; 271 entries (Agonizing Slash, etc.)
-                    int  fireResistDebuff  = template?.Effects?.FireResistDelta  ?? 0;
-                    int  waterResistDebuff = template?.Effects?.WaterResistDelta ?? 0;
-                    int  windResistDebuff  = template?.Effects?.WindResistDelta  ?? 0;
-                    int  earthResistDebuff = template?.Effects?.EarthResistDelta ?? 0;
-                    // M355: elemental resist PERCENT debuffs — 40 entries (Flight: Enervating Bind I-III, etc.; -100 = remove 100% of current resist)
-                    int  fireResistPct  = template?.Effects?.FireResistPctDebuff  ?? 0;
-                    int  waterResistPct = template?.Effects?.WaterResistPctDebuff ?? 0;
-                    int  windResistPct  = template?.Effects?.WindResistPctDebuff  ?? 0;
-                    int  earthResistPct = template?.Effects?.EarthResistPctDebuff ?? 0;
-                    if (fireResistPct  != 0 && target is Player frPctTgt) fireResistDebuff  += frPctTgt.FireResist  * fireResistPct  / 100;
-                    if (waterResistPct != 0 && target is Player wrPctTgt) waterResistDebuff += wrPctTgt.WaterResist * waterResistPct / 100;
-                    if (windResistPct  != 0 && target is Player wiPctTgt) windResistDebuff  += wiPctTgt.WindResist  * windResistPct  / 100;
-                    if (earthResistPct != 0 && target is Player erPctTgt) earthResistDebuff += erPctTgt.EarthResist * earthResistPct / 100;
-                    // M356: CC resistance ADD debuffs — ScanStatupAddValue scans statdown too; negative values reduce target's CC resistance
-                    int  sleepResistDebuff  = template?.Effects?.SleepResistDelta      ?? 0;
-                    int  rootResistDebuff   = template?.Effects?.RootResistDelta       ?? 0;
-                    int  stunResistDebuff   = template?.Effects?.StunResistDelta       ?? 0;
-                    int  stumbleResistDebuff= template?.Effects?.StumbleResistDelta    ?? 0;
-                    int  staggerResistDebuff= template?.Effects?.StaggerResistDelta    ?? 0;
-                    int  spinResistDebuff   = template?.Effects?.SpinResistDelta       ?? 0;
-                    int  snareResistDebuff  = template?.Effects?.SnareResistDelta      ?? 0;
-                    int  fearResistDebuff   = template?.Effects?.FearResistDelta       ?? 0;
-                    int  openAerialResistDb = template?.Effects?.OpenAerialResistDelta ?? 0;
-                    // M379: resurrectbase — auto-revive target at bind point on death (Chain of Suffering I-VII)
-                    int  resurrectBaseSkillId = template?.Effects?.ResurrectBaseSkillId ?? 0;
-                    // M380: carry dispel_category + req_dispel_level so targeted cleanse effects (physical/mental) can filter correctly
-                    string debuffDispelCategory = template?.DispelCategory ?? "NONE";
-                    int    debuffReqDispelLevel  = template?.ReqDispelLevel ?? 0;
+                    var  dbuff = DebuffEffectCalculator.Compute(template!, target, _level);
                     var  debuffEffect = new AbnormalState
                     {
                         SkillId             = spellId,
@@ -2741,68 +2651,68 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         Expiry              = DateTime.UtcNow.AddMilliseconds(debuffDurationMs),
                         CcFlags             = template!.CcFlags,
                         IsDebuff            = true,
-                        MovSpeedPct         = combinedMovSpeedPct,
+                        MovSpeedPct         = dbuff.MovSpeedPct,
                         PreDebuffSpeed      = target.MovementSpeed,
-                        AttackSpeedPct      = slowAtkPct,
+                        AttackSpeedPct      = dbuff.AttackSpeedPct,
                         PreDebuffAtkSpeed   = target.CurrentAttackSpeed,
-                        PdefDelta           = pdefDelta,
-                        MResistDelta        = mresistDelta,
-                        PatkDelta           = patkDelta,
-                        EvasionDelta        = evasionDelta,
-                        MaxHpDelta          = maxHpDelta,
-                        MagicAtkDelta       = magicAtkDelta,
-                        AtkSpeedDelta       = atkSpdDelta,
-                        MaxMpDelta          = maxMpDelta,
-                        MagicBoostDeltaVal  = mBoostDebuffDelta,
-                        PhysAccDeltaVal     = physAccDelta,
-                        MagicAccDeltaVal    = magicAccDelta,
-                        ParryDeltaVal       = parryDelta,
-                        BlockDeltaVal       = blockDelta,
-                        PhysCritDeltaVal        = physCritDelta,
-                        MagicCritDeltaVal       = magicCritDelta,
-                        PhysCritResistDeltaVal  = physCritResistDelta,
-                        MagicCritResistDeltaVal = magicCritResistDelta,
-                        StrikeFortitudeDeltaVal = strikeFortitudeDelta,
-                        SpellFortitudeDeltaVal  = spellFortitudeDelta,
-                        CastTimeDeltaVal         = castTimeDelta,
-                        ConcentrationDeltaVal    = concentrationDelta,
-                        MagicSuppressionDeltaVal = magicSuppressionDelta,
-                        MagicDefDeltaVal         = magicDefDelta,
-                        BlindDodgePct            = blindDodgePct,
-                        HealReceivedPctDelta     = healDeboostPct,
-                        FlySpeedDebuffPct        = statdownFlySpeedPct,
+                        PdefDelta           = dbuff.PdefDelta,
+                        MResistDelta        = dbuff.MResistDelta,
+                        PatkDelta           = dbuff.PatkDelta,
+                        EvasionDelta        = dbuff.EvasionDelta,
+                        MaxHpDelta          = dbuff.MaxHpDelta,
+                        MagicAtkDelta       = dbuff.MagicAtkDelta,
+                        AtkSpeedDelta       = dbuff.AtkSpeedDelta,
+                        MaxMpDelta          = dbuff.MaxMpDelta,
+                        MagicBoostDeltaVal  = dbuff.MagicBoostDeltaVal,
+                        PhysAccDeltaVal     = dbuff.PhysAccDeltaVal,
+                        MagicAccDeltaVal    = dbuff.MagicAccDeltaVal,
+                        ParryDeltaVal       = dbuff.ParryDeltaVal,
+                        BlockDeltaVal       = dbuff.BlockDeltaVal,
+                        PhysCritDeltaVal        = dbuff.PhysCritDeltaVal,
+                        MagicCritDeltaVal       = dbuff.MagicCritDeltaVal,
+                        PhysCritResistDeltaVal  = dbuff.PhysCritResistDeltaVal,
+                        MagicCritResistDeltaVal = dbuff.MagicCritResistDeltaVal,
+                        StrikeFortitudeDeltaVal = dbuff.StrikeFortitudeDeltaVal,
+                        SpellFortitudeDeltaVal  = dbuff.SpellFortitudeDeltaVal,
+                        CastTimeDeltaVal         = dbuff.CastTimeDeltaVal,
+                        ConcentrationDeltaVal    = dbuff.ConcentrationDeltaVal,
+                        MagicSuppressionDeltaVal = dbuff.MagicSuppressionDeltaVal,
+                        MagicDefDeltaVal         = dbuff.MagicDefDeltaVal,
+                        BlindDodgePct            = dbuff.BlindDodgePct,
+                        HealReceivedPctDelta     = dbuff.HealReceivedPctDelta,
+                        FlySpeedDebuffPct        = dbuff.FlySpeedDebuffPct,
                         PreDebuffFlySpeedPct     = target is Player flyDebuffTarget ? flyDebuffTarget.BonusFlySpeedPct : 0,
                         // M353: elemental resist ADD debuffs (negative values; Creature.ApplyEffectDeltas subtracts them from FireResist etc.)
-                        FireResistDelta          = fireResistDebuff,
-                        WaterResistDelta         = waterResistDebuff,
-                        WindResistDelta          = windResistDebuff,
-                        EarthResistDelta         = earthResistDebuff,
+                        FireResistDelta          = dbuff.FireResistDelta,
+                        WaterResistDelta         = dbuff.WaterResistDelta,
+                        WindResistDelta          = dbuff.WindResistDelta,
+                        EarthResistDelta         = dbuff.EarthResistDelta,
                         // M356: CC resistance ADD debuffs (negative values; reduce target's resist to that CC type)
-                        SleepResistDelta         = sleepResistDebuff,
-                        RootResistDelta          = rootResistDebuff,
-                        StunResistDelta          = stunResistDebuff,
-                        StumbleResistDelta       = stumbleResistDebuff,
-                        StaggerResistDelta       = staggerResistDebuff,
-                        SpinResistDelta          = spinResistDebuff,
-                        SnareResistDelta         = snareResistDebuff,
-                        FearResistDelta          = fearResistDebuff,
-                        OpenAerialResistDelta    = openAerialResistDb,
-                        ResurrectBaseSkillId     = resurrectBaseSkillId,
-                        DispelCategory           = debuffDispelCategory,
-                        ReqDispelLevel           = debuffReqDispelLevel,
+                        SleepResistDelta         = dbuff.SleepResistDelta,
+                        RootResistDelta          = dbuff.RootResistDelta,
+                        StunResistDelta          = dbuff.StunResistDelta,
+                        StumbleResistDelta       = dbuff.StumbleResistDelta,
+                        StaggerResistDelta       = dbuff.StaggerResistDelta,
+                        SpinResistDelta          = dbuff.SpinResistDelta,
+                        SnareResistDelta         = dbuff.SnareResistDelta,
+                        FearResistDelta          = dbuff.FearResistDelta,
+                        OpenAerialResistDelta    = dbuff.OpenAerialResistDelta,
+                        ResurrectBaseSkillId     = dbuff.ResurrectBaseSkillId,
+                        DispelCategory           = dbuff.DispelCategory,
+                        ReqDispelLevel           = dbuff.ReqDispelLevel,
                     };
                     target.AddEffect(debuffEffect);
 
                     // M320: statdown FLY_SPEED PERCENT — apply fly speed penalty to player's bonus
-                    if (statdownFlySpeedPct != 0 && target is Player flySpeedTarget)
-                        flySpeedTarget.BonusFlySpeedPct += statdownFlySpeedPct;
+                    if (dbuff.FlySpeedDebuffPct != 0 && target is Player flySpeedTarget)
+                        flySpeedTarget.BonusFlySpeedPct += dbuff.FlySpeedDebuffPct;
 
                     // Snare + statdown SPEED: reduce movement speed; Slow: increase attack speed (higher = slower)
-                    bool speedChanged = combinedMovSpeedPct != 0 || slowAtkPct != 0;
-                    if (combinedMovSpeedPct != 0)
-                        target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + combinedMovSpeedPct) / 100f);
-                    if (slowAtkPct != 0)
-                        target.CurrentAttackSpeed = Math.Max(500, (int)(target.CurrentAttackSpeed * (100 + slowAtkPct) / 100f));
+                    bool speedChanged = dbuff.MovSpeedPct != 0 || dbuff.AttackSpeedPct != 0;
+                    if (dbuff.MovSpeedPct != 0)
+                        target.MovementSpeed = Math.Max(1.0f, target.MovementSpeed * (100 + dbuff.MovSpeedPct) / 100f);
+                    if (dbuff.AttackSpeedPct != 0)
+                        target.CurrentAttackSpeed = Math.Max(500, (int)(target.CurrentAttackSpeed * (100 + dbuff.AttackSpeedPct) / 100f));
                     if (speedChanged)
                     {
                         var speedEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
@@ -2811,14 +2721,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 try { await c.SendAsync(speedEmo); } catch { }
                     }
 
-                    if (atkSpdDelta != 0)
+                    if (dbuff.AtkSpeedDelta != 0)
                     {
                         var atkSpdEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
                         foreach (var c in registry.GetAll())
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(atkSpdEmo); } catch { }
                     }
-                    if ((pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 || strikeFortitudeDelta != 0 || spellFortitudeDelta != 0 || castTimeDelta != 0 || concentrationDelta != 0 || magicSuppressionDelta != 0 || magicDefDelta != 0) && target is Player debuffedPlayer)
+                    if ((dbuff.PdefDelta != 0 || dbuff.MResistDelta != 0 || dbuff.PatkDelta != 0 || dbuff.EvasionDelta != 0 || dbuff.MaxHpDelta != 0 || dbuff.MagicAtkDelta != 0 || dbuff.AtkSpeedDelta != 0 || dbuff.MaxMpDelta != 0 || dbuff.MagicBoostDeltaVal != 0 || dbuff.PhysAccDeltaVal != 0 || dbuff.MagicAccDeltaVal != 0 || dbuff.ParryDeltaVal != 0 || dbuff.BlockDeltaVal != 0 || dbuff.PhysCritDeltaVal != 0 || dbuff.MagicCritDeltaVal != 0 || dbuff.PhysCritResistDeltaVal != 0 || dbuff.MagicCritResistDeltaVal != 0 || dbuff.StrikeFortitudeDeltaVal != 0 || dbuff.SpellFortitudeDeltaVal != 0 || dbuff.CastTimeDeltaVal != 0 || dbuff.ConcentrationDeltaVal != 0 || dbuff.MagicSuppressionDeltaVal != 0 || dbuff.MagicDefDeltaVal != 0) && target is Player debuffedPlayer)
                     {
                         var statsInfo = new SM_STATS_INFO(debuffedPlayer, _dataManager.PlayerStats.GetTemplate(debuffedPlayer.PlayerClass, debuffedPlayer.Level));
                         var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == debuffedPlayer);

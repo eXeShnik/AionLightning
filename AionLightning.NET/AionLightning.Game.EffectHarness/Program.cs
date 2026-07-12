@@ -57,6 +57,41 @@ foreach (var template in allTemplates)
 
 Console.WriteLine($"HARNESS (StatEffectCalculator): {passed}/{total} assertions passed, {scanned} templates scanned, {exceptions} exceptions");
 
+// --- DebuffEffectCalculator (S4d) ---
+// PdefAddDelta is a flat-ADD statdown that needs no is-Player percent-of-target-base gate, so it
+// round-trips cleanly on an Npc target: PdefDelta == PdefAddDelta (no percent debuff fires without a Player).
+var debuffCandidates = allTemplates
+    .Where(t => (t.Effects?.PdefAddDelta ?? 0) != 0)
+    .Take(5)
+    .ToList();
+Console.WriteLine($"[DebuffEffectCalculator] {debuffCandidates.Count} candidate skill(s) with nonzero PdefAddDelta.");
+int debuffPassed = 0, debuffTotal = 0;
+foreach (var template in debuffCandidates)
+{
+    debuffTotal++;
+    int expected = template.Effects!.PdefAddDelta;
+    var result = DebuffEffectCalculator.Compute(template, MakeNpc(), template.Level);
+    bool ok = result.PdefDelta == expected;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" " +
+                      $"PdefDelta={result.PdefDelta} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) debuffPassed++;
+}
+
+// Full-scan: Compute must never throw for any template (Npc target, level >= 1).
+int debuffScanned = 0, debuffExceptions = 0;
+foreach (var template in allTemplates)
+{
+    debuffScanned++;
+    try { _ = DebuffEffectCalculator.Compute(template, MakeNpc(), Math.Max(1, template.Level)); }
+    catch (Exception ex)
+    {
+        debuffExceptions++;
+        Console.WriteLine($"  EXCEPTION skill_id={template.SkillId}: {ex.GetType().Name}: {ex.Message}");
+    }
+}
+
+Console.WriteLine($"HARNESS (DebuffEffectCalculator): {debuffPassed}/{debuffTotal} assertions passed, {debuffScanned} templates scanned, {debuffExceptions} exceptions");
+
 // --- DotDamageCalculator (S4b) ---
 // Elemental branch: an Npc dummy has all elemental resists at 0 (default int), so the elemResist>0
 // branch never triggers and ComputePerTick collapses to the hand-inlined "no resist" formula:
@@ -219,8 +254,8 @@ foreach (var template in allTemplates)
 Console.WriteLine($"HARNESS (HealAmountCalculator): {healPassed}/{healTotal} assertions passed, {healScanned} heal/hot effects scanned, {healExceptions} exceptions");
 Console.WriteLine($"HARNESS (DrainCalculator): {drainPassed}/{drainTotal} assertions passed");
 
-int totalPassed = passed + dotPassed + healPassed + drainPassed;
-int totalAssertions = total + dotTotal + healTotal + drainTotal;
-int totalExceptions = exceptions + dotExceptions + healExceptions;
-Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {dotScanned} dot effects scanned, {healScanned} heal/hot effects scanned, {totalExceptions} exceptions");
+int totalPassed = passed + debuffPassed + dotPassed + healPassed + drainPassed;
+int totalAssertions = total + debuffTotal + dotTotal + healTotal + drainTotal;
+int totalExceptions = exceptions + debuffExceptions + dotExceptions + healExceptions;
+Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {debuffScanned} debuff templates scanned, {dotScanned} dot effects scanned, {healScanned} heal/hot effects scanned, {totalExceptions} exceptions");
 return totalPassed == totalAssertions && totalExceptions == 0 ? 0 : 1;
