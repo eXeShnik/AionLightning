@@ -34,6 +34,9 @@ public sealed class SkillData
     public SkillTemplate? GetTemplate(int skillId)
         => _templates.TryGetValue(skillId, out var t) ? t : null;
 
+    /// <summary>All loaded skill templates (used by the effect-parity harness and bulk scans).</summary>
+    public IReadOnlyCollection<SkillTemplate> AllTemplates => _templates.Values;
+
     public int Size => _templates.Count;
 
     public IReadOnlyList<int> GetSkillsForCooldownId(int cooldownId)

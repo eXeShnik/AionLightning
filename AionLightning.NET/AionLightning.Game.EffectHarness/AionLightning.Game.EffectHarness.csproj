@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(DotNetVersion)</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AionLightning.Game\AionLightning.Game.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.2" />
+  </ItemGroup>
+
+  <!-- DataManager loads static data from <output>/data/static_data. The effect harness only needs the
+       skill templates, so copy just that subtree (the source of truth under AL-Game). -->
+  <ItemGroup>
+    <Content Include="..\..\AL-Game\data\static_data\skills\**\*"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="data\static_data\skills\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
