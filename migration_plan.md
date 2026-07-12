@@ -4911,3 +4911,8 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   quest still completable — same simplification as Pernon).
 - [x] **C2 Phase 5 Katalam batch 2** (2026-07-12, fleet): +8 quests (27→35 total), probe 35/35.
   (Agent hit context mid-batch; the 8 new files compile clean.)
+
+- [x] **C2 Phase 5 Crafting** (2026-07-12, fleet): 50/52 quests (96%), probe 50/50. Collect-and-
+  turn-in craft quests. 2 deferred (onFailCraftEvent hook — not in engine). Gap noted: scripts
+  can't teach gathering skills (no ISkillDao in the 4-arg ctor); the expert-gathering quests drop
+  the skill grant but still complete via items+reward.
