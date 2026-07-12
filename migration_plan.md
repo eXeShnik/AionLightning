@@ -4878,3 +4878,7 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   changeQuestStep ignores nextStep in the reward branch — minor divergence, only matters when
   reward=true && nextStep!=step; 2 Danaria scripts port raw var writes to match Java. Consider
   aligning the shared helper.
+
+- [x] **C2 Phase 5 Sarpan** (2026-07-12, fleet): 28 quests, probe 28/28. 60s zone. (Agent hit
+  context limit mid-batch; the 28 completed files all compile clean — committed as-is, remainder
+  a follow-up.)
