@@ -4882,3 +4882,6 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
 - [x] **C2 Phase 5 Sarpan** (2026-07-12, fleet): 28 quests, probe 28/28. 60s zone. (Agent hit
   context limit mid-batch; the 28 completed files all compile clean — committed as-is, remainder
   a follow-up.)
+
+- [x] **C2 Phase 5 Tiamaranta** (2026-07-12, fleet): 21 quests, probe 21/21. 60s zone. (Agent hit
+  context limit mid-batch; 21 completed files all compile clean, committed as-is.)
