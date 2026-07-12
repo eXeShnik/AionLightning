@@ -10,16 +10,18 @@ public sealed class CM_VERSION_CHECK : AionClientPacket
     private readonly GameServerInfoOptions _info;
     private readonly NetworkOptions _network;
     private readonly CsConnectionOptions _cs;
+    private readonly GsOptions _gs;
 
     private int _version;
 
     public CM_VERSION_CHECK(GsClientConnection conn, GameServerInfoOptions info, NetworkOptions network,
-        CsConnectionOptions cs)
+        CsConnectionOptions cs, GsOptions gs)
     {
         _conn    = conn;
         _info    = info;
         _network = network;
         _cs      = cs;
+        _gs      = gs;
     }
 
     public override void Read(ref PacketReader r)
@@ -33,5 +35,5 @@ public sealed class CM_VERSION_CHECK : AionClientPacket
     }
 
     public override async ValueTask RunAsync(CancellationToken ct)
-        => await _conn.SendAsync(new SM_VERSION_CHECK(_version, _info, _network, _cs), ct);
+        => await _conn.SendAsync(new SM_VERSION_CHECK(_version, _info, _network, _cs, _gs), ct);
 }

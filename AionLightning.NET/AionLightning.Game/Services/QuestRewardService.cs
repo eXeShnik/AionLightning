@@ -8,6 +8,7 @@ using AionLightning.Game.Model.Templates.Quest;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AionLightning.Game.Services;
 
@@ -31,7 +32,7 @@ public sealed class QuestRewardService
 
     public QuestRewardService(IDataManager dataManager, IQuestDao questDao, IItemDao itemDao,
         IPlayerDao playerDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
-        RateOptions rates, ILogger<QuestRewardService> log)
+        IOptions<RateOptions> rates, ILogger<QuestRewardService> log)
     {
         _dataManager  = dataManager;
         _questDao     = questDao;
@@ -39,7 +40,7 @@ public sealed class QuestRewardService
         _playerDao    = playerDao;
         _expService   = expService;
         _connRegistry = connRegistry;
-        _rates        = rates;
+        _rates        = rates.Value;
         _log          = log;
     }
 

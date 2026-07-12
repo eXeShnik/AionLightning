@@ -13,15 +13,17 @@ public sealed class SM_VERSION_CHECK : AionServerPacket
     private readonly GameServerInfoOptions _info;
     private readonly NetworkOptions _network;
     private readonly CsConnectionOptions _cs;
+    private readonly GsOptions _gs;
 
     public SM_VERSION_CHECK(int clientVersion, GameServerInfoOptions info, NetworkOptions network,
-        CsConnectionOptions cs)
+        CsConnectionOptions cs, GsOptions gs)
         : base(0x00)
     {
         _clientVersion = clientVersion;
         _info    = info;
         _network = network;
         _cs      = cs;
+        _gs      = gs;
     }
 
     public override void Write(ref PacketWriter w)
@@ -40,7 +42,7 @@ public sealed class SM_VERSION_CHECK : AionServerPacket
         w.WriteD(140922);                         // year month day
         w.WriteD(1415179894);                     // server time (unix)
         w.WriteC(0x00);
-        w.WriteC(0x00);                           // country code
+        w.WriteC((byte)_gs.CountryCode);          // country code (Java GSConfig.SERVER_COUNTRY_CODE) — must match the client's region
         w.WriteC(0x00);
         w.WriteC(0x10);                           // serverMode: 1 char slot, no factions restriction
 

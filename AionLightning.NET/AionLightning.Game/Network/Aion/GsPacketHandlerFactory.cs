@@ -22,6 +22,7 @@ public sealed class GsPacketHandlerFactory
     private readonly GameServerInfoOptions _gsInfo;
     private readonly NetworkOptions _network;
     private readonly CsConnectionOptions _csOpts;
+    private readonly GsOptions _gsOpts;
     private readonly IPlayerDao _playerDao;
     private readonly IPlayerAppearanceDao _appearanceDao;
     private readonly IItemDao _itemDao;
@@ -70,6 +71,7 @@ public sealed class GsPacketHandlerFactory
         IOptions<GameServerInfoOptions> gsInfo,
         IOptions<NetworkOptions> network,
         IOptions<CsConnectionOptions> csOpts,
+        IOptions<GsOptions> gsOpts,
         IPlayerDao playerDao,
         IPlayerAppearanceDao appearanceDao,
         IItemDao itemDao,
@@ -117,6 +119,7 @@ public sealed class GsPacketHandlerFactory
         _gsInfo        = gsInfo.Value;
         _network       = network.Value;
         _csOpts        = csOpts.Value;
+        _gsOpts        = gsOpts.Value;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
         _itemDao       = itemDao;
@@ -166,7 +169,7 @@ public sealed class GsPacketHandlerFactory
         {
             GsClientConnection.AionState.CONNECTED => opcode switch
             {
-                0xC2  => new CM_VERSION_CHECK(conn, _gsInfo, _network, _csOpts),
+                0xC2  => new CM_VERSION_CHECK(conn, _gsInfo, _network, _csOpts, _gsOpts),
                 0xD0  => new CM_TIME_CHECK(conn),
                 0x19F => new CM_MAC_ADDRESS(),
                 _     => Unknown(state, opcode),
