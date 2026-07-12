@@ -1,8 +1,7 @@
 // Port of Java data/scripts/system/handlers/quest/crafting/_29003ExpertAethertappingExpert.java (Gigi).
 // Baraka (204257) hands over the aether tool (182207142) on dialog open; Vateros (798800)
-// completes the quest and, in Java, teaches skill 30003 level 400.
-// Skip vs Java: the addSkill(30003, 400) grant is omitted — see _19001ExpertEssencetappingExpert
-// for the reason (no ISkillDao reachable from this batch's fixed-shape script constructor).
+// completes the quest and teaches skill 30003 level 400, granted+persisted via
+// QuestHandlerBase.GrantQuestSkillAsync (S2 skill-learning hook, backed by SkillLearnService).
 using System.Threading;
 using System.Threading.Tasks;
 using AionLightning.Game.Dao;
@@ -70,6 +69,7 @@ public sealed class _29003ExpertAethertappingExpert : QuestHandlerBase
             if (dialog == DialogAction.CHECK_USER_HAS_QUEST_ITEM)
                 return await SendQuestDialogAsync(conn, targetObjId, 5, ct);
 
+            await GrantQuestSkillAsync(player, conn, 30003, 400, ct);
             await RemoveQuestItemAsync(player, conn, _itemDao, ToolItemId, 1, ct);
             return await SendQuestEndDialogAsync(env, conn, ct);
         }

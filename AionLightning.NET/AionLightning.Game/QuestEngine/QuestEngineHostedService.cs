@@ -25,6 +25,7 @@ public sealed class QuestEngineHostedService(
     ISkillDao skillDao,
     QuestRewardService rewardService,
     SpawnService spawnService,
+    SkillLearnService skillLearn,
     CSharpCompilerService compiler,
     ILogger<QuestEngineHostedService> log) : IHostedService
 {
@@ -82,6 +83,7 @@ public sealed class QuestEngineHostedService(
         // Give hand-written scripts access to spawning + quest timers (fixed-ctor scripts can't inject).
         QuestHandlerBase.InitSpawnService(spawnService);
         QuestHandlerBase.InitEngine(engine);
+        QuestHandlerBase.InitSkillLearn(skillLearn);
         LoadHandWrittenScripts();
 
         // Must run after every handler above (and every script handler) has registered its NPCs,

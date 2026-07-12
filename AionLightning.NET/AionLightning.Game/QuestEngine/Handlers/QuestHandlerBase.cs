@@ -37,8 +37,19 @@ public abstract class QuestHandlerBase : IQuestHandler
     // and schedule quest timers (Java QuestService.questTimerStart).
     private static SpawnService? _spawnService;
     private static QuestEngine? _engine;
+    private static SkillLearnService? _skillLearn;
     internal static void InitSpawnService(SpawnService spawnService) => _spawnService = spawnService;
     internal static void InitEngine(QuestEngine engine) => _engine = engine;
+    internal static void InitSkillLearn(SkillLearnService skillLearn) => _skillLearn = skillLearn;
+
+    /// <summary>Teaches the player a skill and persists it (Java QuestService reward addSkill),
+    /// sending the learn notification. No-op returning false if the skill service isn't wired.
+    /// Safe to re-grant an already-known skill (returns false without downgrading).</summary>
+    protected async ValueTask<bool> GrantQuestSkillAsync(Player player, GsClientConnection conn, int skillId, int skillLevel, CancellationToken ct)
+    {
+        if (_skillLearn is null) return false;
+        return await _skillLearn.LearnSkillAsync(player, skillId, skillLevel, conn: conn, notify: true, ct: ct);
+    }
 
     /// <summary>Schedules a quest-timer expiry (Java QuestService.questTimerStart): fires
     /// OnQuestTimerEndAsync on all timer-registered quests after <paramref name="seconds"/>.

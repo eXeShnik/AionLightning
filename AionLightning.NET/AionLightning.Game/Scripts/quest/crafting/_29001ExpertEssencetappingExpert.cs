@@ -1,9 +1,8 @@
 // Port of Java data/scripts/system/handlers/quest/crafting/_29001ExpertEssencetappingExpert.java (Gigi).
 // Asmodian mirror of _19001ExpertEssencetappingExpert: Latatusk (204096) hands over the tapping
 // tool (182207141) on dialog open; Vateros (798800) completes the quest and, in Java, teaches
-// skill 30002 level 400.
-// Skip vs Java: the addSkill(30002, 400) grant is omitted — see _19001ExpertEssencetappingExpert
-// for the reason (no ISkillDao reachable from this batch's fixed-shape script constructor).
+// skill 30002 level 400, granted+persisted via QuestHandlerBase.GrantQuestSkillAsync
+// (S2 skill-learning hook, backed by SkillLearnService).
 using System.Threading;
 using System.Threading.Tasks;
 using AionLightning.Game.Dao;
@@ -71,6 +70,7 @@ public sealed class _29001ExpertEssencetappingExpert : QuestHandlerBase
             if (dialog == DialogAction.CHECK_USER_HAS_QUEST_ITEM)
                 return await SendQuestDialogAsync(conn, targetObjId, 5, ct);
 
+            await GrantQuestSkillAsync(player, conn, 30002, 400, ct);
             await RemoveQuestItemAsync(player, conn, _itemDao, ToolItemId, 1, ct);
             return await SendQuestEndDialogAsync(env, conn, ct);
         }
