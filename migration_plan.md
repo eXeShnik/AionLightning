@@ -4841,3 +4841,14 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
 - [x] **C2 Phase 5 Pandaemonium** (2026-07-12, fleet, post-0.3): 40 quests, probe 40/40. Asmodian
   capital (worldId 120010000). Fixed 3 latent Java bugs (2920/2962 shared reward-index instance
   field → persisted var; 2938 NPE null-guard). 3 deferred (campaign/zone-shape/escort).
+
+- [x] **C2 Phase 5 Sanctum** (2026-07-12, fleet, post-0.3): 35/37 quests, probe 35/35. Elyos
+  capital (worldId 110010000). Fixed 6 latent Java bugs incl. 2 money-losing (Kinah charged
+  before item check; double-charge). 2 deferred (instance campaign + escort). Kinah modeled as
+  item 182400001 per CM_BUY_ITEM convention (a shared DecreaseKinah helper is a future cleanup).
+- **Phase 5 zone tally (2026-07-12, 14 zones)**: Poeta 14, Ishalgen 17, Verteron 25, Altgard 33,
+  Eltnen 33, Morheim 29, Heiron 19, Beluslan 20, Theobomos 22, Brusthonin 20, Gelkmaros 36,
+  Inggison 30, Pandaemonium 40, Sanctum 35 = 373 hand-written quests committed. Full 1-50 both
+  factions + both capitals functional. ~20+ latent Java bugs fixed along the way.
+- NOTE for future cleanup: add QuestHandlerBase.DecreaseKinahAsync (5 Sanctum quests each carry a
+  private copy); file-write-guard hook false-positives on "secrets" substring (e.g. ASecretSummons).
