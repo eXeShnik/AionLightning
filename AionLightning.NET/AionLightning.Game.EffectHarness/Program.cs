@@ -254,8 +254,139 @@ foreach (var template in allTemplates)
 Console.WriteLine($"HARNESS (HealAmountCalculator): {healPassed}/{healTotal} assertions passed, {healScanned} heal/hot effects scanned, {healExceptions} exceptions");
 Console.WriteLine($"HARNESS (DrainCalculator): {drainPassed}/{drainTotal} assertions passed");
 
-int totalPassed = passed + debuffPassed + dotPassed + healPassed + drainPassed;
-int totalAssertions = total + debuffTotal + dotTotal + healTotal + drainTotal;
+// --- SkillDamageCalculator (S4e) ---
+// Deterministic sub-formula assertions using a zero-stat dummy Player effector and Npc targets (no
+// crit RNG, no resist/dodge rolls, no onetime charges — those stay at the CM_CASTSPELL call sites and
+// aren't exercised here). Each "expected" value is computed independently from the documented formula,
+// not by re-calling the calculator, so a regression in the calculator body will actually be caught.
+var sdEffector = new Player();
+int sdPassed = 0, sdTotal = 0;
+
+// ComputeRaw (magical): zero-stat effector + Npc target (Stats == null -> MBResist collapses to 0,
+// so suppression and magic-boost-mult are both neutral) reduces to (100 + base) * 1.0f.
+{
+    const int baseValue = 137;
+    int expected = (int)((100 + baseValue) * 1.0f);
+    int result = SkillDamageCalculator.ComputeRaw(sdEffector, MakeNpc(), baseValue, isMagical: true,
+        applyPassiveSpellAttackBonus: false, onetimeAtkPct: 0);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ComputeRaw(magical) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ComputeRaw (physical): zero-stat effector reduces pAtk to 0, so raw == baseValue.
+{
+    const int baseValue = 84;
+    int expected = baseValue;
+    int result = SkillDamageCalculator.ComputeRaw(sdEffector, MakeNpc(), baseValue, isMagical: false,
+        applyPassiveSpellAttackBonus: false, onetimeAtkPct: 0);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ComputeRaw(physical) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyDefenseAndResist: def>0 mitigation branch (Player target with MagicDefense set).
+{
+    var defTarget = new Player { MagicDefense = 500 };
+    const int raw = 1000, def = 500;
+    int expected = Math.Max(1, raw * 1000 / (1000 + def));
+    int result = SkillDamageCalculator.ApplyDefenseAndResist(raw, defTarget, isMagical: true,
+        hasNoReduce: false, noReduceValue: 0, noReduceIsPercent: false, element: "", applyElementalResist: false);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyDefenseAndResist(def>0) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyCrit: fixed 1.5x coefficient when useFortitudeCoeff is false (S2/S6), regardless of target.
+{
+    const int raw = 200;
+    int expected = (int)(raw * 1.5f);
+    int result = SkillDamageCalculator.ApplyCrit(raw, MakeNpc(), isMagical: true, didCrit: true, useFortitudeCoeff: false);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyCrit(fixed 1.5x) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyCrit: fortitude coefficient, fort=0 -> max(1, 1.5 - round(0)) = 1.5x.
+{
+    var fortTarget = new Player { BonusSpellFortitude = 0 };
+    const int raw = 200;
+    float expectedCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(0 / 1000.0));
+    int expected = (int)(raw * expectedCoeff);
+    int result = SkillDamageCalculator.ApplyCrit(raw, fortTarget, isMagical: true, didCrit: true, useFortitudeCoeff: true);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyCrit(fortitude=0) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyCrit: fortitude coefficient, fort=1000 -> round(1.0)=1 -> max(1, 1.5-1)=1.0x (no bonus, coefficient
+// floors at the crit minimum). NOTE: fort=500 is a Math.Round MidpointRounding.ToEven boundary
+// (Math.Round(0.5) == 0, verified empirically, NOT 1) so it does NOT give the 1.0x case — using 1000
+// instead avoids relying on banker's-rounding trivia to exercise the "coefficient clamped to 1.0" path.
+{
+    var fortTarget = new Player { BonusSpellFortitude = 1000 };
+    const int raw = 200;
+    float expectedCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(1000 / 1000.0));
+    int expected = (int)(raw * expectedCoeff);
+    int result = SkillDamageCalculator.ApplyCrit(raw, fortTarget, isMagical: true, didCrit: true, useFortitudeCoeff: true);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyCrit(fortitude=1000) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyDefenseAndResist: elemental resist branch (magical, resist>0, no def so mitigation is a no-op).
+{
+    var elemTarget = MakeNpc();
+    elemTarget.FireResist = 250;
+    const int raw = 1000;
+    int expected = Math.Max(1, (int)(raw * (1f - 250 / 1250f)));
+    int result = SkillDamageCalculator.ApplyDefenseAndResist(raw, elemTarget, isMagical: true,
+        hasNoReduce: false, noReduceValue: 0, noReduceIsPercent: false, element: "FIRE", applyElementalResist: true);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyDefenseAndResist(elemental) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyDefenseAndResist: noreduce override replaces the mitigated value entirely (percent-of-maxhp variant).
+{
+    var nrTarget = MakeNpc();
+    nrTarget.MaxHp = 10_000;
+    const int raw = 999_999; // arbitrarily large — must be fully discarded by the override
+    int expected = Math.Max(1, nrTarget.MaxHp * 25 / 100);
+    int result = SkillDamageCalculator.ApplyDefenseAndResist(raw, nrTarget, isMagical: true,
+        hasNoReduce: true, noReduceValue: 25, noReduceIsPercent: true, element: "", applyElementalResist: true);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyDefenseAndResist(noreduce%) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+// ApplyLevelDiffAndPvp: Npc branch applies NpcLevelDiffMod when flagged and levelDiff qualifies.
+{
+    var npcTarget = MakeNpc(); // Level 1 in this harness's MakeNpc()
+    var lvlEffector = new Player { Level = 1 };
+    // levelDiff = npc.Level(1) - effector.Level(1) = 0 -> NpcLevelDiffMod(0) == 0f -> no-op (raw unchanged)
+    const int raw = 400;
+    int expected = raw;
+    int result = SkillDamageCalculator.ApplyLevelDiffAndPvp(raw, lvlEffector, npcTarget,
+        applyNpcLevelDiffMod: true, applyPvp: false);
+    sdTotal++;
+    bool ok = result == expected;
+    Console.WriteLine($"  [SkillDamageCalculator] ApplyLevelDiffAndPvp(levelDiff=0) result={result} (expected {expected}) {(ok ? "PASS" : "FAIL")}");
+    if (ok) sdPassed++;
+}
+
+Console.WriteLine($"HARNESS (SkillDamageCalculator): {sdPassed}/{sdTotal} assertions passed");
+
+int totalPassed = passed + debuffPassed + dotPassed + healPassed + drainPassed + sdPassed;
+int totalAssertions = total + debuffTotal + dotTotal + healTotal + drainTotal + sdTotal;
 int totalExceptions = exceptions + debuffExceptions + dotExceptions + healExceptions;
 Console.WriteLine($"HARNESS: {totalPassed}/{totalAssertions} assertions passed, {scanned} templates scanned, {debuffScanned} debuff templates scanned, {dotScanned} dot effects scanned, {healScanned} heal/hot effects scanned, {totalExceptions} exceptions");
 return totalPassed == totalAssertions && totalExceptions == 0 ? 0 : 1;

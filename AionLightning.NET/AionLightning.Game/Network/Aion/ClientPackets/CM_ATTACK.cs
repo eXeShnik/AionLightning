@@ -1,6 +1,7 @@
 using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
 using AionLightning.Game.Combat;
+using AionLightning.Game.Combat.Effects;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Events;
@@ -488,13 +489,9 @@ public sealed class CM_ATTACK : AionClientPacket
     private static int NpcPhysicalAccuracy(Model.Npc npc)
         => (int)Math.Round(npc.Level * (33.6 - 0.16 * npc.Level) + 5);
 
-    // Java StatFunctions.getNpcLevelDiffMod: multiplier applied to dodge rate and damage when NPC > player level
-    private static float NpcLevelDiffMod(int levelDiff) => levelDiff switch
-    {
-        3  => 0.1f, 4 => 0.2f, 5 => 0.3f, 6 => 0.4f,
-        7  => 0.5f, 8 => 0.6f, 9 => 0.7f,
-        _  => levelDiff > 9 ? 0.8f : 0f
-    };
+    // Java StatFunctions.getNpcLevelDiffMod: multiplier applied to dodge rate and damage when NPC > player level.
+    // S4e: delegates to the shared CombatMath helper (also used by CM_CASTSPELL) — no behavior change.
+    private static float NpcLevelDiffMod(int levelDiff) => CombatMath.NpcLevelDiffMod(levelDiff);
 
     private async ValueTask AwardLegionContributionAsync(Model.Player player, long apAmount, CancellationToken ct)
     {

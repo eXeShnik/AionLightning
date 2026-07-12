@@ -1174,13 +1174,14 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 }
                                 else
                                 {
-                                    int cdMAtk = 100 + buffCaster.MainHandMagicalAtk + buffCaster.BonusMagicAtk
-                                                     + buffCaster.MagicAtkDebuffDelta + buffCaster.MagicAtkStatUpDelta;
-                                    int cdSupp = expiryTarget is Player cdPvpT
-                                        ? cdPvpT.BonusMagicSuppression + cdPvpT.MagicSuppressionDelta
-                                        : expiryTarget is Npc cdNpcT ? (cdNpcT.Template.Stats?.MBResist ?? 0) : 0;
-                                    float cdMb = 1.0f + Math.Max(0, buffCaster.BonusMagicBoost + buffCaster.MagicBoostDelta - cdSupp) / 1000f;
-                                    int cdRaw  = (int)((cdMAtk + cdBase) * cdMb);
+                                    // S4e: attack-stat term extracted to the shared calculator (no passive bonus,
+                                    // no onetime charge — matches original, which never checked either for this
+                                    // launcher/child branch). Def-mitigation kept inline: this site is the only one
+                                    // of the 6 that wraps BOTH branches of the def ternary in Math.Max(1, ...) —
+                                    // every other site leaves the no-def branch unwrapped — so it doesn't fit
+                                    // ApplyDefenseAndResist's shared "else raw" shape without losing that divergence.
+                                    int cdRaw = SkillDamageCalculator.ComputeRaw(buffCaster, expiryTarget, cdBase,
+                                        isMagical: true, applyPassiveSpellAttackBonus: false, onetimeAtkPct: 0);
                                     int cdMDef = expiryTarget is Player cdDefP
                                         ? cdDefP.MagicDefense + cdDefP.MagicDefDelta
                                         : expiryTarget is Npc cdDefN ? (cdDefN.Template.Stats?.MBResist ?? 0) : 0;
@@ -1226,7 +1227,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         try { await c.SendAsync(activation); } catch { }
 
                 Position cCenter = player.Position;
-                int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
                 var cDmgFx    = template?.Effects?.DamageEffects;
                 int? cSkillBase = cDmgFx is { Count: > 0 } ? cDmgFx[0].BaseValue + cDmgFx[0].Delta * (_level - 1) : null;
 
@@ -1244,13 +1244,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     if (dx * dx + dy * dy > cAoeR * cAoeR) continue;
                     if (Math.Abs(dz) > cAoeAlt) continue;
 
-                    int tMBSuppress = npc.Template.Stats?.MBResist ?? 0;
-                    float mbMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppress) / 1000f;
                     int cBase = cSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40);
-                    int rawDmg = (int)((mAtk + cBase) * mbMult);
-                    if (player.PassiveBonusSpellAttackPct > 0)
-                        rawDmg = (int)(rawDmg * (1f + player.PassiveBonusSpellAttackPct / 100f));
-                    if (onetimeAtkPctC != 0) rawDmg = Math.Max(1, rawDmg * (100 + onetimeAtkPctC) / 100);
+                    int rawDmg = SkillDamageCalculator.ComputeRaw(player, npc, cBase, isMagical: true,
+                        applyPassiveSpellAttackBonus: true, onetimeAtkPct: onetimeAtkPctC);
 
                     int totalMagicAcc = player.BaseMagicAccuracy + player.BonusMagicalAccuracy + player.MagicAccDelta;
                     int mr = NpcMagicResist(npc);
@@ -1267,18 +1263,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     }
 
                     int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatC;
-                    double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
-                                     : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
-                                     : 52.0 + (mCritRating - 600) * 0.02;
-                    if (onetimeCritPctC > 0) mCritRate = Math.Min(100, mCritRate + onetimeCritPctC);
-                    if (Random.Shared.Next(100) < (int)mCritRate)
-                        rawDmg = (int)(rawDmg * 1.5f);
+                    double mCritRate = SkillDamageCalculator.ComputeCritRate(mCritRating, onetimeCritPctC);
+                    bool cCrit = Random.Shared.Next(100) < (int)mCritRate;
+                    rawDmg = SkillDamageCalculator.ApplyCrit(rawDmg, npc, isMagical: true, cCrit, useFortitudeCoeff: false);
 
-                    float lvlMod = NpcLevelDiffMod(npc.Level - player.Level);
-                    if (lvlMod > 0f) rawDmg = Math.Max(1, (int)(rawDmg * (1f - lvlMod)));
+                    rawDmg = SkillDamageCalculator.ApplyLevelDiffAndPvp(rawDmg, player, npc,
+                        applyNpcLevelDiffMod: true, applyPvp: false);
 
-                    int mbResist = npc.Template.Stats?.MBResist ?? 0;
-                    int damage = mbResist > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + mbResist)) : rawDmg;
+                    int damage = SkillDamageCalculator.ApplyDefenseAndResist(rawDmg, npc, isMagical: true,
+                        hasNoReduce: false, noReduceValue: 0, noReduceIsPercent: false,
+                        element: "", applyElementalResist: false);
 
                     await npc.ApplyDamageAndPublishAsync(player, damage, DamageKind.MagicalSkill, spellId, _eventBus, ct);
 
@@ -1364,8 +1358,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 }
 
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
-                int mAtk = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
-                int pAtk = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
                 var gAoeDmgFx = template?.Effects?.DamageEffects;
                 int? gAoeSkillBase = gAoeDmgFx is { Count: > 0 }
                     ? gAoeDmgFx[0].BaseValue + gAoeDmgFx[0].Delta * (_level - 1)
@@ -1377,21 +1369,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                 foreach (var target in targets)
                 {
-                    // Java: magicBoost -= getMBResist() (target suppression reduces caster boost, min 0)
-                    int tMBSuppress = spellIsMagical
-                        ? (target is Player pvpSupp ? pvpSupp.BonusMagicSuppression + pvpSupp.MagicSuppressionDelta
-                         : target is Npc npcSupp   ? (npcSupp.Template.Stats?.MBResist ?? 0)
-                         : 0)
-                        : 0;
-                    float magicBoostMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppress) / 1000f;
-
                     int gAoeBase = gAoeSkillBase ?? (spellIsMagical ? player.Level * 6 : player.Level * 4) + Random.Shared.Next(10, 40);
-                    int rawSpellDmg = spellIsMagical
-                        ? (int)((mAtk + gAoeBase) * magicBoostMult)
-                        : pAtk + gAoeBase;
-                    if (spellIsMagical && player.PassiveBonusSpellAttackPct > 0)
-                        rawSpellDmg = (int)(rawSpellDmg * (1f + player.PassiveBonusSpellAttackPct / 100f));
-                    if (onetimeAtkPctG != 0) rawSpellDmg = Math.Max(1, rawSpellDmg * (100 + onetimeAtkPctG) / 100);
+                    int rawSpellDmg = SkillDamageCalculator.ComputeRaw(player, target, gAoeBase, spellIsMagical,
+                        applyPassiveSpellAttackBonus: true, onetimeAtkPct: onetimeAtkPctG);
 
                     // M258: skip resist/dodge when damage effect carries noresist="true"
                     bool gAoeNoResist = gAoeDmgFx is { Count: > 0 } && gAoeDmgFx[0].IsNoResist;
@@ -1450,72 +1430,33 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatG;
                         int mCritResist = target is Player pvpMCrit ? pvpMCrit.BonusMagicalCriticalResist + pvpMCrit.MagicCritResistDelta : 0;
                         mCritRating = Math.Max(0, mCritRating - mCritResist);
-                        double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
-                                         : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
-                                         : 52.0 + (mCritRating - 600) * 0.02;
-                        if (onetimeCritPctG > 0) mCritRate = Math.Min(100, mCritRate + onetimeCritPctG);
-                        if (Random.Shared.Next(100) < (int)mCritRate)
-                        {
-                            int spF = target is Player pvpSpF ? pvpSpF.BonusSpellFortitude + pvpSpF.SpellFortitudeDelta : 0;
-                            float mCritCoeff = Math.Max(1.0f, 1.5f - (float)Math.Round(spF / 1000.0));
-                            rawSpellDmg = (int)(rawSpellDmg * mCritCoeff);
-                        }
+                        double mCritRate = SkillDamageCalculator.ComputeCritRate(mCritRating, onetimeCritPctG);
+                        bool gAoeCritM = Random.Shared.Next(100) < (int)mCritRate;
+                        rawSpellDmg = SkillDamageCalculator.ApplyCrit(rawSpellDmg, target, isMagical: true, gAoeCritM, useFortitudeCoeff: true);
                     }
                     else // physical skill crit (Java calculatePhysicalCriticalRate, coefficient 1.5 for skills)
                     {
                         int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta + onetimeCritFlatG;
                         int pCritResist = target is Player pvpPCG ? pvpPCG.BonusPhysicalCriticalResist + pvpPCG.PhysCritResistDelta : 0;
                         pCritRating = Math.Max(0, pCritRating - pCritResist);
-                        double pCritRate = pCritRating <= 440 ? pCritRating * 0.1
-                                         : pCritRating <= 600 ? 44.0 + (pCritRating - 440) * 0.05
-                                         : 52.0 + (pCritRating - 600) * 0.02;
-                        if (onetimeCritPctG > 0) pCritRate = Math.Min(100, pCritRate + onetimeCritPctG);
-                        if (Random.Shared.Next(100) < (int)pCritRate)
-                        {
-                            int sFortG = target is Player pvpSFG ? pvpSFG.BonusStrikeFortitude + pvpSFG.StrikeFortitudeDelta : 0;
-                            float pCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortG / 1000.0));
-                            rawSpellDmg = (int)(rawSpellDmg * pCritCoeffG);
-                        }
+                        double pCritRate = SkillDamageCalculator.ComputeCritRate(pCritRating, onetimeCritPctG);
+                        bool gAoeCritP = Random.Shared.Next(100) < (int)pCritRate;
+                        rawSpellDmg = SkillDamageCalculator.ApplyCrit(rawSpellDmg, target, isMagical: false, gAoeCritP, useFortitudeCoeff: true);
                     }
 
                     // NPC level-diff or PvP damage reduction (Java StatFunctions.adjustDamages)
-                    if (target is Npc npcLvlAoEDmg)
-                    {
-                        float lvlMod = NpcLevelDiffMod(npcLvlAoEDmg.Level - player.Level);
-                        if (lvlMod > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlMod)));
-                    }
-                    else if (target is Player pvpGAoe)
-                    {
-                        rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
-                        // M340: PvP attack/defend ratio — attacker bonus minus defender reduction (Java * 0.001f each)
-                        int gAoePvpNet = player.PvpAtkRatio - pvpGAoe.PvpDefRatio;
-                        if (gAoePvpNet != 0)
-                            rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f + gAoePvpNet * 0.001f)));
-                    }
+                    rawSpellDmg = SkillDamageCalculator.ApplyLevelDiffAndPvp(rawSpellDmg, player, target,
+                        applyNpcLevelDiffMod: true, applyPvp: true);
 
-                    // MResist = resist-chance only; NPC MAGICAL_DEFEND base = 0; use MBResist (magic fortitude) for mitigation
-                    int spellDef = target is Player pvpSpellTarget
-                                 ? (spellIsMagical ? pvpSpellTarget.MagicDefense + pvpSpellTarget.MagicDefDelta
-                                                   : pvpSpellTarget.PhysicalDefense + pvpSpellTarget.PdefDebuffDelta + pvpSpellTarget.PdefStatUpDelta)
-                                 : target is Npc npcSpellTarget
-                                 ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MBResist ?? 0)
-                                                   : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
-                                 : 0;
-                    int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
                     // M247: noreducespellatk — defense-bypass damage replaces regular formula (per AoE target)
                     var gAoeNoReduce = template?.Effects?.NoReduceEffects;
-                    if (gAoeNoReduce is { Count: > 0 })
-                    {
-                        int noReduceVal = gAoeNoReduce[0].BaseValue + gAoeNoReduce[0].Delta * (_level - 1);
-                        damage = gAoeNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
-                    }
-                    // M339: elemental resistance — reduce magical damage if target has resist for this element
-                    if (spellIsMagical && gAoeNoReduce is not { Count: > 0 })
-                    {
-                        int gAoeElemResist = GetElementalResist(target, gAoeDmgFx?[0].Element ?? "");
-                        if (gAoeElemResist > 0)
-                            damage = Math.Max(1, (int)(damage * (1f - gAoeElemResist / 1250f)));
-                    }
+                    bool gAoeHasNoReduce = gAoeNoReduce is { Count: > 0 };
+                    int gAoeNoReduceVal = gAoeHasNoReduce ? gAoeNoReduce![0].BaseValue + gAoeNoReduce[0].Delta * (_level - 1) : 0;
+                    bool gAoeNoReduceIsPct = gAoeHasNoReduce && gAoeNoReduce![0].IsPercent;
+                    // M339: elemental resistance — reduce magical damage if target has resist for this element (skipped when noreduce overrides)
+                    int damage = SkillDamageCalculator.ApplyDefenseAndResist(rawSpellDmg, target, spellIsMagical,
+                        gAoeHasNoReduce, gAoeNoReduceVal, gAoeNoReduceIsPct,
+                        gAoeDmgFx?[0].Element ?? "", applyElementalResist: spellIsMagical);
                     var gAoeKind = spellIsMagical ? DamageKind.MagicalSkill : DamageKind.PhysicalSkill;
                     await target.ApplyDamageAndPublishAsync(player, damage, gAoeKind, spellId, _eventBus, ct);
 
@@ -1891,25 +1832,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     ? stDmgFx[0].BaseValue + stDmgFx[0].Delta * (_level - 1)
                     : null;
 
-                int rawSpellDmg;
-                if (spellIsMagical)
-                {
-                    int mAtkG = 100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta;
-                    int tMBSuppressG = target is Player pvpSuppG ? pvpSuppG.BonusMagicSuppression + pvpSuppG.MagicSuppressionDelta
-                                     : target is Npc npcSuppG ? (npcSuppG.Template.Stats?.MBResist ?? 0) : 0;
-                    float mbMultG = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - tMBSuppressG) / 1000f;
-                    int stMagicBase = stSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40);
-                    rawSpellDmg = (int)((mAtkG + stMagicBase) * mbMultG);
-                    if (player.PassiveBonusSpellAttackPct > 0)
-                        rawSpellDmg = (int)(rawSpellDmg * (1f + player.PassiveBonusSpellAttackPct / 100f));
-                }
-                else
-                {
-                    int pAtkG = player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta;
-                    rawSpellDmg = pAtkG + (stSkillBase ?? player.Level * 4 + Random.Shared.Next(10, 40));
-                }
-
-                if (onetimeAtkPctST != 0) rawSpellDmg = Math.Max(1, rawSpellDmg * (100 + onetimeAtkPctST) / 100);
+                int stBaseVal = spellIsMagical
+                    ? stSkillBase ?? player.Level * 6 + Random.Shared.Next(10, 40)
+                    : stSkillBase ?? player.Level * 4 + Random.Shared.Next(10, 40);
+                int rawSpellDmg = SkillDamageCalculator.ComputeRaw(player, target, stBaseVal, spellIsMagical,
+                    applyPassiveSpellAttackBonus: true, onetimeAtkPct: onetimeAtkPctST);
 
                 // M289: SignetBurst — scale rawSpellDmg by signet level BEFORE crit (Java: valueWithDelta *= factor)
                 if (isSignetBurstSkill)
@@ -1938,65 +1865,34 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int mCritRating = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatST;
                     int mCritResist = target is Player pvpMCritTarget ? pvpMCritTarget.BonusMagicalCriticalResist + pvpMCritTarget.MagicCritResistDelta : 0;
                     mCritRating = Math.Max(0, mCritRating - mCritResist);
-                    double mCritRate = mCritRating <= 440 ? mCritRating * 0.1
-                                     : mCritRating <= 600 ? 44.0 + (mCritRating - 440) * 0.05
-                                     : 52.0 + (mCritRating - 600) * 0.02;
-                    if (onetimeCritPctST > 0) mCritRate = Math.Min(100, mCritRate + onetimeCritPctST);
-                    if (Random.Shared.Next(100) < (int)mCritRate)
-                    {
-                        int spFt = target is Player pvpSpFt ? pvpSpFt.BonusSpellFortitude + pvpSpFt.SpellFortitudeDelta : 0;
-                        float mCritCoeffG = Math.Max(1.0f, 1.5f - (float)Math.Round(spFt / 1000.0));
-                        rawSpellDmg = (int)(rawSpellDmg * mCritCoeffG);
-                    }
+                    double mCritRate = SkillDamageCalculator.ComputeCritRate(mCritRating, onetimeCritPctST);
+                    bool stCritM = Random.Shared.Next(100) < (int)mCritRate;
+                    rawSpellDmg = SkillDamageCalculator.ApplyCrit(rawSpellDmg, target, isMagical: true, stCritM, useFortitudeCoeff: true);
                 }
                 else // physical skill crit (Java calculatePhysicalCriticalRate, coefficient 1.5 for skills)
                 {
                     int pCritRating = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta + onetimeCritFlatST;
                     int pCritResist = target is Player pvpPCST ? pvpPCST.BonusPhysicalCriticalResist + pvpPCST.PhysCritResistDelta : 0;
                     pCritRating = Math.Max(0, pCritRating - pCritResist);
-                    double pCritRate = pCritRating <= 440 ? pCritRating * 0.1
-                                     : pCritRating <= 600 ? 44.0 + (pCritRating - 440) * 0.05
-                                     : 52.0 + (pCritRating - 600) * 0.02;
-                    if (onetimeCritPctST > 0) pCritRate = Math.Min(100, pCritRate + onetimeCritPctST);
-                    if (Random.Shared.Next(100) < (int)pCritRate)
-                    {
-                        int sFortST = target is Player pvpSFST ? pvpSFST.BonusStrikeFortitude + pvpSFST.StrikeFortitudeDelta : 0;
-                        float pCritCoeffST = Math.Max(1.0f, 1.5f - (float)Math.Round(sFortST / 1000.0));
-                        rawSpellDmg = (int)(rawSpellDmg * pCritCoeffST);
-                    }
+                    double pCritRate = SkillDamageCalculator.ComputeCritRate(pCritRating, onetimeCritPctST);
+                    bool stCritP = Random.Shared.Next(100) < (int)pCritRate;
+                    rawSpellDmg = SkillDamageCalculator.ApplyCrit(rawSpellDmg, target, isMagical: false, stCritP, useFortitudeCoeff: true);
                 }
 
                 // NPC level-diff or PvP damage reduction (Java StatFunctions.adjustDamages)
-                if (target is Npc npcLvlSTDmg)
-                {
-                    float lvlModST = NpcLevelDiffMod(npcLvlSTDmg.Level - player.Level);
-                    if (lvlModST > 0f) rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f - lvlModST)));
-                }
-                else if (target is Player pvpST)
-                {
-                    rawSpellDmg = Math.Max(1, rawSpellDmg / 2); // PvP 50%
-                    // M340: PvP attack/defend ratio — attacker bonus minus defender reduction (Java * 0.001f each)
-                    int stPvpNet = player.PvpAtkRatio - pvpST.PvpDefRatio;
-                    if (stPvpNet != 0)
-                        rawSpellDmg = Math.Max(1, (int)(rawSpellDmg * (1f + stPvpNet * 0.001f)));
-                }
+                rawSpellDmg = SkillDamageCalculator.ApplyLevelDiffAndPvp(rawSpellDmg, player, target,
+                    applyNpcLevelDiffMod: true, applyPvp: true);
 
-                // Java: MResist is resist-chance only; MAGICAL_DEFEND (=0 for NPCs) is separate damage mitigation
-                int spellDef = target is Player pvpSpellTarget
-                             ? (spellIsMagical ? pvpSpellTarget.MagicDefense + pvpSpellTarget.MagicDefDelta
-                                               : pvpSpellTarget.PhysicalDefense + pvpSpellTarget.PdefDebuffDelta + pvpSpellTarget.PdefStatUpDelta)
-                             : target is Npc npcSpellTarget
-                             ? (spellIsMagical ? (npcSpellTarget.Template.Stats?.MBResist ?? 0)
-                                               : (npcSpellTarget.Template.Stats?.PDef    ?? 0))
-                             : 0;
-                int damage = spellDef > 0 ? Math.Max(1, rawSpellDmg * 1000 / (1000 + spellDef)) : rawSpellDmg;
                 // M247: noreducespellatk — defense-bypass damage replaces regular formula
+                // S4e: def-mitigation + noreduce-override rewired via the shared calculator (applyElementalResist
+                // left false here — DamageModifiers below must run BEFORE elemental resist, so the elemental step
+                // stays inline after DamageModifiers, exactly as today; see M339 block further down).
                 var stNoReduce = template?.Effects?.NoReduceEffects;
-                if (stNoReduce is { Count: > 0 })
-                {
-                    int noReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
-                    damage = stNoReduce[0].IsPercent ? Math.Max(1, target.MaxHp * noReduceVal / 100) : Math.Max(1, noReduceVal);
-                }
+                bool stHasNoReduce = stNoReduce is { Count: > 0 };
+                int stNoReduceVal = stHasNoReduce ? stNoReduce![0].BaseValue + stNoReduce[0].Delta * (_level - 1) : 0;
+                bool stNoReduceIsPct = stHasNoReduce && stNoReduce![0].IsPercent;
+                int damage = SkillDamageCalculator.ApplyDefenseAndResist(rawSpellDmg, target, spellIsMagical,
+                    stHasNoReduce, stNoReduceVal, stNoReduceIsPct, element: "", applyElementalResist: false);
                 // M284: <targetrace>/<targetclass>/<abnormaldamage> damage modifiers
                 if (template?.Effects?.DamageModifiers is { Count: > 0 } stMods)
                 {
@@ -2020,8 +1916,10 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             damage += mod.Value + mod.Delta * (_level - 1);
                     }
                 }
-                // M339: elemental resistance — reduce magical damage if target has resist for this element
-                if (spellIsMagical && stNoReduce is not { Count: > 0 })
+                // M339: elemental resistance — reduce magical damage if target has resist for this element.
+                // S4e: kept inline (not folded into ApplyDefenseAndResist above) since it must run AFTER
+                // DamageModifiers, not immediately after the noreduce override, to match today's ordering.
+                if (spellIsMagical && !stHasNoReduce)
                 {
                     int stElemResist = GetElementalResist(target, stDmgFx?[0].Element ?? "");
                     if (stElemResist > 0)
@@ -2311,19 +2209,11 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         {
                             await Task.Delay(ddDelay);
                             if (ddTarget.IsAlreadyDead || ddTarget.CurrentHp <= 0) return;
-                            int ddMAtk = 100 + ddPlayer.MainHandMagicalAtk + ddPlayer.BonusMagicAtk
-                                             + ddPlayer.MagicAtkDebuffDelta + ddPlayer.MagicAtkStatUpDelta;
-                            int ddSuppress = ddTarget is Player ddPvpT
-                                ? ddPvpT.BonusMagicSuppression + ddPvpT.MagicSuppressionDelta
-                                : ddTarget is Npc ddNpcT ? (ddNpcT.Template.Stats?.MBResist ?? 0) : 0;
-                            float ddMbMult = 1.0f + Math.Max(0, ddPlayer.BonusMagicBoost + ddPlayer.MagicBoostDelta - ddSuppress) / 1000f;
-                            int ddRaw = (int)((ddMAtk + ddVal) * ddMbMult);
-                            if (ddPlayer.PassiveBonusSpellAttackPct > 0)
-                                ddRaw = (int)(ddRaw * (1f + ddPlayer.PassiveBonusSpellAttackPct / 100f));
-                            int ddDef = ddTarget is Player ddDefPvp
-                                ? ddDefPvp.MagicDefense + ddDefPvp.MagicDefDelta
-                                : ddTarget is Npc ddDefNpc ? (ddDefNpc.Template.Stats?.MBResist ?? 0) : 0;
-                            int ddDmg = ddDef > 0 ? Math.Max(1, ddRaw * 1000 / (1000 + ddDef)) : ddRaw;
+                            int ddRaw = SkillDamageCalculator.ComputeRaw(ddPlayer, ddTarget, ddVal, isMagical: true,
+                                applyPassiveSpellAttackBonus: true, onetimeAtkPct: 0);
+                            int ddDmg = SkillDamageCalculator.ApplyDefenseAndResist(ddRaw, ddTarget, isMagical: true,
+                                hasNoReduce: false, noReduceValue: 0, noReduceIsPercent: false,
+                                element: "", applyElementalResist: false);
                             await ddTarget.ApplyDamageAndPublishAsync(ddPlayer, ddDmg, DamageKind.MagicalSkill, ddSkillId, _eventBus);
                             var ddPkt = new SM_ATTACK_STATUS(ddTarget, SM_ATTACK_STATUS.AttackType.Damage, ddSkillId, ddDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
                             foreach (var c in ddReg.GetAll())
@@ -2366,15 +2256,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         if (splashCount >= maxHits) break;
                         splashCount++;
 
-                        int splashMBSuppress = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0) : 0;
-                        float splashMBMult = 1.0f + Math.Max(0, player.BonusMagicBoost + player.MagicBoostDelta - splashMBSuppress) / 1000f;
                         int splashBase = stSkillBase ?? (spellIsMagical ? player.Level * 6 : player.Level * 4) + Random.Shared.Next(10, 40);
-                        int splashRaw = spellIsMagical
-                            ? (int)(((100 + player.MainHandMagicalAtk + player.BonusMagicAtk + player.MagicAtkDebuffDelta + player.MagicAtkStatUpDelta) + splashBase) * splashMBMult)
-                            : (player.BasePhysicalAttack + (player.MainHandMinDmg + player.MainHandMaxDmg) / 2 + player.BonusPhysicalAtk + player.PatkStatUpDelta) + splashBase;
-                        if (spellIsMagical && player.PassiveBonusSpellAttackPct > 0)
-                            splashRaw = (int)(splashRaw * (1f + player.PassiveBonusSpellAttackPct / 100f));
-                        if (onetimeAtkPctST != 0) splashRaw = Math.Max(1, splashRaw * (100 + onetimeAtkPctST) / 100);
+                        int splashRaw = SkillDamageCalculator.ComputeRaw(player, splash, splashBase, spellIsMagical,
+                            applyPassiveSpellAttackBonus: true, onetimeAtkPct: onetimeAtkPctST);
 
                         // Magic resist check for AoE splash / physical dodge check (splash targets are NPC-only)
                         if (spellIsMagical)
@@ -2409,44 +2293,29 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             }
                         }
 
-                        // Magical crit check for AoE splash
+                        // Magical crit check for AoE splash (no crit-resist subtraction, fixed 1.5x — no fortitude coefficient)
                         if (spellIsMagical)
                         {
                             int mCritRatingS = player.BaseMagicCritRating + player.BonusMagicalCritical + player.MagicCritDelta + onetimeCritFlatST;
-                            double mCritRateS = mCritRatingS <= 440 ? mCritRatingS * 0.1
-                                              : mCritRatingS <= 600 ? 44.0 + (mCritRatingS - 440) * 0.05
-                                              : 52.0 + (mCritRatingS - 600) * 0.02;
-                            if (onetimeCritPctST > 0) mCritRateS = Math.Min(100, mCritRateS + onetimeCritPctST);
-                            if (Random.Shared.Next(100) < (int)mCritRateS)
-                                splashRaw = (int)(splashRaw * 1.5f);
+                            double mCritRateS = SkillDamageCalculator.ComputeCritRate(mCritRatingS, onetimeCritPctST);
+                            bool splashCritM = Random.Shared.Next(100) < (int)mCritRateS;
+                            splashRaw = SkillDamageCalculator.ApplyCrit(splashRaw, splash, isMagical: true, splashCritM, useFortitudeCoeff: false);
                         }
                         else // physical skill crit for AoE splash (splash targets are NPCs, no PvP crit resist)
                         {
                             int pCritSpl = player.BaseCritRating + player.BonusPhysicalCritical + player.PhysCritDelta + onetimeCritFlatST;
-                            double pCritRateSpl = pCritSpl <= 440 ? pCritSpl * 0.1
-                                                : pCritSpl <= 600 ? 44.0 + (pCritSpl - 440) * 0.05
-                                                : 52.0 + (pCritSpl - 600) * 0.02;
-                            if (onetimeCritPctST > 0) pCritRateSpl = Math.Min(100, pCritRateSpl + onetimeCritPctST);
-                            if (Random.Shared.Next(100) < (int)pCritRateSpl)
-                                splashRaw = (int)(splashRaw * 1.5f);
+                            double pCritRateSpl = SkillDamageCalculator.ComputeCritRate(pCritSpl, onetimeCritPctST);
+                            bool splashCritP = Random.Shared.Next(100) < (int)pCritRateSpl;
+                            splashRaw = SkillDamageCalculator.ApplyCrit(splashRaw, splash, isMagical: false, splashCritP, useFortitudeCoeff: false);
                         }
 
-                        int splashDef = spellIsMagical ? (splash.Template.Stats?.MBResist ?? 0)
-                                                       : (splash.Template.Stats?.PDef    ?? 0);
-                        int splashDmg = splashDef > 0 ? Math.Max(1, splashRaw * 1000 / (1000 + splashDef)) : splashRaw;
-                        // M253: noreducespellatk — defense-bypass damage applies to splash targets too
-                        if (stNoReduce is { Count: > 0 })
-                        {
-                            int splashNoReduceVal = stNoReduce[0].BaseValue + stNoReduce[0].Delta * (_level - 1);
-                            splashDmg = stNoReduce[0].IsPercent ? Math.Max(1, splash.MaxHp * splashNoReduceVal / 100) : Math.Max(1, splashNoReduceVal);
-                        }
+                        // M253: noreducespellatk — defense-bypass damage applies to splash targets too (reuses the
+                        // stHasNoReduce/stNoReduceVal/stNoReduceIsPct computed once above for the main-target hit —
+                        // same NoReduceEffects, same skill level, so no need to recompute per splash target)
                         // M339: elemental resistance — reduce magical splash damage if target has resist for this element
-                        if (spellIsMagical && stNoReduce is not { Count: > 0 })
-                        {
-                            int splashElemResist = GetElementalResist(splash, stDmgFx?[0].Element ?? "");
-                            if (splashElemResist > 0)
-                                splashDmg = Math.Max(1, (int)(splashDmg * (1f - splashElemResist / 1250f)));
-                        }
+                        int splashDmg = SkillDamageCalculator.ApplyDefenseAndResist(splashRaw, splash, spellIsMagical,
+                            stHasNoReduce, stNoReduceVal, stNoReduceIsPct,
+                            stDmgFx?[0].Element ?? "", applyElementalResist: spellIsMagical);
                         await splash.ApplyDamageAndPublishAsync(player, splashDmg, DamageKind.Splash, spellId, _eventBus, ct);
 
                         // M239: drain damage variants — splash hit also restores HP/MP to caster
@@ -3279,26 +3148,13 @@ public sealed class CM_CASTSPELL : AionClientPacket
     // Java NpcGameStats.calcStats(): level*(33.6-0.16*level)+5; base evasion and physical accuracy for NPCs
     private static int NpcPhysicalAccuracy(Model.Npc npc) => (int)(npc.Level * (33.6f - 0.16f * npc.Level) + 5f);
 
-    // M304: Java PositionUtil.isBehindTarget — caster is behind target when angle(caster→target) ≈ target's facing (±90°)
-    // Heading: 0-119 units × 3 = 0-357°. atan2 in degrees, normalized 0-360. MAX_ANGLE_DIFF = 90°.
-    private static bool IsBehindTarget(Position caster, Position target)
-    {
-        float angleFromCaster = (float)(Math.Atan2(target.Y - caster.Y, target.X - caster.X) * (180.0 / Math.PI));
-        if (angleFromCaster < 0f) angleFromCaster += 360f;
-        float targetFacing = target.Heading * 3f;
-        float diff = angleFromCaster - targetFacing;
-        if (diff <= -270f) diff += 360f;
-        if (diff >=  270f) diff -= 360f;
-        return Math.Abs(diff) <= 90f;
-    }
+    // M304: Java PositionUtil.isBehindTarget. S4e: delegates to the shared CombatMath helper (also used by
+    // CM_ATTACK) — no behavior change.
+    private static bool IsBehindTarget(Position caster, Position target) => CombatMath.IsBehindTarget(caster, target);
 
-    // Java StatFunctions.getNpcLevelDiffMod: multiplier for dodge and damage when NPC > player level
-    private static float NpcLevelDiffMod(int levelDiff) => levelDiff switch
-    {
-        3 => 0.1f, 4 => 0.2f, 5 => 0.3f, 6 => 0.4f,
-        7 => 0.5f, 8 => 0.6f, 9 => 0.7f,
-        _ => levelDiff > 9 ? 0.8f : 0f
-    };
+    // Java StatFunctions.getNpcLevelDiffMod: multiplier for dodge and damage when NPC > player level.
+    // S4e: delegates to the shared CombatMath helper (also used by CM_ATTACK) — no behavior change.
+    private static float NpcLevelDiffMod(int levelDiff) => CombatMath.NpcLevelDiffMod(levelDiff);
 
     private static async Task AwardLegionContributionAsync(Model.Player player, long apAmount,
         PlayerConnectionRegistry registry, ILegionDao legionDao, CancellationToken ct)
