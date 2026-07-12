@@ -4916,3 +4916,31 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   turn-in craft quests. 2 deferred (onFailCraftEvent hook — not in engine). Gap noted: scripts
   can't teach gathering skills (no ISkillDao in the 4-arg ctor); the expert-gathering quests drop
   the skill grant but still complete via items+reward.
+
+## Skill subsystem cycle (S1–S7) — 2026-07-12
+
+Pivot from quest-content breadth (cheap tier exhausted; ~88 known quests now blocked on
+core hooks) to the skill learning + effect engine. Milestones numbered S1–S7 to avoid
+colliding with the M1–M380 effect-coverage milestones above.
+
+- [x] **S1 Central SkillLearnService** (commit ffc2652c): single learn+persist+notify path;
+  routed the 5 persist/derive packet handlers + ExperienceService/PlayerEnterWorldService
+  through it; dropped their dead ISkillDao deps. Fixes the vanish-on-relog bug class where
+  AddSkill and UpsertAsync were hand-paired at 8 sites.
+- [x] **S2 Quest-script skill grants** (commit d5ad7f20): QuestHandlerBase.GrantQuestSkillAsync
+  via static InitSkillLearn (frozen 4-arg ctor unchanged). Restored the only 4 addSkill grants
+  in the whole Java quest tree (essencetapping 30002 / aethertapping 30003 @ lvl400 in
+  crafting _19001/_19003/_29001/_29003). Probe 50/50.
+- [~] **S3 PlayerSkillList/Entry parity** — DEFERRED/SEQUENCED. deletedSkills + PersistentState
+  have no consumer yet (nothing removes a persisted skill; temp/abyss skills are created by the
+  not-yet-built effect/abyss systems); building them now = dead code. Fold into S4–S6 when the
+  effect engine introduces temp/removable skills. Per-skill craft/gather XP is optional polish
+  (current +1/success already works; faithful XP-bar is a risky behavior change, no test harness).
+- [ ] **S4 Effect engine core** — IN PROGRESS. Enumerating effect TYPES present in 4.6 skill_data
+  ("faithful to what data uses") to define the ISkillEffect handler surface; EffectService to wrap
+  Creature._activeEffects. Parity target chosen: faithful to types the data references (not all 163
+  Java classes).
+- [ ] **S5 Central periodic scheduler** (DoT/HoT/toggle upkeep; replace fire-and-forget Task.Run).
+- [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
+- [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
+  for NPC/item/summon casts).
