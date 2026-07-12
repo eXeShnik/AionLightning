@@ -5068,3 +5068,10 @@ Now that the hook exists, port the ~150 previously-skipped zone-gated quests: ri
 danaria PvP, tiamaranta, katalam bounties (onEnterZone part), heiron 1500s, and the 2-3 skipped in each
 instance zone. Port pattern: Java `registerOnEnterZone(ZoneName.get("X"))` -> `RegisterOnEnterZone(engine,"X")`;
 `onEnterZoneEvent(env,zoneName)` -> override `OnEnterZoneAsync(env, zoneName, conn, ct)` with `if (zoneName=="X")`.
+
+## onEnterZone-backlog fleet (2026-07-12 late) — +50 quests
+First quests using the new hook: heiron +2 (1500 chain opener + 1607), danaria +20 (PvP dailies
+13350-13359/23350-23359), tiamaranta +9, rider_quests +19 (was 0, the flagship zone). Two agents
+(rider_quests, tiamaranta) hit the session limit mid-batch — their sequential files compile, remainder
+for a follow-up. **Total 943 quests across 39 zones.** Still-blocked hooks (next infra targets):
+follow/escort AI, onAtDistance, InstanceService, ranked-kill (onKillRanked), class-keyed selectable rewards.
