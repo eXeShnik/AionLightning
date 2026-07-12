@@ -64,6 +64,7 @@ public sealed class GsPacketHandlerFactory
     private readonly QuestRewardService      _questRewardService;
     private readonly SummonsService          _summonsService;
     private readonly EffectTickScheduler     _effectTickScheduler;
+    private readonly ZoneService             _zoneService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -112,7 +113,8 @@ public sealed class GsPacketHandlerFactory
         QuestEngineType questEngine,
         QuestRewardService questRewardService,
         SummonsService summonsService,
-        EffectTickScheduler effectTickScheduler)
+        EffectTickScheduler effectTickScheduler,
+        ZoneService zoneService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -161,6 +163,7 @@ public sealed class GsPacketHandlerFactory
         _questRewardService = questRewardService;
         _summonsService      = summonsService;
         _effectTickScheduler = effectTickScheduler;
+        _zoneService         = zoneService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -223,7 +226,7 @@ public sealed class GsPacketHandlerFactory
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus, _auraApplier, _questEngine, _summonsService, _effectTickScheduler),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
-                0xF2  => new CM_MOVE(conn, _world, _connRegistry),
+                0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
                 0xF4  => new CM_PET(),
                 0xF5  => new CM_OPEN_STATICDOOR(conn, _connRegistry),

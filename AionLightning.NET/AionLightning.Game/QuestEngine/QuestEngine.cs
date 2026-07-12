@@ -27,6 +27,7 @@ public sealed class QuestEngine
     private readonly Dictionary<int, List<int>>     _movieEndIndex = new();
     private readonly List<int>                      _enterWorldIndex = new();
     private readonly List<int>                      _questTimerEndIndex = new();
+    private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
     private readonly ILogger<QuestEngine>           _log;
@@ -125,6 +126,17 @@ public sealed class QuestEngine
         if (!quests.Contains(questId)) quests.Add(questId);
     }
 
+    /// <summary>Registers a quest against a named zone region for onEnterZone notifications (Java registerOnEnterZone).</summary>
+    public void RegisterOnEnterZone(string zoneName, int questId)
+    {
+        if (!_zoneEnterIndex.TryGetValue(zoneName, out var quests))
+        {
+            quests = [];
+            _zoneEnterIndex[zoneName] = quests;
+        }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
     /// <summary>Registers a quest for level-up re-checks (Java registerOnLevelUp).</summary>
     public void RegisterOnLevelUp(int questId)
     {
@@ -215,6 +227,34 @@ public sealed class QuestEngine
         catch (Exception ex)
         {
             _log.LogError(ex, "QuestEngine: exception in OnKillAsync");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Dispatches a zone-enter event (Java <c>ZoneInstance.onEnter</c> -&gt;
+    /// <c>PlayerController.onEnterZone</c> -&gt; <c>QuestEngine.onEnterZone</c>) to every quest
+    /// registered against this zone name via <see cref="RegisterOnEnterZone"/>. Returns true when at
+    /// least one handler exists for this zone, mirroring <see cref="OnKillAsync"/>'s "any" contract.
+    /// </summary>
+    public async ValueTask<bool> OnEnterZoneAsync(Player player, string zoneName, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_zoneEnterIndex.TryGetValue(zoneName, out var questIds)) return false;
+
+            bool any = false;
+            foreach (int questId in questIds)
+            {
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+                any = true;
+                await handler.OnEnterZoneAsync(new QuestEnv(null, player, questId, 0), zoneName, conn, ct);
+            }
+            return any;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnEnterZoneAsync (zone={ZoneName})", zoneName);
             return false;
         }
     }

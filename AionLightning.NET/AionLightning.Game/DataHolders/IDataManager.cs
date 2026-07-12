@@ -29,4 +29,5 @@ public interface IDataManager
     GlobalDropData                 GlobalDrops  { get; }
     InstanceExitData               InstanceExits { get; }
     CubeExpanderData               CubeExpander  { get; }
+    ZoneData                       Zones         { get; }
 }

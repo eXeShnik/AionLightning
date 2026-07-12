@@ -1,6 +1,7 @@
 using AionLightning.Commons.Network;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -10,17 +11,19 @@ public sealed class CM_MOVE : AionClientPacket
     private readonly GsClientConnection _conn;
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly ZoneService _zoneService;
 
     private float _x, _y, _z;
     private byte _heading, _type;
     private float _x2, _y2, _z2;
     private float _vx, _vy, _vz;
 
-    public CM_MOVE(GsClientConnection conn, GameWorld world, PlayerConnectionRegistry connRegistry)
+    public CM_MOVE(GsClientConnection conn, GameWorld world, PlayerConnectionRegistry connRegistry, ZoneService zoneService)
     {
         _conn         = conn;
         _world        = world;
         _connRegistry = connRegistry;
+        _zoneService  = zoneService;
     }
 
     public override void Read(ref PacketReader r)
@@ -59,6 +62,8 @@ public sealed class CM_MOVE : AionClientPacket
         player.MovementMask  = _type;
         player.VectorX       = _vx; player.VectorY = _vy; player.VectorZ = _vz;
         player.TargetX2      = _x2; player.TargetY2 = _y2; player.TargetZ2 = _z2;
+
+        await _zoneService.UpdateZonesAsync(player, _conn, ct);
 
         // Only broadcast on movement-state transitions (start or stop).
         // Mid-movement position fixes are NOT broadcast — observing clients interpolate from the start packet.

@@ -128,6 +128,7 @@ builder.Services.AddSingleton<BrokerService>();
 builder.Services.AddSingleton<RepurchaseService>();
 builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddSingleton<SummonsService>();
+builder.Services.AddSingleton<ZoneService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NpcAiService>());

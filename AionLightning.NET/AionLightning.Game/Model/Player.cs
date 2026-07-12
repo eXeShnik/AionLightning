@@ -64,6 +64,9 @@ public sealed class Player : Creature
     // Macros — position (1-48) → macro XML blob sent by client
     public Dictionary<int, string> Macros { get; } = new();
 
+    // Zone-region membership — updated by ZoneService.UpdateZonesAsync on every CM_MOVE tick
+    public HashSet<string> CurrentZones { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     // Movement state — updated by CM_MOVE, read by SM_MOVE broadcast
     public byte MovementMask { get; set; }
     public float VectorX { get; set; }

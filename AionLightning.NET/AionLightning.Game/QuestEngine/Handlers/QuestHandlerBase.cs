@@ -80,6 +80,10 @@ public abstract class QuestHandlerBase : IQuestHandler
     protected void RegisterQuestDrop(QuestEngine engine, int npcId, int itemId, int amount, int chance, int step = -1)
         => engine.RegisterQuestDrop(npcId, new SideQuestDrop(QuestId, itemId, amount, chance, step));
 
+    /// <summary>Registers THIS quest against a named zone region for onEnterZone notifications (Java registerOnEnterZone). Call from Register().</summary>
+    protected void RegisterOnEnterZone(QuestEngine engine, string zoneName)
+        => engine.RegisterOnEnterZone(zoneName, QuestId);
+
     /// <summary>The static quest_data.xml template for this quest, or null if not defined there.</summary>
     protected QuestTemplate? Template => DataManager.Quests.GetTemplate(QuestId);
 
@@ -97,6 +101,7 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnZoneMissionEndAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnMovieEndAsync(QuestEnv env, int movieId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnEnterWorldAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnEnterZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 
     /// <summary>Opens an NPC dialog page (Java QuestHandler.sendDialogPacket). Always returns true (handled).</summary>
     protected async ValueTask<bool> SendQuestDialogAsync(GsClientConnection conn, int targetObjId, int dialogPageId, CancellationToken ct)

@@ -43,4 +43,7 @@ public interface IQuestHandler
 
     /// <summary>Java onEnterWorldEvent: the player just finished loading into the world (login or zone-in).</summary>
     ValueTask<bool> OnEnterWorldAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onEnterZoneEvent: the player just entered a named zone region registered against this quest.</summary>
+    ValueTask<bool> OnEnterZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }
