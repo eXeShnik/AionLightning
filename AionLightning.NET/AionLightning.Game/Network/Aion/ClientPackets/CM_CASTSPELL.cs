@@ -347,52 +347,46 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         foreach (var hot in hotEffects)
                         {
                             int healPerTick = HealAmountCalculator.ComputeHotTickBase(hot, skillLv, useLevelMinusOne: false);
-                            var tickTarget  = healTarget;
-                            var tickEffect  = hotEffect;
-                            var tickSpellId = _spellId;
                             var registry    = _connRegistry;
-                            _ = Task.Run(async () =>
-                            {
-                                while (!tickTarget.IsAlreadyDead && DateTime.UtcNow < tickEffect.Expiry)
+                            // S5c: scheduled centrally via EffectTickScheduler (see P8 pattern above).
+                            _effectTickScheduler.Register(healTarget, player, hotEffect, _spellId, hot.CheckTimeMs, hotEffect.Expiry,
+                                onTick: async ctx =>
                                 {
-                                    await Task.Delay(hot.CheckTimeMs);
-                                    if (tickTarget.IsAlreadyDead || DateTime.UtcNow >= tickEffect.Expiry) break;
-
                                     int tickHealPer = healPerTick;
                                     // M294: apply HealReceivedPct per tick (debuff may expire mid-HoT)
-                                    if (tickTarget.HealReceivedPct != 0)
-                                        tickHealPer = Math.Max(0, (int)(tickHealPer * (100 + tickTarget.HealReceivedPct) / 100f));
+                                    if (ctx.Effected.HealReceivedPct != 0)
+                                        tickHealPer = Math.Max(0, (int)(tickHealPer * (100 + ctx.Effected.HealReceivedPct) / 100f));
                                     int actual = hot.HealType switch
                                     {
-                                        "hp"                                            => Math.Min(tickHealPer, tickTarget.MaxHp - tickTarget.CurrentHp),
-                                        "fp" when tickTarget is Player fpHotTickT       => Math.Min(tickHealPer, fpHotTickT.EffectiveMaxFp - fpHotTickT.CurrentFp),
-                                        "fp"                                            => 0,
-                                        "dp" when tickTarget is Player dpHotTickT       => Math.Min(tickHealPer, 6000 - dpHotTickT.Dp),
-                                        "dp"                                            => 0,
-                                        _                                               => Math.Min(tickHealPer, tickTarget.MaxMp - tickTarget.CurrentMp),
+                                        "hp"                                             => Math.Min(tickHealPer, ctx.Effected.MaxHp - ctx.Effected.CurrentHp),
+                                        "fp" when ctx.Effected is Player fpHotTickT      => Math.Min(tickHealPer, fpHotTickT.EffectiveMaxFp - fpHotTickT.CurrentFp),
+                                        "fp"                                             => 0,
+                                        "dp" when ctx.Effected is Player dpHotTickT      => Math.Min(tickHealPer, 6000 - dpHotTickT.Dp),
+                                        "dp"                                             => 0,
+                                        _                                                => Math.Min(tickHealPer, ctx.Effected.MaxMp - ctx.Effected.CurrentMp),
                                     };
                                     if (actual > 0)
                                     {
                                         if (hot.HealType == "hp")
                                         {
-                                            tickTarget.CurrentHp += actual;
-                                            var pkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.NaturalHp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.Heal);
-                                            int w = tickTarget.Position.WorldId;
+                                            ctx.Effected.CurrentHp += actual;
+                                            var pkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.NaturalHp, ctx.SkillId, actual, SM_ATTACK_STATUS.LogId.Heal);
+                                            int w = ctx.Effected.Position.WorldId;
                                             foreach (var c in registry.GetAll())
                                                 if (c.ActivePlayer?.Position.WorldId == w)
                                                     try { await c.SendAsync(pkt); } catch { }
                                         }
-                                        else if (hot.HealType == "fp" && tickTarget is Player fpHotTickApp)
+                                        else if (hot.HealType == "fp" && ctx.Effected is Player fpHotTickApp)
                                         {
                                             // M249: FP HoT tick
                                             fpHotTickApp.CurrentFp += actual;
-                                            var pkt = new SM_ATTACK_STATUS(fpHotTickApp, SM_ATTACK_STATUS.AttackType.NaturalFp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.FpHeal);
+                                            var pkt = new SM_ATTACK_STATUS(fpHotTickApp, SM_ATTACK_STATUS.AttackType.NaturalFp, ctx.SkillId, actual, SM_ATTACK_STATUS.LogId.FpHeal);
                                             int w = fpHotTickApp.Position.WorldId;
                                             foreach (var c in registry.GetAll())
                                                 if (c.ActivePlayer?.Position.WorldId == w)
                                                     try { await c.SendAsync(pkt); } catch { }
                                         }
-                                        else if (hot.HealType == "dp" && tickTarget is Player dpHotTickApp)
+                                        else if (hot.HealType == "dp" && ctx.Effected is Player dpHotTickApp)
                                         {
                                             // M252: DP HoT tick — capped at 6000, broadcast SM_DP_INFO to caster's own connection
                                             dpHotTickApp.Dp += actual;
@@ -402,23 +396,25 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                         }
                                         else
                                         {
-                                            tickTarget.CurrentMp += actual;
-                                            var pkt = new SM_ATTACK_STATUS(tickTarget, SM_ATTACK_STATUS.AttackType.NaturalMp, tickSpellId, actual, SM_ATTACK_STATUS.LogId.MpHeal);
-                                            int w = tickTarget.Position.WorldId;
+                                            ctx.Effected.CurrentMp += actual;
+                                            var pkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.NaturalMp, ctx.SkillId, actual, SM_ATTACK_STATUS.LogId.MpHeal);
+                                            int w = ctx.Effected.Position.WorldId;
                                             foreach (var c in registry.GetAll())
                                                 if (c.ActivePlayer?.Position.WorldId == w)
                                                     try { await c.SendAsync(pkt); } catch { }
                                         }
                                     }
-                                }
-                                tickTarget.RemoveEffect(tickEffect.SkillId, tickEffect.Expiry);
-                                var expired = new SM_ABNORMAL_EFFECT(tickTarget.ObjectId, hotTargetIsPlayer,
-                                                  tickTarget.GetActiveEffects());
-                                int expW = tickTarget.Position.WorldId;
-                                foreach (var c in registry.GetAll())
-                                    if (c.ActivePlayer?.Position.WorldId == expW)
-                                        try { await c.SendAsync(expired); } catch { }
-                            });
+                                },
+                                onStop: async ctx =>
+                                {
+                                    ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                    var expired = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, hotTargetIsPlayer,
+                                                      ctx.Effected.GetActiveEffects());
+                                    int expW = ctx.Effected.Position.WorldId;
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == expW)
+                                            try { await c.SendAsync(expired); } catch { }
+                                });
                         }
                     }
                     else
@@ -788,62 +784,56 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var (mpUseInterval, mpUsePerTick) = template?.Effects is null ? (0, 0) : template.Effects.PeriodicMpUse;
                 if (mpUsePerTick > 0 && mpUseInterval > 0 && buffTarget is Player drainTarget)
                 {
-                    var drainEffect = effect;
-                    var drainPlayer = drainTarget;
-                    var drainInterval = mpUseInterval;
                     var drainPerTick  = mpUsePerTick;
-                    _ = Task.Run(async () =>
-                    {
-                        while (!drainPlayer.IsAlreadyDead && DateTime.UtcNow < drainEffect.Expiry)
+                    // S5d: scheduled centrally via EffectTickScheduler (see P8 pattern above). The MP==0
+                    // self-deactivation branch moves verbatim — RemoveEffectBySkillId already triggers
+                    // CancelForEffect (S5a wiring), so the slot is cancelled on the next ProcessDue without
+                    // a manual Cancel call here.
+                    _effectTickScheduler.Register(drainTarget, player, effect, effect.SkillId, mpUseInterval, effect.Expiry,
+                        onTick: async ctx =>
                         {
-                            await Task.Delay(drainInterval);
-                            if (drainPlayer.IsAlreadyDead || DateTime.UtcNow >= drainEffect.Expiry) break;
+                            var drainPlayer = (Player)ctx.Effected;
                             drainPlayer.CurrentMp = Math.Max(0, drainPlayer.CurrentMp - drainPerTick);
                             // M290: MP hit 0 — auto-deactivate toggle (mirrors CM_TOGGLE_SKILL_DEACTIVATE.RunAsync)
                             if (drainPlayer.CurrentMp == 0)
                             {
-                                drainPlayer.RemoveEffectBySkillId(drainEffect.SkillId);
+                                drainPlayer.RemoveEffectBySkillId(ctx.Effect.SkillId);
                                 int deactWorld = drainPlayer.Position.WorldId;
                                 try { await _conn.SendAsync(new SM_PLAYER_STANCE(drainPlayer.ObjectId, 0)); } catch { }
                                 var deactAbn = new SM_ABNORMAL_EFFECT(drainPlayer.ObjectId, true, drainPlayer.GetActiveEffects());
                                 foreach (var c in _connRegistry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == deactWorld)
                                         try { await c.SendAsync(deactAbn); } catch { }
-                                break;
                             }
-                        }
-                    });
+                        });
                 }
 
                 // M317: <periodicactions><hpuse> — periodic HP drain task while buff active (mirrors M274 mpuse)
                 var (hpUseInterval, hpUseValue, hpUseDelta) = template?.Effects is null ? (0, 0, 0) : template.Effects.PeriodicHpUse;
                 if (hpUseInterval > 0 && hpUseValue > 0 && buffTarget is Player hpDrainTarget)
                 {
-                    var hpDrainEffect   = effect;
-                    var hpDrainPlayer   = hpDrainTarget;
-                    var hpDrainInterval = hpUseInterval;
                     var hpDrainPerTick  = hpUseValue + hpUseDelta * (_level - 1);
-                    _ = Task.Run(async () =>
-                    {
-                        while (!hpDrainPlayer.IsAlreadyDead && DateTime.UtcNow < hpDrainEffect.Expiry)
+                    // S5d: scheduled centrally via EffectTickScheduler (see P8 pattern above). The HP-floor
+                    // self-deactivation branch moves verbatim — RemoveEffectBySkillId already triggers
+                    // CancelForEffect (S5a wiring), so the slot is cancelled on the next ProcessDue without
+                    // a manual Cancel call here.
+                    _effectTickScheduler.Register(hpDrainTarget, player, effect, effect.SkillId, hpUseInterval, effect.Expiry,
+                        onTick: async ctx =>
                         {
-                            await Task.Delay(hpDrainInterval);
-                            if (hpDrainPlayer.IsAlreadyDead || DateTime.UtcNow >= hpDrainEffect.Expiry) break;
+                            var hpDrainPlayer = (Player)ctx.Effected;
                             hpDrainPlayer.CurrentHp = Math.Max(1, hpDrainPlayer.CurrentHp - hpDrainPerTick);
                             // When HP would reach 1 (floor), auto-deactivate (matches M290 mpuse pattern; keep alive unlike mpuse)
                             if (hpDrainPlayer.CurrentHp <= 1)
                             {
-                                hpDrainPlayer.RemoveEffectBySkillId(hpDrainEffect.SkillId);
+                                hpDrainPlayer.RemoveEffectBySkillId(ctx.Effect.SkillId);
                                 int deactWorld2 = hpDrainPlayer.Position.WorldId;
                                 try { await _conn.SendAsync(new SM_PLAYER_STANCE(hpDrainPlayer.ObjectId, 0)); } catch { }
                                 var deactAbn2 = new SM_ABNORMAL_EFFECT(hpDrainPlayer.ObjectId, true, hpDrainPlayer.GetActiveEffects());
                                 foreach (var c in _connRegistry.GetAll())
                                     if (c.ActivePlayer?.Position.WorldId == deactWorld2)
                                         try { await c.SendAsync(deactAbn2); } catch { }
-                                break;
                             }
-                        }
-                    });
+                        });
                 }
 
                 // M370: <heal>/<mpheal> BUFF-path tickers — for BUFF/CHANT-subtype skills with HoT elements (NPC area heals, Stigma Penance, etc.)
@@ -853,26 +843,23 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 {
                     foreach (var thFx in buffHotFx)
                     {
-                        var thEffect   = effect;
-                        var thTarget   = buffTarget;
                         var thInterval = thFx.CheckTimeMs;
                         int thTick     = HealAmountCalculator.ComputeHotTickBase(thFx, _level, useLevelMinusOne: true);
                         string thType  = thFx.HealType;
-                        int thSkillId  = _spellId;
-                        _ = Task.Run(async () =>
-                        {
-                            while (!thTarget.IsAlreadyDead && DateTime.UtcNow < thEffect.Expiry)
+                        // S5c: scheduled centrally via EffectTickScheduler (see P8 pattern above). No onStop —
+                        // unlike the HEAL-subtype HoT, this buff-path ticker has no post-loop cleanup; the
+                        // buff's own expiry/dispel path (RemoveEffect) already handles removal + broadcast.
+                        _effectTickScheduler.Register(buffTarget, player, effect, _spellId, thInterval, effect.Expiry,
+                            onTick: async ctx =>
                             {
-                                await Task.Delay(thInterval);
-                                if (thTarget.IsAlreadyDead || DateTime.UtcNow >= thEffect.Expiry) break;
                                 if (thType == "hp")
                                 {
-                                    int actual = Math.Min(thTick, thTarget.MaxHp - thTarget.CurrentHp);
+                                    int actual = Math.Min(thTick, ctx.Effected.MaxHp - ctx.Effected.CurrentHp);
                                     if (actual > 0)
                                     {
-                                        thTarget.CurrentHp += actual;
-                                        var hotPkt = new SM_ATTACK_STATUS(thTarget, SM_ATTACK_STATUS.AttackType.NaturalHp, thSkillId, actual, SM_ATTACK_STATUS.LogId.Heal);
-                                        int hotWorld = thTarget.Position.WorldId;
+                                        ctx.Effected.CurrentHp += actual;
+                                        var hotPkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.NaturalHp, ctx.SkillId, actual, SM_ATTACK_STATUS.LogId.Heal);
+                                        int hotWorld = ctx.Effected.Position.WorldId;
                                         foreach (var c in _connRegistry.GetAll())
                                             if (c.ActivePlayer?.Position.WorldId == hotWorld)
                                                 try { await c.SendAsync(hotPkt); } catch { }
@@ -880,19 +867,18 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 }
                                 else if (thType == "mp")
                                 {
-                                    int actual = Math.Min(thTick, thTarget.MaxMp - thTarget.CurrentMp);
+                                    int actual = Math.Min(thTick, ctx.Effected.MaxMp - ctx.Effected.CurrentMp);
                                     if (actual > 0)
                                     {
-                                        thTarget.CurrentMp += actual;
-                                        var hotPkt = new SM_ATTACK_STATUS(thTarget, SM_ATTACK_STATUS.AttackType.NaturalMp, thSkillId, actual, SM_ATTACK_STATUS.LogId.MpHeal);
-                                        int hotWorld = thTarget.Position.WorldId;
+                                        ctx.Effected.CurrentMp += actual;
+                                        var hotPkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.NaturalMp, ctx.SkillId, actual, SM_ATTACK_STATUS.LogId.MpHeal);
+                                        int hotWorld = ctx.Effected.Position.WorldId;
                                         foreach (var c in _connRegistry.GetAll())
                                             if (c.ActivePlayer?.Position.WorldId == hotWorld)
                                                 try { await c.SendAsync(hotPkt); } catch { }
                                     }
                                 }
-                            }
-                        });
+                            });
                     }
                 }
 
