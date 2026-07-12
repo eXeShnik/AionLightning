@@ -4905,3 +4905,9 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
 - [x] **C2 Phase 5 Pernon** (2026-07-12, fleet): 9/13 quests, probe 9/9. Elyos hub. Fixed 1
   missing-break bug. 4 deferred = housing-tutorial quests needing a HousingService/House/Butler
   model + onHouseItemUseEvent hook (absent subsystem, noted in CLAUDE.md).
+
+- [x] **C2 Phase 5 Oriel** (2026-07-12, fleet): 13/13 quests (100%), probe 13/13. Asmodian hub.
+  Housing quests ported with the House-ownership gate relaxed (any butler-template npc accepted;
+  quest still completable — same simplification as Pernon).
+- [x] **C2 Phase 5 Katalam batch 2** (2026-07-12, fleet): +8 quests (27→35 total), probe 35/35.
+  (Agent hit context mid-batch; the 8 new files compile clean.)
