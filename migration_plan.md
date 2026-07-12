@@ -4936,10 +4936,17 @@ colliding with the M1–M380 effect-coverage milestones above.
   not-yet-built effect/abyss systems); building them now = dead code. Fold into S4–S6 when the
   effect engine introduces temp/removable skills. Per-skill craft/gather XP is optional polish
   (current +1/success already works; faithful XP-bar is a risky behavior change, no test harness).
-- [ ] **S4 Effect engine core** — IN PROGRESS. Enumerating effect TYPES present in 4.6 skill_data
-  ("faithful to what data uses") to define the ISkillEffect handler surface; EffectService to wrap
-  Creature._activeEffects. Parity target chosen: faithful to types the data references (not all 163
-  Java classes).
+- [~] **S4 Effect engine core** — IN PROGRESS. Enumeration: 159 distinct effect types in 4.6 data;
+  most already implemented inline in CM_CASTSPELL (M239-M381). Parity target: faithful to the types
+  the data references (not all 163 Java classes). The current design is a fat-template model
+  (flattened SkillEffects props), so the migration extracts each family's computation into a pure,
+  harness-verified calculator (lower-risk than a per-element registry).
+  - [x] **S4a** (commit a3329351): buff stat-delta computation extracted from CM_CASTSPELL into pure
+    StatEffectCalculator.Compute -> StatDeltaSet (Combat/Effects/). Behavior-identical relocation,
+    verified by scratchpad/sprobe parity harness (3/3 asserts, 10,816 templates, 0 exceptions).
+    Harness is the parity oracle for subsequent family extractions.
+  - [ ] **S4b+** remaining families: heal/HoT, DoT, CC, dispel, shield, taunt, signet (same extract-
+    to-calculator + harness pattern); net-new summon/trap/resurrect families last.
 - [ ] **S5 Central periodic scheduler** (DoT/HoT/toggle upkeep; replace fire-and-forget Task.Run).
 - [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
 - [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
