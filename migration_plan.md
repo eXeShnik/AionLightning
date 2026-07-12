@@ -4973,7 +4973,19 @@ colliding with the M1–M380 effect-coverage milestones above.
     formalizing each as a calculator is borderline over-engineering; defer unless a consumer needs them.
   - [ ] **S4-net-new** (high value, large): summon/trap/servant + resurrect/rebirth families are absent/
     skeletal in this port — these ADD gameplay (not a refactor). Own planning cycle.
-- [ ] **S5 Central periodic scheduler** (DoT/HoT/toggle upkeep; replace fire-and-forget Task.Run).
+- [~] **S5 Central periodic scheduler** — replace fire-and-forget Task.Run tick loops with a central
+  cancellable BackgroundService (mirrors RegenService, NOT Quartz). Fixes real leaks: dispelled DoTs
+  kept ticking to Expiry, toggle-off didn't stop drains, logout leaked every loop. Scope found 11
+  periodic loops (P1-P11) + 10 delayed one-shots (D1-D10).
+  - [x] **S5a** (commit ce62f47a): EffectTickScheduler core (Register/Cancel/CancelForEffect/CancelAllFor,
+    testable ProcessDueAsync; guard order cancelled->expired->dead->effect-gone[dispel fix]->due).
+    Cancellation wired through Creature.RemoveEffect*/Clear* (outside lock) + logout (GsClientConnection).
+    Migrated ONLY P8 (single-target DoT). Harness +12 scheduler assertions = 56/56.
+  - [~] **S5b** (in progress): migrate the other 5 DoT-shaped loops (P6 AoE, P7 splash, P9 launcher,
+    P10 mpattack, P11 fpatk) — mechanical, follow the P8 pattern.
+  - [ ] **S5c** HoT loops (P1 heal-path, P4 buff-path); **S5d** toggle drains (P2 mpuse, P3 hpuse) +
+    wire CM_TOGGLE_SKILL_DEACTIVATE -> RemoveEffectBySkillId cancel; **S5e** fold expiry one-shots
+    (D1 buff, D9 debuff, D6 signet) into endUtc/onStop last (most side-effects). P5 aura already race-safe.
 - [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
 - [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
   for NPC/item/summon casts).
