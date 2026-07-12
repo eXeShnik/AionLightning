@@ -5015,3 +5015,28 @@ the buff-path HoT. BALANCE: raises affected skill damage/cost by one delta (larg
 restores Java parity. Residual caveat (strongly supported, not packet-verified): client echoes the
 1-indexed learned level in CM_CASTSPELL. StatEffectCalculator buff deltas untouched (per-level templates,
 delta usually 0).
+
+## Quest content status (2026-07-12, end of session)
+787 hand-written quest .cs across 27 zones (this session added ~187: the earlier fleet zones + Crafting
+50, Katalam/Tiamaranta/Eltnen/Inggison/Heiron batch-2s, and event_quests 59 / beshmundir 5 / hero 4).
+
+### #1 CONTENT UNBLOCKER — build onEnterZone / ZoneService (data EXISTS, service does not)
+The remaining accessible quest content is overwhelmingly `onEnterZone`-gated: rider_quests 73/79,
+plus Danaria PvP, Tiamaranta, Katalam bounties, Heiron 1500-series, and the ~88 previously-deferred
+quests — well over 150 quests total. Building this one hook unblocks the largest content bucket.
+- DATA: `AL-Game/data/static_data/zones/zones_<worldId>.xml` (one per map) — named zone regions with
+  boundary polygons. `zones.xsd` has the schema. NOT yet copied to Game output or loaded.
+- BUILD (ready to fleet when limits reset):
+  1. Zone-region model + XML loader (mirror SkillData/DataManager); copy zones data to Game output.
+  2. ZoneService: on player movement (CM_MOVE), point-in-polygon test against the region set for the
+     player's world; fire OnEnterZone/OnLeaveZone on region transitions. Track current-region set per player.
+  3. QuestEngine wiring: RegisterOnEnterZone(zoneName, questId) + OnEnterZoneAsync(player, zoneName),
+     mirroring the existing OnKill/OnDialog hook plumbing.
+  4. Then a quest fleet can port the onEnterZone-gated backlog (rider_quests, Danaria, Tiamaranta, etc.).
+
+### Also pending (from earlier scope)
+- S5e: fold buff/debuff expiry one-shots (D1/D9/D6) into the scheduler (fixes D1/D9 side-effects firing
+  after early dispel). S6: expiry sweeper/stat-reversal audit. S7: extract SkillCastService (monolith).
+- Net-new gameplay families: summon/trap/servant, resurrect/rebirth (additive, large).
+- VALIDATE the balance-affecting parity fixes in-game (5 damage fixes 968979eb + level-scaling 13a6094f);
+  capture one CM_CASTSPELL packet to confirm client echoes a 1-indexed skill level.
