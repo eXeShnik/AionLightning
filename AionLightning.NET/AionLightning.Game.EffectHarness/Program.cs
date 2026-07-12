@@ -182,20 +182,12 @@ foreach (var template in hotCandidates)
     int level = Math.Max(1, template.Level);
 
     healTotal++;
-    int expectedA2 = Math.Max(1, hot.BaseValue + hot.Delta * level);
-    int resultA2 = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: false);
-    bool okA2 = resultA2 == expectedA2;
-    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" (A2, level) " +
-                      $"result={resultA2} (expected {expectedA2}) {(okA2 ? "PASS" : "FAIL")}");
-    if (okA2) healPassed++;
-
-    healTotal++;
-    int expectedA5 = Math.Max(1, hot.BaseValue + hot.Delta * Math.Max(1, level - 1));
-    int resultA5 = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: true);
-    bool okA5 = resultA5 == expectedA5;
-    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" (A5, level-1) " +
-                      $"result={resultA5} (expected {expectedA5}) {(okA5 ? "PASS" : "FAIL")}");
-    if (okA5) healPassed++;
+    int expectedHot = Math.Max(1, hot.BaseValue + hot.Delta * level);
+    int resultHot = HealAmountCalculator.ComputeHotTickBase(hot, level);
+    bool okHot = resultHot == expectedHot;
+    Console.WriteLine($"  skill_id={template.SkillId} \"{template.Name}\" (HoT delta*level) " +
+                      $"result={resultHot} (expected {expectedHot}) {(okHot ? "PASS" : "FAIL")}");
+    if (okHot) healPassed++;
 }
 
 // DrainCalculator identity check: HpPercent/MpPercent == 0 always yields 0 gain regardless of caster
@@ -242,8 +234,7 @@ foreach (var template in allTemplates)
         healScanned++;
         try
         {
-            _ = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: false);
-            _ = HealAmountCalculator.ComputeHotTickBase(hot, level, useLevelMinusOne: true);
+            _ = HealAmountCalculator.ComputeHotTickBase(hot, level);
         }
         catch (Exception ex)
         {

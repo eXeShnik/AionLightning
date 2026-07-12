@@ -76,7 +76,7 @@ public sealed class SkillTemplate
     public int DpUseCost => Actions?.DpUse?.Value ?? 0;
 
     /// <summary>M316: HP cost consumed on cast; Value=0 means no cost. Source: &lt;actions&gt;&lt;hpuse value="V" delta="D" ratio="true"/&gt;.
-    /// Flat cost = Value + Delta*(level-1); if IsRatio, treat as percent of MaxHp.</summary>
+    /// Flat cost = Value + Delta*skillLevel (Java MpUseAction parity); if IsRatio, treat as percent of MaxHp.</summary>
     public (int Value, int Delta, bool IsRatio) HpUseCost
     {
         get
@@ -88,7 +88,7 @@ public sealed class SkillTemplate
     }
 
     /// <summary>M371: MP cost consumed on cast; Value=0 means no cost. Source: &lt;actions&gt;&lt;mpuse value="V" delta="D" ratio="true"/&gt;.
-    /// Flat cost = Value + Delta*(level-1); if IsRatio, treat as percent of MaxMp.</summary>
+    /// Flat cost = Value + Delta*skillLevel (Java MpUseAction parity); if IsRatio, treat as percent of MaxMp.</summary>
     public (int Value, int Delta, bool IsRatio) MpUseCost
     {
         get

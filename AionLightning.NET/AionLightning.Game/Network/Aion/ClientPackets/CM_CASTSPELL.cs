@@ -146,7 +146,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var (hpVal, hpDelta, hpRatio) = template.HpUseCost;
             if (hpVal > 0)
             {
-                int hpCost = hpVal + hpDelta * (_level - 1);
+                int hpCost = hpVal + hpDelta * _level;
                 if (hpRatio) hpCost = (int)(hpCost / 100f * player.MaxHp);
                 if (player.CurrentHp < hpCost)
                 {
@@ -163,7 +163,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
             var (mpVal, mpDelta, mpRatio) = template.MpUseCost;
             if (mpVal > 0)
             {
-                int mpCost = mpVal + mpDelta * (_level - 1);
+                int mpCost = mpVal + mpDelta * _level;
                 if (mpRatio) mpCost = (int)(mpCost / 100f * player.MaxMp);
                 // M378: boostskillcost — mirrors Java MpUseAction: mpCost -= mpCost / (100 / boostPct)
                 // e.g. boostPct=100 → free; boostPct=50 → half cost; boostPct=-10 → +10% more expensive
@@ -346,7 +346,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                         foreach (var hot in hotEffects)
                         {
-                            int healPerTick = HealAmountCalculator.ComputeHotTickBase(hot, skillLv, useLevelMinusOne: false);
+                            int healPerTick = HealAmountCalculator.ComputeHotTickBase(hot, skillLv);
                             var registry    = _connRegistry;
                             // S5c: scheduled centrally via EffectTickScheduler (see P8 pattern above).
                             _effectTickScheduler.Register(healTarget, player, hotEffect, _spellId, hot.CheckTimeMs, hotEffect.Expiry,
@@ -812,7 +812,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var (hpUseInterval, hpUseValue, hpUseDelta) = template?.Effects is null ? (0, 0, 0) : template.Effects.PeriodicHpUse;
                 if (hpUseInterval > 0 && hpUseValue > 0 && buffTarget is Player hpDrainTarget)
                 {
-                    var hpDrainPerTick  = hpUseValue + hpUseDelta * (_level - 1);
+                    var hpDrainPerTick  = hpUseValue + hpUseDelta * _level;
                     // S5d: scheduled centrally via EffectTickScheduler (see P8 pattern above). The HP-floor
                     // self-deactivation branch moves verbatim — RemoveEffectBySkillId already triggers
                     // CancelForEffect (S5a wiring), so the slot is cancelled on the next ProcessDue without
@@ -844,7 +844,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     foreach (var thFx in buffHotFx)
                     {
                         var thInterval = thFx.CheckTimeMs;
-                        int thTick     = HealAmountCalculator.ComputeHotTickBase(thFx, _level, useLevelMinusOne: true);
+                        // Java-parity fix: HealOverTimeEffect uses delta*skillLevel (not level-1).
+                        int thTick     = HealAmountCalculator.ComputeHotTickBase(thFx, _level);
                         string thType  = thFx.HealType;
                         // S5c: scheduled centrally via EffectTickScheduler (see P8 pattern above). No onStop —
                         // unlike the HEAL-subtype HoT, this buff-path ticker has no post-loop cleanup; the
@@ -1149,10 +1150,9 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 int cdBase;
                                 bool cdNoReduce = false;
                                 if (childDmgFx is { Count: > 0 })
-                                    // Java-parity fix (DM-1): DamageEffect.calculate scales base by delta*level;
-                                    // the child path had dropped the delta term. Use (_level-1) to match the C#
-                                    // port's level convention used at every other damage site.
-                                    cdBase = childDmgFx[0].BaseValue + childDmgFx[0].Delta * (_level - 1);
+                                    // Java-parity fix (DM-1): DamageEffect.calculate scales base by
+                                    // delta*skillLevel; the child path had dropped the delta term entirely.
+                                    cdBase = childDmgFx[0].BaseValue + childDmgFx[0].Delta * _level;
                                 else
                                 {
                                     var nr = childNoReduceFx![0];
@@ -1220,7 +1220,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                 Position cCenter = player.Position;
                 var cDmgFx    = template?.Effects?.DamageEffects;
-                int? cSkillBase = cDmgFx is { Count: > 0 } ? cDmgFx[0].BaseValue + cDmgFx[0].Delta * (_level - 1) : null;
+                int? cSkillBase = cDmgFx is { Count: > 0 } ? cDmgFx[0].BaseValue + cDmgFx[0].Delta * _level : null;
 
                 // M334: consume one-time crit/atk charges once per cast before the target loop
                 var (onetimeCritFlatC, onetimeCritPctC) = player.ConsumeOnetimeCritCharge();
@@ -1354,7 +1354,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 bool spellIsMagical = template?.SkillType == SkillType.MAGICAL;
                 var gAoeDmgFx = template?.Effects?.DamageEffects;
                 int? gAoeSkillBase = gAoeDmgFx is { Count: > 0 }
-                    ? gAoeDmgFx[0].BaseValue + gAoeDmgFx[0].Delta * (_level - 1)
+                    ? gAoeDmgFx[0].BaseValue + gAoeDmgFx[0].Delta * _level
                     : null;
 
                 // M334: consume one-time crit/atk charges once per cast before target loop
@@ -1445,7 +1445,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     // M247: noreducespellatk — defense-bypass damage replaces regular formula (per AoE target)
                     var gAoeNoReduce = template?.Effects?.NoReduceEffects;
                     bool gAoeHasNoReduce = gAoeNoReduce is { Count: > 0 };
-                    int gAoeNoReduceVal = gAoeHasNoReduce ? gAoeNoReduce![0].BaseValue + gAoeNoReduce[0].Delta * (_level - 1) : 0;
+                    int gAoeNoReduceVal = gAoeHasNoReduce ? gAoeNoReduce![0].BaseValue + gAoeNoReduce[0].Delta * _level : 0;
                     bool gAoeNoReduceIsPct = gAoeHasNoReduce && gAoeNoReduce![0].IsPercent;
                     // M339: elemental resistance — reduce magical damage if target has resist for this element (skipped when noreduce overrides)
                     int damage = SkillDamageCalculator.ApplyDefenseAndResist(rawSpellDmg, target, spellIsMagical,
@@ -1492,7 +1492,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     var gAoeMpFx = template?.Effects?.MpAttackEffects;
                     if (gAoeMpFx is { Count: > 0 })
                     {
-                        int mpBurnVal = gAoeMpFx[0].BaseValue + gAoeMpFx[0].Delta * (_level - 1);
+                        int mpBurnVal = gAoeMpFx[0].BaseValue + gAoeMpFx[0].Delta * _level;
                         int mpBurn = gAoeMpFx[0].IsPercent ? target.MaxMp * mpBurnVal / 100 : mpBurnVal;
                         if (mpBurn > 0)
                             target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
@@ -1820,7 +1820,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
 
                 var stDmgFx = template?.Effects?.DamageEffects;
                 int? stSkillBase = stDmgFx is { Count: > 0 }
-                    ? stDmgFx[0].BaseValue + stDmgFx[0].Delta * (_level - 1)
+                    ? stDmgFx[0].BaseValue + stDmgFx[0].Delta * _level
                     : null;
 
                 int stBaseVal = spellIsMagical
@@ -1880,7 +1880,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 // stays inline after DamageModifiers, exactly as today; see M339 block further down).
                 var stNoReduce = template?.Effects?.NoReduceEffects;
                 bool stHasNoReduce = stNoReduce is { Count: > 0 };
-                int stNoReduceVal = stHasNoReduce ? stNoReduce![0].BaseValue + stNoReduce[0].Delta * (_level - 1) : 0;
+                int stNoReduceVal = stHasNoReduce ? stNoReduce![0].BaseValue + stNoReduce[0].Delta * _level : 0;
                 bool stNoReduceIsPct = stHasNoReduce && stNoReduce![0].IsPercent;
                 int damage = SkillDamageCalculator.ApplyDefenseAndResist(rawSpellDmg, target, spellIsMagical,
                     stHasNoReduce, stNoReduceVal, stNoReduceIsPct, element: "", applyElementalResist: false);
@@ -1891,20 +1891,20 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     {
                         if (mod.Kind == "targetrace" && target is Npc raceNpc
                             && string.Equals(raceNpc.Template.NpcRace, mod.Match, StringComparison.OrdinalIgnoreCase))
-                            damage += mod.Value + mod.Delta * (_level - 1);
+                            damage += mod.Value + mod.Delta * _level;
                         else if (mod.Kind == "targetclass" && target is Player classTarget
                                  && string.Equals(classTarget.PlayerClass.ToString(), mod.Match, StringComparison.OrdinalIgnoreCase))
-                            damage += mod.Value + mod.Delta * (_level - 1);
+                            damage += mod.Value + mod.Delta * _level;
                         else if (mod.Kind == "abnormaldamage")
                         {
                             // Match against AbnormalCcFlags name on target
                             if (Enum.TryParse<AbnormalCcFlags>(mod.Match, ignoreCase: true, out var abFlag)
                                 && (target.ActiveCcFlags & abFlag) != 0)
-                                damage += mod.Value + mod.Delta * (_level - 1);
+                                damage += mod.Value + mod.Delta * _level;
                         }
                         // M304: backdamage — bonus damage when caster is behind the target (Java BackDamageModifier)
                         else if (mod.Kind == "backdamage" && IsBehindTarget(player.Position, target.Position))
-                            damage += mod.Value + mod.Delta * (_level - 1);
+                            damage += mod.Value + mod.Delta * _level;
                     }
                 }
                 // M339: elemental resistance — reduce magical damage if target has resist for this element.
@@ -2030,7 +2030,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var stMpFx = template?.Effects?.MpAttackEffects;
                 if (stMpFx is { Count: > 0 })
                 {
-                    int mpBurnVal = stMpFx[0].BaseValue + stMpFx[0].Delta * (_level - 1);
+                    int mpBurnVal = stMpFx[0].BaseValue + stMpFx[0].Delta * _level;
                     int mpBurn = stMpFx[0].IsPercent ? target.MaxMp * mpBurnVal / 100 : mpBurnVal;
                     if (mpBurn > 0)
                         target.CurrentMp = Math.Max(0, target.CurrentMp - mpBurn);
@@ -2040,7 +2040,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                 var stFpFx = template?.Effects?.FpAttackInfo;
                 if (stFpFx is { Value: > 0 } fpAtk && target is Player fpAtkTarget)
                 {
-                    int fpBurnVal = fpAtk.Value + fpAtk.Delta * (_level - 1);
+                    int fpBurnVal = fpAtk.Value + fpAtk.Delta * _level;
                     int fpBurn = fpAtk.IsPercent ? fpAtkTarget.EffectiveMaxFp * fpBurnVal / 100 : fpBurnVal;
                     if (fpBurn > 0)
                         fpAtkTarget.CurrentFp = Math.Max(0, fpAtkTarget.CurrentFp - fpBurn);
@@ -2194,7 +2194,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     int ddSkillId = spellId;
                     foreach (var dd in ddEffects)
                     {
-                        int ddVal   = dd.BaseValue + dd.Delta * (_level - 1);
+                        int ddVal   = dd.BaseValue + dd.Delta * _level;
                         int ddDelay = dd.DelayMs;
                         _ = Task.Run(async () =>
                         {
@@ -2352,7 +2352,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                         // M240: mpattackinstant — burn splash target MP
                         if (stMpFx is { Count: > 0 })
                         {
-                            int mpBurnVal = stMpFx[0].BaseValue + stMpFx[0].Delta * (_level - 1);
+                            int mpBurnVal = stMpFx[0].BaseValue + stMpFx[0].Delta * _level;
                             int mpBurn = stMpFx[0].IsPercent ? splash.MaxMp * mpBurnVal / 100 : mpBurnVal;
                             if (mpBurn > 0)
                                 splash.CurrentMp = Math.Max(0, splash.CurrentMp - mpBurn);
@@ -2850,7 +2850,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             {
                                 int drain = mpTickInfo.IsPercent
                                     ? ctx.Effected.MaxMp * mpTickInfo.BaseValue / 100
-                                    : Math.Max(1, mpTickInfo.BaseValue + mpTickInfo.Delta * (_level - 1));
+                                    : Math.Max(1, mpTickInfo.BaseValue + mpTickInfo.Delta * _level);
                                 ctx.Effected.CurrentMp = Math.Max(0, ctx.Effected.CurrentMp - drain);
                                 if (ctx.Effected is Player mpTickPlayer)
                                 {
@@ -2902,7 +2902,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 var fpTickTarget = (Player)ctx.Effected;
                                 int fpDrain = fpTickInfo.IsPercent
                                     ? fpTickTarget.EffectiveMaxFp * fpTickInfo.BaseValue / 100
-                                    : Math.Max(1, fpTickInfo.BaseValue + fpTickInfo.Delta * (_level - 1));
+                                    : Math.Max(1, fpTickInfo.BaseValue + fpTickInfo.Delta * _level);
                                 fpTickTarget.CurrentFp = Math.Max(0, fpTickTarget.CurrentFp - fpDrain);
                                 var fpDc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == fpTickTarget);
                                 if (fpDc is not null)

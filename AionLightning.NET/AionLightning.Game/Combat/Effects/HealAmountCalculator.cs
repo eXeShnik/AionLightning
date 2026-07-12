@@ -9,12 +9,11 @@ namespace AionLightning.Game.Combat.Effects;
 /// (A6) call sites, plus the two HoT tick bases (A2/A5)). BEHAVIOR-IDENTICAL relocation — every
 /// formula below is copied verbatim from the original packet handler.
 ///
-/// A2's HoT tick base uses <c>hot.BaseValue + hot.Delta * level</c>; A5's buff-path HoT tick base uses
-/// <c>thFx.BaseValue + thFx.Delta * Math.Max(1, level - 1)</c> — a `level - 1` asymmetry versus A2 that
-/// is preserved verbatim via the <paramref name="useLevelMinusOne"/> flag on
-/// <see cref="ComputeHotTickBase"/>. Do NOT unify A2/A5 without checking the Java skillengine. A5 also
-/// applies no HealReceivedPct at its call site (unlike A2) — that divergence stays at the call site,
-/// not in this calculator.
+/// Java parity: HealOverTimeEffect scales the tick base by <c>delta*skillLevel</c>, so
+/// <see cref="ComputeHotTickBase"/> uses <c>hot.Delta * level</c>. The old buff-path (A5) `level-1`
+/// variant was a port bug (part of the port-wide Delta*(level-1) under-scaling) and has been unified.
+/// A5 still applies no HealReceivedPct at its call site (unlike A2) — that divergence stays at the
+/// call site, not in this calculator.
 /// </summary>
 public static class HealAmountCalculator
 {
@@ -47,9 +46,6 @@ public static class HealAmountCalculator
         return heal;
     }
 
-    public static int ComputeHotTickBase(SkillHotInfo hot, int level, bool useLevelMinusOne)
-    {
-        int effectiveLevel = useLevelMinusOne ? Math.Max(1, level - 1) : level;
-        return Math.Max(1, hot.BaseValue + hot.Delta * effectiveLevel);
-    }
+    public static int ComputeHotTickBase(SkillHotInfo hot, int level)
+        => Math.Max(1, hot.BaseValue + hot.Delta * level);
 }
