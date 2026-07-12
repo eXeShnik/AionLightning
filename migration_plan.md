@@ -4956,15 +4956,23 @@ colliding with the M1–M380 effect-coverage milestones above.
     (A5 uses level-1) preserved via flag; A3 fallback stays inline (Random.Shared). Harness 30/30.
   - [x] **S4d** (commit 116e245e): enemy CC/debuff-stat build → DebuffEffectCalculator + DebuffDeltaSet,
     symmetric to StatEffectCalculator (~50 locals). Harness 35/35, 0 exc.
-  - [~] **S4e** (in progress): direct skill-damage (6 sites) → SkillDamageCalculator (ComputeRaw /
-    ComputeCritRate / ApplyCrit / ApplyLevelDiffAndPvp / ApplyDefenseAndResist); crit RNG stays in
-    handler (didCrit injected); SignetBurst + DamageModifiers kept at the S4 call site.
+  - [x] **S4e** (commit 4c9f7f30): direct skill-damage (6 sites) → SkillDamageCalculator (ComputeRaw /
+    ComputeCritRate / ApplyCrit / ApplyLevelDiffAndPvp / ApplyDefenseAndResist) + shared CombatMath
+    (NpcLevelDiffMod/IsBehindTarget, also de-duped from CM_ATTACK). crit RNG stays in handler (didCrit
+    injected); crit-resist pre-net, SignetBurst, DamageModifiers stay inline; S1 def + S4 elemental kept
+    inline (ordering/wrapping divergences). Harness 44/44.
     **Suspected latent damage inconsistencies (faithful-to-Java review candidates, preserved via flags):**
     (1) S1 child uses BaseValue with no Delta*level; (2) S2 caster-AoE + S6 splash omit crit-resist and use
     fixed 1.5x crit (vs S3/S4 fortitude coeff); (3) S6 splash omits NpcLevelDiffMod (S3 applies it);
     (4) S2 omits elemental resist. Mirror the S4b DoT pattern (AoE/splash/child paths simplified vs main).
-  - [ ] **S4f** remaining families: dispel, shield, taunt/hate, signet (mostly already-implemented small
-    reads); net-new summon/trap/servant + resurrect/rebirth families last.
+
+  **S4a-e DONE: all 5 core combat families extracted into pure, harness-tested calculators (10 files
+  under Combat/Effects/). CM_CASTSPELL shrank 3647 -> 3176 lines. Harness = 44 parity assertions.**
+
+  - [ ] **S4f** (optional, low value): dispel, shield, taunt/hate, signet are small already-working reads —
+    formalizing each as a calculator is borderline over-engineering; defer unless a consumer needs them.
+  - [ ] **S4-net-new** (high value, large): summon/trap/servant + resurrect/rebirth families are absent/
+    skeletal in this port — these ADD gameplay (not a refactor). Own planning cycle.
 - [ ] **S5 Central periodic scheduler** (DoT/HoT/toggle upkeep; replace fire-and-forget Task.Run).
 - [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
 - [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
