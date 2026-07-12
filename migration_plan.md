@@ -4901,3 +4901,7 @@ After 0.3 lands: a 2nd fleet pass sweeps the deferred lists (Heiron 36, Eltnen 2
   (3) follow/escort AI; (4) repeatable-quest model (canRepeat). Remaining zones: instances
   (beshmundir/fort_tiamat/many dungeons), events(90), crafting(52), rider(79)/hero(20), + 2nd-pass
   deferred sweeps.
+
+- [x] **C2 Phase 5 Pernon** (2026-07-12, fleet): 9/13 quests, probe 9/9. Elyos hub. Fixed 1
+  missing-break bug. 4 deferred = housing-tutorial quests needing a HousingService/House/Butler
+  model + onHouseItemUseEvent hook (absent subsystem, noted in CLAUDE.md).
