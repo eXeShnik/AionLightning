@@ -4989,3 +4989,27 @@ colliding with the M1–M380 effect-coverage milestones above.
 - [ ] **S6 Effect-expiry sweeper + stat-delta reversal** (fix lazy-filter expiry; O(n) CC rebuild).
 - [ ] **S7 Extract SkillCastService from CM_CASTSPELL** (shrink the 3673-line monolith; reusable
   for NPC/item/summon casts).
+
+## Combat damage Java-parity review (2026-07-12)
+
+The flag-based effect extraction (S4a-e) surfaced ~6 places where C# AoE/splash/child combat paths
+were simpler than the main path. A read-only Java skillengine review found ALL were genuine C# PORT
+BUGS (Java funnels every target through one calculate() pipeline; targeting mode only selects which
+creatures, never a reduced formula). Fixed in commit 968979eb:
+- [x] D-1: single-target + launcher DoTs missing passive spell-attack bonus (StatFunctions
+  BOOST_SPELL_ATTACK is uniform). Under-scaled the most common DoT path.
+- [x] D-2: launcher DoT missing elemental resist.
+- [x] DM-1: launcher/child instant damage missing Delta scaling.
+- [x] DM-3: AoE splash missing the NPC level-diff damage reduction (adjustDamages) — over-damaged
+  higher-level NPCs.
+- [x] DM-4: caster-centered AoE missing elemental resist.
+- [skip] DM-2: S2/S6 fixed-1.5x crit w/o crit-resist — MOOT (both sites NPC-only; C# reads crit-
+  resist/fortitude only from Player targets). Underlying NPC-crit-resist modelling is a separate gap.
+
+### OPEN systemic parity ticket — Delta*(level-1) vs Java Delta*skillLevel
+The ENTIRE C# port scales skill values as `Base + Delta*(_level-1)`; Java DamageEffect/BleedEffect use
+`value + delta*skillLevel`. If Java's skillLevel is 1-indexed the same as C# _level, every skill value
+is under-scaled by one Delta step port-wide (damage, DoT, heal, buff deltas — StatEffectCalculator etc.
+all use level-1). NEEDS a dedicated read-only investigation of Java skillLvl semantics + the
+skill_templates data model (is level 1 == BaseValue, or BaseValue+Delta?) before any change — a
+port-wide fix would be a large, risky behavior change. Do NOT change blindly.
