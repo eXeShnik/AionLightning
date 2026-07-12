@@ -1556,9 +1556,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                     try { await c.SendAsync(dotAbnormal); } catch { }
 
-                            var dotTickTarget = target;
-                            var dotTickEffect = dotEffect;
-                            var dotTickCaster = player;
                             var dotTickInfo   = dot;
                             var dotTickLogId  = dot.DotType switch
                             {
@@ -1567,30 +1564,30 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
                                 _               => SM_ATTACK_STATUS.LogId.Poison,
                             };
-                            _ = Task.Run(async () =>
-                            {
-                                while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
+                            // S5b: scheduled centrally via EffectTickScheduler (see P8 pattern above).
+                            _effectTickScheduler.Register(target, player, dotEffect, spellId, dotTickInfo.CheckTimeMs, dotExpiry,
+                                onTick: async ctx =>
                                 {
-                                    await Task.Delay(dotTickInfo.CheckTimeMs);
-                                    if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
-                                    await dotTickTarget.ApplyDamageAndPublishAsync(dotTickCaster, dotTickDmg, DamageKind.DoTTick, spellId, _eventBus);
+                                    await ctx.Effected.ApplyDamageAndPublishAsync(ctx.Effector, dotTickDmg, DamageKind.DoTTick, ctx.SkillId, _eventBus);
                                     if (dotTickInfo.HpPercent != 0)
-                                        dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
+                                        ctx.Effector.CurrentHp = Math.Min(ctx.Effector.MaxHp, ctx.Effector.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
                                     if (dotTickInfo.MpPercent != 0)
-                                        dotTickCaster.CurrentMp = Math.Min(dotTickCaster.MaxMp, dotTickCaster.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
-                                    var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dotTickDmg, dotTickLogId);
-                                    int tw = dotTickTarget.Position.WorldId;
+                                        ctx.Effector.CurrentMp = Math.Min(ctx.Effector.MaxMp, ctx.Effector.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
+                                    var tickPkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.Damage, ctx.SkillId, dotTickDmg, dotTickLogId);
+                                    int tw = ctx.Effected.Position.WorldId;
                                     foreach (var c in registry.GetAll())
                                         if (c.ActivePlayer?.Position.WorldId == tw)
                                             try { await c.SendAsync(tickPkt); } catch { }
-                                }
-                                dotTickTarget.RemoveEffect(dotTickEffect.SkillId, dotTickEffect.Expiry);
-                                var expiredDot = new SM_ABNORMAL_EFFECT(dotTickTarget.ObjectId, dotTargetIsPlayer, dotTickTarget.GetActiveEffects());
-                                int dw = dotTickTarget.Position.WorldId;
-                                foreach (var c in registry.GetAll())
-                                    if (c.ActivePlayer?.Position.WorldId == dw)
-                                        try { await c.SendAsync(expiredDot); } catch { }
-                            });
+                                },
+                                onStop: async ctx =>
+                                {
+                                    ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                    var expiredDot = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, dotTargetIsPlayer, ctx.Effected.GetActiveEffects());
+                                    int dw = ctx.Effected.Position.WorldId;
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == dw)
+                                            try { await c.SendAsync(expiredDot); } catch { }
+                                });
                         }
                     }
 
@@ -2445,9 +2442,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                         try { await c.SendAsync(dotAbnormal); } catch { }
 
-                                var dotTickTarget = splash;
-                                var dotTickEffect = dotEffect;
-                                var dotTickCaster = player;
                                 var dotTickInfo   = dot;
                                 var dotTickLogId  = dot.DotType switch
                                 {
@@ -2456,30 +2450,30 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     "spellatkdrain" => SM_ATTACK_STATUS.LogId.SpellAtkDrain,
                                     _               => SM_ATTACK_STATUS.LogId.Poison,
                                 };
-                                _ = Task.Run(async () =>
-                                {
-                                    while (!dotTickTarget.IsAlreadyDead && DateTime.UtcNow < dotTickEffect.Expiry)
+                                // S5b: scheduled centrally via EffectTickScheduler (see P8 pattern above).
+                                _effectTickScheduler.Register(splash, player, dotEffect, spellId, dotTickInfo.CheckTimeMs, dotExpiry,
+                                    onTick: async ctx =>
                                     {
-                                        await Task.Delay(dotTickInfo.CheckTimeMs);
-                                        if (dotTickTarget.IsAlreadyDead || DateTime.UtcNow >= dotTickEffect.Expiry) break;
-                                        await dotTickTarget.ApplyDamageAndPublishAsync(dotTickCaster, dotTickDmg, DamageKind.DoTTick, spellId, _eventBus);
+                                        await ctx.Effected.ApplyDamageAndPublishAsync(ctx.Effector, dotTickDmg, DamageKind.DoTTick, ctx.SkillId, _eventBus);
                                         if (dotTickInfo.HpPercent != 0)
-                                            dotTickCaster.CurrentHp = Math.Min(dotTickCaster.MaxHp, dotTickCaster.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
+                                            ctx.Effector.CurrentHp = Math.Min(ctx.Effector.MaxHp, ctx.Effector.CurrentHp + dotTickDmg * dotTickInfo.HpPercent / 100);
                                         if (dotTickInfo.MpPercent != 0)
-                                            dotTickCaster.CurrentMp = Math.Min(dotTickCaster.MaxMp, dotTickCaster.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
-                                        var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, spellId, dotTickDmg, dotTickLogId);
-                                        int tw = dotTickTarget.Position.WorldId;
+                                            ctx.Effector.CurrentMp = Math.Min(ctx.Effector.MaxMp, ctx.Effector.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
+                                        var tickPkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.Damage, ctx.SkillId, dotTickDmg, dotTickLogId);
+                                        int tw = ctx.Effected.Position.WorldId;
                                         foreach (var c in registry.GetAll())
                                             if (c.ActivePlayer?.Position.WorldId == tw)
                                                 try { await c.SendAsync(tickPkt); } catch { }
-                                    }
-                                    dotTickTarget.RemoveEffect(dotTickEffect.SkillId, dotTickEffect.Expiry);
-                                    var expiredDot = new SM_ABNORMAL_EFFECT(dotTickTarget.ObjectId, isPlayer: false, dotTickTarget.GetActiveEffects());
-                                    int dw = dotTickTarget.Position.WorldId;
-                                    foreach (var c in registry.GetAll())
-                                        if (c.ActivePlayer?.Position.WorldId == dw)
-                                            try { await c.SendAsync(expiredDot); } catch { }
-                                });
+                                    },
+                                    onStop: async ctx =>
+                                    {
+                                        ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                        var expiredDot = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, isPlayer: false, ctx.Effected.GetActiveEffects());
+                                        int dw = ctx.Effected.Position.WorldId;
+                                        foreach (var c in registry.GetAll())
+                                            if (c.ActivePlayer?.Position.WorldId == dw)
+                                                try { await c.SendAsync(expiredDot); } catch { }
+                                    });
                             }
                         }
                     }
@@ -2788,9 +2782,6 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                     try { await c.SendAsync(lDotAbnPkt); } catch { }
 
-                            var lTickTarget = target;
-                            var lTickEffect = lDotEffect;
-                            var lTickCaster = player;
                             var lTickInfo   = lDot;
                             var lTickLogId  = lDot.DotType switch
                             {
@@ -2800,30 +2791,30 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 _               => SM_ATTACK_STATUS.LogId.Poison,
                             };
                             int lLauncherId = launcher.SkillId;
-                            _ = Task.Run(async () =>
-                            {
-                                while (!lTickTarget.IsAlreadyDead && DateTime.UtcNow < lTickEffect.Expiry)
+                            // S5b: scheduled centrally via EffectTickScheduler (see P8 pattern above).
+                            _effectTickScheduler.Register(target, player, lDotEffect, lLauncherId, lTickInfo.CheckTimeMs, lDotExpiry,
+                                onTick: async ctx =>
                                 {
-                                    await Task.Delay(lTickInfo.CheckTimeMs);
-                                    if (lTickTarget.IsAlreadyDead || DateTime.UtcNow >= lTickEffect.Expiry) break;
-                                    await lTickTarget.ApplyDamageAndPublishAsync(lTickCaster, lDmgPerTick, DamageKind.DoTTick, lLauncherId, _eventBus);
+                                    await ctx.Effected.ApplyDamageAndPublishAsync(ctx.Effector, lDmgPerTick, DamageKind.DoTTick, ctx.SkillId, _eventBus);
                                     if (lTickInfo.HpPercent != 0)
-                                        lTickCaster.CurrentHp = Math.Min(lTickCaster.MaxHp, lTickCaster.CurrentHp + lDmgPerTick * lTickInfo.HpPercent / 100);
+                                        ctx.Effector.CurrentHp = Math.Min(ctx.Effector.MaxHp, ctx.Effector.CurrentHp + lDmgPerTick * lTickInfo.HpPercent / 100);
                                     if (lTickInfo.MpPercent != 0)
-                                        lTickCaster.CurrentMp = Math.Min(lTickCaster.MaxMp, lTickCaster.CurrentMp + lDmgPerTick * lTickInfo.MpPercent / 100);
-                                    var lTickPkt = new SM_ATTACK_STATUS(lTickTarget, SM_ATTACK_STATUS.AttackType.Damage, lLauncherId, lDmgPerTick, lTickLogId);
-                                    int lTickWorld = lTickTarget.Position.WorldId;
+                                        ctx.Effector.CurrentMp = Math.Min(ctx.Effector.MaxMp, ctx.Effector.CurrentMp + lDmgPerTick * lTickInfo.MpPercent / 100);
+                                    var lTickPkt = new SM_ATTACK_STATUS(ctx.Effected, SM_ATTACK_STATUS.AttackType.Damage, ctx.SkillId, lDmgPerTick, lTickLogId);
+                                    int lTickWorld = ctx.Effected.Position.WorldId;
                                     foreach (var c in registry.GetAll())
                                         if (c.ActivePlayer?.Position.WorldId == lTickWorld)
                                             try { await c.SendAsync(lTickPkt); } catch { }
-                                }
-                                lTickTarget.RemoveEffect(lTickEffect.SkillId, lTickEffect.Expiry);
-                                var lExpPkt = new SM_ABNORMAL_EFFECT(lTickTarget.ObjectId, lDotIsPlayer, lTickTarget.GetActiveEffects());
-                                int lExpWorld = lTickTarget.Position.WorldId;
-                                foreach (var c in registry.GetAll())
-                                    if (c.ActivePlayer?.Position.WorldId == lExpWorld)
-                                        try { await c.SendAsync(lExpPkt); } catch { }
-                            });
+                                },
+                                onStop: async ctx =>
+                                {
+                                    ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                    var lExpPkt = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, lDotIsPlayer, ctx.Effected.GetActiveEffects());
+                                    int lExpWorld = ctx.Effected.Position.WorldId;
+                                    foreach (var c in registry.GetAll())
+                                        if (c.ActivePlayer?.Position.WorldId == lExpWorld)
+                                            try { await c.SendAsync(lExpPkt); } catch { }
+                                });
                         }
                     }
                 }
@@ -2849,20 +2840,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(mpDotAbnPkt); } catch { }
 
-                        var mpTickTarget = target;
-                        var mpTickEffect = mpDotEffect;
                         var mpTickInfo   = mpDot;
-                        _ = Task.Run(async () =>
-                        {
-                            while (!mpTickTarget.IsAlreadyDead && DateTime.UtcNow < mpTickEffect.Expiry)
+                        // S5b: scheduled centrally via EffectTickScheduler (see P8 pattern above).
+                        _effectTickScheduler.Register(target, player, mpDotEffect, spellId, mpTickInfo.CheckTimeMs, mpDotExpiry,
+                            onTick: async ctx =>
                             {
-                                await Task.Delay(mpTickInfo.CheckTimeMs);
-                                if (mpTickTarget.IsAlreadyDead || DateTime.UtcNow >= mpTickEffect.Expiry) break;
                                 int drain = mpTickInfo.IsPercent
-                                    ? mpTickTarget.MaxMp * mpTickInfo.BaseValue / 100
+                                    ? ctx.Effected.MaxMp * mpTickInfo.BaseValue / 100
                                     : Math.Max(1, mpTickInfo.BaseValue + mpTickInfo.Delta * (_level - 1));
-                                mpTickTarget.CurrentMp = Math.Max(0, mpTickTarget.CurrentMp - drain);
-                                if (mpTickTarget is Player mpTickPlayer)
+                                ctx.Effected.CurrentMp = Math.Max(0, ctx.Effected.CurrentMp - drain);
+                                if (ctx.Effected is Player mpTickPlayer)
                                 {
                                     var dc = registry.GetAll().FirstOrDefault(c => c.ActivePlayer == mpTickPlayer);
                                     if (dc is not null)
@@ -2871,14 +2858,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                         try { await dc.SendAsync(mpStatsUpdate); } catch { }
                                     }
                                 }
-                            }
-                            mpTickTarget.RemoveEffect(mpTickEffect.SkillId, mpTickEffect.Expiry);
-                            var mpExpPkt = new SM_ABNORMAL_EFFECT(mpTickTarget.ObjectId, mpDotIsPlayer, mpTickTarget.GetActiveEffects());
-                            int mpExpWorld = mpTickTarget.Position.WorldId;
-                            foreach (var c in registry.GetAll())
-                                if (c.ActivePlayer?.Position.WorldId == mpExpWorld)
-                                    try { await c.SendAsync(mpExpPkt); } catch { }
-                        });
+                            },
+                            onStop: async ctx =>
+                            {
+                                ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                var mpExpPkt = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, mpDotIsPlayer, ctx.Effected.GetActiveEffects());
+                                int mpExpWorld = ctx.Effected.Position.WorldId;
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == mpExpWorld)
+                                        try { await c.SendAsync(mpExpPkt); } catch { }
+                            });
                     }
                 }
 
@@ -2902,15 +2891,12 @@ public sealed class CM_CASTSPELL : AionClientPacket
                             if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                 try { await c.SendAsync(fpDotAbnPkt); } catch { }
 
-                        var fpTickTarget = fpDotPlayer;
-                        var fpTickEffect = fpDotEffect;
                         var fpTickInfo   = fpDot;
-                        _ = Task.Run(async () =>
-                        {
-                            while (!fpTickTarget.IsAlreadyDead && DateTime.UtcNow < fpTickEffect.Expiry)
+                        // S5b: scheduled centrally via EffectTickScheduler (see P8 pattern above).
+                        _effectTickScheduler.Register(fpDotPlayer, player, fpDotEffect, spellId, fpTickInfo.CheckTimeMs, fpDotExpiry,
+                            onTick: async ctx =>
                             {
-                                await Task.Delay(fpTickInfo.CheckTimeMs);
-                                if (fpTickTarget.IsAlreadyDead || DateTime.UtcNow >= fpTickEffect.Expiry) break;
+                                var fpTickTarget = (Player)ctx.Effected;
                                 int fpDrain = fpTickInfo.IsPercent
                                     ? fpTickTarget.EffectiveMaxFp * fpTickInfo.BaseValue / 100
                                     : Math.Max(1, fpTickInfo.BaseValue + fpTickInfo.Delta * (_level - 1));
@@ -2921,14 +2907,16 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                     var fpStats = new SM_STATS_INFO(fpTickTarget, _dataManager.PlayerStats.GetTemplate(fpTickTarget.PlayerClass, fpTickTarget.Level));
                                     try { await fpDc.SendAsync(fpStats); } catch { }
                                 }
-                            }
-                            fpTickTarget.RemoveEffect(fpTickEffect.SkillId, fpTickEffect.Expiry);
-                            var fpExpPkt = new SM_ABNORMAL_EFFECT(fpTickTarget.ObjectId, true, fpTickTarget.GetActiveEffects());
-                            int fpExpWorld = fpTickTarget.Position.WorldId;
-                            foreach (var c in registry.GetAll())
-                                if (c.ActivePlayer?.Position.WorldId == fpExpWorld)
-                                    try { await c.SendAsync(fpExpPkt); } catch { }
-                        });
+                            },
+                            onStop: async ctx =>
+                            {
+                                ctx.Effected.RemoveEffect(ctx.Effect.SkillId, ctx.Effect.Expiry);
+                                var fpExpPkt = new SM_ABNORMAL_EFFECT(ctx.Effected.ObjectId, true, ctx.Effected.GetActiveEffects());
+                                int fpExpWorld = ctx.Effected.Position.WorldId;
+                                foreach (var c in registry.GetAll())
+                                    if (c.ActivePlayer?.Position.WorldId == fpExpWorld)
+                                        try { await c.SendAsync(fpExpPkt); } catch { }
+                            });
                     }
                 }
 
