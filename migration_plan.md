@@ -5228,3 +5228,14 @@ eltnen/event_quests/heiron/inggison/morheim/pandaemonium/reshanta/rider_quests/s
 tiamaranta/verteron). Tuning constants (speed/reach/lost distances) are in FollowService and may need
 in-game adjustment. Remaining hooks after this: flying-ring, onRide, onKillRanked-officer (+Glory Points),
 onLeaveZone, onEquipItem, ClassChangeService, dredgion-reward, special-cube.
+
+### Follow/escort fleet complete (2026-07-13) — quest total 1439 (96.4%)
++31 escort quests across 16 zones (batches: 11 + 6 + 7 + 7 spawn-then-follow). Added
+QuestHandlerBase.SpawnQuestNpcAndGet (returns the spawned Npc, for spawn-then-follow escorts).
+Only 2 escort quests still skipped: event_quests 50008/51008 (need onAddAggroList hook).
+REMAINING 54 quests need scattered specialized subsystems: onKillRanked-officer + Glory Points (8:
+reshanta/hero/tiamaranta officer/general), flying-ring (onPassFlyingRings), onRide (mount),
+onLeaveZone, onEquipItem/stigma (sanctum 1929, ascension chain), ClassChangeService (ascension
+1006/2008), onDredgionReward (chantra_dredgion, reshanta 4718), special-cube (tiamaranta 41598),
+onAddAggroList (event 50008/51008), instance living-NPC enumeration (tiamaranta 10064/20064 — could
+use World.GetNpcsInScope now if SpawnQuestNpcAndGet handles tracked spawns). Each is a small bucket.
