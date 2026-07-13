@@ -20,6 +20,7 @@ public sealed class CM_CRAFT : AionClientPacket
     private readonly ExperienceService        _expService;
     private readonly SkillLearnService        _skillLearn;
     private readonly QuestService             _questService;
+    private readonly AionLightning.Game.QuestEngine.QuestEngine _questEngine;
 
     private int _unk;
     private int _targetTemplateId;
@@ -30,7 +31,7 @@ public sealed class CM_CRAFT : AionClientPacket
 
     public CM_CRAFT(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
         PlayerConnectionRegistry connRegistry, ExperienceService expService, SkillLearnService skillLearn,
-        QuestService questService)
+        QuestService questService, AionLightning.Game.QuestEngine.QuestEngine questEngine)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -39,6 +40,7 @@ public sealed class CM_CRAFT : AionClientPacket
         _expService   = expService;
         _skillLearn   = skillLearn;
         _questService = questService;
+        _questEngine  = questEngine;
     }
 
     public override void Read(ref PacketReader r)
@@ -148,6 +150,7 @@ public sealed class CM_CRAFT : AionClientPacket
             foreach (var conn in _connRegistry.GetAll())
                 if (conn.ActivePlayer?.Position.WorldId == worldId)
                     try { await conn.SendAsync(failAnim, ct); } catch { }
+            await _questEngine.OnFailCraftAsync(player, recipe.ProductId, _conn, ct); // Java onFailCraft
             return;
         }
 

@@ -36,6 +36,7 @@ public sealed class QuestEngine
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<int>>  _zoneLeaveIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<int>>  _flyRingIndex = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<int, List<int>>     _failCraftIndex = new();
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
     private readonly ILogger<QuestEngine>           _log;
@@ -212,6 +213,26 @@ public sealed class QuestEngine
 
     /// <summary>True if any quest registered a fly-ring pass (empty ⇒ skip the move-time ring scan).</summary>
     public bool HasFlyRingQuests => _flyRingIndex.Count > 0;
+
+    /// <summary>Registers a quest against a crafted product item id for the fail-craft hook (Java registerOnFailCraft).</summary>
+    public void RegisterOnFailCraft(int itemId, int questId)
+    {
+        if (!_failCraftIndex.TryGetValue(itemId, out var quests)) { quests = []; _failCraftIndex[itemId] = quests; }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Dispatches the fail-craft hook (Java onFailCraft) to quests registered against the failed product item.</summary>
+    public async ValueTask OnFailCraftAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_failCraftIndex.TryGetValue(itemId, out var questIds)) return;
+            foreach (int questId in questIds)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnFailCraftAsync(new QuestEnv(null, player, questId, 0), itemId, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnFailCraftAsync (item={Item})", itemId); }
+    }
 
     /// <summary>Dispatches the fly-ring pass hook (Java onPassFlyingRing) to quests registered against the ring.</summary>
     public async ValueTask OnPassFlyingRingAsync(Player player, string ringName, GsClientConnection conn, CancellationToken ct)

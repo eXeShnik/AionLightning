@@ -70,4 +70,7 @@ public interface IQuestHandler
 
     /// <summary>Java onPassFlyingRingEvent: the player flew through a named fly ring registered against this quest.</summary>
     ValueTask<bool> OnPassFlyingRingAsync(QuestEnv env, string ringName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onFailCraftEvent: a craft of a registered product item id just failed.</summary>
+    ValueTask<bool> OnFailCraftAsync(QuestEnv env, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }
