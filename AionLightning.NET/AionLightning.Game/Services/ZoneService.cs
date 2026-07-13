@@ -75,7 +75,21 @@ public sealed class ZoneService
                 (entered ??= new List<string>()).Add(region.Name);
         }
 
+        // Zones the player was in but has now left (fire onLeaveZone before pruning the set).
+        List<string>? left = null;
+        foreach (var z in current)
+            if (!insideNow.Contains(z)) (left ??= new List<string>()).Add(z);
+
         current.IntersectWith(insideNow);
+
+        if (left is not null)
+            foreach (var zoneName in left)
+            {
+                await _questEngine.OnLeaveZoneAsync(player, zoneName, conn, ct);
+                if (player.Position.InstanceId != 0)
+                    _instanceService.OnLeaveZone(player, zoneName);
+            }
+
         if (entered is null) return;
 
         foreach (var zoneName in entered)

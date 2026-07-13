@@ -33,6 +33,7 @@ public sealed class QuestEngine
     private readonly List<int>                      _reachTargetIndex = new();
     private readonly List<int>                      _lostTargetIndex = new();
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<int>>  _zoneLeaveIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
     private readonly ILogger<QuestEngine>           _log;
@@ -138,6 +139,17 @@ public sealed class QuestEngine
         {
             quests = [];
             _zoneEnterIndex[zoneName] = quests;
+        }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Registers a quest against a named zone region for onLeaveZone notifications (Java registerOnLeaveZone).</summary>
+    public void RegisterOnLeaveZone(string zoneName, int questId)
+    {
+        if (!_zoneLeaveIndex.TryGetValue(zoneName, out var quests))
+        {
+            quests = [];
+            _zoneLeaveIndex[zoneName] = quests;
         }
         if (!quests.Contains(questId)) quests.Add(questId);
     }
@@ -301,6 +313,22 @@ public sealed class QuestEngine
         {
             _log.LogError(ex, "QuestEngine: exception in OnEnterZoneAsync (zone={ZoneName})", zoneName);
             return false;
+        }
+    }
+
+    /// <summary>Dispatches onLeaveZone (Java onLeaveZone) to quests registered against a zone the player just left.</summary>
+    public async ValueTask OnLeaveZoneAsync(Player player, string zoneName, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_zoneLeaveIndex.TryGetValue(zoneName, out var questIds)) return;
+            foreach (int questId in questIds)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnLeaveZoneAsync(new QuestEnv(null, player, questId, 0), zoneName, conn, ct);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnLeaveZoneAsync (zone={ZoneName})", zoneName);
         }
     }
 

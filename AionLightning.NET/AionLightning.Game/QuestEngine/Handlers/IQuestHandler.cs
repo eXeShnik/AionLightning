@@ -61,4 +61,7 @@ public interface IQuestHandler
 
     /// <summary>Java onNpcLostTargetEvent: an escort follower NPC lost the player (too far).</summary>
     ValueTask<bool> OnNpcLostTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onLeaveZone: the player just left a named zone region registered against this quest.</summary>
+    ValueTask<bool> OnLeaveZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }

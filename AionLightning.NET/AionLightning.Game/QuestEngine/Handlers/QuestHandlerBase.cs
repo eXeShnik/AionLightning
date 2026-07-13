@@ -113,6 +113,10 @@ public abstract class QuestHandlerBase : IQuestHandler
     protected void RegisterOnEnterZone(QuestEngine engine, string zoneName)
         => engine.RegisterOnEnterZone(zoneName, QuestId);
 
+    /// <summary>Registers THIS quest against a named zone region for onLeaveZone notifications (Java registerOnLeaveZone). Call from Register().</summary>
+    protected void RegisterOnLeaveZone(QuestEngine engine, string zoneName)
+        => engine.RegisterOnLeaveZone(zoneName, QuestId);
+
     /// <summary>Registers THIS quest for the player-death hook (Java registerOnDie). Call from Register().</summary>
     protected void RegisterOnDie(QuestEngine engine) => engine.RegisterOnDie(QuestId);
 
@@ -177,6 +181,7 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnAtDistanceAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnNpcReachTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnNpcLostTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnLeaveZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 
     /// <summary>Opens an NPC dialog page (Java QuestHandler.sendDialogPacket). Always returns true (handled).</summary>
     protected async ValueTask<bool> SendQuestDialogAsync(GsClientConnection conn, int targetObjId, int dialogPageId, CancellationToken ct)
