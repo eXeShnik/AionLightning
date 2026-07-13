@@ -68,6 +68,34 @@ public sealed class PetDaoImpl : IPetDao
             new { playerId, petId, name });
     }
 
+    public async Task SaveFeedStatusAsync(int playerId, int petId, int hungryLevel, int feedProgress, long reuseTime, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE player_pets SET hungry_level = @hungryLevel, feed_progress = @feedProgress, reuse_time = @reuseTime WHERE player_id = @playerId AND pet_id = @petId",
+            new { playerId, petId, hungryLevel, feedProgress, reuseTime });
+    }
+
+    public async Task SetRefeedTimeAsync(int playerId, int petId, long reuseTime, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE player_pets SET reuse_time = @reuseTime WHERE player_id = @playerId AND pet_id = @petId",
+            new { playerId, petId, reuseTime });
+    }
+
+    public async Task SaveMoodDataAsync(int playerId, int petId, long moodStarted, int counter, long moodCdStarted,
+        long giftCdStarted, DateTime? despawnTime, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            """
+            UPDATE player_pets SET mood_started = @moodStarted, counter = @counter, mood_cd_started = @moodCdStarted,
+                gift_cd_started = @giftCdStarted, despawn_time = @despawnTime WHERE player_id = @playerId AND pet_id = @petId
+            """,
+            new { playerId, petId, moodStarted, counter, moodCdStarted, giftCdStarted, despawnTime = ToUnixMsOrNull(despawnTime) });
+    }
+
     private static long ToUnixMs(DateTime dt) => new DateTimeOffset(dt, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
     private static long? ToUnixMsOrNull(DateTime? dt) => dt.HasValue ? ToUnixMs(dt.Value) : null;

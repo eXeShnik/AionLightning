@@ -31,5 +31,6 @@ public interface IDataManager
     CubeExpanderData               CubeExpander  { get; }
     ZoneData                       Zones         { get; }
     PetData                        Pets          { get; }
+    PetFeedData                    PetFeed       { get; }
     HousingData                    Housing       { get; }
 }

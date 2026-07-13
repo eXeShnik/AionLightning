@@ -7,7 +7,7 @@ namespace AionLightning.Game.Network.Aion.ServerPackets;
 /// <summary>
 /// Multiplexed toy-pet packet (Java <c>SM_PET</c>, opcode 0x65). Keyed by an actionId that selects
 /// the payload. P1 implements the ownership/lifecycle subtypes: 0 (list on login), 1 (adopt),
-/// 2 (surrender), 3 (spawn), 4 (dismiss), 10 (rename). Feed(9)/mood(12)/doping(13) are P2.
+/// 2 (surrender), 3 (spawn), 4 (dismiss), 10 (rename). P2 adds 9 (feed) and 12 (mood); doping(13) is P3.
 /// </summary>
 public sealed class SM_PET : AionServerPacket
 {
@@ -27,6 +27,21 @@ public sealed class SM_PET : AionServerPacket
     private int _objectId;
     private string? _name;
 
+    // Feed (case 9) payload fields.
+    private int _subType;
+    private long _feedItemObjectId;
+    private int _feedCount;
+    private int _feedProgressPacked;
+    private int _refeedDelaySeconds;
+
+    // Mood (case 12) payload fields.
+    private int _moodPoints;
+    private int _moodDelta;
+    private int _moodRemaining;
+    private int _giftRemaining;
+    private int _shuggleEmotion;
+    private int _moodGiftItemId;
+
     private SM_PET(int actionId) : base(0x65) => _actionId = actionId;
 
     public static SM_PET List(IReadOnlyList<(PetCommonData, PetTemplate)> pets)
@@ -43,6 +58,33 @@ public sealed class SM_PET : AionServerPacket
 
     public static SM_PET Dismiss(int petObjectId)
         => new(4) { _objectId = petObjectId };
+
+    /// <summary>Feed minigame round-trip (Java SM_PET case 9). <paramref name="subType"/>: 1 eat,
+    /// 2 eating successful, 3 not hungry, 4 cancel feed, 5 clean feed task, 6 give item,
+    /// 7 present notification, 8 is full / still on refeed cooldown.</summary>
+    public static SM_PET Feed(int subType, long itemObjectId, int count, int feedProgressPacked, int refeedDelaySeconds)
+        => new(9)
+        {
+            _subType = subType,
+            _feedItemObjectId = itemObjectId,
+            _feedCount = count,
+            _feedProgressPacked = feedProgressPacked,
+            _refeedDelaySeconds = refeedDelaySeconds,
+        };
+
+    /// <summary>Mood status poll reply (Java SM_PET case 12, subType 0).</summary>
+    public static SM_PET MoodStatus(int delta) => new(12) { _subType = 0, _moodDelta = delta };
+
+    /// <summary>Shuggle-interaction feedback (Java SM_PET case 12, subType 2).</summary>
+    public static SM_PET MoodEmotion(int moodPoints, int shuggleEmotion)
+        => new(12) { _subType = 2, _moodPoints = moodPoints, _shuggleEmotion = shuggleEmotion };
+
+    /// <summary>Mood-fill gift grant (Java SM_PET case 12, subType 3).</summary>
+    public static SM_PET MoodGift(int conditionRewardItemId) => new(12) { _subType = 3, _moodGiftItemId = conditionRewardItemId };
+
+    /// <summary>Periodic mood/gift cooldown update (Java SM_PET case 12, subType 4).</summary>
+    public static SM_PET MoodPeriodic(int moodPoints, int moodRemainingSeconds, int giftRemainingSeconds)
+        => new(12) { _subType = 4, _moodPoints = moodPoints, _moodRemaining = moodRemainingSeconds, _giftRemaining = giftRemainingSeconds };
 
     public static SM_PET Rename(int petObjectId, string name)
         => new(10) { _objectId = petObjectId, _name = name };
@@ -74,9 +116,55 @@ public sealed class SM_PET : AionServerPacket
                 w.WriteD(_objectId);
                 w.WriteC(0x01);
                 break;
+            case 9:
+                w.WriteH(1);
+                w.WriteC(1);
+                w.WriteC((byte)_subType);
+                switch (_subType)
+                {
+                    case 1: // eat
+                        w.WriteD(_feedProgressPacked); w.WriteD(0); w.WriteD((int)_feedItemObjectId); w.WriteD(_feedCount);
+                        break;
+                    case 2: // eating successful
+                        w.WriteD(_feedProgressPacked); w.WriteD(0); w.WriteD((int)_feedItemObjectId); w.WriteD(_feedCount); w.WriteC(0);
+                        break;
+                    case 3: // not hungry
+                    case 4: // cancel feed
+                    case 5: // clean feed task
+                        w.WriteD(_feedProgressPacked); w.WriteD(_refeedDelaySeconds);
+                        break;
+                    case 6: // give item
+                        w.WriteD(_feedProgressPacked); w.WriteD(0); w.WriteD((int)_feedItemObjectId); w.WriteC(0);
+                        break;
+                    case 7: // present notification
+                        w.WriteD(_feedProgressPacked); w.WriteD(_refeedDelaySeconds); w.WriteD((int)_feedItemObjectId); w.WriteD(0);
+                        break;
+                    case 8: // is full / not feeding time yet
+                        w.WriteD(_feedProgressPacked); w.WriteD(_refeedDelaySeconds); w.WriteD((int)_feedItemObjectId); w.WriteD(_feedCount);
+                        break;
+                }
+                break;
             case 10:
                 w.WriteD(_objectId);
                 w.WriteS(_name);
+                break;
+            case 12:
+                w.WriteC((byte)_subType);
+                switch (_subType)
+                {
+                    case 0: // check pet status
+                        w.WriteD(_moodDelta);
+                        break;
+                    case 2: // emotion sent
+                        w.WriteD(0); w.WriteD(_moodPoints); w.WriteD(_shuggleEmotion);
+                        break;
+                    case 3: // give gift
+                        w.WriteD(_moodGiftItemId);
+                        break;
+                    case 4: // periodic update
+                        w.WriteD(_moodPoints); w.WriteD(_moodRemaining); w.WriteD(_giftRemaining);
+                        break;
+                }
                 break;
         }
     }

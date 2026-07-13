@@ -17,6 +17,12 @@ public sealed class Pet : Creature
 
     public PetCommonData CommonData { get; }
 
+    /// <summary>Live feed-minigame state while spawned (Java's <see cref="PetCommonData"/> keeps this for
+    /// the pet's whole lifetime in memory). Hydrated in <c>PetService.SpawnAsync</c> from the persisted
+    /// packed columns and flushed back on <c>PetService.DismissAsync</c>; null for pets without a FOOD
+    /// function. Kept off <see cref="PetCommonData"/> to keep persisted vs. session-only pet state separate.</summary>
+    public PetFeedProgress? FeedProgress { get; set; }
+
     public Pet(Player master, PetTemplate template, PetCommonData commonData)
     {
         Master = master;
