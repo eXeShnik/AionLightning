@@ -5075,3 +5075,41 @@ First quests using the new hook: heiron +2 (1500 chain opener + 1607), danaria +
 (rider_quests, tiamaranta) hit the session limit mid-batch — their sequential files compile, remainder
 for a follow-up. **Total 943 quests across 39 zones.** Still-blocked hooks (next infra targets):
 follow/escort AI, onAtDistance, InstanceService, ranked-kill (onKillRanked), class-keyed selectable rewards.
+
+## Quest content migration COMPLETE (2026-07-13) — 1356/1493 (90.8%)
+Two large agent fleets (wave 1 ~24 zones drained, wave 2 11 agents) closed every PORTABLE quest.
+**66 commits this session, quest total 943 → 1356 (+413) across ~90 zones.** Every zone probe-verified
+(Roslyn CompileFolder against prebuilt Game.dll, forward-slash path + file redirect; quest .cs are
+copy-only/runtime-compiled, never in the Game build). Fully-unported zones brought to 0-gap-or-skips
+this session: beshmundir (47), all danuar_* / eternal_bastion / idgel / sauro / void_cube / silverine /
+gelkmaros_armor / inggison_armor / radiant_ops / *_dredgion / ophidan_bridge / kromedes_trial /
+illuminary_obelisk / convent_of_marchutan / cloister_of_kaisinel / the five faction call-to-arms zones.
+Dozens of latent Java bugs fixed along the way (kill-npc id mismatches, missing-break fallthroughs,
+tautologies, status-broadcast ordering, start-npc copy-paste) — each marked `// Java bug:`; intentional
+quirks preserved 1:1.
+
+### The remaining 137 are ALL subsystem-blocked, NOT authoring work
+Every skip was individually classified by the fleet agents. Each subsystem below, once built, unblocks
+the listed count (a future session should build these, then the quests port mechanically):
+- **InstanceService** (instanced-world getNextAvailableInstance/registerPlayerWithInstance) — biggest
+  bucket; blocks quests in rider_quests, sarpan, ascension, fort_tiamat, danaria, sanctum, pandaemonium,
+  heiron, beluslan, tiamaranta, abyss_entry, etc.
+- **Follow/escort AI** (defaultStartFollowEvent + onNpcReachTarget/onNpcLostTarget) — heiron, eltnen,
+  danaria, altgard, morheim, verteron, sarpan, beluslan, inggison, sanctum, rider_quests.
+- **onAtDistance hook** — katalam (all 5 gap), heiron, danuar_reliquary (both), tiamaranta_eye (both),
+  inggison, pandaemonium.
+- **onDie / onLogOut / onLeaveZone quest hooks** — scattered (siels_spear had onDie flavor; rider_quests
+  24046 needs onLeaveZone; pandaemonium/sanctum onDie).
+- **onKillRanked with officer/general Abyss ranks** (AbyssRankService caps at rank 9) — reshanta (8),
+  hero (4), tiamaranta (2).
+- **Dredgion-reward hook** (onDredgionReward) — chantra_dredgion (2), reshanta (1).
+- **flying-ring** (onPassFlyingRings) — abyss_entry, eltnen, inggison(wind-stream variant).
+- **onRide** (mount) — sarpan 41300.
+- **onBonusApply** (MOVIE/LUNAR) — event_quests (~6).
+- **fail-craft event** (onFailCraft) — crafting 19038/29038.
+- **max-DP stat** (getGameStats().getMaxDp) — daevation 1990.
+- **class-keyed selectable rewards** (`<fighter_selectable_reward>` etc.) — theobomos 3088, some daevation
+  (worked around by defaulting the eligible page this session).
+- **special-cube inventory** (isFullSpecialCube) — tiamaranta 41598.
+
+Next infra priority by unblock count: InstanceService >> Follow/escort AI > onAtDistance > onKillRanked-officer.
