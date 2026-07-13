@@ -1,6 +1,8 @@
 using AionLightning.Game.Model.Group;
 using AionLightning.Game.Model.Item;
 using LegionModel = AionLightning.Game.Model.Legion.Legion;
+using AionLightning.Game.Model.Pet;
+using PetModel = AionLightning.Game.Model.Pet.Pet;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Skill;
 
@@ -42,6 +44,10 @@ public sealed class Player : Creature
 
     // M381: active Spiritmaster-style summon — one per master (Java rule); null when no summon is out
     public Summon? Summon { get; set; }
+
+    // Toy pet — currently spawned pet in world; null when no pet is out. Adopted pets always exist in Pets.
+    public PetModel? ToyPet { get; set; }
+    public PetList Pets { get; } = new();
 
     // Legion (guild) — null when not in a legion
     public LegionModel? Legion { get; set; }

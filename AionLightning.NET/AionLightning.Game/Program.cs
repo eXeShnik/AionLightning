@@ -98,6 +98,7 @@ builder.Services.AddSingleton<ISkillDao, SkillDaoImpl>();
 builder.Services.AddSingleton<IBrokerDao, BrokerDaoImpl>();
 builder.Services.AddSingleton<IManastoneDao, ManastoneDaoImpl>();
 builder.Services.AddSingleton<IPlayerTitleDao, PlayerTitleDaoImpl>();
+builder.Services.AddSingleton<IPetDao, PetDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -136,6 +137,7 @@ builder.Services.AddSingleton<AionLightning.Game.Instance.InstanceEngine>();
 builder.Services.AddSingleton<InstanceService>();
 builder.Services.AddSingleton<TeleportService>();
 builder.Services.AddSingleton<PortalService>();
+builder.Services.AddSingleton<PetService>();
 builder.Services.AddHostedService<EmptyInstanceCheckerService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();

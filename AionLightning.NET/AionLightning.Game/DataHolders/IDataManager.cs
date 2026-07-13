@@ -30,4 +30,5 @@ public interface IDataManager
     InstanceExitData               InstanceExits { get; }
     CubeExpanderData               CubeExpander  { get; }
     ZoneData                       Zones         { get; }
+    PetData                        Pets          { get; }
 }

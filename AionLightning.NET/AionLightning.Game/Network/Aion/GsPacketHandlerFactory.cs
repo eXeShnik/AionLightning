@@ -66,6 +66,7 @@ public sealed class GsPacketHandlerFactory
     private readonly EffectTickScheduler     _effectTickScheduler;
     private readonly ZoneService             _zoneService;
     private readonly TeleportService         _teleport;
+    private readonly PetService              _petService;
     private readonly PortalService           _portalService;
 
     public GsPacketHandlerFactory(
@@ -118,7 +119,8 @@ public sealed class GsPacketHandlerFactory
         EffectTickScheduler effectTickScheduler,
         ZoneService zoneService,
         TeleportService teleport,
-        PortalService portalService)
+        PortalService portalService,
+        PetService petService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -170,6 +172,7 @@ public sealed class GsPacketHandlerFactory
         _zoneService         = zoneService;
         _teleport            = teleport;
         _portalService       = portalService;
+        _petService          = petService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -234,10 +237,10 @@ public sealed class GsPacketHandlerFactory
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
-                0xF4  => new CM_PET(),
+                0xF4  => new CM_PET(conn, _petService),
                 0xF5  => new CM_OPEN_STATICDOOR(conn, _connRegistry),
                 0xF6  => new CM_PETITION(),
-                0xF7  => new CM_PET_EMOTE(),
+                0xF7  => new CM_PET_EMOTE(conn, _petService),
                 0xF9  => new CM_CHAT_MESSAGE_PUBLIC(conn, _connRegistry),
                 0xFC  => new CM_HOUSE_SCRIPT(),
                 0xFD  => new CM_TARGET_SELECT(conn, _world, _connRegistry),

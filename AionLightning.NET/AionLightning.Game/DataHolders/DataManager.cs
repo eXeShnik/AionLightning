@@ -32,6 +32,7 @@ public sealed class DataManager : IDataManager
     public InstanceExitData               InstanceExits { get; } = new();
     public CubeExpanderData               CubeExpander  { get; } = new();
     public ZoneData                       Zones         { get; } = new();
+    public PetData                        Pets          { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -66,6 +67,7 @@ public sealed class DataManager : IDataManager
         InstanceExits.Load(dataRoot, log);
         CubeExpander.Load(dataRoot, log);
         Zones.Load(dataRoot, log);
+        Pets.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

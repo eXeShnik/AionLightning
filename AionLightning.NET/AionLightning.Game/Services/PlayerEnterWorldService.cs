@@ -26,6 +26,7 @@ public sealed class PlayerEnterWorldService
     private readonly LegionService            _legionService;
     private readonly IPlayerSettingsDao       _settingsDao;
     private readonly IRecipeDao               _recipeDao;
+    private readonly PetService               _petService;
     private readonly IMotionDao               _motionDao;
     private readonly ISkillDao                _skillDao;
     private readonly IManastoneDao            _manastoneDao;
@@ -53,7 +54,8 @@ public sealed class PlayerEnterWorldService
         IManastoneDao manastoneDao,
         IPlayerTitleDao titleDao,
         QuestEngineType questEngine,
-        SkillLearnService skillLearn)
+        SkillLearnService skillLearn,
+        PetService petService)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -75,6 +77,7 @@ public sealed class PlayerEnterWorldService
         _titleDao      = titleDao;
         _questEngine   = questEngine;
         _skillLearn    = skillLearn;
+        _petService    = petService;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -453,6 +456,10 @@ public sealed class PlayerEnterWorldService
         foreach (var id in dbRecipes)
             player.KnownRecipes.Add(id);
         await conn.SendAsync(new SM_RECIPE_LIST(player.KnownRecipes), ct);
+
+        // Toy pets: load owned pets from DB and send the list (Java PetService.onPlayerLogin → SM_PET(0)).
+        await _petService.LoadPetsAsync(player, ct);
+        await _petService.SendListAsync(player, conn, ct);
 
         var mails  = await _mailDao.GetReceivedMailsAsync(player.ObjectId, ct);
         int unread = mails.Count(m => !m.IsRead);
