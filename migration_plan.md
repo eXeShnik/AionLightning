@@ -5145,3 +5145,20 @@ REMAINING:
 - Phase 8: un-skip the ~40 InstanceService-blocked quests (EnterInstanceAsync + per-instance handler).
 - Combat/Handlers/* still have ~a few Position.WorldId== broadcast filters (minor cross-channel
   packet leak, not gameplay) — sweep to SameScope when convenient.
+
+### InstanceService phases 7b/8 (2026-07-13) — +11 instance quests, quest total 1367
+- Phase 7b: PortalService (NPC-portal entry → create/reuse channel, solo or whole group) on
+  CM_SHOW_DIALOG. Phase 6 extra: instance onEnterZone/movie/gather/login/logout dispatch wired
+  (onEnterZone via ZoneService; login into a vanished channel evicts to exit).
+- Phase 8 (first wave): un-skipped the 11 pure-instance quests (no onDie/onLogOut) via a 3-agent
+  fleet using QuestHandlerBase.EnterInstanceAsync + SpawnQuestNpc(worldId, instanceId, ...):
+  fort_tiamat 10070/10072/20070/20072, heiron 3200, beluslan 4200, abyss_entry 1922/2947,
+  reshanta 1076, rider_quests 14095/24095. Quest total 1356 → 1367. Several Java missing-break
+  "enter fresh instance on re-talk" bugs fixed.
+- Probe gotcha: the qprobe's copied AionLightning.Game.dll can go stale vs a fresh Game build;
+  cp the fresh bin/Debug/net10.0/AionLightning.Game.dll into the probe's bin before verifying
+  quests that call new Game APIs (e.g. EnterInstanceAsync).
+- STILL DEFERRED: the 29 instance quests that ALSO need onDie/onLogOut (cross-blocked); Phase 7
+  cooldowns (no instance cooltime data in repo — data-blocked, low value); scoreboard/stage packets
+  (only scored instances); OnMovieEnd/OnGather call-site wiring (dispatch methods exist, wire when a
+  scripted instance needs them). LIVE GATE (SM_TELEPORT_LOC channel field) still unverified vs client.
