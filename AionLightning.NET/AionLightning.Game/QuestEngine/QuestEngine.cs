@@ -29,6 +29,7 @@ public sealed class QuestEngine
     private readonly List<int>                      _questTimerEndIndex = new();
     private readonly List<int>                      _onDieIndex = new();
     private readonly List<int>                      _onLogOutIndex = new();
+    private readonly HashSet<int>                   _atDistanceNpcIds = new();
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
@@ -156,6 +157,22 @@ public sealed class QuestEngine
     {
         if (!_onDieIndex.Contains(questId)) _onDieIndex.Add(questId);
     }
+
+    /// <summary>
+    /// Registers a quest against an NPC id for the at-distance hook (Java
+    /// <c>registerQuestNpc(npcId).addOnAtDistanceEvent</c>): the quest is notified when the player
+    /// moves near a live NPC of that id. The npc id is also tracked so the move-time scan can skip
+    /// work when no at-distance quests are registered.
+    /// </summary>
+    public void RegisterOnAtDistance(int npcId, int questId)
+    {
+        var list = RegisterQuestNpc(npcId).OnAtDistance;
+        if (!list.Contains(questId)) list.Add(questId);
+        _atDistanceNpcIds.Add(npcId);
+    }
+
+    /// <summary>NPC ids that at least one quest watches for the at-distance hook (empty ⇒ skip the move scan).</summary>
+    public IReadOnlySet<int> AtDistanceNpcIds => _atDistanceNpcIds;
 
     /// <summary>Registers a quest for player-logout notifications (Java registerOnLogOut).</summary>
     public void RegisterOnLogOut(int questId)
@@ -397,6 +414,27 @@ public sealed class QuestEngine
         catch (Exception ex)
         {
             _log.LogError(ex, "QuestEngine: exception in OnLevelUpAsync");
+        }
+    }
+
+    /// <summary>
+    /// Dispatches the at-distance hook (Java <c>onAtDistanceEvent</c>) to every quest registered
+    /// against this NPC's at-distance index. The handler self-guards on its own quest var, so firing
+    /// repeatedly while the player lingers near the NPC is idempotent.
+    /// </summary>
+    public async ValueTask OnAtDistanceAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in GetQuestNpc(env.TargetId).OnAtDistance)
+            {
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+                await handler.OnAtDistanceAsync(env with { QuestId = questId }, conn, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnAtDistanceAsync");
         }
     }
 

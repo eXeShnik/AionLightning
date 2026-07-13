@@ -1,7 +1,9 @@
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion;
+using AionLightning.Game.QuestEngine.Model;
 using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
+using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Services;
 
@@ -15,15 +17,20 @@ namespace AionLightning.Game.Services;
 /// </summary>
 public sealed class ZoneService
 {
+    /// <summary>Max distance at which a move triggers a quest onAtDistance hook (tunable).</summary>
+    private const float AtDistanceRange = 20f;
+
     private readonly IDataManager _dataManager;
     private readonly QuestEngineType _questEngine;
     private readonly InstanceService _instanceService;
+    private readonly GameWorld _world;
 
-    public ZoneService(IDataManager dataManager, QuestEngineType questEngine, InstanceService instanceService)
+    public ZoneService(IDataManager dataManager, QuestEngineType questEngine, InstanceService instanceService, GameWorld world)
     {
         _dataManager = dataManager;
         _questEngine = questEngine;
         _instanceService = instanceService;
+        _world = world;
     }
 
     /// <summary>
@@ -35,6 +42,17 @@ public sealed class ZoneService
     /// </summary>
     public async ValueTask UpdateZonesAsync(Player player, GsClientConnection conn, CancellationToken ct)
     {
+        // Quest onAtDistance: fire for any live registered NPC the player is now near. Runs every move
+        // (skipped entirely when no quest registered an at-distance NPC). Handlers self-guard on quest var.
+        var atDistance = _questEngine.AtDistanceNpcIds;
+        if (atDistance.Count > 0)
+        {
+            var here = player.Position;
+            foreach (var npc in _world.GetNpcsInScope(here))
+                if (atDistance.Contains(npc.Template.NpcId) && npc.Position.DistanceTo(here) <= AtDistanceRange)
+                    await _questEngine.OnAtDistanceAsync(new QuestEnv(npc, player, 0, 0), conn, ct);
+        }
+
         var regions = _dataManager.Zones.GetRegionsForWorld(player.Position.WorldId);
         var current = player.CurrentZones;
 

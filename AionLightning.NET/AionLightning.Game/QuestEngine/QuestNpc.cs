@@ -13,4 +13,5 @@ public sealed class QuestNpc(int npcId)
     public List<int> OnTalk       { get; } = [];
     public List<int> OnKill       { get; } = [];
     public List<int> OnAttack     { get; } = [];
+    public List<int> OnAtDistance { get; } = [];
 }

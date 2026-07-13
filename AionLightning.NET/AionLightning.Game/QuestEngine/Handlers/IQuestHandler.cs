@@ -52,4 +52,7 @@ public interface IQuestHandler
 
     /// <summary>Java onLogOutEvent: the player logged out; conn may be null (fired during teardown).</summary>
     ValueTask<bool> OnLogOutAsync(QuestEnv env, GsClientConnection? conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onAtDistanceEvent: the player moved near a live NPC registered against this quest.</summary>
+    ValueTask<bool> OnAtDistanceAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }
