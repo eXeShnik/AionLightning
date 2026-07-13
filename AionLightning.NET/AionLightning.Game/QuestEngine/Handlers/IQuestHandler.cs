@@ -55,4 +55,10 @@ public interface IQuestHandler
 
     /// <summary>Java onAtDistanceEvent: the player moved near a live NPC registered against this quest.</summary>
     ValueTask<bool> OnAtDistanceAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onNpcReachTargetEvent: an escort follower NPC reached its destination.</summary>
+    ValueTask<bool> OnNpcReachTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onNpcLostTargetEvent: an escort follower NPC lost the player (too far).</summary>
+    ValueTask<bool> OnNpcLostTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }

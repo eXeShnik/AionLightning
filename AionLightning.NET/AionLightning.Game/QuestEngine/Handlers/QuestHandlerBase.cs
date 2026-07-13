@@ -40,6 +40,7 @@ public abstract class QuestHandlerBase : IQuestHandler
     private static SkillLearnService? _skillLearn;
     private static InstanceService? _instanceService;
     private static TeleportService? _teleport;
+    private static FollowService? _followService;
     internal static void InitSpawnService(SpawnService spawnService) => _spawnService = spawnService;
     internal static void InitEngine(QuestEngine engine) => _engine = engine;
     internal static void InitSkillLearn(SkillLearnService skillLearn) => _skillLearn = skillLearn;
@@ -48,6 +49,7 @@ public abstract class QuestHandlerBase : IQuestHandler
         _instanceService = instanceService;
         _teleport        = teleport;
     }
+    internal static void InitFollowService(FollowService followService) => _followService = followService;
 
     /// <summary>Teaches the player a skill and persists it (Java QuestService reward addSkill),
     /// sending the learn notification. No-op returning false if the skill service isn't wired.
@@ -117,6 +119,37 @@ public abstract class QuestHandlerBase : IQuestHandler
     /// <paramref name="npcId"/> (Java registerQuestNpc(npcId).addOnAtDistanceEvent). Call from Register().</summary>
     protected void RegisterOnAtDistance(QuestEngine engine, int npcId) => engine.RegisterOnAtDistance(npcId, QuestId);
 
+    /// <summary>Registers THIS quest for the escort reach-target hook (Java registerAddOnReachTargetEvent). Call from Register().</summary>
+    protected void RegisterOnReachTarget(QuestEngine engine) => engine.RegisterOnReachTarget(QuestId);
+
+    /// <summary>Registers THIS quest for the escort lost-target hook (Java registerAddOnLostTargetEvent). Call from Register().</summary>
+    protected void RegisterOnLostTarget(QuestEngine engine) => engine.RegisterOnLostTarget(QuestId);
+
+    /// <summary>Starts an escort where <paramref name="follower"/> follows the player until it reaches the
+    /// spawn location of <paramref name="targetNpcId"/> (Java defaultStartFollowEvent → onNpcReachTarget).</summary>
+    protected bool StartFollowToNpc(QuestEnv env, GsClientConnection conn, Npc follower, int targetNpcId)
+    {
+        if (_followService is null) return false;
+        _followService.StartFollowToNpc(follower, env.Player, QuestId, conn, targetNpcId);
+        return true;
+    }
+
+    /// <summary>Starts an escort until the follower reaches fixed coordinates (Java defaultStartFollowEvent by coords).</summary>
+    protected bool StartFollowToCoords(QuestEnv env, GsClientConnection conn, Npc follower, float x, float y, float z)
+    {
+        if (_followService is null) return false;
+        _followService.StartFollowToCoords(follower, env.Player, QuestId, conn, x, y, z);
+        return true;
+    }
+
+    /// <summary>Starts an escort until the follower enters the named zone (Java defaultStartFollowEvent by ZoneName).</summary>
+    protected bool StartFollowToZone(QuestEnv env, GsClientConnection conn, Npc follower, string zoneName)
+    {
+        if (_followService is null) return false;
+        _followService.StartFollowToZone(follower, env.Player, QuestId, conn, zoneName);
+        return true;
+    }
+
     /// <summary>The static quest_data.xml template for this quest, or null if not defined there.</summary>
     protected QuestTemplate? Template => DataManager.Quests.GetTemplate(QuestId);
 
@@ -138,6 +171,8 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnDieAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnLogOutAsync(QuestEnv env, GsClientConnection? conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnAtDistanceAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnNpcReachTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnNpcLostTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 
     /// <summary>Opens an NPC dialog page (Java QuestHandler.sendDialogPacket). Always returns true (handled).</summary>
     protected async ValueTask<bool> SendQuestDialogAsync(GsClientConnection conn, int targetObjId, int dialogPageId, CancellationToken ct)

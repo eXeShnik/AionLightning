@@ -140,6 +140,8 @@ builder.Services.AddSingleton<InstanceService>();
 builder.Services.AddSingleton<TeleportService>();
 builder.Services.AddSingleton<PortalService>();
 builder.Services.AddSingleton<PetService>();
+builder.Services.AddSingleton<FollowService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FollowService>());
 builder.Services.AddHostedService<EmptyInstanceCheckerService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();

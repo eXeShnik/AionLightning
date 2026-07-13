@@ -30,6 +30,8 @@ public sealed class QuestEngine
     private readonly List<int>                      _onDieIndex = new();
     private readonly List<int>                      _onLogOutIndex = new();
     private readonly HashSet<int>                   _atDistanceNpcIds = new();
+    private readonly List<int>                      _reachTargetIndex = new();
+    private readonly List<int>                      _lostTargetIndex = new();
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
@@ -173,6 +175,18 @@ public sealed class QuestEngine
 
     /// <summary>NPC ids that at least one quest watches for the at-distance hook (empty ⇒ skip the move scan).</summary>
     public IReadOnlySet<int> AtDistanceNpcIds => _atDistanceNpcIds;
+
+    /// <summary>Registers a quest for the escort reach-target hook (Java registerAddOnReachTargetEvent).</summary>
+    public void RegisterOnReachTarget(int questId)
+    {
+        if (!_reachTargetIndex.Contains(questId)) _reachTargetIndex.Add(questId);
+    }
+
+    /// <summary>Registers a quest for the escort lost-target hook (Java registerAddOnLostTargetEvent).</summary>
+    public void RegisterOnLostTarget(int questId)
+    {
+        if (!_lostTargetIndex.Contains(questId)) _lostTargetIndex.Add(questId);
+    }
 
     /// <summary>Registers a quest for player-logout notifications (Java registerOnLogOut).</summary>
     public void RegisterOnLogOut(int questId)
@@ -415,6 +429,33 @@ public sealed class QuestEngine
         {
             _log.LogError(ex, "QuestEngine: exception in OnLevelUpAsync");
         }
+    }
+
+    /// <summary>
+    /// Fires the escort reach-target hook (Java <c>onNpcReachTargetEvent</c>) for the escort's own
+    /// quest (carried in <paramref name="env"/>.QuestId), if that quest registered for it.
+    /// </summary>
+    public async ValueTask OnNpcReachTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_reachTargetIndex.Contains(env.QuestId)) return;
+            if (_handlers.TryGetValue(env.QuestId, out var handler))
+                await handler.OnNpcReachTargetAsync(env, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnNpcReachTargetAsync (questId={QuestId})", env.QuestId); }
+    }
+
+    /// <summary>Fires the escort lost-target hook (Java <c>onNpcLostTargetEvent</c>) for the escort's own quest.</summary>
+    public async ValueTask OnNpcLostTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_lostTargetIndex.Contains(env.QuestId)) return;
+            if (_handlers.TryGetValue(env.QuestId, out var handler))
+                await handler.OnNpcLostTargetAsync(env, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnNpcLostTargetAsync (questId={QuestId})", env.QuestId); }
     }
 
     /// <summary>
