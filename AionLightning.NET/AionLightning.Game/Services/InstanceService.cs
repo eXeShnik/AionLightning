@@ -120,6 +120,24 @@ public sealed class InstanceService
         try { inst.Handler.OnLeaveInstance(player); } catch (Exception ex) { _log.LogError(ex, "OnLeaveInstance hook failed"); }
     }
 
+    /// <summary>Fires the instance handler's NPC-death hook when a mob dies inside a channel (Java <c>onDie(Npc)</c>).</summary>
+    public void OnNpcDeath(Npc npc)
+    {
+        if (npc.Position.InstanceId == 0) return;
+        var inst = _registry.Get(npc.Position.WorldId, npc.Position.InstanceId);
+        if (inst is null) return;
+        try { inst.Handler.OnDie(npc); } catch (Exception ex) { _log.LogError(ex, "OnDie(Npc) hook failed"); }
+    }
+
+    /// <summary>Fires the instance handler's player-death hook (Java <c>onDie(Player, lastAttacker)</c>); returns true if handled.</summary>
+    public bool OnPlayerDeath(Player player, Creature? killer)
+    {
+        if (player.Position.InstanceId == 0) return false;
+        var inst = _registry.Get(player.Position.WorldId, player.Position.InstanceId);
+        if (inst is null) return false;
+        try { return inst.Handler.OnDie(player, killer); } catch (Exception ex) { _log.LogError(ex, "OnDie(Player) hook failed"); return false; }
+    }
+
     /// <summary>Count of online players currently inside a channel (derived by scoping the world).</summary>
     public int PlayersInside(WorldMapInstanceType instance) => _world.GetPlayersInScope(ScopeOf(instance)).Count();
 
