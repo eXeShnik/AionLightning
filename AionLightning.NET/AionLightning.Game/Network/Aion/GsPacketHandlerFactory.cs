@@ -66,6 +66,7 @@ public sealed class GsPacketHandlerFactory
     private readonly EffectTickScheduler     _effectTickScheduler;
     private readonly ZoneService             _zoneService;
     private readonly TeleportService         _teleport;
+    private readonly PortalService           _portalService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -116,7 +117,8 @@ public sealed class GsPacketHandlerFactory
         SummonsService summonsService,
         EffectTickScheduler effectTickScheduler,
         ZoneService zoneService,
-        TeleportService teleport)
+        TeleportService teleport,
+        PortalService portalService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -167,6 +169,7 @@ public sealed class GsPacketHandlerFactory
         _effectTickScheduler = effectTickScheduler;
         _zoneService         = zoneService;
         _teleport            = teleport;
+        _portalService       = portalService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -254,7 +257,7 @@ public sealed class GsPacketHandlerFactory
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
                 0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
-                0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _connRegistry),
+                0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),
                 0x118 => new CM_SET_NOTE(conn, _playerDao, _socialDao, _connRegistry),
                 0x119 => new CM_LEGION_MODIFY_EMBLEM(conn, _legionService, _connRegistry),

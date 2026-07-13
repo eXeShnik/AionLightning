@@ -3,6 +3,7 @@ using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -12,24 +13,24 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
 {
     private const int KinahItemId = 182400001;
 
-    private readonly GsClientConnection       _conn;
-    private readonly GameWorld                _world;
-    private readonly IDataManager             _dataManager;
-    private readonly IPlayerDao               _playerDao;
-    private readonly IItemDao                 _itemDao;
-    private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly GsClientConnection _conn;
+    private readonly GameWorld          _world;
+    private readonly IDataManager       _dataManager;
+    private readonly IPlayerDao         _playerDao;
+    private readonly IItemDao           _itemDao;
+    private readonly PortalService      _portalService;
 
     private int _targetObjectId;
 
     public CM_SHOW_DIALOG(GsClientConnection conn, GameWorld world,
-        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao, PlayerConnectionRegistry connRegistry)
+        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao, PortalService portalService)
     {
-        _conn         = conn;
-        _world        = world;
-        _dataManager  = dataManager;
-        _playerDao    = playerDao;
-        _itemDao      = itemDao;
-        _connRegistry = connRegistry;
+        _conn          = conn;
+        _world         = world;
+        _dataManager   = dataManager;
+        _playerDao     = playerDao;
+        _itemDao       = itemDao;
+        _portalService = portalService;
     }
 
     public override void Read(ref PacketReader r) => _targetObjectId = r.ReadD();
@@ -54,21 +55,9 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
         if (npc is null) return;
         if (player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
 
-        // Portal NPC: instantly teleport without dialog
-        var portalLoc = _dataManager.Portals.GetPortalLocation(npc.Template.NpcId, player.Race);
-        if (portalLoc is not null)
-        {
-            int oldWorldId = player.Position.WorldId;
-            var deletePacket = new SM_DELETE(player.ObjectId, time: 11);
-            foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
-                if (other.ActivePlayer?.Position.WorldId == oldWorldId)
-                    try { await other.SendAsync(deletePacket, ct); } catch { }
-
-            player.Position = new Position(portalLoc.Value.X, portalLoc.Value.Y, portalLoc.Value.Z, portalLoc.Value.Heading, portalLoc.Value.WorldId);
-            await _conn.SendAsync(new SM_TELEPORT_LOC(player.Position, portAnimation: 0), ct);
-            _ = SchedulePostTeleportAsync(player, oldWorldId, ct);
-            return;
-        }
+        // Portal NPC: instantly teleport without dialog (routes through PortalService, which also
+        // handles instance allocation/re-entry when the destination is an instanced world).
+        if (await _portalService.UsePortalAsync(player, npc, ct)) return;
 
         if (string.Equals(npc.Template.NpcType, "BINDSTONE", StringComparison.OrdinalIgnoreCase))
         {
@@ -94,33 +83,5 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
 
         // dialogId 10 = standard NPC greeting (shows Buy/Sell/Quest buttons depending on NPC type)
         await _conn.SendAsync(new SM_DIALOG_WINDOW(_targetObjectId, dialogId: 10, questId: 0), ct);
-    }
-
-    private async Task SchedulePostTeleportAsync(Player player, int oldWorldId, CancellationToken ct)
-    {
-        try
-        {
-            await Task.Delay(2200, ct);
-
-            if (oldWorldId != player.Position.WorldId)
-            {
-                await _conn.SendAsync(new SM_CHANNEL_INFO(), ct);
-                await _conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
-            }
-            else
-            {
-                var equipment = player.Inventory.All.Where(i => i.IsEquipped).ToList();
-                await _conn.SendAsync(new SM_PLAYER_INFO(player, player.Appearance, enemy: false, equipment), ct);
-                await _conn.SendAsync(new SM_STATS_INFO(player), ct);
-                await _conn.SendAsync(SM_MOTION.OwnList(player.ActiveMotions), ct);
-
-                int newWorldId = player.Position.WorldId;
-                var peerInfo   = new SM_PLAYER_INFO(player, player.Appearance, enemy: false, equipment);
-                foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
-                    if (other.ActivePlayer?.Position.WorldId == newWorldId)
-                        try { await other.SendAsync(peerInfo, ct); } catch { }
-            }
-        }
-        catch (OperationCanceledException) { }
     }
 }

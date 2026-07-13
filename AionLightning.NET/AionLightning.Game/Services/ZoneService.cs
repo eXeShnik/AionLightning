@@ -17,11 +17,13 @@ public sealed class ZoneService
 {
     private readonly IDataManager _dataManager;
     private readonly QuestEngineType _questEngine;
+    private readonly InstanceService _instanceService;
 
-    public ZoneService(IDataManager dataManager, QuestEngineType questEngine)
+    public ZoneService(IDataManager dataManager, QuestEngineType questEngine, InstanceService instanceService)
     {
         _dataManager = dataManager;
         _questEngine = questEngine;
+        _instanceService = instanceService;
     }
 
     /// <summary>
@@ -62,6 +64,8 @@ public sealed class ZoneService
         {
             current.Add(zoneName);
             await _questEngine.OnEnterZoneAsync(player, zoneName, conn, ct);
+            if (player.Position.InstanceId != 0)
+                _instanceService.OnEnterZone(player, zoneName);
         }
     }
 }

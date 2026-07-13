@@ -135,6 +135,7 @@ builder.Services.AddSingleton<AionLightning.Game.World.InstanceRegistry>();
 builder.Services.AddSingleton<AionLightning.Game.Instance.InstanceEngine>();
 builder.Services.AddSingleton<InstanceService>();
 builder.Services.AddSingleton<TeleportService>();
+builder.Services.AddSingleton<PortalService>();
 builder.Services.AddHostedService<EmptyInstanceCheckerService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();

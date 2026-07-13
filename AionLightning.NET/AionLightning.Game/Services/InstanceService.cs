@@ -138,6 +138,46 @@ public sealed class InstanceService
         try { return inst.Handler.OnDie(player, killer); } catch (Exception ex) { _log.LogError(ex, "OnDie(Player) hook failed"); return false; }
     }
 
+    /// <summary>Fires the channel's zone-enter hook (Java <c>onEnterZone</c>).</summary>
+    public void OnEnterZone(Player player, string zoneName) => FireIfInInstance(player, h => h.OnEnterZone(player, zoneName), "OnEnterZone");
+
+    /// <summary>Fires the channel's zone-leave hook (Java <c>onLeaveZone</c>).</summary>
+    public void OnLeaveZone(Player player, string zoneName) => FireIfInInstance(player, h => h.OnLeaveZone(player, zoneName), "OnLeaveZone");
+
+    /// <summary>Fires the channel's movie-end hook (Java <c>onPlayMovieEnd</c>).</summary>
+    public void OnMovieEnd(Player player, int movieId) => FireIfInInstance(player, h => h.OnPlayMovieEnd(player, movieId), "OnPlayMovieEnd");
+
+    /// <summary>Fires the channel's gather hook (Java <c>onGather</c>).</summary>
+    public void OnGather(Player player, Gatherable gatherable) => FireIfInInstance(player, h => h.OnGather(player, gatherable), "OnGather");
+
+    /// <summary>
+    /// Relocates a player who logs in inside an instance world: if the channel still exists fire its
+    /// login hook, otherwise evict to the instance exit (Java <c>onPlayerLogin</c> simplified — this
+    /// port does not persist instance channels across restarts).
+    /// </summary>
+    public void OnPlayerLogin(Player player)
+    {
+        if (player.Position.InstanceId == 0) return;
+        var inst = _registry.Get(player.Position.WorldId, player.Position.InstanceId);
+        if (inst is null)
+        {
+            _ = _sp.GetRequiredService<TeleportService>().MoveToInstanceExitAsync(player, CancellationToken.None);
+            return;
+        }
+        try { inst.Handler.OnPlayerLogin(player); } catch (Exception ex) { _log.LogError(ex, "OnPlayerLogin hook failed"); }
+    }
+
+    /// <summary>Fires the channel's logout hook (Java <c>onPlayerLogOut</c>).</summary>
+    public void OnPlayerLogOut(Player player) => FireIfInInstance(player, h => h.OnPlayerLogOut(player), "OnPlayerLogOut");
+
+    private void FireIfInInstance(Player player, Action<Instance.IInstanceHandler> fire, string hookName)
+    {
+        if (player.Position.InstanceId == 0) return;
+        var inst = _registry.Get(player.Position.WorldId, player.Position.InstanceId);
+        if (inst is null) return;
+        try { fire(inst.Handler); } catch (Exception ex) { _log.LogError(ex, "{Hook} hook failed", hookName); }
+    }
+
     /// <summary>Count of online players currently inside a channel (derived by scoping the world).</summary>
     public int PlayersInside(WorldMapInstanceType instance) => _world.GetPlayersInScope(ScopeOf(instance)).Count();
 
