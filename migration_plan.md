@@ -5162,3 +5162,14 @@ REMAINING:
   cooldowns (no instance cooltime data in repo — data-blocked, low value); scoreboard/stage packets
   (only scored instances); OnMovieEnd/OnGather call-site wiring (dispatch methods exist, wire when a
   scripted instance needs them). LIVE GATE (SM_TELEPORT_LOC channel field) still unverified vs client.
+
+## World-sim tier — Pet (toypet) P1 DONE (2026-07-13) — commit a27ce592
+New subsystem, was 2 parse-only stubs. Foundation agent + inline behavior: Model/Pet/* (Pet,
+PetCommonData, PetList, enums), Model/Templates/Pet/* + DataHolders/PetData.cs (pets.xml, 202
+templates verified loading), Sql V36 player_pets + IPetDao/PetDaoImpl, SM_PET (subtypes 0/1/2/3/4/10)
++ SM_PET_EMOTE (opcodes 0x65/0xBB), PetService (adopt/list/spawn/dismiss/rename/surrender + client-
+driven movement relay to scope), CM_PET/CM_PET_EMOTE dispatch, enter-world pet-list load. Full
+solution builds clean. P2 (deferred): feed (pet_feed.xml + PetFeedCalculator + SM_PET 9), mood
+(SM_PET 12), doping (pet_doping.xml + SM_PET 13), loot, warehouse, pet skills, egg-item adopt
+consumption, logout-dismiss broadcast, visible-pets-on-zone-in (SendVisiblePetsAsync exists, not
+yet wired into CM_LEVEL_READY). Roadmap next: Housing (L) → ai2 (XL) → sieges (XL) → geodata (data-blocked).
