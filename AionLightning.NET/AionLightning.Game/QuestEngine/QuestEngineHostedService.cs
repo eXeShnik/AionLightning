@@ -29,6 +29,7 @@ public sealed class QuestEngineHostedService(
     InstanceService instanceService,
     TeleportService teleport,
     FollowService followService,
+    AionLightning.Game.World.World world,
     CSharpCompilerService compiler,
     ILogger<QuestEngineHostedService> log) : IHostedService
 {
@@ -89,6 +90,7 @@ public sealed class QuestEngineHostedService(
         QuestHandlerBase.InitSkillLearn(skillLearn);
         QuestHandlerBase.InitInstanceServices(instanceService, teleport);
         QuestHandlerBase.InitFollowService(followService);
+        QuestHandlerBase.InitWorld(world);
         LoadHandWrittenScripts();
 
         // Must run after every handler above (and every script handler) has registered its NPCs,

@@ -8,6 +8,7 @@ using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.QuestEngine.Model;
 using AionLightning.Game.Services;
+using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.QuestEngine.Handlers;
 
@@ -50,6 +51,8 @@ public abstract class QuestHandlerBase : IQuestHandler
         _teleport        = teleport;
     }
     internal static void InitFollowService(FollowService followService) => _followService = followService;
+    private static GameWorld? _world;
+    internal static void InitWorld(GameWorld world) => _world = world;
 
     /// <summary>Teaches the player a skill and persists it (Java QuestService reward addSkill),
     /// sending the learn notification. No-op returning false if the skill service isn't wired.
@@ -77,6 +80,16 @@ public abstract class QuestHandlerBase : IQuestHandler
     /// warning-free false if the spawn service isn't wired or the npc template is unknown.</summary>
     protected bool SpawnQuestNpc(int worldId, int instanceId, int npcId, float x, float y, float z, byte heading)
         => SpawnQuestNpcAndGet(worldId, instanceId, npcId, x, y, z, heading) is not null;
+
+    /// <summary>True if any live NPC of the given ids exists in the given world/instance scope
+    /// (Java <c>getNpcsAlive(instance, ids)</c>). Used by instance quests that gate progression on
+    /// "all spawned mobs of a type are dead".</summary>
+    protected bool AnyNpcAlive(int worldId, int instanceId, params int[] npcIds)
+    {
+        if (_world is null) return false;
+        var scope = new Position(0, 0, 0, 0, worldId, instanceId);
+        return _world.GetNpcsInScope(scope).Any(n => !n.IsAlreadyDead && Array.IndexOf(npcIds, n.Template.NpcId) >= 0);
+    }
 
     /// <summary>As <see cref="SpawnQuestNpc"/> but returns the spawned <see cref="Npc"/> (or null on
     /// failure) so callers can, e.g., start an escort on the freshly-spawned follower.</summary>
