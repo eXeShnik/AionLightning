@@ -5113,3 +5113,35 @@ the listed count (a future session should build these, then the quests port mech
 - **special-cube inventory** (isFullSpecialCube) — tiamaranta 41598.
 
 Next infra priority by unblock count: InstanceService >> Follow/escort AI > onAtDistance > onKillRanked-officer.
+
+## World-sim tier — Milestone 1: InstanceService (2026-07-13, in progress)
+Plan: `~/.claude/plans/abstract-stirring-crystal.md`. User chose FULL FIDELITY, then Pet→Housing.
+Geodata is DATA-blocked (no .geo assets in repo — engine already ported); sieges dep-blocked.
+
+DONE (commits 3f86f43b, 905e9756), full solution builds clean:
+- Phase 0: WorldMapData parses instance flag → WorldMapTemplate + IsInstance().
+- Phase 1: Position.SameScope + World.GetXInScope; every broadcast/visibility/spawn/AI filter
+  (CM_LEVEL_READY, CM_MOVE, GsClientConnection, SpawnService respawns, NpcAiService 48 sites) now
+  keys on (WorldId, InstanceId). Open world stays InstanceId=0 → behaviour-preserving.
+- Phase 2: World/WorldMapInstance (metadata) + World/InstanceRegistry + Services/InstanceService
+  (GetNextAvailableInstance/register*/GetRegistered/DestroyInstance/OnEnter-Leave/OnNpcDeath/
+  OnPlayerDeath) + EmptyInstanceCheckerService (60s sweeper, solo 10min, team-on-empty).
+- Phase 3: Services/TeleportService — single (worldId,instanceId) move choke point; CM_TELEPORT_
+  SELECT + CM_INSTANCE_LEAVE refactored onto it; SM_TELEPORT_LOC carries a real channel id.
+- Phase 4: SpawnService.SpawnInstance (fresh scoped NPC/gatherable set per channel).
+- Phase 5: QuestHandlerBase.EnterInstanceAsync helper + InitInstanceServices injection.
+- Phase 6: Instance/ IInstanceHandler + GeneralInstanceHandler (no-op base, static-injected helpers)
+  + InstanceIdAttribute + InstanceEngine + InstanceEngineHostedService (Roslyn Scripts/instance/**,
+  mirrors QuestEngineHostedService). FireTemple proof compiles+registers [InstanceId=320100000]
+  (scratchpad/qprobe_instance). onDie(Npc)/onDie(Player) wired via InstanceDeathHandler(DeathEvent).
+
+REMAINING:
+- LIVE GATE (risk #2): verify SM_TELEPORT_LOC channel-field semantics against a real client (true
+  allocated channel vs always-1) before Phase 8 — a wrong value can wedge the loading screen.
+- Phase 6 leftover hooks (wire on-demand per ported instance): OnPlayerLogin/LogOut, OnMovieEnd,
+  OnGather, OnEnterZone/OnLeaveZone.
+- Phase 7 extras: portal cooldowns → real SM_INSTANCE_INFO (+ player_instance_cooldowns DAO);
+  PortalService + group/alliance/league registration; scoreboard/stage packets.
+- Phase 8: un-skip the ~40 InstanceService-blocked quests (EnterInstanceAsync + per-instance handler).
+- Combat/Handlers/* still have ~a few Position.WorldId== broadcast filters (minor cross-channel
+  packet leak, not gameplay) — sweep to SameScope when convenient.
