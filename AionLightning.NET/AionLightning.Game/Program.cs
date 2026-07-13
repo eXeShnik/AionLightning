@@ -99,6 +99,7 @@ builder.Services.AddSingleton<IBrokerDao, BrokerDaoImpl>();
 builder.Services.AddSingleton<IManastoneDao, ManastoneDaoImpl>();
 builder.Services.AddSingleton<IPlayerTitleDao, PlayerTitleDaoImpl>();
 builder.Services.AddSingleton<IPetDao, PetDaoImpl>();
+builder.Services.AddSingleton<IHouseDao, HouseDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
