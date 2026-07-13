@@ -1,0 +1,132 @@
+// Port of Java data/scripts/system/handlers/quest/hero/_13531OldHabitsDieHard.java.
+// Same structure as _13527OldSpiritsOldGrudges: accept at 801948 (starts a 1800s quest timer, no
+// confirm dialog), kill 233302/233303/233304/233305 once each to set vars 1-4, SET_SUCCEED (any
+// target) while START flips to REWARD, turn in at 801541.
+//
+// Java bug: the killEvent switch had two copy-paste errors on top of _13527's missing `break` after
+// case 233304: case 233305 read `getQuestVarById(3)` (var 3, already handled by the previous case)
+// instead of `getQuestVarById(4)`, while still *writing* var 4 — so killing 233304 alone forced var
+// 4 to 1 based on var 3's value instead of var 4's own. Ported here as four independent,
+// non-fallthrough kill checks (one var each, read and written consistently) instead.
+// Java bug: onQuestTimerEndEvent's abandon guard used `&&` between the four "var != 1" checks (same
+// bug as _13527), fixed to `||` (abandon unless all four are complete).
+// Skip vs Java: same as _13527 — the kill handler's early questTimerEnd(env) call is dropped (no
+// timer-cancellation API exposed), so the timer runs to expiry and OnQuestTimerEndAsync no-ops once
+// every var is already 1.
+using System.Threading;
+using System.Threading.Tasks;
+using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model.Quest;
+using AionLightning.Game.Network.Aion;
+using AionLightning.Game.QuestEngine;
+using AionLightning.Game.QuestEngine.Handlers;
+using AionLightning.Game.QuestEngine.Model;
+using AionLightning.Game.Services;
+
+namespace Quest.Hero;
+
+public sealed class _13531OldHabitsDieHard : QuestHandlerBase
+{
+    private const int QuestIdConst  = 13531;
+    private const int StartNpc      = 801948;
+    private const int EndNpc        = 801541;
+    private const int Mob1          = 233302;
+    private const int Mob2          = 233303;
+    private const int Mob3          = 233304;
+    private const int Mob4          = 233305;
+    private const int TimerSeconds  = 1800;
+
+    public _13531OldHabitsDieHard(IDataManager dataManager, IQuestDao questDao, QuestRewardService rewardService, IItemDao itemDao)
+        : base(QuestIdConst, dataManager, questDao, rewardService)
+    {
+    }
+
+    public override void Register(QuestEngine engine)
+    {
+        engine.RegisterQuestNpc(StartNpc).OnQuestStart.Add(QuestId);
+        engine.RegisterQuestNpc(EndNpc).OnTalk.Add(QuestId);
+        engine.RegisterQuestNpc(Mob1).OnKill.Add(QuestId);
+        engine.RegisterQuestNpc(Mob2).OnKill.Add(QuestId);
+        engine.RegisterQuestNpc(Mob3).OnKill.Add(QuestId);
+        engine.RegisterQuestNpc(Mob4).OnKill.Add(QuestId);
+        engine.RegisterOnQuestTimerEnd(QuestId);
+    }
+
+    public override async ValueTask<bool> OnDialogAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        var player = env.Player;
+        var entry = player.Quests.Get(QuestId);
+        int targetId = env.TargetId;
+        int targetObjId = env.Target?.ObjectId ?? 0;
+        var dialog = DialogActionLookup.FromId(env.DialogId);
+
+        if (entry is null || entry.Status == QuestStatus.NONE)
+        {
+            if (targetId != StartNpc) return false;
+            if (dialog == DialogAction.QUEST_SELECT)
+                return await SendQuestDialogAsync(conn, targetObjId, 4762, ct);
+            if (dialog is DialogAction.QUEST_ACCEPT_SIMPLE or DialogAction.QUEST_ACCEPT)
+            {
+                StartQuestTimer(env, conn, TimerSeconds);
+                await StartMissionAsync(conn, player, QuestStatus.START, ct);
+                return await CloseDialogWindowAsync(conn, targetObjId, ct);
+            }
+            return await SendQuestStartDialogAsync(env, conn, ct);
+        }
+
+        if (entry.Status == QuestStatus.START)
+        {
+            if (targetId == StartNpc && dialog == DialogAction.QUEST_SELECT)
+                return await SendQuestDialogAsync(conn, targetObjId, 1352, ct);
+
+            if (dialog == DialogAction.SET_SUCCEED)
+            {
+                await ChangeQuestStepAsync(conn, entry, 0, 1, toReward: true, ct);
+                return await SendQuestSelectionDialogAsync(conn, targetObjId, ct);
+            }
+            return false;
+        }
+
+        if (entry.Status == QuestStatus.REWARD && targetId == EndNpc)
+            return await SendQuestEndDialogAsync(env, conn, ct);
+
+        return false;
+    }
+
+    public override async ValueTask<bool> OnKillAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        var entry = env.Player.Quests.Get(QuestId);
+        if (entry is null || entry.Status != QuestStatus.START) return false;
+
+        int varIdx = env.TargetId switch
+        {
+            Mob1 => 1,
+            Mob2 => 2,
+            Mob3 => 3,
+            Mob4 => 4,
+            _ => 0,
+        };
+        if (varIdx == 0) return false;
+
+        if (entry.GetVar(varIdx) < 1)
+            await ChangeQuestStepAsync(conn, entry, varIdx, 1, toReward: false, ct);
+
+        return false;
+    }
+
+    public override async ValueTask<bool> OnQuestTimerEndAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        var entry = env.Player.Quests.Get(QuestId);
+        if (entry is null || entry.Status != QuestStatus.START) return false;
+
+        if (entry.GetVar(1) != 1 || entry.GetVar(2) != 1 || entry.GetVar(3) != 1 || entry.GetVar(4) != 1)
+        {
+            entry.Status = QuestStatus.NONE;
+            entry.Step = 0;
+            await UpdateQuestStatusAsync(conn, entry, ct);
+            return true;
+        }
+        return false;
+    }
+}
