@@ -38,9 +38,9 @@ public sealed class SanctuaryHandler(
 
             var pkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.ProtectDmg,
                 ab.SkillId, absorbed, SM_ATTACK_STATUS.LogId.Regular);
-            int worldId = target.Position.WorldId;
+            var scope = target.Position;
             foreach (var c in connRegistry.GetAll())
-                if (c.ActivePlayer?.Position.WorldId == worldId)
+                if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                     try { await c.SendAsync(pkt, ct); } catch { }
             return;
         }

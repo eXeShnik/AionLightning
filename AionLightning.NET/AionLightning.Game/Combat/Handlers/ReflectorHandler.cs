@@ -57,9 +57,9 @@ public sealed class ReflectorHandler(
 
                 var pkt = new SM_ATTACK_STATUS(attacker, SM_ATTACK_STATUS.AttackType.Damage,
                     ab.SkillId, reflectDmg, SM_ATTACK_STATUS.LogId.Regular);
-                int worldId = attacker.Position.WorldId;
+                var scope = attacker.Position;
                 foreach (var c in connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == worldId)
+                    if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                         try { await c.SendAsync(pkt, ct); } catch { }
             }
         }

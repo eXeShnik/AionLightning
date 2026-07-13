@@ -46,9 +46,9 @@ public sealed class AlwaysBlockDodgeHandler(
                 target.RemoveEffectBySkillId(ab.SkillId);
                 bool isPlayer = target is Player;
                 var abnPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer, target.GetActiveEffects());
-                int worldId = target.Position.WorldId;
+                var scope = target.Position;
                 foreach (var c in connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == worldId)
+                    if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                         try { await c.SendAsync(abnPkt, ct); } catch { }
             }
             return;

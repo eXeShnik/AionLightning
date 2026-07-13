@@ -68,9 +68,9 @@ public sealed class CaseHealHandler(
                 target.RemoveEffectBySkillId(ab.SkillId);
                 bool isPlayer = target is Player;
                 var expPkt = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer, target.GetActiveEffects());
-                int worldId = target.Position.WorldId;
+                var scope = target.Position;
                 foreach (var c in connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == worldId)
+                    if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                         try { await c.SendAsync(expPkt, ct); } catch { }
                 break; // only one caseheal buff fires per hit
             }
@@ -80,10 +80,10 @@ public sealed class CaseHealHandler(
     private async ValueTask BroadcastAsync(Creature target, int skillId, int amount,
         SM_ATTACK_STATUS.AttackType atkType, SM_ATTACK_STATUS.LogId logId, CancellationToken ct)
     {
-        var pkt     = new SM_ATTACK_STATUS(target, atkType, skillId, amount, logId);
-        int worldId = target.Position.WorldId;
+        var pkt   = new SM_ATTACK_STATUS(target, atkType, skillId, amount, logId);
+        var scope = target.Position;
         foreach (var c in connRegistry.GetAll())
-            if (c.ActivePlayer?.Position.WorldId == worldId)
+            if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                 try { await c.SendAsync(pkt, ct); } catch { }
     }
 }

@@ -63,14 +63,14 @@ public sealed class PvpKillHandler(
         AbyssRankService.LoseAp(victim, apLoss);
         AbyssRankService.TrackPvPKill(killer, apGain);
 
-        int worldId = killer.Position.WorldId;
+        var scope = killer.Position;
         var killerConn = connRegistry.Get(killer.ObjectId);
         var victimConn = connRegistry.Get(victim.ObjectId);
 
         // Zone-wide kill announcement: "%0 was killed by %1's attack."
         var killAnnounce = SM_SYSTEM_MESSAGE.PlayerKilledByPlayer(victim.Name, killer.Name);
         foreach (var c in connRegistry.GetAll())
-            if (c.ActivePlayer?.Position.WorldId == worldId)
+            if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                 try { await c.SendAsync(killAnnounce, ct); } catch { }
 
         // Group members see "[player] has died."
@@ -92,7 +92,7 @@ public sealed class PvpKillHandler(
         {
             var rankPkt = new SM_ABYSS_RANK_UPDATE(killer.ObjectId, killer.AbyssRank);
             foreach (var c in connRegistry.GetAll())
-                if (c.ActivePlayer?.Position.WorldId == worldId)
+                if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                     try { await c.SendAsync(rankPkt, ct); } catch { }
         }
         if (victimConn is not null)

@@ -81,20 +81,21 @@ public sealed class ResurrectBaseHandler(
         if (conn is null) return;
 
         int oldWorldId = victim.Position.WorldId;
+        var oldScope = victim.Position;
         bool crossZone = destination.WorldId != oldWorldId;
 
         if (crossZone)
         {
             var deletePkt = new SM_DELETE(victim.ObjectId);
             foreach (var c in connRegistry.GetAllExcept(victim.ObjectId))
-                if (c.ActivePlayer?.Position.WorldId == oldWorldId)
+                if (c.ActivePlayer is { } cp && cp.Position.SameScope(oldScope))
                     try { await c.SendAsync(deletePkt, ct); } catch { }
         }
 
         victim.Position = destination;
         try { await conn.SendAsync(new SM_TELEPORT_LOC(destination), ct); } catch { }
 
-        int worldId = victim.Position.WorldId;
+        var scope = victim.Position;
 
         if (crossZone)
         {
@@ -105,13 +106,13 @@ public sealed class ResurrectBaseHandler(
             var resurrectEmotion = new SM_EMOTION(victim, EmotionType.RESURRECT);
             try { await conn.SendAsync(resurrectEmotion, ct); } catch { }
             foreach (var c in connRegistry.GetAllExcept(victim.ObjectId))
-                if (c.ActivePlayer?.Position.WorldId == worldId)
+                if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                     try { await c.SendAsync(resurrectEmotion, ct); } catch { }
 
             var standEmotion = new SM_EMOTION(victim, EmotionType.STAND);
             try { await conn.SendAsync(standEmotion, ct); } catch { }
             foreach (var c in connRegistry.GetAllExcept(victim.ObjectId))
-                if (c.ActivePlayer?.Position.WorldId == worldId)
+                if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                     try { await c.SendAsync(standEmotion, ct); } catch { }
 
             var ssAbnormal = new SM_ABNORMAL_EFFECT(victim.ObjectId, isPlayer: true, victim.GetActiveEffects());

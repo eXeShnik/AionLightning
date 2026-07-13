@@ -41,7 +41,7 @@ public sealed class HealCastorOnTargetDeadHandler(
             // Resolve buff caster (effector). Heal recipient is the original buff caster, not the killer.
             var caster = world.GetPlayerByObjectId(ab.EffectorId);
             if (caster is null || caster.IsAlreadyDead) continue;
-            if (caster.Position.WorldId != victim.Position.WorldId) continue;
+            if (!caster.Position.SameScope(victim.Position)) continue;
 
             foreach (var fx in fxList)
             {
@@ -59,7 +59,7 @@ public sealed class HealCastorOnTargetDeadHandler(
                     {
                         if (member.ObjectId == caster.ObjectId) continue;
                         if (member.IsAlreadyDead) continue;
-                        if (member.Position.WorldId != victim.Position.WorldId) continue;
+                        if (!member.Position.SameScope(victim.Position)) continue;
                         if (fx.Range > 0f && member.Position.DistanceTo(victim.Position) > fx.Range) continue;
                         await ApplyHealAsync(member, ab.SkillId, healAmt, fx.HealType, ct);
                     }
@@ -90,9 +90,9 @@ public sealed class HealCastorOnTargetDeadHandler(
         SM_ATTACK_STATUS.AttackType atkType, SM_ATTACK_STATUS.LogId logId, CancellationToken ct)
     {
         var pkt = new SM_ATTACK_STATUS(recipient, atkType, skillId, amount, logId);
-        int worldId = recipient.Position.WorldId;
+        var scope = recipient.Position;
         foreach (var c in connRegistry.GetAll())
-            if (c.ActivePlayer?.Position.WorldId == worldId)
+            if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                 try { await c.SendAsync(pkt, ct); } catch { }
     }
 }

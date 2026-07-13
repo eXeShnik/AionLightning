@@ -40,7 +40,7 @@ public sealed class ProtectHandler(
             var caster = world.GetPlayerByObjectId(ab.EffectorId)
                       ?? (Creature?)world.GetNpcByObjectId(ab.EffectorId);
             if (caster is null || caster.IsAlreadyDead) continue;
-            if (caster.Position.WorldId != target.Position.WorldId) continue;
+            if (!caster.Position.SameScope(target.Position)) continue;
 
             foreach (var fx in fxList)
             {
@@ -61,9 +61,9 @@ public sealed class ProtectHandler(
 
                 var pkt = new SM_ATTACK_STATUS(caster, SM_ATTACK_STATUS.AttackType.Damage,
                     ab.SkillId, casterDmg, SM_ATTACK_STATUS.LogId.Regular);
-                int worldId = caster.Position.WorldId;
+                var scope = caster.Position;
                 foreach (var c in connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == worldId)
+                    if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                         try { await c.SendAsync(pkt, ct); } catch { }
             }
         }

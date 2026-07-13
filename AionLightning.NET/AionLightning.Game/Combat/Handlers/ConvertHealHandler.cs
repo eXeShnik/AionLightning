@@ -61,9 +61,9 @@ public sealed class ConvertHealHandler(
         SM_ATTACK_STATUS.AttackType atkType, SM_ATTACK_STATUS.LogId logId, CancellationToken ct)
     {
         var pkt = new SM_ATTACK_STATUS(target, atkType, skillId, amount, logId);
-        int worldId = target.Position.WorldId;
+        var scope = target.Position;
         foreach (var c in connRegistry.GetAll())
-            if (c.ActivePlayer?.Position.WorldId == worldId)
+            if (c.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                 try { await c.SendAsync(pkt, ct); } catch { }
     }
 }
