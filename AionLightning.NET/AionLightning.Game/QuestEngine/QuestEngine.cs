@@ -30,6 +30,7 @@ public sealed class QuestEngine
     private readonly List<int>                      _onDieIndex = new();
     private readonly List<int>                      _onLogOutIndex = new();
     private readonly HashSet<int>                   _atDistanceNpcIds = new();
+    private readonly HashSet<int>                   _addAggroNpcIds = new();
     private readonly List<int>                      _reachTargetIndex = new();
     private readonly List<int>                      _lostTargetIndex = new();
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
@@ -187,6 +188,31 @@ public sealed class QuestEngine
 
     /// <summary>NPC ids that at least one quest watches for the at-distance hook (empty ⇒ skip the move scan).</summary>
     public IReadOnlySet<int> AtDistanceNpcIds => _atDistanceNpcIds;
+
+    /// <summary>Registers a quest against an NPC id for the add-aggro-list hook (Java
+    /// <c>registerQuestNpc(npcId).addOnAddAggroListEvent</c>): the quest is notified when that NPC
+    /// aggros the player.</summary>
+    public void RegisterOnAddAggroList(int npcId, int questId)
+    {
+        var list = RegisterQuestNpc(npcId).OnAddAggroList;
+        if (!list.Contains(questId)) list.Add(questId);
+        _addAggroNpcIds.Add(npcId);
+    }
+
+    /// <summary>NPC ids that at least one quest watches for the add-aggro-list hook (empty ⇒ skip the check).</summary>
+    public IReadOnlySet<int> AddAggroNpcIds => _addAggroNpcIds;
+
+    /// <summary>Dispatches the add-aggro-list hook (Java <c>onAddAggroListEvent</c>) to quests registered against this NPC.</summary>
+    public async ValueTask OnAddAggroListAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in GetQuestNpc(env.TargetId).OnAddAggroList)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnAddAggroListAsync(env with { QuestId = questId }, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnAddAggroListAsync"); }
+    }
 
     /// <summary>Registers a quest for the escort reach-target hook (Java registerAddOnReachTargetEvent).</summary>
     public void RegisterOnReachTarget(int questId)

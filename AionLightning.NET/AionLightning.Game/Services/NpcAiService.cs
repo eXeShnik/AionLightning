@@ -52,6 +52,7 @@ public sealed class NpcAiService : BackgroundService
 
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly AionLightning.Game.QuestEngine.QuestEngine _questEngine;
     private readonly IDataManager _dataManager;
     private readonly ExperienceService _expService;
     private readonly ILogger<NpcAiService> _log;
@@ -87,7 +88,8 @@ public sealed class NpcAiService : BackgroundService
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus,
-        LootService lootService, QuestService questService, SpawnService spawnService)
+        LootService lootService, QuestService questService, SpawnService spawnService,
+        AionLightning.Game.QuestEngine.QuestEngine questEngine)
     {
         _world        = world;
         _connRegistry = connRegistry;
@@ -99,6 +101,7 @@ public sealed class NpcAiService : BackgroundService
         _lootService  = lootService;
         _questService = questService;
         _spawnService = spawnService;
+        _questEngine  = questEngine;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -293,6 +296,7 @@ public sealed class NpcAiService : BackgroundService
                         _npcTargets[npc.ObjectId] = target.ObjectId;
                         npc.Target = target;
                         AlertNearbyAllies(npc, target);
+                        await FireAddAggroListAsync(npc, target, ct);
 
                         // Transition to combat stance + face the target (Java Npc.setTarget → SM_LOOKATOBJECT)
                         var engageScope = npc.Position;
@@ -1667,6 +1671,16 @@ public sealed class NpcAiService : BackgroundService
     /// Forces the NPC to engage the player even if it is outside its natural aggro range.
     /// Thread-safe: uses ConcurrentDictionary for target registration.
     /// </summary>
+    /// <summary>Fires the quest onAddAggroList hook when an NPC registered by a quest first aggros a player.</summary>
+    private async Task FireAddAggroListAsync(Npc npc, Player player, CancellationToken ct)
+    {
+        if (_questEngine.AddAggroNpcIds.Count == 0 || !_questEngine.AddAggroNpcIds.Contains(npc.Template.NpcId)) return;
+        var conn = _connRegistry.Get(player.ObjectId);
+        if (conn is null) return;
+        try { await _questEngine.OnAddAggroListAsync(new AionLightning.Game.QuestEngine.Model.QuestEnv(npc, player, 0, 0), conn, ct); }
+        catch (Exception ex) { _log.LogError(ex, "onAddAggroList dispatch failed"); }
+    }
+
     public void ForceEngage(Npc npc, Player player)
     {
         if (npc.IsAlreadyDead) return;
@@ -1685,6 +1699,7 @@ public sealed class NpcAiService : BackgroundService
         if (_npcTargets.TryAdd(npc.ObjectId, player.ObjectId))
         {
             npc.Target = player;
+            _ = FireAddAggroListAsync(npc, player, CancellationToken.None);
 
             // Broadcast combat stance + face the target — fire-and-forget since ForceEngage is sync
             var engageScope = npc.Position;

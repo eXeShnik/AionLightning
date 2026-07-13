@@ -64,4 +64,7 @@ public interface IQuestHandler
 
     /// <summary>Java onLeaveZone: the player just left a named zone region registered against this quest.</summary>
     ValueTask<bool> OnLeaveZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onAddAggroListEvent: a registered NPC just aggroed the player.</summary>
+    ValueTask<bool> OnAddAggroListAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }
