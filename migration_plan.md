@@ -5182,3 +5182,19 @@ Full solution builds clean. DEFERRED (login-risk / XL / infra-dependent): Housin
 SM_HOUSE_OWNER_INFO (fires every login — must be live-verified first), SM_HOUSE_* packets (~15), the CM_HOUSE
 handlers, HousingBidService (XL — needs a cron scheduler + mail-formatter), MaintenanceTask cron, HouseRegistry/
 furniture (player_registered_items), teleport-into-house, studio spawn. Housing data files all present (not blocked).
+
+## Pet P2 + quest onDie/onLogOut hooks (2026-07-13) — commits 8bddf9b3, 20c80de7
+- Pet P2 (feed + mood): pet_feed.xml loader (33 flavours, 831 food entries), PetFeedProgress (bit-packed),
+  PetHungryLevel, PetFeedCalculator, SM_PET case 9 (feed) + case 12 (mood), CM_PET FOOD/MOOD dispatch,
+  PetService.FeedAsync/CheckMoodAsync + feed/mood persistence. Pet subsystem now feature-complete (P1+P2);
+  only doping/loot/warehouse P3 remain.
+- Quest onDie/onLogOut hooks: QuestEngine.RegisterOnDie/RegisterOnLogOut + OnDieAsync/OnLogOutAsync,
+  QuestHandlerBase + IQuestHandler virtuals + RegisterOnDie/RegisterOnLogOut helpers. Fired from the player
+  DeathEvent (new QuestPlayerDeathHandler) and connection logout (GsClientConnection, before quest save;
+  conn null during teardown). Threaded QuestEngine through GsConnectionFactory→GsClientConnection.
+- FLEET IN PROGRESS: 28 quests newly un-skippable (instance + onDie/onLogOut, excluding still-missing
+  onAtDistance/escort/onLeaveZone/onKillRanked/flying-ring/onRide/ClassChange) across rider_quests(12),
+  danaria(4), tiamaranta(3), gelkmaros(2), ascension(2), + sanctum/verteron/eltnen/hidden_truth/carving_fortune.
+- Housing foundation done (a7418cfc); rest of housing (bidding/registry/login-owner-info) deferred — XL + infra
+  (cron/mail) + login-packet risk. Still-missing quest hooks after this fleet: onAtDistance, follow/escort AI,
+  onLeaveZone, onKillRanked-officer, flying-ring, onRide, ClassChangeService.
