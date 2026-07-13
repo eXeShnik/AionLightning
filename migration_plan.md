@@ -5239,3 +5239,17 @@ onLeaveZone, onEquipItem/stigma (sanctum 1929, ascension chain), ClassChangeServ
 1006/2008), onDredgionReward (chantra_dredgion, reshanta 4718), special-cube (tiamaranta 41598),
 onAddAggroList (event 50008/51008), instance living-NPC enumeration (tiamaranta 10064/20064 — could
 use World.GetNpcsInScope now if SpawnQuestNpcAndGet handles tracked spawns). Each is a small bucket.
+
+## Quest hooks: onAddAggroList, AnyNpcAlive, onPassFlyingRing (2026-07-14) — quest 1464 (98.1%)
+- AnyNpcAlive helper (World.GetNpcsInScope, instance living-NPC count) → tiamaranta 10064/20064 (+2).
+- onKillRanked (via _1702 kill-in-world precedent) → 14 abyss ranked quests (2 rank-5 completable, 12 officer/general
+  faithful-but-unreachable-until-Glory-Points). onLeaveZone hook → 4 instance quests. onAddAggroList hook (fired from
+  NpcAiService ForceEngage/aggro-scan) → 2 event escort quests. onPassFlyingRing hook + FlyRingData (fly_rings.xml, 70
+  rings) → 3 flight-training quests.
+- Quest hooks/helpers built this session (11): onDie, onLogOut, onAtDistance, follow/escort (reach/lost) + FollowService,
+  SpawnQuestNpcAndGet, AnyNpcAlive, onLeaveZone, onAddAggroList, onPassFlyingRing.
+- REMAINING ~29 (the hard/niche tail): onBonusApply + EventService event-bonus system (~10 event-only quests, large
+  niche), onDredgionReward dredgion scoring (3), ClassChange coupling (ascension 1006/2008), onEquipItem+stigma
+  (sanctum 1929), special-cube (tiamaranta 41598), onRide/mount, + scattered stragglers. Each needs a specialized
+  subsystem for 1-10 quests; several (dredgion/flight/class-change) need live testing to verify. 98.1% is the practical
+  ceiling for hook-based quest unblocking.
