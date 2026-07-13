@@ -222,4 +222,12 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE LegionNameTaken() => new(1400156);
     // 1400158: rename successful — "Legion name changed to %0."
     public static SM_SYSTEM_MESSAGE LegionRenamed(string newName) => new(1400158, newName);
+
+    // STR_WAREHOUSE_FULL_INVENTORY — "Your inventory is full, so you cannot receive a pet gift." (msg code 1390149)
+    public static SM_SYSTEM_MESSAGE PetGiftInventoryFull() => new(1390149);
+
+    // STR_MSG_TOYPET_FEED_FOOD_NOT_LOVEFLAVOR — "%0 spits out %1 and makes a face." (msg code 1400618)
+    // Java embeds the item name via a client-side DescriptionId; this port uses a plain string param
+    // instead (same simplification as the M381 summon-name messages — see migration_plan.md).
+    public static SM_SYSTEM_MESSAGE ToypetFeedNotLoveFlavor(string petName, string itemName) => new(1400618, petName, itemName);
 }
