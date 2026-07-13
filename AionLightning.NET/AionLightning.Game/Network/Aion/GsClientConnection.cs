@@ -12,6 +12,7 @@ using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Network.Ls.ServerPackets;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Game.Network.Aion;
@@ -36,6 +37,7 @@ public sealed class GsClientConnection : AConnection
     private readonly DuelService  _duelService;
     private readonly LegionService _legionService;
     private readonly SummonsService _summonsService;
+    private readonly QuestEngineType _questEngine;
     private readonly GsCrypt _crypt = new();
 
     public AionState State { get; set; } = AionState.CONNECTED;
@@ -51,7 +53,7 @@ public sealed class GsClientConnection : AConnection
         GameAccountRegistry registry, IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao,
         ISocialDao socialDao, ILegionDao legionDao, GameWorld world, PlayerConnectionRegistry connRegistry,
         GroupService groupService, DuelService duelService, LegionService legionService,
-        SummonsService summonsService)
+        SummonsService summonsService, QuestEngineType questEngine)
         : base(socket)
     {
         _log           = log;
@@ -70,6 +72,7 @@ public sealed class GsClientConnection : AConnection
         _duelService   = duelService;
         _legionService = legionService;
         _summonsService = summonsService;
+        _questEngine   = questEngine;
     }
 
     protected override async ValueTask OnConnectedAsync(CancellationToken ct)
@@ -252,6 +255,8 @@ public sealed class GsClientConnection : AConnection
             await _playerDao.UpdateDpAsync(player.ObjectId, player.Dp, CancellationToken.None);
             await _playerDao.UpdateSoulSicknessAsync(player.ObjectId, player.SoulSicknessCount, CancellationToken.None);
             await _playerDao.UpdateOnlineAsync(player.ObjectId, online: false, CancellationToken.None);
+            // Fire the quest logout hook before persisting, so any state it changes is saved (Java onLogOutEvent).
+            try { await _questEngine.OnLogOutAsync(player, null, CancellationToken.None); } catch { /* ignore */ }
             await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, CancellationToken.None);
             await _itemDao.SaveWarehouseAsync(player.ObjectId, player.Warehouse.All, CancellationToken.None);
             await _itemDao.SaveAccountWarehouseAsync(AccountId, player.AccountWarehouse.All, CancellationToken.None);

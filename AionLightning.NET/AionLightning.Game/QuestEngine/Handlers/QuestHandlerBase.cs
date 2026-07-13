@@ -107,6 +107,12 @@ public abstract class QuestHandlerBase : IQuestHandler
     protected void RegisterOnEnterZone(QuestEngine engine, string zoneName)
         => engine.RegisterOnEnterZone(zoneName, QuestId);
 
+    /// <summary>Registers THIS quest for the player-death hook (Java registerOnDie). Call from Register().</summary>
+    protected void RegisterOnDie(QuestEngine engine) => engine.RegisterOnDie(QuestId);
+
+    /// <summary>Registers THIS quest for the player-logout hook (Java registerOnLogOut). Call from Register().</summary>
+    protected void RegisterOnLogOut(QuestEngine engine) => engine.RegisterOnLogOut(QuestId);
+
     /// <summary>The static quest_data.xml template for this quest, or null if not defined there.</summary>
     protected QuestTemplate? Template => DataManager.Quests.GetTemplate(QuestId);
 
@@ -125,6 +131,8 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnMovieEndAsync(QuestEnv env, int movieId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnEnterWorldAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnEnterZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnDieAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnLogOutAsync(QuestEnv env, GsClientConnection? conn, CancellationToken ct) => ValueTask.FromResult(false);
 
     /// <summary>Opens an NPC dialog page (Java QuestHandler.sendDialogPacket). Always returns true (handled).</summary>
     protected async ValueTask<bool> SendQuestDialogAsync(GsClientConnection conn, int targetObjId, int dialogPageId, CancellationToken ct)

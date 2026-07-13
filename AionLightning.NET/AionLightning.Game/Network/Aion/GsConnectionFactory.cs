@@ -6,6 +6,7 @@ using AionLightning.Game.Network.Ls;
 using AionLightning.Game.Services;
 using Microsoft.Extensions.Logging;
 using GameWorld = AionLightning.Game.World.World;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Network.Aion;
 
@@ -27,13 +28,14 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
     private readonly DuelService   _duelService;
     private readonly LegionService _legionService;
     private readonly SummonsService _summonsService;
+    private readonly QuestEngineType _questEngine;
 
     public GsConnectionFactory(ILoggerFactory loggerFactory, GsPacketHandlerFactory factory,
         LsConnectionHolder ls, CsConnectionHolder cs, GameAccountRegistry registry,
         IPlayerDao playerDao, IItemDao itemDao, IQuestDao questDao, ISocialDao socialDao,
         ILegionDao legionDao, GameWorld world, PlayerConnectionRegistry connRegistry,
         GroupService groupService, DuelService duelService, LegionService legionService,
-        SummonsService summonsService)
+        SummonsService summonsService, QuestEngineType questEngine)
     {
         _loggerFactory = loggerFactory;
         _factory       = factory;
@@ -51,9 +53,10 @@ public sealed class GsConnectionFactory : IConnectionFactory<GsClientConnection>
         _duelService   = duelService;
         _legionService = legionService;
         _summonsService = summonsService;
+        _questEngine   = questEngine;
     }
 
     public GsClientConnection Create(Socket socket, CancellationToken ct)
         => new(socket, _loggerFactory.CreateLogger<GsClientConnection>(),
-               _factory, _ls, _cs, _registry, _playerDao, _itemDao, _questDao, _socialDao, _legionDao, _world, _connRegistry, _groupService, _duelService, _legionService, _summonsService);
+               _factory, _ls, _cs, _registry, _playerDao, _itemDao, _questDao, _socialDao, _legionDao, _world, _connRegistry, _groupService, _duelService, _legionService, _summonsService, _questEngine);
 }

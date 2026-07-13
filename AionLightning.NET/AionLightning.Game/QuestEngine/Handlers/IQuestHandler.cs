@@ -46,4 +46,10 @@ public interface IQuestHandler
 
     /// <summary>Java onEnterZoneEvent: the player just entered a named zone region registered against this quest.</summary>
     ValueTask<bool> OnEnterZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onDieEvent: the player died; quests registered via RegisterOnDie may reset/fail a step.</summary>
+    ValueTask<bool> OnDieAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onLogOutEvent: the player logged out; conn may be null (fired during teardown).</summary>
+    ValueTask<bool> OnLogOutAsync(QuestEnv env, GsClientConnection? conn, CancellationToken ct) => ValueTask.FromResult(false);
 }

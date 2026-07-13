@@ -27,6 +27,8 @@ public sealed class QuestEngine
     private readonly Dictionary<int, List<int>>     _movieEndIndex = new();
     private readonly List<int>                      _enterWorldIndex = new();
     private readonly List<int>                      _questTimerEndIndex = new();
+    private readonly List<int>                      _onDieIndex = new();
+    private readonly List<int>                      _onLogOutIndex = new();
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
@@ -147,6 +149,18 @@ public sealed class QuestEngine
     public void RegisterOnZoneMissionEnd(int questId)
     {
         if (!_zoneMissionEndIndex.Contains(questId)) _zoneMissionEndIndex.Add(questId);
+    }
+
+    /// <summary>Registers a quest for player-death notifications (Java registerOnDie).</summary>
+    public void RegisterOnDie(int questId)
+    {
+        if (!_onDieIndex.Contains(questId)) _onDieIndex.Add(questId);
+    }
+
+    /// <summary>Registers a quest for player-logout notifications (Java registerOnLogOut).</summary>
+    public void RegisterOnLogOut(int questId)
+    {
+        if (!_onLogOutIndex.Contains(questId)) _onLogOutIndex.Add(questId);
     }
 
     /// <summary>
@@ -383,6 +397,55 @@ public sealed class QuestEngine
         catch (Exception ex)
         {
             _log.LogError(ex, "QuestEngine: exception in OnLevelUpAsync");
+        }
+    }
+
+    /// <summary>
+    /// Dispatches the player-death hook (Java <c>onDieEvent</c>) to every quest that registered via
+    /// <see cref="RegisterOnDie"/> and has an active (non-COMPLETE) entry for the dying player — lets
+    /// a handler reset/fail a quest step, revert a disguise, etc. on death.
+    /// </summary>
+    public async ValueTask OnDieAsync(Player player, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in _onDieIndex)
+            {
+                var existing = player.Quests.Get(questId);
+                if (existing is null or { Status: QuestStatus.COMPLETE }) continue;
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+
+                await handler.OnDieAsync(new QuestEnv(null, player, questId, 0), conn, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnDieAsync");
+        }
+    }
+
+    /// <summary>
+    /// Dispatches the player-logout hook (Java <c>onLogOutEvent</c>) to every quest that registered
+    /// via <see cref="RegisterOnLogOut"/> and has an active entry — lets a handler abandon/revert a
+    /// timed or disguise quest when the player logs out. Fired during connection teardown, so there
+    /// is no live connection to send packets on (conn may be null).
+    /// </summary>
+    public async ValueTask OnLogOutAsync(Player player, GsClientConnection? conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in _onLogOutIndex)
+            {
+                var existing = player.Quests.Get(questId);
+                if (existing is null or { Status: QuestStatus.COMPLETE }) continue;
+                if (!_handlers.TryGetValue(questId, out var handler)) continue;
+
+                await handler.OnLogOutAsync(new QuestEnv(null, player, questId, 0), conn, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "QuestEngine: exception in OnLogOutAsync");
         }
     }
 
