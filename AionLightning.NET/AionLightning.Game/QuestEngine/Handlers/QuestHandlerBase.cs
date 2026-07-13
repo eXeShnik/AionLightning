@@ -38,9 +38,16 @@ public abstract class QuestHandlerBase : IQuestHandler
     private static SpawnService? _spawnService;
     private static QuestEngine? _engine;
     private static SkillLearnService? _skillLearn;
+    private static InstanceService? _instanceService;
+    private static TeleportService? _teleport;
     internal static void InitSpawnService(SpawnService spawnService) => _spawnService = spawnService;
     internal static void InitEngine(QuestEngine engine) => _engine = engine;
     internal static void InitSkillLearn(SkillLearnService skillLearn) => _skillLearn = skillLearn;
+    internal static void InitInstanceServices(InstanceService instanceService, TeleportService teleport)
+    {
+        _instanceService = instanceService;
+        _teleport        = teleport;
+    }
 
     /// <summary>Teaches the player a skill and persists it (Java QuestService reward addSkill),
     /// sending the learn notification. No-op returning false if the skill service isn't wired.
@@ -72,6 +79,22 @@ public abstract class QuestHandlerBase : IQuestHandler
         var template = DataManager.Npcs.GetTemplate(npcId);
         if (template is null) return false;
         _spawnService.SpawnNpcAt(template, new Position(x, y, z, heading, worldId, instanceId));
+        return true;
+    }
+
+    /// <summary>Creates a fresh instance channel of <paramref name="worldId"/>, registers the player,
+    /// and teleports them in (Java idiom: getNextAvailableInstance → registerPlayerWithInstance →
+    /// teleportTo). Returns false (no-op) if the instance services aren't wired or the world isn't an
+    /// instance map.</summary>
+    protected async ValueTask<bool> EnterInstanceAsync(Player player, GsClientConnection conn,
+        int worldId, float x, float y, float z, byte heading = 0, CancellationToken ct = default)
+    {
+        if (_instanceService is null || _teleport is null) return false;
+        if (!DataManager.WorldMaps.IsInstance(worldId)) return false;
+
+        var instance = _instanceService.GetNextAvailableInstance(worldId);
+        _instanceService.RegisterPlayerWithInstance(instance, player);
+        await _teleport.TeleportToAsync(player, worldId, instance.InstanceId, x, y, z, heading, portAnimation: 0, ct);
         return true;
     }
 

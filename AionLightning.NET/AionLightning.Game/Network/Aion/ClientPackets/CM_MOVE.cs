@@ -69,10 +69,10 @@ public sealed class CM_MOVE : AionClientPacket
         // Mid-movement position fixes are NOT broadcast — observing clients interpolate from the start packet.
         if ((_type & MovementMask.StartMove) == 0 && _type != 0) return;
 
-        int worldId    = player.Position.WorldId;
+        var scope      = player.Position;
         var movePacket = new SM_MOVE(player);
         foreach (var otherConn in _connRegistry.GetAllExcept(player.ObjectId))
-            if (otherConn.ActivePlayer?.Position.WorldId == worldId)
+            if (otherConn.ActivePlayer is { } op && op.Position.SameScope(scope))
                 try { await otherConn.SendAsync(movePacket, ct); } catch { }
     }
 }

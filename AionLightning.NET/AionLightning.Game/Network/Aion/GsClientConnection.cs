@@ -193,8 +193,8 @@ public sealed class GsClientConnection : AConnection
         var player = ActivePlayer;
         if (player is null) return;
 
-        // Unregister from broadcast registry and world; notify zone peers before removal
-        int worldId = player.Position.WorldId;
+        // Unregister from broadcast registry and world; notify zone/channel peers before removal
+        var scope = player.Position;
         _connRegistry.Unregister(player.ObjectId);
         _world.Remove(player);
 
@@ -211,7 +211,7 @@ public sealed class GsClientConnection : AConnection
 
         var deletePkt = new SM_DELETE(player.ObjectId);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } cp && cp.Position.SameScope(scope))
                 try { await conn.SendAsync(deletePkt, CancellationToken.None); } catch { /* ignore */ }
 
         _log.LogInformation("Player {Name} (id={Id}) disconnected — saving state", player.Name, player.ObjectId);

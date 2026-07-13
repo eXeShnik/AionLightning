@@ -53,4 +53,14 @@ public sealed class World
     public Gatherable? GetGatherable(int objectId) => _gatherables.GetValueOrDefault(objectId);
     public IEnumerable<Gatherable> GetAllGatherables() => _gatherables.Values;
     public int GatherableCount => _gatherables.Count;
+
+    // --- Scoped enumeration (instance-aware) ---
+    // "In map/channel X" = same (WorldId, InstanceId) scope. Callers pass a reference Position
+    // (usually the acting player's) so two channels of the same instanced map never see each other.
+    // Open-world objects all sit at InstanceId==0, so these behave like the old WorldId-only scans there.
+
+    public IEnumerable<Player>     GetPlayersInScope(Position scope)     => _players.Values.Where(p => p.Position.SameScope(scope));
+    public IEnumerable<Npc>        GetNpcsInScope(Position scope)        => _npcs.Values.Where(n => n.Position.SameScope(scope));
+    public IEnumerable<Summon>     GetSummonsInScope(Position scope)     => _summons.Values.Where(s => s.Position.SameScope(scope));
+    public IEnumerable<Gatherable> GetGatherablesInScope(Position scope) => _gatherables.Values.Where(g => g.Position.SameScope(scope));
 }

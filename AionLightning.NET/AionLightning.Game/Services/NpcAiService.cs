@@ -212,9 +212,9 @@ public sealed class NpcAiService : BackgroundService
                     _lastRegenTime[npc.ObjectId] = regenNow;
 
                     var regenPkt  = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.NaturalHp, 0, heal);
-                    int regenWorld = npc.Position.WorldId;
+                    var regenScope = npc.Position;
                     foreach (var conn in _connRegistry.GetAll())
-                        if (conn.ActivePlayer?.Position.WorldId == regenWorld)
+                        if (conn.ActivePlayer is { } regenPlayer && regenPlayer.Position.SameScope(regenScope))
                             try { await conn.SendAsync(regenPkt, ct); } catch { }
                 }
             }
@@ -245,7 +245,7 @@ public sealed class NpcAiService : BackgroundService
                     if (locked is not null
                         && !locked.IsAlreadyDead
                         && !idleTimeout
-                        && locked.Position.WorldId == npc.HomePosition.WorldId
+                        && locked.Position.SameScope(npc.HomePosition)
                         && npc.Position.DistanceTo(locked.Position) <= ChaseTargetRange
                         && npc.HomePosition.DistanceTo(npc.Position) <= ChaseHomeRange)
                     {
@@ -262,10 +262,10 @@ public sealed class NpcAiService : BackgroundService
                         await BroadcastAttackEndShoutAsync(npc, ct);
 
                         // Transition back to idle stance
-                        int leashWorld  = npc.Position.WorldId;
+                        var leashScope  = npc.Position;
                         var neutralMode = new SM_EMOTION(npc, EmotionType.NEUTRALMODE);
                         foreach (var conn in _connRegistry.GetAll())
-                            if (conn.ActivePlayer?.Position.WorldId == leashWorld)
+                            if (conn.ActivePlayer is { } leashPlayer && leashPlayer.Position.SameScope(leashScope))
                                 try { await conn.SendAsync(neutralMode, ct); } catch { }
                     }
                 }
@@ -278,7 +278,7 @@ public sealed class NpcAiService : BackgroundService
                     foreach (var player in players)
                     {
                         if (player.IsAlreadyDead) continue;
-                        if (player.Position.WorldId != npc.Position.WorldId) continue;
+                        if (!player.Position.SameScope(npc.Position)) continue;
                         if (!_dataManager.Tribes.IsAggressiveToPlayer(npc.Template.Tribe, player.Race)) continue;
 
                         float dist = npc.Position.DistanceTo(player.Position);
@@ -295,11 +295,11 @@ public sealed class NpcAiService : BackgroundService
                         AlertNearbyAllies(npc, target);
 
                         // Transition to combat stance + face the target (Java Npc.setTarget → SM_LOOKATOBJECT)
-                        int engageWorld = npc.Position.WorldId;
+                        var engageScope = npc.Position;
                         var attackMode  = new SM_EMOTION(npc, EmotionType.ATTACKMODE);
                         var lookAt      = new SM_LOOKATOBJECT(npc);
                         foreach (var conn in _connRegistry.GetAll())
-                            if (conn.ActivePlayer?.Position.WorldId == engageWorld)
+                            if (conn.ActivePlayer is { } engagePlayer && engagePlayer.Position.SameScope(engageScope))
                             {
                                 try { await conn.SendAsync(attackMode, ct); } catch { }
                                 try { await conn.SendAsync(lookAt, ct); } catch { }
@@ -311,9 +311,9 @@ public sealed class NpcAiService : BackgroundService
                         if (shout.HasValue)
                         {
                             var shoutPkt  = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, shout.Value.StringId);
-                            int shoutWorld = npc.Position.WorldId;
+                            var shoutScope = npc.Position;
                             foreach (var conn in _connRegistry.GetAll())
-                                if (conn.ActivePlayer?.Position.WorldId == shoutWorld)
+                                if (conn.ActivePlayer is { } seeShoutPlayer && seeShoutPlayer.Position.SameScope(shoutScope))
                                     try { await conn.SendAsync(shoutPkt, ct); } catch { }
                         }
                     }
@@ -347,7 +347,7 @@ public sealed class NpcAiService : BackgroundService
                         var mostHated = players.FirstOrDefault(p => p.ObjectId == topHateId);
                         if (mostHated is not null
                             && !mostHated.IsAlreadyDead
-                            && mostHated.Position.WorldId == npc.Position.WorldId
+                            && mostHated.Position.SameScope(npc.Position)
                             && npc.Position.DistanceTo(mostHated.Position) <= ChaseTargetRange)
                         {
                             target = mostHated;
@@ -380,9 +380,9 @@ public sealed class NpcAiService : BackgroundService
             {
                 var stopPkt = SM_MOVE.StopNpcMove(npc.ObjectId,
                     npc.Position.X, npc.Position.Y, npc.Position.Z, (byte)npc.Position.Heading);
-                int stopWorld = npc.Position.WorldId;
+                var stopScope = npc.Position;
                 foreach (var c in _connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == stopWorld)
+                    if (c.ActivePlayer is { } stopPlayer && stopPlayer.Position.SameScope(stopScope))
                         try { await c.SendAsync(stopPkt, ct); } catch { }
                 _chaseState.Remove(npc.ObjectId);
             }
@@ -400,9 +400,9 @@ public sealed class NpcAiService : BackgroundService
                 if (atkBeginShout.HasValue)
                 {
                     var shoutPkt  = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, atkBeginShout.Value.StringId);
-                    int shoutWorld = npc.Position.WorldId;
+                    var atkBeginShoutScope = npc.Position;
                     foreach (var conn in _connRegistry.GetAll())
-                        if (conn.ActivePlayer?.Position.WorldId == shoutWorld)
+                        if (conn.ActivePlayer is { } atkBeginShoutPlayer && atkBeginShoutPlayer.Position.SameScope(atkBeginShoutScope))
                             try { await conn.SendAsync(shoutPkt, ct); } catch { }
                 }
             }
@@ -420,6 +420,7 @@ public sealed class NpcAiService : BackgroundService
 
             // Dodge / parry / block checks against player targets (mirrors CM_ATTACK player-vs-NPC checks)
             int npcWorld  = npc.Position.WorldId;
+            var npcScope  = npc.Position;
             int npcAccuracy = (int)Math.Round(npc.Level * (33.6 - 0.16 * npc.Level) + 5)
                             + (npc.Template.Stats?.MainHandAccuracy ?? 0);
             var hitResult = SM_ATTACK.HitResult.Normal;
@@ -432,7 +433,7 @@ public sealed class NpcAiService : BackgroundService
                 {
                     var dodgePkt = new SM_ATTACK(npc, target, attackno: 0, time: 0, type: 0, damage: 0, SM_ATTACK.HitResult.Dodge);
                     foreach (var conn in _connRegistry.GetAll())
-                        if (conn.ActivePlayer?.Position.WorldId == npcWorld)
+                        if (conn.ActivePlayer is { } dodgePlayer && dodgePlayer.Position.SameScope(npcScope))
                             try { await conn.SendAsync(dodgePkt, ct); } catch { }
                     continue;
                 }
@@ -498,7 +499,7 @@ public sealed class NpcAiService : BackgroundService
             var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, totalDamage);
             foreach (var conn in _connRegistry.GetAll())
             {
-                if (conn.ActivePlayer?.Position.WorldId != npcWorld) continue;
+                if (conn.ActivePlayer is not { } atkPlayer || !atkPlayer.Position.SameScope(npcScope)) continue;
                 try { await conn.SendAsync(attackPkt, ct); } catch { /* ignore */ }
                 try { await conn.SendAsync(statusPkt, ct); } catch { /* ignore */ }
             }
@@ -514,7 +515,7 @@ public sealed class NpcAiService : BackgroundService
                 {
                     var shoutPkt = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, atkShout.Value.StringId);
                     foreach (var conn in _connRegistry.GetAll())
-                        if (conn.ActivePlayer?.Position.WorldId == npcWorld)
+                        if (conn.ActivePlayer is { } atkShoutPlayer && atkShoutPlayer.Position.SameScope(npcScope))
                             try { await conn.SendAsync(shoutPkt, ct); } catch { }
                 }
             }
@@ -539,7 +540,7 @@ public sealed class NpcAiService : BackgroundService
             var clearEffect = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true);
             foreach (var conn in _connRegistry.GetAll())
             {
-                if (conn.ActivePlayer?.Position.WorldId != npcWorld) continue;
+                if (conn.ActivePlayer is not { } diePlayer || !diePlayer.Position.SameScope(npcScope)) continue;
                 try { await conn.SendAsync(diePkt, ct); } catch { /* ignore */ }
                 try { await conn.SendAsync(clearEffect, ct); } catch { /* ignore */ }
             }
@@ -609,7 +610,7 @@ public sealed class NpcAiService : BackgroundService
     private async Task FollowMasterAsync(Summon summon, CancellationToken ct)
     {
         var master = summon.Master!;
-        if (master.Position.WorldId != summon.Position.WorldId) return; // Phase 2: cross-zone/teleport re-follow
+        if (!master.Position.SameScope(summon.Position)) return; // Phase 2: cross-zone/teleport re-follow
 
         float dist = summon.Position.DistanceTo(master.Position);
         if (dist <= SummonFollowRange) return;
@@ -632,7 +633,7 @@ public sealed class NpcAiService : BackgroundService
     {
         var master = summon.Master!;
         var target = summon.Target as Npc;
-        if (target is null || target.IsAlreadyDead || target.Position.WorldId != summon.Position.WorldId)
+        if (target is null || target.IsAlreadyDead || !target.Position.SameScope(summon.Position))
         {
             summon.Target = null;
             summon.Mode   = SummonMode.Guard;
@@ -666,12 +667,13 @@ public sealed class NpcAiService : BackgroundService
 
         await target.ApplyDamageAndPublishAsync(summon, damage, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
 
-        int worldId   = summon.Position.WorldId;
+        int worldId     = summon.Position.WorldId;
+        var summonScope = summon.Position;
         var attackPkt = new SM_ATTACK(summon, target, attackno: 0, time: 0, type: 0, damage);
         var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
         foreach (var conn in _connRegistry.GetAll())
         {
-            if (conn.ActivePlayer?.Position.WorldId != worldId) continue;
+            if (conn.ActivePlayer is not { } summonAtkPlayer || !summonAtkPlayer.Position.SameScope(summonScope)) continue;
             try { await conn.SendAsync(attackPkt, ct); } catch { }
             try { await conn.SendAsync(statusPkt, ct); } catch { }
         }
@@ -688,9 +690,9 @@ public sealed class NpcAiService : BackgroundService
     {
         var movePkt = SM_MOVE.StartNpcMove(summon.ObjectId,
             summon.Position.X, summon.Position.Y, summon.Position.Z, heading, tx, ty, tz);
-        int worldId = summon.Position.WorldId;
+        var scope = summon.Position;
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } summonMovePlayer && summonMovePlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(movePkt, ct); } catch { }
 
         // Phase 1 simplification: position is snapped to the destination immediately rather than
@@ -704,10 +706,11 @@ public sealed class NpcAiService : BackgroundService
     // summon's master rather than the summon itself — summons have no player connection of their own.
     private async Task HandleSummonKillAsync(Summon summon, Npc deadNpc, Player master, int worldId, CancellationToken ct)
     {
+        var scope = summon.Position;
         deadNpc.State |= CreatureState.Dead;
         var diePkt = new SM_EMOTION(deadNpc, EmotionType.DIE);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } deadNpcPlayer && deadNpcPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(diePkt, ct); } catch { }
 
         _world.Remove(deadNpc);
@@ -738,7 +741,7 @@ public sealed class NpcAiService : BackgroundService
             await Task.Delay(decayMs);
             var del = new SM_DELETE(deadNpc.ObjectId);
             foreach (var c in registry.GetAll())
-                if (c.ActivePlayer?.Position.WorldId == worldId)
+                if (c.ActivePlayer is { } decayPlayer && decayPlayer.Position.SameScope(scope))
                     try { await c.SendAsync(del); } catch { }
             lootSvc.ClearLoot(deadNpc.ObjectId);
             spawnSvc.ScheduleRespawn(deadNpc);
@@ -774,9 +777,10 @@ public sealed class NpcAiService : BackgroundService
     private async Task CastSkillEntryAsync(Npc npc, Player target, NpcSkillData.NpcSkillEntry entry,
         DateTime now, int worldId, CancellationToken ct)
     {
+        var scope = npc.Position;
         var castPkt = new SM_CASTSPELL(npc.ObjectId, entry.SkillId, entry.SkillLevel, 3, target.ObjectId, 0);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } castPlayer && castPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(castPkt, ct); } catch { }
 
         var skillTemplate = _dataManager.Skills.GetTemplate(entry.SkillId);
@@ -833,13 +837,14 @@ public sealed class NpcAiService : BackgroundService
 
         var activationPkt = new SM_SKILL_ACTIVATION(entry.SkillId);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } activationPlayer && activationPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(activationPkt, ct); } catch { }
     }
 
     private async Task CastNpcDamageAsync(Npc npc, Player target, int skillId, int skillLevel,
         SkillTemplate? skillTemplate, DateTime now, int worldId, CancellationToken ct)
     {
+        var scope = npc.Position;
         bool isPhysical = skillTemplate?.SkillType == SkillType.PHYSICAL;
 
         // Use per-skill damage template when available; fall back to level-scaled estimate
@@ -858,7 +863,7 @@ public sealed class NpcAiService : BackgroundService
             {
                 var resistPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
                 foreach (var c in _connRegistry.GetAll())
-                    if (c.ActivePlayer?.Position.WorldId == worldId)
+                    if (c.ActivePlayer is { } resistPlayer && resistPlayer.Position.SameScope(scope))
                         try { await c.SendAsync(resistPkt, ct); } catch { }
                 return;
             }
@@ -941,7 +946,7 @@ public sealed class NpcAiService : BackgroundService
         // M256: NPC skill damage uses LogId.SpellAtk (1) — matches CM_CASTSPELL player-side and Java SpellAtkInstantEffect
         var statusPkt = new SM_ATTACK_STATUS(target, SM_ATTACK_STATUS.AttackType.Damage, skillId, spellDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } statusPlayer && statusPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
         await BroadcastGroupHpAsync(target, ct);
 
@@ -976,7 +981,7 @@ public sealed class NpcAiService : BackgroundService
                 target.AddEffect(dotEffect);
                 var dotAbnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    if (conn.ActivePlayer is { } dotAbnormalPlayer && dotAbnormalPlayer.Position.SameScope(scope))
                         try { await conn.SendAsync(dotAbnormal, ct); } catch { }
 
                 var dotTickTarget = target;
@@ -1002,16 +1007,16 @@ public sealed class NpcAiService : BackgroundService
                         if (dotTickInfo.MpPercent != 0)
                             dotTickCaster.CurrentMp = Math.Min(dotTickCaster.MaxMp, dotTickCaster.CurrentMp + dotTickDmg * dotTickInfo.MpPercent / 100);
                         var tickPkt = new SM_ATTACK_STATUS(dotTickTarget, SM_ATTACK_STATUS.AttackType.Damage, skillId, dotTickDmg, dotTickLogId);
-                        int tw = dotTickTarget.Position.WorldId;
+                        var tickScope = dotTickTarget.Position;
                         foreach (var conn in _connRegistry.GetAll())
-                            if (conn.ActivePlayer?.Position.WorldId == tw)
+                            if (conn.ActivePlayer is { } tickPlayer && tickPlayer.Position.SameScope(tickScope))
                                 try { await conn.SendAsync(tickPkt); } catch { }
                     }
                     dotTickTarget.RemoveEffect(dotTickEffect.SkillId, dotTickEffect.Expiry);
                     var expiredDot = new SM_ABNORMAL_EFFECT(dotTickTarget.ObjectId, isPlayer: true, dotTickTarget.GetActiveEffects());
-                    int dw = dotTickTarget.Position.WorldId;
+                    var expiredDotScope = dotTickTarget.Position;
                     foreach (var conn in _connRegistry.GetAll())
-                        if (conn.ActivePlayer?.Position.WorldId == dw)
+                        if (conn.ActivePlayer is { } expiredDotPlayer && expiredDotPlayer.Position.SameScope(expiredDotScope))
                             try { await conn.SendAsync(expiredDot); } catch { }
                 });
             }
@@ -1030,7 +1035,7 @@ public sealed class NpcAiService : BackgroundService
                 if (splashCount >= maxHits) break;
                 if (other.ObjectId == target.ObjectId) continue;
                 if (other.IsAlreadyDead) continue;
-                if (other.Position.WorldId != worldId) continue;
+                if (!other.Position.SameScope(scope)) continue;
                 float dx = other.Position.X - npc.Position.X;
                 float dy = other.Position.Y - npc.Position.Y;
                 float dz = other.Position.Z - npc.Position.Z;
@@ -1050,7 +1055,7 @@ public sealed class NpcAiService : BackgroundService
                     {
                         var splResistPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, 0, SM_ATTACK_STATUS.LogId.SpellAtk);
                         foreach (var c in _connRegistry.GetAll())
-                            if (c.ActivePlayer?.Position.WorldId == worldId)
+                            if (c.ActivePlayer is { } splResistPlayer && splResistPlayer.Position.SameScope(scope))
                                 try { await c.SendAsync(splResistPkt, ct); } catch { }
                         continue;
                     }
@@ -1121,7 +1126,7 @@ public sealed class NpcAiService : BackgroundService
                 // M256: NPC splash damage uses LogId.SpellAtk
                 var splashPkt = new SM_ATTACK_STATUS(other, SM_ATTACK_STATUS.AttackType.Damage, skillId, splashDmg, SM_ATTACK_STATUS.LogId.SpellAtk);
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    if (conn.ActivePlayer is { } splashRecipient && splashRecipient.Position.SameScope(scope))
                         try { await conn.SendAsync(splashPkt, ct); } catch { }
                 if (other is Player splashPlayer)
                 {
@@ -1135,6 +1140,7 @@ public sealed class NpcAiService : BackgroundService
 
     private async Task HandleNpcSplashKillAsync(Npc npc, Player killed, int worldId, CancellationToken ct)
     {
+        var scope = npc.Position;
         killed.State |= CreatureState.Dead;
         killed.ClearAllEffects();
 
@@ -1142,7 +1148,7 @@ public sealed class NpcAiService : BackgroundService
         var clearEffect = new SM_ABNORMAL_EFFECT(killed.ObjectId, isPlayer: true);
         foreach (var conn in _connRegistry.GetAll())
         {
-            if (conn.ActivePlayer?.Position.WorldId != worldId) continue;
+            if (conn.ActivePlayer is not { } splashDiePlayer || !splashDiePlayer.Position.SameScope(scope)) continue;
             try { await conn.SendAsync(diePkt, ct); } catch { }
             try { await conn.SendAsync(clearEffect, ct); } catch { }
         }
@@ -1207,8 +1213,9 @@ public sealed class NpcAiService : BackgroundService
 
         // M256: NPC self-heal uses LogId.Heal (3)
         var statusPkt = new SM_ATTACK_STATUS(npc, SM_ATTACK_STATUS.AttackType.NaturalHp, skillId, healAmt, SM_ATTACK_STATUS.LogId.Heal);
+        var scope = npc.Position;
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } healPlayer && healPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(statusPkt, ct); } catch { }
     }
 
@@ -1255,9 +1262,10 @@ public sealed class NpcAiService : BackgroundService
         if (speedStatUpPct != 0)
             npc.MovementSpeed = npc.MovementSpeed * (100 + speedStatUpPct) / 100f;
 
+        var scope = npc.Position;
         var abnormal = new SM_ABNORMAL_EFFECT(npc.ObjectId, isPlayer: false, npc.GetActiveEffects());
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } buffPlayer && buffPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(abnormal, ct); } catch { }
 
         var expEffect = effect;
@@ -1266,9 +1274,9 @@ public sealed class NpcAiService : BackgroundService
             await Task.Delay(durationMs);
             npc.RemoveEffectBySkillId(expEffect.SkillId);
             var expired = new SM_ABNORMAL_EFFECT(npc.ObjectId, isPlayer: false, npc.GetActiveEffects());
-            int expWorldId = npc.Position.WorldId;
+            var expScope = npc.Position;
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == expWorldId)
+                if (conn.ActivePlayer is { } expBuffPlayer && expBuffPlayer.Position.SameScope(expScope))
                     try { await conn.SendAsync(expired); } catch { }
         });
     }
@@ -1302,6 +1310,7 @@ public sealed class NpcAiService : BackgroundService
         if (durationMs <= 0) return;
         target.LastCombatTime = now;
         npc.LastCombatTime    = now;
+        var scope = npc.Position;
 
         var effect = new AbnormalState { SkillId = skillId, SkillLevel = skillLevel,
             EffectorId = npc.ObjectId, Expiry = DateTime.UtcNow.AddMilliseconds(durationMs),
@@ -1331,7 +1340,7 @@ public sealed class NpcAiService : BackgroundService
         {
             var speedEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == worldId)
+                if (conn.ActivePlayer is { } speedEmoPlayer && speedEmoPlayer.Position.SameScope(scope))
                     try { await conn.SendAsync(speedEmo, ct); } catch { }
         }
 
@@ -1339,7 +1348,7 @@ public sealed class NpcAiService : BackgroundService
         {
             var atkSpdEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == worldId)
+                if (conn.ActivePlayer is { } atkSpdEmoPlayer && atkSpdEmoPlayer.Position.SameScope(scope))
                     try { await conn.SendAsync(atkSpdEmo, ct); } catch { }
         }
         if (pdefDelta != 0 || mresistDelta != 0 || patkDelta != 0 || evasionDelta != 0 || maxHpDelta != 0 || magicAtkDelta != 0 || atkSpdDelta != 0 || maxMpDelta != 0 || mBoostDebuffDelta != 0 || physAccDelta != 0 || magicAccDelta != 0 || parryDelta != 0 || blockDelta != 0 || physCritDelta != 0 || magicCritDelta != 0 || physCritResistDelta != 0 || magicCritResistDelta != 0 || strikeFortitudeDelta != 0 || spellFortitudeDelta != 0 || castTimeDelta != 0 || concentrationDelta != 0 || magicSuppressionDelta != 0 || pdefStatUpDelta != 0 || magicDefDelta != 0)
@@ -1351,7 +1360,7 @@ public sealed class NpcAiService : BackgroundService
 
         var abnormal = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } debuffAbnormalPlayer && debuffAbnormalPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(abnormal, ct); } catch { }
 
         // Java RootEffect/StunEffect: broadcast SM_TARGET_IMMOBILIZE to freeze the player's position on all clients
@@ -1359,7 +1368,7 @@ public sealed class NpcAiService : BackgroundService
         {
             var immobilize = new SM_TARGET_IMMOBILIZE(target);
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == worldId)
+                if (conn.ActivePlayer is { } immobilizePlayer && immobilizePlayer.Position.SameScope(scope))
                     try { await conn.SendAsync(immobilize, ct); } catch { }
         }
 
@@ -1387,17 +1396,17 @@ public sealed class NpcAiService : BackgroundService
             if (speedRestored)
             {
                 var restoreEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
-                int restoreWorld = target.Position.WorldId;
+                var restoreScope = target.Position;
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == restoreWorld)
+                    if (conn.ActivePlayer is { } restorePlayer && restorePlayer.Position.SameScope(restoreScope))
                         try { await conn.SendAsync(restoreEmo); } catch { }
             }
             if (atkSpeedRestored)
             {
                 var restoreAtkEmo = new SM_EMOTION(target, EmotionType.START_EMOTE2);
-                int restoreAtkWorld = target.Position.WorldId;
+                var restoreAtkScope = target.Position;
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == restoreAtkWorld)
+                    if (conn.ActivePlayer is { } restoreAtkPlayer && restoreAtkPlayer.Position.SameScope(restoreAtkScope))
                         try { await conn.SendAsync(restoreAtkEmo); } catch { }
             }
             if (statChanged)
@@ -1407,9 +1416,9 @@ public sealed class NpcAiService : BackgroundService
                 if (dc is not null) try { await dc.SendAsync(statsInfo); } catch { }
             }
             var expired = new SM_ABNORMAL_EFFECT(target.ObjectId, isPlayer: true, target.GetActiveEffects());
-            int expWorldId = target.Position.WorldId;
+            var expiredScope = target.Position;
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == expWorldId)
+                if (conn.ActivePlayer is { } expiredDebuffPlayer && expiredDebuffPlayer.Position.SameScope(expiredScope))
                     try { await conn.SendAsync(expired); } catch { }
         });
     }
@@ -1426,7 +1435,7 @@ public sealed class NpcAiService : BackgroundService
         foreach (var player in players)
         {
             if (player.IsAlreadyDead || player.IsHidden) continue;
-            if (player.Position.WorldId != npc.Position.WorldId) continue;
+            if (!player.Position.SameScope(npc.Position)) continue;
             if (!_dataManager.Tribes.IsAggressiveToPlayer(npc.Template.Tribe, player.Race)) continue;
             if (npc.Position.DistanceTo(player.Position) > triggerRange) continue;
             victim = player;
@@ -1448,7 +1457,7 @@ public sealed class NpcAiService : BackgroundService
         // (SHOULD_REWARD/SHOULD_RESPAWN/SHOULD_DECAY are all NEGATIVE for traps).
         const int TrapDespawnDelayMs = 1000;
         var despawnNpc   = npc;
-        var despawnWorld = npc.Position.WorldId;
+        var despawnScope = npc.Position;
         _ = Task.Run(async () =>
         {
             await Task.Delay(TrapDespawnDelayMs);
@@ -1456,7 +1465,7 @@ public sealed class NpcAiService : BackgroundService
             _trapTriggered.TryRemove(despawnNpc.ObjectId, out _);
             var del = new SM_DELETE(despawnNpc.ObjectId);
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == despawnWorld)
+                if (conn.ActivePlayer is { } despawnPlayer && despawnPlayer.Position.SameScope(despawnScope))
                     try { await conn.SendAsync(del); } catch { }
         });
     }
@@ -1483,9 +1492,9 @@ public sealed class NpcAiService : BackgroundService
 
         var movePkt = SM_MOVE.StartNpcMove(npc.ObjectId,
             npc.Position.X, npc.Position.Y, npc.Position.Z, heading, tx, ty, tz);
-        int worldId = npc.Position.WorldId;
+        var scope = npc.Position;
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } chasePlayer && chasePlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(movePkt, ct); } catch { }
     }
 
@@ -1510,9 +1519,9 @@ public sealed class NpcAiService : BackgroundService
         var returnPkt = SM_MOVE.StartNpcMove(npc.ObjectId,
             npc.Position.X, npc.Position.Y, npc.Position.Z, heading,
             npc.HomePosition.X, npc.HomePosition.Y, npc.HomePosition.Z);
-        int worldId = npc.Position.WorldId;
+        var scope = npc.Position;
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } returnPlayer && returnPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(returnPkt, ct); } catch { }
     }
 
@@ -1522,9 +1531,9 @@ public sealed class NpcAiService : BackgroundService
             npc.Template.NpcId, NpcShoutData.ShoutEventType.ATTACK_END, npc.Position.WorldId);
         if (!shout.HasValue) return;
         var pkt     = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, shout.Value.StringId);
-        int worldId = npc.Position.WorldId;
+        var scope   = npc.Position;
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } shoutEndPlayer && shoutEndPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(pkt, ct); } catch { }
     }
 
@@ -1541,8 +1550,8 @@ public sealed class NpcAiService : BackgroundService
 
     private async Task PatrolAsync(Npc npc, WalkerData.RouteStep[] route, CancellationToken ct)
     {
-        var now     = DateTime.UtcNow;
-        int worldId = npc.Position.WorldId;
+        var now   = DateTime.UtcNow;
+        var scope = npc.Position;
 
         // Check if an in-progress wander move has arrived
         if (_wanderState.TryGetValue(npc.ObjectId, out var ws))
@@ -1556,7 +1565,7 @@ public sealed class NpcAiService : BackgroundService
                 int prev = _walkerStepIndex.GetValueOrDefault(npc.ObjectId, 0);
                 _walkerStepIndex[npc.ObjectId] = (prev + 1) % route.Length;
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    if (conn.ActivePlayer is { } patrolStopPlayer && patrolStopPlayer.Position.SameScope(scope))
                         try { await conn.SendAsync(stop, ct); } catch { }
             }
             return; // still traveling
@@ -1585,7 +1594,7 @@ public sealed class NpcAiService : BackgroundService
         var movePkt = SM_MOVE.StartNpcMove(npc.ObjectId,
             npc.Position.X, npc.Position.Y, npc.Position.Z, heading, step.X, step.Y, step.Z);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } patrolMovePlayer && patrolMovePlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(movePkt, ct); } catch { }
     }
 
@@ -1593,6 +1602,7 @@ public sealed class NpcAiService : BackgroundService
     {
         var now     = DateTime.UtcNow;
         int worldId = npc.HomePosition.WorldId;
+        var scope   = npc.HomePosition;
 
         // If there's an active wander, check arrival
         if (_wanderState.TryGetValue(npc.ObjectId, out var ws))
@@ -1604,7 +1614,7 @@ public sealed class NpcAiService : BackgroundService
                 var stop = SM_MOVE.StopNpcMove(npc.ObjectId, ws.Tx, ws.Ty, ws.Tz, (byte)npc.Position.Heading);
                 _wanderState.Remove(npc.ObjectId);
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    if (conn.ActivePlayer is { } wanderStopPlayer && wanderStopPlayer.Position.SameScope(scope))
                         try { await conn.SendAsync(stop, ct); } catch { }
             }
             return; // still traveling, or just arrived (done for this tick)
@@ -1633,7 +1643,7 @@ public sealed class NpcAiService : BackgroundService
         var start = SM_MOVE.StartNpcMove(npc.ObjectId, npc.Position.X, npc.Position.Y, npc.Position.Z,
             heading, tx, ty, tz);
         foreach (var conn in _connRegistry.GetAll())
-            if (conn.ActivePlayer?.Position.WorldId == worldId)
+            if (conn.ActivePlayer is { } wanderStartPlayer && wanderStartPlayer.Position.SameScope(scope))
                 try { await conn.SendAsync(start, ct); } catch { }
 
         // IDLE shout — periodic ambient NPC shout (at most once per 30 s)
@@ -1646,7 +1656,7 @@ public sealed class NpcAiService : BackgroundService
                 _lastIdleShoutTime[npc.ObjectId] = now;
                 var shoutPkt = SM_SYSTEM_MESSAGE.NpcShout(npc.ObjectId, idleShout.Value.StringId);
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == worldId)
+                    if (conn.ActivePlayer is { } wanderShoutPlayer && wanderShoutPlayer.Position.SameScope(scope))
                         try { await conn.SendAsync(shoutPkt, ct); } catch { }
             }
         }
@@ -1677,13 +1687,13 @@ public sealed class NpcAiService : BackgroundService
             npc.Target = player;
 
             // Broadcast combat stance + face the target — fire-and-forget since ForceEngage is sync
-            int engageWorld = npc.Position.WorldId;
+            var engageScope = npc.Position;
             var attackMode  = new SM_EMOTION(npc, EmotionType.ATTACKMODE);
             var lookAt      = new SM_LOOKATOBJECT(npc);
             _ = Task.Run(async () =>
             {
                 foreach (var conn in _connRegistry.GetAll())
-                    if (conn.ActivePlayer?.Position.WorldId == engageWorld)
+                    if (conn.ActivePlayer is { } forceEngagePlayer && forceEngagePlayer.Position.SameScope(engageScope))
                     {
                         try { await conn.SendAsync(attackMode); } catch { }
                         try { await conn.SendAsync(lookAt); } catch { }
@@ -1696,12 +1706,12 @@ public sealed class NpcAiService : BackgroundService
     // Uses each potential ally's own aggro range as the assist radius.
     private void AlertNearbyAllies(Npc aggressor, Player target)
     {
-        int worldId = aggressor.Position.WorldId;
+        var aggressorScope = aggressor.Position;
         foreach (var ally in _world.GetAllNpcs())
         {
             if (ally.ObjectId == aggressor.ObjectId) continue;
             if (ally.IsAlreadyDead) continue;
-            if (ally.Position.WorldId != worldId) continue;
+            if (!ally.Position.SameScope(aggressorScope)) continue;
             if (_npcTargets.ContainsKey(ally.ObjectId)) continue;
             // ally-assist is proactive aggro — Guard scans/assists like Aggressive, everything else doesn't
             if (ResolveArchetype(ally) is not (AiArchetype.Aggressive or AiArchetype.Guard)) continue;

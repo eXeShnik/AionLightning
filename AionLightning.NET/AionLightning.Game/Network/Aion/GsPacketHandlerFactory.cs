@@ -65,6 +65,7 @@ public sealed class GsPacketHandlerFactory
     private readonly SummonsService          _summonsService;
     private readonly EffectTickScheduler     _effectTickScheduler;
     private readonly ZoneService             _zoneService;
+    private readonly TeleportService         _teleport;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -114,7 +115,8 @@ public sealed class GsPacketHandlerFactory
         QuestRewardService questRewardService,
         SummonsService summonsService,
         EffectTickScheduler effectTickScheduler,
-        ZoneService zoneService)
+        ZoneService zoneService,
+        TeleportService teleport)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -164,6 +166,7 @@ public sealed class GsPacketHandlerFactory
         _summonsService      = summonsService;
         _effectTickScheduler = effectTickScheduler;
         _zoneService         = zoneService;
+        _teleport            = teleport;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -213,7 +216,7 @@ public sealed class GsPacketHandlerFactory
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillLearn, _spawnService),
                 0xC9  => new CM_EMOTION(conn, _connRegistry),
                 0xCA  => new CM_PLAYER_LISTENER(),
-                0xCC  => new CM_INSTANCE_LEAVE(conn, _world, _dataManager, _connRegistry),
+                0xCC  => new CM_INSTANCE_LEAVE(conn, _teleport),
                 0xCD  => new CM_LEGION_SEND_EMBLEM(conn, _legionService),
                 0xCE  => new CM_PING(conn),
                 0xCF  => new CM_LEGION(conn, _legionService, _legionDao, _connRegistry, _itemDao),
@@ -314,7 +317,7 @@ public sealed class GsPacketHandlerFactory
                 0x170 => new CM_REPLACE_ITEM(conn, _itemDao),
                 0x171 => new CM_BLOCK_SET_REASON(conn, _socialDao),
                 0x172 => new CM_MACRO_DELETE(conn, _macroDao),
-                0x176 => new CM_TELEPORT_SELECT(conn, _world, _dataManager, _itemDao, _connRegistry),
+                0x176 => new CM_TELEPORT_SELECT(conn, _world, _dataManager, _itemDao, _teleport),
                 0x17C => new CM_SHOW_BLOCKLIST(conn, _socialDao),
                 0x17D => new CM_PLAYER_SEARCH(conn, _connRegistry),
                 0x17E => new CM_MOVE_ITEM(conn, _itemDao, _legionDao),

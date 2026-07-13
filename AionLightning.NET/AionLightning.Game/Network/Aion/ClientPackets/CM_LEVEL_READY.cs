@@ -47,14 +47,14 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         // Own buff bar with remaining durations (Java PlayerEffectController → SM_ABNORMAL_STATE)
         try { await _conn.SendAsync(new SM_ABNORMAL_STATE(player.GetActiveEffects()), ct); } catch { }
 
-        // Introduce each already-online player in the same zone to the newcomer and vice versa
-        int worldId        = player.Position.WorldId;
+        // Introduce each already-online player in the same zone/channel to the newcomer and vice versa
+        var scope          = player.Position;
         var playerSettings = new SM_CUSTOM_SETTINGS(player.ObjectId, player.DisplaySettings, player.DenySettings);
         var playerInfo     = new SM_PLAYER_INFO(player, player.Appearance, enemy: false, playerEquipment);
         foreach (var otherConn in _connRegistry.GetAllExcept(player.ObjectId))
         {
             var other = otherConn.ActivePlayer;
-            if (other is null || other.Position.WorldId != worldId) continue;
+            if (other is null || !other.Position.SameScope(scope)) continue;
 
             var otherEquipment = other.Inventory.All.Where(i => i.IsEquipped).ToList();
 
@@ -75,16 +75,16 @@ public sealed class CM_LEVEL_READY : AionClientPacket
                 try { await otherConn.SendAsync(new SM_LEGION_UPDATE_TITLE(player.ObjectId, myLegion.LegionId, myLegion.Name, myMember.Rank), ct); } catch { }
         }
 
-        // Introduce spawned NPCs in the same zone to the entering player
-        foreach (var npc in _world.GetAllNpcs().Where(n => n.Position.WorldId == worldId))
+        // Introduce spawned NPCs in the same zone/channel to the entering player
+        foreach (var npc in _world.GetNpcsInScope(scope))
             try { await _conn.SendAsync(new SM_NPC_INFO(npc), ct); } catch { }
 
-        // M381: introduce active summons (Spiritmaster spirits, etc.) in the same zone
-        foreach (var summon in _world.GetAllSummons().Where(s => s.Position.WorldId == worldId))
+        // M381: introduce active summons (Spiritmaster spirits, etc.) in the same zone/channel
+        foreach (var summon in _world.GetSummonsInScope(scope))
             try { await _conn.SendAsync(new SM_NPC_INFO(summon), ct); } catch { }
 
-        // Introduce gatherables in the same zone
-        foreach (var g in _world.GetAllGatherables().Where(g => g.Position.WorldId == worldId && !g.IsGathered))
+        // Introduce gatherables in the same zone/channel
+        foreach (var g in _world.GetGatherablesInScope(scope).Where(g => !g.IsGathered))
             try { await _conn.SendAsync(new SM_GATHERABLE_INFO(g), ct); } catch { }
 
         await _eventBus.PublishAsync(new PlayerEnteredWorldEvent(player), ct);

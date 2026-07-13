@@ -26,6 +26,8 @@ public sealed class QuestEngineHostedService(
     QuestRewardService rewardService,
     SpawnService spawnService,
     SkillLearnService skillLearn,
+    InstanceService instanceService,
+    TeleportService teleport,
     CSharpCompilerService compiler,
     ILogger<QuestEngineHostedService> log) : IHostedService
 {
@@ -84,6 +86,7 @@ public sealed class QuestEngineHostedService(
         QuestHandlerBase.InitSpawnService(spawnService);
         QuestHandlerBase.InitEngine(engine);
         QuestHandlerBase.InitSkillLearn(skillLearn);
+        QuestHandlerBase.InitInstanceServices(instanceService, teleport);
         LoadHandWrittenScripts();
 
         // Must run after every handler above (and every script handler) has registered its NPCs,

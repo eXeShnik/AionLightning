@@ -66,6 +66,43 @@ public sealed class SpawnService
         _log.LogInformation("SpawnService: spawned {Spawned} gatherables ({Skipped} skipped)", gSpawned, gSkipped);
     }
 
+    /// <summary>
+    /// Populates a freshly-created instance channel with its own copy of the map's static NPC and
+    /// gatherable set, tagged with <paramref name="instanceId"/> so they are visible only inside that
+    /// channel (Java <c>SpawnEngine.spawnInstance</c>). Open-world <see cref="SpawnAll"/> is unaffected.
+    /// </summary>
+    public int SpawnInstance(int worldId, int instanceId, int ownerId = 0)
+    {
+        int npcSpawned = 0;
+        foreach (var entry in _dataManager.Spawns.GetByMap(worldId))
+        {
+            var template = _dataManager.Npcs.GetTemplate(entry.NpcId);
+            if (template is null) continue;
+            foreach (var spot in entry.Spots)
+            {
+                SpawnNpc(template, new Position(spot.X, spot.Y, spot.Z, spot.Heading, worldId, instanceId), entry.RespawnTime, spot.WalkerId);
+                npcSpawned++;
+            }
+        }
+
+        int gSpawned = 0;
+        foreach (var (mapId, entry) in _dataManager.Spawns.AllGather())
+        {
+            if (mapId != worldId) continue;
+            var template = _dataManager.Gatherables.GetTemplate(entry.NpcId);
+            if (template is null) continue;
+            foreach (var spot in entry.Spots)
+            {
+                SpawnGatherable(template, new Position(spot.X, spot.Y, spot.Z, spot.Heading, worldId, instanceId), entry.RespawnTime);
+                gSpawned++;
+            }
+        }
+
+        _log.LogInformation("SpawnService: instance {World}:{Instance} spawned {Npc} NPCs, {Gather} gatherables",
+            worldId, instanceId, npcSpawned, gSpawned);
+        return npcSpawned + gSpawned;
+    }
+
     private Gatherable SpawnGatherable(GatherableTemplate template, Position position, int respawnTime = 0)
     {
         var g = new Gatherable(template)
@@ -92,7 +129,7 @@ public sealed class SpawnService
             var respawned = SpawnGatherable(template, position, respawnTime);
             var infoPacket = new SM_GATHERABLE_INFO(respawned);
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == position.WorldId)
+                if (conn.ActivePlayer is { } cp && cp.Position.SameScope(position))
                     try { await conn.SendAsync(infoPacket); } catch { }
         });
     }
@@ -138,7 +175,7 @@ public sealed class SpawnService
             var respawned = SpawnNpc(template, position, respawnTime);
             var infoPacket = new SM_NPC_INFO(respawned);
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == position.WorldId)
+                if (conn.ActivePlayer is { } cp && cp.Position.SameScope(position))
                     try { await conn.SendAsync(infoPacket); } catch { }
         });
     }

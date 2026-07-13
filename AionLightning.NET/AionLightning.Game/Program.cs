@@ -129,6 +129,12 @@ builder.Services.AddSingleton<RepurchaseService>();
 builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddSingleton<SummonsService>();
 builder.Services.AddSingleton<ZoneService>();
+// Instance subsystem: channel registry + lifecycle + teleport choke point + scriptable handlers
+builder.Services.AddSingleton<AionLightning.Game.World.InstanceRegistry>();
+builder.Services.AddSingleton<AionLightning.Game.Instance.InstanceEngine>();
+builder.Services.AddSingleton<InstanceService>();
+builder.Services.AddSingleton<TeleportService>();
+builder.Services.AddHostedService<EmptyInstanceCheckerService>();
 builder.Services.AddHostedService<RegenService>();
 builder.Services.AddSingleton<NpcAiService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NpcAiService>());
@@ -153,6 +159,7 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 // Hosted services: schema migration first, then quest engine bootstrap, then server
 builder.Services.AddHostedService<SchemaMigrationHost>();
 builder.Services.AddHostedService<QuestEngineHostedService>();
+builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();
 builder.Services.AddHostedService<GameServerHost>();
 
 await builder.Build().RunAsync();
