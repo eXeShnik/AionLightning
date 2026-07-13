@@ -76,12 +76,16 @@ public abstract class QuestHandlerBase : IQuestHandler
     /// <summary>Spawns a quest NPC at a fixed location (Java QuestService.addNewSpawn). No-op with a
     /// warning-free false if the spawn service isn't wired or the npc template is unknown.</summary>
     protected bool SpawnQuestNpc(int worldId, int instanceId, int npcId, float x, float y, float z, byte heading)
+        => SpawnQuestNpcAndGet(worldId, instanceId, npcId, x, y, z, heading) is not null;
+
+    /// <summary>As <see cref="SpawnQuestNpc"/> but returns the spawned <see cref="Npc"/> (or null on
+    /// failure) so callers can, e.g., start an escort on the freshly-spawned follower.</summary>
+    protected Npc? SpawnQuestNpcAndGet(int worldId, int instanceId, int npcId, float x, float y, float z, byte heading)
     {
-        if (_spawnService is null) return false;
+        if (_spawnService is null) return null;
         var template = DataManager.Npcs.GetTemplate(npcId);
-        if (template is null) return false;
-        _spawnService.SpawnNpcAt(template, new Position(x, y, z, heading, worldId, instanceId));
-        return true;
+        if (template is null) return null;
+        return _spawnService.SpawnNpcAt(template, new Position(x, y, z, heading, worldId, instanceId));
     }
 
     /// <summary>Creates a fresh instance channel of <paramref name="worldId"/>, registers the player,
