@@ -1,0 +1,83 @@
+// Port of Java data/scripts/system/handlers/quest/beshmundir/_30313GroupOpeningthePrison.java (Gigi).
+// Asmodian counterpart of _30213GroupMagicalEssence, identical shape at different npcs/item: talk to
+// 799322 to start; at 730275, SETPRO1 removes item 182209717 and flips straight to REWARD; turn in
+// at 799225 (a different npc than the start npc - USE_OBJECT shows a preview page,
+// SELECT_QUEST_REWARD shows the reward list, any other dialog falls through to the normal
+// end-dialog flow).
+using System.Threading;
+using System.Threading.Tasks;
+using AionLightning.Game.Dao;
+using AionLightning.Game.DataHolders;
+using AionLightning.Game.Model.Quest;
+using AionLightning.Game.Network.Aion;
+using AionLightning.Game.QuestEngine;
+using AionLightning.Game.QuestEngine.Handlers;
+using AionLightning.Game.QuestEngine.Model;
+using AionLightning.Game.Services;
+
+namespace Quest.Beshmundir;
+
+public sealed class _30313GroupOpeningthePrison : QuestHandlerBase
+{
+    private const int QuestIdConst = 30313;
+    private const int StartNpc     = 799322;
+    private const int SetPro1Npc   = 730275;
+    private const int TurnInNpc    = 799225;
+    private const int PrisonItem   = 182209717;
+
+    private readonly IItemDao _itemDao;
+
+    public _30313GroupOpeningthePrison(IDataManager dataManager, IQuestDao questDao, QuestRewardService rewardService, IItemDao itemDao)
+        : base(QuestIdConst, dataManager, questDao, rewardService)
+    {
+        _itemDao = itemDao;
+    }
+
+    public override void Register(QuestEngine engine)
+    {
+        engine.RegisterQuestNpc(StartNpc).OnQuestStart.Add(QuestId);
+        engine.RegisterQuestNpc(StartNpc).OnTalk.Add(QuestId);
+        engine.RegisterQuestNpc(TurnInNpc).OnTalk.Add(QuestId);
+        engine.RegisterQuestNpc(SetPro1Npc).OnTalk.Add(QuestId);
+    }
+
+    public override async ValueTask<bool> OnDialogAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)
+    {
+        var player      = env.Player;
+        var entry       = player.Quests.Get(QuestId);
+        int targetId    = env.TargetId;
+        int targetObjId = env.Target?.ObjectId ?? 0;
+        var dialog      = DialogActionLookup.FromId(env.DialogId);
+
+        if (entry is null || entry.Status == QuestStatus.NONE)
+        {
+            if (targetId != StartNpc) return false;
+            if (dialog == DialogAction.QUEST_SELECT) return await SendQuestDialogAsync(conn, targetObjId, 4762, ct);
+            return await SendQuestStartDialogAsync(env, conn, ct);
+        }
+
+        if (entry.Status == QuestStatus.START && targetId == SetPro1Npc)
+        {
+            if (dialog == DialogAction.SETPRO1)
+            {
+                await RemoveQuestItemAsync(player, conn, _itemDao, PrisonItem, 1, ct);
+                entry.Status = QuestStatus.REWARD;
+                await UpdateQuestStatusAsync(conn, entry, ct);
+                return true;
+            }
+            return false;
+        }
+
+        if (entry.Status == QuestStatus.REWARD && targetId == TurnInNpc)
+        {
+            return dialog switch
+            {
+                DialogAction.USE_OBJECT          => await SendQuestDialogAsync(conn, targetObjId, 10002, ct),
+                DialogAction.SELECT_QUEST_REWARD => await SendQuestDialogAsync(conn, targetObjId, 5, ct),
+                _ => await SendQuestEndDialogAsync(env, conn, ct),
+            };
+        }
+
+        return false;
+    }
+}
