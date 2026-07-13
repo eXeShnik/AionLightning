@@ -5213,3 +5213,18 @@ furniture (player_registered_items), teleport-into-house, studio spawn. Housing 
   reshanta/hero/tiamaranta), flying-ring (onPassFlyingRings), onRide (mount), onLeaveZone, onEquipItem
   (sanctum 1929), ClassChangeService (ascension 1006/2008), instance living-NPC enumeration from quests
   (tiamaranta 10064/20064 — SpawnQuestNpc returns no Npc ref + no World access in QuestHandlerBase).
+
+## Quest follow/escort AI subsystem (2026-07-13) — commit 4a2f2a84
+Built the biggest remaining quest-unblocker. `Services/FollowService.cs` (BackgroundService, 1s tick):
+escort NPCs speed-follow their owning player (7 m/s, stop 3m behind, SM_MOVE broadcast to scope) and
+fire onNpcReachTarget when the follower reaches its destination (fixed coords / a target NPC's static
+spawn / a named zone region ≤6m) or onNpcLostTarget when the player is >120m away. QuestEngine
+RegisterOnReachTarget/RegisterOnLostTarget + OnNpcReachTargetAsync/OnNpcLostTargetAsync (dispatch to the
+escort's own quest by env.QuestId). QuestHandlerBase/IQuestHandler virtuals + StartFollowToNpc/Coords/Zone
+helpers + register helpers + static FollowService injection (via QuestEngineHostedService). NOTE the
+StartFollow* helpers do NOT advance the dialog step (Java defaultStartFollowEvent does) — handlers chain
+their own ChangeQuestStep. FLEET IN PROGRESS: 33 escort quests across 16 zones (altgard/beluslan/danaria/
+eltnen/event_quests/heiron/inggison/morheim/pandaemonium/reshanta/rider_quests/sanctum/sarpan/theobomos/
+tiamaranta/verteron). Tuning constants (speed/reach/lost distances) are in FollowService and may need
+in-game adjustment. Remaining hooks after this: flying-ring, onRide, onKillRanked-officer (+Glory Points),
+onLeaveZone, onEquipItem, ClassChangeService, dredgion-reward, special-cube.
