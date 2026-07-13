@@ -5198,3 +5198,18 @@ furniture (player_registered_items), teleport-into-house, studio spawn. Housing 
 - Housing foundation done (a7418cfc); rest of housing (bidding/registry/login-owner-info) deferred — XL + infra
   (cron/mail) + login-packet risk. Still-missing quest hooks after this fleet: onAtDistance, follow/escort AI,
   onLeaveZone, onKillRanked-officer, flying-ring, onRide, ClassChangeService.
+
+## Quest onAtDistance hook + fleet (2026-07-13) — commit-cluster, quest total 1408
+- onAtDistance hook: QuestNpc.OnAtDistance + QuestEngine.RegisterOnAtDistance/OnAtDistanceAsync +
+  AtDistanceNpcIds gate; QuestHandlerBase/IQuestHandler virtual + RegisterOnAtDistance helper. Fired from
+  ZoneService on every move: scans scoped NPCs of registered ids within 20m (AtDistanceRange, tunable);
+  skipped when no at-distance quest registered; handlers self-guard on quest var (idempotent).
+- Fleet: +18 quests, 0 skips — katalam 5, tiamaranta_eye 2 (new folder), heiron 3, danuar_reliquary 2
+  (new folder), inggison 1, eltnen 2 (1336+1043 across two fleets), beluslan (28602), pandaemonium (2916),
+  theobomos (3090), udas_temple (30111).
+- Combined with the onDie/onLogOut fleet (+23) this stretch: quest total 1367 → 1408.
+- REMAINING quest hooks still missing (each unblocks a bucket): follow/escort AI (largest, needs NPC
+  pathing-to-target), onKillRanked at officer/general ranks (AbyssRankService caps at 9; ~14 quests:
+  reshanta/hero/tiamaranta), flying-ring (onPassFlyingRings), onRide (mount), onLeaveZone, onEquipItem
+  (sanctum 1929), ClassChangeService (ascension 1006/2008), instance living-NPC enumeration from quests
+  (tiamaranta 10064/20064 — SpawnQuestNpc returns no Npc ref + no World access in QuestHandlerBase).
