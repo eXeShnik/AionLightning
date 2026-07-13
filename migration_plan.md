@@ -5173,3 +5173,12 @@ solution builds clean. P2 (deferred): feed (pet_feed.xml + PetFeedCalculator + S
 (SM_PET 12), doping (pet_doping.xml + SM_PET 13), loot, warehouse, pet skills, egg-item adopt
 consumption, logout-dismiss broadcast, visible-pets-on-zone-in (SendVisiblePetsAsync exists, not
 yet wired into CM_LEVEL_READY). Roadmap next: Housing (L) → ai2 (XL) → sieges (XL) → geodata (data-blocked).
+
+## World-sim tier — Housing foundation DONE (2026-07-13) — commit a7418cfc
+Safe additive scaffolding (no packets/service/login wiring): Model/Templates/Housing/* + DataHolders/
+HousingData.cs (houses.xml + house_buildings.xml — 20 lands, 1032 addresses, 9 buildings verified),
+Model/House/* (House, HouseStatus, HousePermissions), Sql V37 houses + IHouseDao/HouseDaoImpl (registered).
+Full solution builds clean. DEFERRED (login-risk / XL / infra-dependent): HousingService.OnPlayerLogin +
+SM_HOUSE_OWNER_INFO (fires every login — must be live-verified first), SM_HOUSE_* packets (~15), the CM_HOUSE
+handlers, HousingBidService (XL — needs a cron scheduler + mail-formatter), MaintenanceTask cron, HouseRegistry/
+furniture (player_registered_items), teleport-into-house, studio spawn. Housing data files all present (not blocked).
