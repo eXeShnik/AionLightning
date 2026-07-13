@@ -53,6 +53,20 @@ public sealed class ZoneService
                     await _questEngine.OnAtDistanceAsync(new QuestEnv(npc, player, 0, 0), conn, ct);
         }
 
+        // Quest onPassFlyingRing: fire for any fly ring of the player's world the player is now within
+        // radius of (Java's center-proximity fallback). Skipped entirely when no fly-ring quest exists;
+        // handlers self-guard on quest var so repeated fires while lingering are idempotent.
+        if (_questEngine.HasFlyRingQuests)
+        {
+            var here = player.Position;
+            foreach (var ring in _dataManager.FlyRings.GetRingsForWorld(here.WorldId))
+            {
+                float dx = here.X - ring.Cx, dy = here.Y - ring.Cy, dz = here.Z - ring.Cz;
+                if (dx * dx + dy * dy + dz * dz <= ring.Radius * ring.Radius)
+                    await _questEngine.OnPassFlyingRingAsync(player, ring.Name, conn, ct);
+            }
+        }
+
         var regions = _dataManager.Zones.GetRegionsForWorld(player.Position.WorldId);
         var current = player.CurrentZones;
 

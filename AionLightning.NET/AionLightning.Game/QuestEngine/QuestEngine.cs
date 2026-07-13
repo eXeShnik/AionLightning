@@ -35,6 +35,7 @@ public sealed class QuestEngine
     private readonly List<int>                      _lostTargetIndex = new();
     private readonly Dictionary<string, List<int>>  _zoneEnterIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<int>>  _zoneLeaveIndex = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<int>>  _flyRingIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
     private readonly ILogger<QuestEngine>           _log;
@@ -201,6 +202,29 @@ public sealed class QuestEngine
 
     /// <summary>NPC ids that at least one quest watches for the add-aggro-list hook (empty ⇒ skip the check).</summary>
     public IReadOnlySet<int> AddAggroNpcIds => _addAggroNpcIds;
+
+    /// <summary>Registers a quest against a named fly ring (Java registerOnPassFlyingRings).</summary>
+    public void RegisterOnPassFlyingRing(string ringName, int questId)
+    {
+        if (!_flyRingIndex.TryGetValue(ringName, out var quests)) { quests = []; _flyRingIndex[ringName] = quests; }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>True if any quest registered a fly-ring pass (empty ⇒ skip the move-time ring scan).</summary>
+    public bool HasFlyRingQuests => _flyRingIndex.Count > 0;
+
+    /// <summary>Dispatches the fly-ring pass hook (Java onPassFlyingRing) to quests registered against the ring.</summary>
+    public async ValueTask OnPassFlyingRingAsync(Player player, string ringName, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_flyRingIndex.TryGetValue(ringName, out var questIds)) return;
+            foreach (int questId in questIds)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnPassFlyingRingAsync(new QuestEnv(null, player, questId, 0), ringName, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnPassFlyingRingAsync (ring={Ring})", ringName); }
+    }
 
     /// <summary>Dispatches the add-aggro-list hook (Java <c>onAddAggroListEvent</c>) to quests registered against this NPC.</summary>
     public async ValueTask OnAddAggroListAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct)

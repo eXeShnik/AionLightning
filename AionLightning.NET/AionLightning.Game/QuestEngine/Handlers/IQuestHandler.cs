@@ -67,4 +67,7 @@ public interface IQuestHandler
 
     /// <summary>Java onAddAggroListEvent: a registered NPC just aggroed the player.</summary>
     ValueTask<bool> OnAddAggroListAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onPassFlyingRingEvent: the player flew through a named fly ring registered against this quest.</summary>
+    ValueTask<bool> OnPassFlyingRingAsync(QuestEnv env, string ringName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 }

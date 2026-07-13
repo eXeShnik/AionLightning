@@ -144,6 +144,9 @@ public abstract class QuestHandlerBase : IQuestHandler
     /// (Java registerQuestNpc(npcId).addOnAddAggroListEvent). Call from Register().</summary>
     protected void RegisterOnAddAggroList(QuestEngine engine, int npcId) => engine.RegisterOnAddAggroList(npcId, QuestId);
 
+    /// <summary>Registers THIS quest against a named fly ring (Java registerOnPassFlyingRings). Call from Register().</summary>
+    protected void RegisterOnPassFlyingRing(QuestEngine engine, string ringName) => engine.RegisterOnPassFlyingRing(ringName, QuestId);
+
     /// <summary>Registers THIS quest for the escort reach-target hook (Java registerAddOnReachTargetEvent). Call from Register().</summary>
     protected void RegisterOnReachTarget(QuestEngine engine) => engine.RegisterOnReachTarget(QuestId);
 
@@ -200,6 +203,7 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnNpcLostTargetAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnLeaveZoneAsync(QuestEnv env, string zoneName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnAddAggroListAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnPassFlyingRingAsync(QuestEnv env, string ringName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
 
     /// <summary>Opens an NPC dialog page (Java QuestHandler.sendDialogPacket). Always returns true (handled).</summary>
     protected async ValueTask<bool> SendQuestDialogAsync(GsClientConnection conn, int targetObjId, int dialogPageId, CancellationToken ct)
