@@ -7,6 +7,6 @@ using AionLightning.Game.Ai;
 namespace Ai;
 
 [AiName("noaction")]
-public sealed class NoActionAI2 : NpcAi2
+public class NoActionAI2 : NpcAi2
 {
 }
