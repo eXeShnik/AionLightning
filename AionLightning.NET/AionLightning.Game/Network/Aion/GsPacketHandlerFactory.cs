@@ -1,6 +1,7 @@
 using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
 using AionLightning.Game.Configs.Options;
+using AionLightning.Game.Controllers;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion.ClientPackets;
@@ -69,6 +70,8 @@ public sealed class GsPacketHandlerFactory
     private readonly PetService              _petService;
     private readonly PortalService           _portalService;
     private readonly SiegeService            _siegeService;
+    private readonly HousingService          _housingService;
+    private readonly HouseController         _houseController;
     private readonly HousingBidService       _housingBidService;
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
@@ -127,6 +130,8 @@ public sealed class GsPacketHandlerFactory
         PortalService portalService,
         PetService petService,
         SiegeService siegeService,
+        HousingService housingService,
+        HouseController houseController,
         HousingBidService housingBidService,
         IOptions<HousingOptions> housingOptions,
         IOptions<HousingAuctionOptions> housingAuctionOptions,
@@ -184,6 +189,8 @@ public sealed class GsPacketHandlerFactory
         _portalService       = portalService;
         _petService          = petService;
         _siegeService        = siegeService;
+        _housingService      = housingService;
+        _houseController     = houseController;
         _housingBidService   = housingBidService;
         _housingOptions      = housingOptions;
         _housingAuctionOptions = housingAuctionOptions;
@@ -226,7 +233,8 @@ public sealed class GsPacketHandlerFactory
                 0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager, _playerDao, _itemDao),
                 0xA8  => new CM_UI_SETTINGS(conn, _settingsDao),
                 0xA9  => new CM_OBJECT_SEARCH(conn, _dataManager),
-                0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus, _siegeService),
+                0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus, _siegeService,
+                    _housingService, _houseController, _housingOptions),
                 0xAC  => new CM_CAPTCHA(),
                 0xAD  => new CM_TELEPORT_DONE(),
                 0xAE  => new CM_CUSTOM_SETTINGS(conn, _connRegistry, _playerDao),

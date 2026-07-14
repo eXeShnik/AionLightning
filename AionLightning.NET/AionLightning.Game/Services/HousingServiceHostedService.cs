@@ -5,11 +5,18 @@ namespace AionLightning.Game.Services;
 /// <summary>
 /// Loads persisted house ownership from the DB once at boot, after schema migration has created the
 /// houses table (Java HousingService's constructor-time load, minus the singleton — data/persistence
-/// always load in this port; only the client broadcast is gated, via HousingOptions.Enable).
+/// always load in this port; only the client broadcast is gated, via HousingOptions.Enable), then spawns
+/// every house into the world (P2 — see HousingService.SpawnHouses, itself a no-op unless
+/// HousingOptions.Enable is true). Runs before HousingBidServiceHostedService so bid data resolves
+/// against a fully-populated house set.
 /// </summary>
 public sealed class HousingServiceHostedService(HousingService housingService) : IHostedService
 {
-    public Task StartAsync(CancellationToken ct) => housingService.LoadAsync(ct);
+    public async Task StartAsync(CancellationToken ct)
+    {
+        await housingService.LoadAsync(ct);
+        housingService.SpawnHouses();
+    }
 
     public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }

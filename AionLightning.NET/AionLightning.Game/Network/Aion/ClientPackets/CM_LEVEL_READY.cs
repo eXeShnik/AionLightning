@@ -1,9 +1,12 @@
 using AionLightning.Commons.Events;
 using AionLightning.Commons.Network;
+using AionLightning.Game.Configs.Options;
+using AionLightning.Game.Controllers;
 using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
+using Microsoft.Extensions.Options;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -15,15 +18,22 @@ public sealed class CM_LEVEL_READY : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IEventBus _eventBus;
     private readonly SiegeService _siegeService;
+    private readonly HousingService _housingService;
+    private readonly HouseController _houseController;
+    private readonly HousingOptions _housingOptions;
 
     public CM_LEVEL_READY(GsClientConnection conn, GameWorld world,
-        PlayerConnectionRegistry connRegistry, IEventBus eventBus, SiegeService siegeService)
+        PlayerConnectionRegistry connRegistry, IEventBus eventBus, SiegeService siegeService,
+        HousingService housingService, HouseController houseController, IOptions<HousingOptions> housingOptions)
     {
         _conn         = conn;
         _world        = world;
         _connRegistry = connRegistry;
         _eventBus     = eventBus;
         _siegeService = siegeService;
+        _housingService  = housingService;
+        _houseController = houseController;
+        _housingOptions  = housingOptions.Value;
     }
 
     public override void Read(ref PacketReader r) { }
@@ -89,6 +99,16 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         // Introduce gatherables in the same zone/channel
         foreach (var g in _world.GetGatherablesInScope(scope).Where(g => !g.IsGathered))
             try { await _conn.SendAsync(new SM_GATHERABLE_INFO(g), ct); } catch { }
+
+        // Housing P2: introduce every spawned house in the entering player's scope. note: this only
+        // renders houses at enter-world time — Java also re-evaluates house visibility on every move
+        // (HouseController.see/notSee via the knownlist range check); that per-move wiring isn't hooked
+        // into CM_MOVE/ZoneService here to avoid touching the byte-verified movement path, so a house
+        // that comes into/out of range without a full zone reload won't render/despawn until the next
+        // enter-world. No-op entirely unless HousingOptions.Enable is true.
+        if (_housingOptions.Enable)
+            foreach (var house in _housingService.GetHousesInScope(scope))
+                try { await _houseController.SeeAsync(house, player, _conn, ct); } catch { }
 
         await _eventBus.PublishAsync(new PlayerEnteredWorldEvent(player), ct);
 

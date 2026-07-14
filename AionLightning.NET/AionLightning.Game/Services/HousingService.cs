@@ -13,11 +13,15 @@ using Microsoft.Extensions.Options;
 namespace AionLightning.Game.Services;
 
 /// <summary>
-/// P1 housing subsystem (Java services.HousingService — only the load-at-startup + ownership maps +
-/// getters + login owner-flags/broadcast subset is ported here). Bidding, maintenance/fee scheduling,
-/// spawning house objects/NPCs into the world and the studio-purchase flow are P2+ and not present.
-/// The SM_HOUSE_OWNER_INFO client broadcast is gated behind <see cref="HousingOptions.Enable"/>
-/// (default false) — see HousingOptions for the rationale.
+/// Housing subsystem (Java services.HousingService). P1 (load-at-startup + ownership maps + getters +
+/// login owner-flags/broadcast) plus P2 world-spawn/rendering (<see cref="SpawnHouses"/>) are ported;
+/// maintenance/fee scheduling and the studio-purchase flow live in MaintenanceTask and are still not
+/// present here. Houses are tracked in this service's own dictionaries rather than the shared
+/// <c>World</c> NPC/player store — <see cref="SpawnHouses"/> only ever mutates these dictionaries, so
+/// enabling housing cannot regress the open-world NPC/combat spawn-and-broadcast loop. The
+/// SM_HOUSE_OWNER_INFO/SM_HOUSE_RENDER/SM_HOUSE_UPDATE/SM_DELETE_HOUSE client broadcasts (and, per
+/// <see cref="SpawnHouses"/>'s own gate, the spawn step itself) are gated behind
+/// <see cref="HousingOptions.Enable"/> (default false) — see HousingOptions for the rationale.
 /// </summary>
 public sealed class HousingService(
     IHouseDao houseDao,
@@ -54,6 +58,95 @@ public sealed class HousingService(
 
         log.LogInformation("HousingService: loaded {Custom} custom house(s), {Studios} studio(s)",
             _customHouses.Count, _studios.Count);
+    }
+
+    /// <summary>
+    /// Java services.HousingService.spawnHouses(worldId, instanceId, registeredId) — collapsed to a single
+    /// startup-time sweep across every housing land instead of Java's per-world-load invocation (this port
+    /// has no per-world "spawn on load" hook to call it from), and always into the open world
+    /// (instanceId 0; nothing here places a house inside a dungeon instance). For every land's addresses
+    /// (skipping studio lands — studios are per-owner, spawned separately from <see cref="_studios"/>),
+    /// materializes a missing/never-persisted custom house the same way Java does (a fresh, unowned,
+    /// NoSale house keyed by address — Java's <c>PersistentState.NEW</c>, only ever written to the DB once
+    /// acquired), then positions it and loads its default building-part decorations.
+    ///
+    /// No-op entirely (not even the missing-house materialization) unless <see cref="HousingOptions.Enable"/>
+    /// is true: houses are new SM_HOUSE_* traffic on unverified 4.5-era opcodes, so this whole subsystem
+    /// stays off the byte-verified enter-world path until enabled. Called once at startup by
+    /// <see cref="HousingServiceHostedService"/>, after <see cref="LoadAsync"/> and before
+    /// <see cref="HousingBidService.LoadAsync"/> (so bid data resolves against a fully-populated house set).
+    /// </summary>
+    public void SpawnHouses()
+    {
+        if (!options.Value.Enable)
+        {
+            log.LogInformation("HousingService: world-spawn disabled (GameServer:Housing:Enable=false) — houses not spawned.");
+            return;
+        }
+
+        int customSpawned = 0, studiosSpawned = 0, skipped = 0;
+
+        lock (_lock)
+        {
+            foreach (var land in dataManager.Housing.Lands)
+            {
+                var defaultBuilding = land.DefaultBuilding;
+                if (defaultBuilding is null || defaultBuilding.Type == BuildingType.PERSONAL_INS)
+                    continue; // studio lands are handled via the _studios dictionary below.
+
+                foreach (var address in land.Addresses)
+                {
+                    if (!_customHouses.TryGetValue(address.Id, out var house))
+                    {
+                        house = new House
+                        {
+                            Id = ObjectIdFactory.Next(),
+                            Address = address.Id,
+                            BuildingId = defaultBuilding.Id,
+                            Status = HouseStatus.NoSale,
+                        };
+                        _customHouses[address.Id] = house;
+                    }
+
+                    var building = dataManager.Housing.GetBuilding(house.BuildingId) ?? defaultBuilding;
+                    SpawnHouse(house, building, address);
+                    customSpawned++;
+                }
+            }
+
+            foreach (var studio in _studios.Values)
+            {
+                var address = dataManager.Housing.GetAddress(studio.Address);
+                var building = dataManager.Housing.GetBuilding(studio.BuildingId);
+                if (address is null || building is null) { skipped++; continue; }
+
+                SpawnHouse(studio, building, address);
+                studiosSpawned++;
+            }
+        }
+
+        log.LogInformation("HousingService: spawned {Custom} custom house(s), {Studios} studio(s) ({Skipped} skipped)",
+            customSpawned, studiosSpawned, skipped);
+    }
+
+    private static void SpawnHouse(House house, Building building, HouseAddress address)
+    {
+        house.FixBuildingStates();
+        house.Position = new Position(address.X, address.Y, address.Z, 0, address.MapId);
+        house.Registry.LoadDefaultParts(building);
+    }
+
+    /// <summary>Houses (custom + studios) currently spawned in the same world/instance scope as
+    /// <paramref name="scope"/> — used to introduce them to a player entering that scope (see
+    /// CM_LEVEL_READY).</summary>
+    public List<House> GetHousesInScope(Position scope)
+    {
+        lock (_lock)
+        {
+            return _customHouses.Values.Concat(_studios.Values)
+                .Where(h => h.Position is { } pos && pos.SameScope(scope))
+                .ToList();
+        }
     }
 
     private bool IsStudioBuilding(int buildingId) =>
