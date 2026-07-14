@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS siege_locations (
+    id INT NOT NULL,
+    race ENUM('ELYOS','ASMODIANS','BALAUR') NOT NULL DEFAULT 'BALAUR',
+    legion_id INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);

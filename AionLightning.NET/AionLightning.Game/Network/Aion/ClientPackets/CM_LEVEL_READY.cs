@@ -3,6 +3,7 @@ using AionLightning.Commons.Network;
 using AionLightning.Game.Events;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
@@ -13,14 +14,16 @@ public sealed class CM_LEVEL_READY : AionClientPacket
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IEventBus _eventBus;
+    private readonly SiegeService _siegeService;
 
     public CM_LEVEL_READY(GsClientConnection conn, GameWorld world,
-        PlayerConnectionRegistry connRegistry, IEventBus eventBus)
+        PlayerConnectionRegistry connRegistry, IEventBus eventBus, SiegeService siegeService)
     {
         _conn         = conn;
         _world        = world;
         _connRegistry = connRegistry;
         _eventBus     = eventBus;
+        _siegeService = siegeService;
     }
 
     public override void Read(ref PacketReader r) { }
@@ -88,5 +91,7 @@ public sealed class CM_LEVEL_READY : AionClientPacket
             try { await _conn.SendAsync(new SM_GATHERABLE_INFO(g), ct); } catch { }
 
         await _eventBus.PublishAsync(new PlayerEnteredWorldEvent(player), ct);
+
+        await _siegeService.OnEnterSiegeWorldAsync(player, _conn, ct);
     }
 }

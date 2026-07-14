@@ -68,6 +68,7 @@ public sealed class GsPacketHandlerFactory
     private readonly TeleportService         _teleport;
     private readonly PetService              _petService;
     private readonly PortalService           _portalService;
+    private readonly SiegeService            _siegeService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -120,7 +121,8 @@ public sealed class GsPacketHandlerFactory
         ZoneService zoneService,
         TeleportService teleport,
         PortalService portalService,
-        PetService petService)
+        PetService petService,
+        SiegeService siegeService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -173,6 +175,7 @@ public sealed class GsPacketHandlerFactory
         _teleport            = teleport;
         _portalService       = portalService;
         _petService          = petService;
+        _siegeService        = siegeService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -211,7 +214,7 @@ public sealed class GsPacketHandlerFactory
                 0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager, _playerDao, _itemDao),
                 0xA8  => new CM_UI_SETTINGS(conn, _settingsDao),
                 0xA9  => new CM_OBJECT_SEARCH(conn, _dataManager),
-                0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus),
+                0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus, _siegeService),
                 0xAC  => new CM_CAPTCHA(),
                 0xAD  => new CM_TELEPORT_DONE(),
                 0xAE  => new CM_CUSTOM_SETTINGS(conn, _connRegistry, _playerDao),
