@@ -21,7 +21,7 @@ public interface IDataManager
     DecomposableSelectItemsData    SelectItems { get; }
     PlayerTitlesData               Titles      { get; }
     WalkerData                     Walkers     { get; }
-    TribeData                      Tribes      { get; }
+    TribeRelationsData             TribeRelations { get; }
     NpcShoutData                   NpcShouts   { get; }
     PortalData                     Portals     { get; }
     BindPointData                  BindPoints  { get; }

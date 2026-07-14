@@ -170,6 +170,7 @@ builder.Services.AddSingleton<AionLightning.Game.Controllers.HouseController>();
 builder.Services.AddSingleton<AionLightning.Game.Controllers.FlyController>();
 builder.Services.AddSingleton<MaintenanceTask>();
 builder.Services.AddSingleton<DoorService>();
+builder.Services.AddSingleton<TribeRelationService>();
 builder.Services.AddSingleton<NpcShoutsService>();
 builder.Services.AddSingleton<FollowService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FollowService>());

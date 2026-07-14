@@ -61,6 +61,7 @@ public sealed class NpcAiService : BackgroundService
     private readonly LootService  _lootService;
     private readonly QuestService _questService;
     private readonly SpawnService _spawnService;
+    private readonly TribeRelationService _tribeRelationService;
     private readonly Dictionary<int, DateTime>    _lastAttackTime  = new();
     private readonly Dictionary<int, DateTime>    _lastSkillTime   = new();
     private readonly ConcurrentDictionary<int, int> _npcTargets    = new();
@@ -85,11 +86,15 @@ public sealed class NpcAiService : BackgroundService
     private readonly ConcurrentDictionary<int, byte> _trapTriggered   = new();
     // M381: summon AI — objectId → last melee-attack timestamp (ATTACK mode cooldown)
     private readonly Dictionary<int, DateTime> _summonLastAttackTime = new();
+    // Tribe-relation NPC-vs-NPC aggro: NPC objectId → rival NPC objectId it's currently engaging
+    // (kept separate from _npcTargets, which is player-only — see TickNpcRivalAggroAsync).
+    private readonly ConcurrentDictionary<int, int> _npcRivalTargets = new();
+    private readonly Dictionary<int, DateTime> _lastRivalAttackTime  = new();
 
     public NpcAiService(GameWorld world, PlayerConnectionRegistry connRegistry, IDataManager dataManager,
         ExperienceService expService, ILogger<NpcAiService> log, IOptions<RateOptions> rates, IEventBus eventBus,
         LootService lootService, QuestService questService, SpawnService spawnService,
-        AionLightning.Game.QuestEngine.QuestEngine questEngine)
+        AionLightning.Game.QuestEngine.QuestEngine questEngine, TribeRelationService tribeRelationService)
     {
         _world        = world;
         _connRegistry = connRegistry;
@@ -102,6 +107,7 @@ public sealed class NpcAiService : BackgroundService
         _questService = questService;
         _spawnService = spawnService;
         _questEngine  = questEngine;
+        _tribeRelationService = tribeRelationService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -169,6 +175,8 @@ public sealed class NpcAiService : BackgroundService
                 _lastAttackTime.Remove(npc.ObjectId);
                 _lastSkillTime.Remove(npc.ObjectId);
                 _npcTargets.TryRemove(npc.ObjectId, out _);
+                _npcRivalTargets.TryRemove(npc.ObjectId, out _);
+                _lastRivalAttackTime.Remove(npc.ObjectId);
                 _wanderState.Remove(npc.ObjectId);
                 _lastWanderTime.Remove(npc.ObjectId);
                 _chaseState.Remove(npc.ObjectId);
@@ -282,7 +290,7 @@ public sealed class NpcAiService : BackgroundService
                     {
                         if (player.IsAlreadyDead) continue;
                         if (!player.Position.SameScope(npc.Position)) continue;
-                        if (!_dataManager.Tribes.IsAggressiveToPlayer(npc.Template.Tribe, player.Race)) continue;
+                        if (!_tribeRelationService.IsAggressive(npc, player)) continue;
 
                         float dist = npc.Position.DistanceTo(player.Position);
                         if (dist <= npc.Template.AggroRange && dist < minDist)
@@ -294,6 +302,7 @@ public sealed class NpcAiService : BackgroundService
                     if (target is not null)
                     {
                         _npcTargets[npc.ObjectId] = target.ObjectId;
+                        _npcRivalTargets.TryRemove(npc.ObjectId, out _); // player aggro pre-empts an in-progress rival fight
                         npc.Target = target;
                         AlertNearbyAllies(npc, target);
                         await FireAddAggroListAsync(npc, target, ct);
@@ -322,11 +331,23 @@ public sealed class NpcAiService : BackgroundService
                         }
                     }
                 }
+
+                // Tribe-relation NPC-vs-NPC aggro (Java AggroEventHandler.onAggro/callForHelp fire for any
+                // Creature the knownlist sees, not just players): when no player target was found or kept,
+                // an Aggressive/Guard NPC whose tribe carries any aggro/hostile relation at all also scans
+                // for the nearest hostile-tribe NPC in range and engages it. Kept as its own tracked target
+                // (_npcRivalTargets) rather than folded into the player-only _npcTargets/target above, so
+                // this can never disturb the player-aggro/combat path it runs alongside.
+                if (target is null && canAggroScan && npc.Template.AggroRange > 0 && _tribeRelationService.HasAggroRelations(npc))
+                {
+                    await TickNpcRivalAggroAsync(npc, ct);
+                }
             }
 
             // Wander when idle (Aggressive/General only — NoAction/Interaction never move).
             // Guard never random-wanders off its post, but still walks an assigned patrol route.
-            if (target is null)
+            // A rival-tribe fight in progress (see TickNpcRivalAggroAsync) also counts as "busy".
+            if (target is null && !_npcRivalTargets.ContainsKey(npc.ObjectId))
             {
                 if (canWander) await WanderAsync(npc, ct);
                 else if (patrolOnly && !string.IsNullOrEmpty(npc.WalkerId)) await WanderAsync(npc, ct);
@@ -1442,7 +1463,7 @@ public sealed class NpcAiService : BackgroundService
         {
             if (player.IsAlreadyDead || player.IsHidden) continue;
             if (!player.Position.SameScope(npc.Position)) continue;
-            if (!_dataManager.Tribes.IsAggressiveToPlayer(npc.Template.Tribe, player.Race)) continue;
+            if (!_tribeRelationService.IsAggressive(npc, player)) continue;
             if (npc.Position.DistanceTo(player.Position) > triggerRange) continue;
             victim = player;
             break;
@@ -1476,7 +1497,10 @@ public sealed class NpcAiService : BackgroundService
         });
     }
 
-    private async Task ChaseAsync(Npc npc, Player target, CancellationToken ct)
+    // Widened from Player to Creature (M382: tribe-relation NPC-vs-NPC aggro reuses this for chasing a
+    // rival Npc) — the body only ever reads target.Position, so this is a pure signature broadening with
+    // no behavior change for the existing player-chase call sites.
+    private async Task ChaseAsync(Npc npc, Creature target, CancellationToken ct)
     {
         float dx = target.Position.X - npc.Position.X;
         float dy = target.Position.Y - npc.Position.Y;
@@ -1732,7 +1756,8 @@ public sealed class NpcAiService : BackgroundService
             if (_npcTargets.ContainsKey(ally.ObjectId)) continue;
             // ally-assist is proactive aggro — Guard scans/assists like Aggressive, everything else doesn't
             if (ResolveArchetype(ally) is not (AiArchetype.Aggressive or AiArchetype.Guard)) continue;
-            if (!_dataManager.Tribes.IsSupport(ally.Template.Tribe, aggressor.Template.Tribe)) continue;
+            if (!_tribeRelationService.HasSupportRelations(ally)) continue; // perf: skip tribes with no support relations at all
+            if (!_tribeRelationService.IsSupport(ally, aggressor)) continue;
 
             float checkRange = ally.Template.AggroRange > 0 ? ally.Template.AggroRange : MeleeRange * 4;
             if (ally.Position.DistanceTo(aggressor.Position) > checkRange) continue;
@@ -1740,6 +1765,133 @@ public sealed class NpcAiService : BackgroundService
             _npcTargets[ally.ObjectId] = target.ObjectId;
             ally.Target = target;
         }
+    }
+
+    // M382: tribe-relation NPC-vs-NPC aggro/combat (Java AggroEventHandler applied to a non-player
+    // Creature target). Deliberately self-contained — own target-lock dict (_npcRivalTargets), own
+    // attack-cooldown dict (_lastRivalAttackTime), simplified interim damage formula matching the
+    // TickSummonAttackAsync precedent — so it can never disturb the player aggro/chase/melee state
+    // TickAsync tracks for the same NPC (that pipeline pre-empts and clears this one whenever a player
+    // target is acquired — see the _npcRivalTargets.TryRemove call beside it).
+    private async Task TickNpcRivalAggroAsync(Npc npc, CancellationToken ct)
+    {
+        Npc? rival = null;
+        if (_npcRivalTargets.TryGetValue(npc.ObjectId, out int rivalId))
+        {
+            var locked = _world.GetNpcByObjectId(rivalId);
+            if (locked is not null && !locked.IsAlreadyDead && locked.Position.SameScope(npc.Position)
+                && npc.HomePosition.DistanceTo(npc.Position) <= ChaseHomeRange)
+            {
+                rival = locked;
+            }
+            else
+            {
+                _npcRivalTargets.TryRemove(npc.ObjectId, out _);
+                await StopChaseAsync(npc, ct);
+                if (npc.Target == locked) npc.Target = null;
+            }
+        }
+
+        if (rival is null)
+        {
+            float minDist = float.MaxValue;
+            foreach (var other in _world.GetNpcsInScope(npc.Position))
+            {
+                if (other.ObjectId == npc.ObjectId || other.IsAlreadyDead) continue;
+                if (!_tribeRelationService.IsAggressive(npc, other)) continue;
+
+                float dist = npc.Position.DistanceTo(other.Position);
+                if (dist <= npc.Template.AggroRange && dist < minDist)
+                {
+                    minDist = dist;
+                    rival   = other;
+                }
+            }
+            if (rival is null) return;
+            _npcRivalTargets[npc.ObjectId] = rival.ObjectId;
+            npc.Target = rival;
+        }
+
+        float distToRival = npc.Position.DistanceTo(rival.Position);
+        if (distToRival > MeleeRange)
+        {
+            await ChaseAsync(npc, rival, ct);
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        int atkDelayMs = npc.Template.AttackDelay > 0 ? npc.Template.AttackDelay : (int)DefaultAttackCooldown.TotalMilliseconds;
+        if ((now - _lastRivalAttackTime.GetValueOrDefault(npc.ObjectId)).TotalMilliseconds < atkDelayMs) return;
+        _lastRivalAttackTime[npc.ObjectId] = now;
+
+        if ((npc.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;
+
+        // Interim damage formula (same simplification level as TickSummonAttackAsync) — full parity with
+        // the player-melee formula's crit/parry/block rolls isn't ported here since rivals never expose
+        // player-only stats (BaseEvasion/BaseParry/etc.).
+        int baseAtk = (npc.Template.Stats?.MainHandAttack ?? 0) + npc.PatkDebuffDelta;
+        int rawDmg  = baseAtk > 0
+            ? Math.Max(1, baseAtk + Random.Shared.Next(-2, 3))
+            : Math.Max(1, npc.Level * 5 + Random.Shared.Next(-2, 3));
+        int pdef    = Math.Max(0, (rival.Template.Stats?.PDef ?? 0) + rival.PdefDebuffDelta + rival.PdefStatUpDelta);
+        int damage  = pdef > 0 ? Math.Max(1, rawDmg * 1000 / (1000 + pdef)) : rawDmg;
+        if (_rates.NormalMobsRatePw != 1.0)
+            damage = Math.Max(1, (int)(damage * _rates.NormalMobsRatePw));
+
+        await rival.ApplyDamageAndPublishAsync(npc, damage, DamageKind.AutoAttack, skillId: null, _eventBus, ct);
+
+        int worldId   = npc.Position.WorldId;
+        var scope     = npc.Position;
+        var attackPkt = new SM_ATTACK(npc, rival, attackno: 0, time: 0, type: 0, damage);
+        var statusPkt = new SM_ATTACK_STATUS(rival, SM_ATTACK_STATUS.AttackType.Damage, 0, damage);
+        foreach (var conn in _connRegistry.GetAll())
+        {
+            if (conn.ActivePlayer is not { } atkPlayer || !atkPlayer.Position.SameScope(scope)) continue;
+            try { await conn.SendAsync(attackPkt, ct); } catch { }
+            try { await conn.SendAsync(statusPkt, ct); } catch { }
+        }
+
+        // Rival retaliates if it's otherwise idle (Java AggroList.addHate on the attacker) — never steals
+        // an NPC that's already fighting a player or a different rival.
+        if (!_npcTargets.ContainsKey(rival.ObjectId) && !_npcRivalTargets.ContainsKey(rival.ObjectId)
+            && ResolveArchetype(rival) is AiArchetype.Aggressive or AiArchetype.General or AiArchetype.Guard)
+        {
+            _npcRivalTargets[rival.ObjectId] = npc.ObjectId;
+        }
+
+        if (rival.CurrentHp > 0) return;
+        await HandleNpcRivalKillAsync(npc, rival, ct);
+    }
+
+    // No player participated in a pure rival kill, so — unlike HandleSummonKillAsync — there is no
+    // loot/XP/quest credit here; the rival simply decays and respawns like any other unlooted Npc death.
+    private async Task HandleNpcRivalKillAsync(Npc npc, Npc deadRival, CancellationToken ct)
+    {
+        var scope = deadRival.Position;
+        deadRival.State |= CreatureState.Dead;
+        var diePkt = new SM_EMOTION(deadRival, EmotionType.DIE);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer is { } deadNpcPlayer && deadNpcPlayer.Position.SameScope(scope))
+                try { await conn.SendAsync(diePkt, ct); } catch { }
+
+        _world.Remove(deadRival);
+        _npcRivalTargets.TryRemove(deadRival.ObjectId, out _);
+        _npcRivalTargets.TryRemove(npc.ObjectId, out _);
+        _lastRivalAttackTime.Remove(deadRival.ObjectId);
+        if (npc.Target == deadRival) npc.Target = null;
+
+        var registry = _connRegistry;
+        var spawnSvc = _spawnService;
+        const int decayMs = 5_000;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(decayMs);
+            var del = new SM_DELETE(deadRival.ObjectId);
+            foreach (var c in registry.GetAll())
+                if (c.ActivePlayer is { } decayPlayer && decayPlayer.Position.SameScope(scope))
+                    try { await c.SendAsync(del); } catch { }
+            spawnSvc.ScheduleRespawn(deadRival);
+        });
     }
 
     private static byte CalcHeading(float dx, float dy)

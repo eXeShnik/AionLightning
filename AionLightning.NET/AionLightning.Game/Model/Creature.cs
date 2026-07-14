@@ -1,9 +1,15 @@
+using AionLightning.Game.Model.Templates.Tribe;
 using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Model;
 
 public abstract class Creature : VisibleObject
 {
+    /// <summary>Java <c>Creature.getTribe()</c>. Overridden by <see cref="Npc"/> (its template's tribe)
+    /// and <see cref="Player"/> (PC/PC_DARK by race); the base default mirrors the Java base-class
+    /// fallback (which is never actually reached for the two live subtypes).</summary>
+    public virtual TribeClass Tribe { get; } = TribeClass.General;
+
     public int MaxHp { get; set; }
     public int CurrentHp { get; set; }
     public int MaxMp { get; set; }

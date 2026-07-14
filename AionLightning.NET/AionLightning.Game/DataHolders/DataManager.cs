@@ -23,7 +23,7 @@ public sealed class DataManager : IDataManager
     public DecomposableSelectItemsData    SelectItems { get; } = new();
     public PlayerTitlesData               Titles      { get; } = new();
     public WalkerData                     Walkers     { get; } = new();
-    public TribeData                      Tribes      { get; } = new();
+    public TribeRelationsData             TribeRelations { get; } = new();
     public NpcShoutData                   NpcShouts   { get; } = new();
     public PortalData                     Portals     { get; } = new();
     public BindPointData                  BindPoints  { get; } = new();
@@ -67,7 +67,7 @@ public sealed class DataManager : IDataManager
         SelectItems.Load(dataRoot, log);
         Titles.Load(dataRoot, log);
         Walkers.Load(dataRoot, log);
-        Tribes.Load(dataRoot, log);
+        TribeRelations.Load(dataRoot, log);
         NpcShouts.Load(dataRoot, log);
         Portals.Load(dataRoot, log);
         BindPoints.Load(dataRoot, log);

@@ -1,11 +1,16 @@
 using AionLightning.Game.Ai;
 using AionLightning.Game.Model.Templates.Npc;
+using AionLightning.Game.Model.Templates.Tribe;
 
 namespace AionLightning.Game.Model;
 
 public sealed class Npc : Creature
 {
     public NpcTemplate Template { get; }
+
+    /// <summary>Java <c>Npc.getTribe()</c> (transform-model override omitted — polymorph/transform isn't
+    /// ported yet, see migration_plan.md). Parsed from the template's <c>tribe=""</c> XML attribute.</summary>
+    public override TribeClass Tribe => new(Template.Tribe);
 
     /// <summary>The compiled per-NPC AI script bound to this instance's ai-name, or null when none is registered (see <see cref="Ai.AiEngine"/>).</summary>
     public NpcAi2? ScriptedAi { get; set; }

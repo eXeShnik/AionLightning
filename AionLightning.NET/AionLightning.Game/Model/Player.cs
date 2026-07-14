@@ -1,4 +1,5 @@
 using AionLightning.Game.Model.Group;
+using AionLightning.Game.Model.Templates.Tribe;
 using KiskModel = AionLightning.Game.Model.GameObjects.Kisk;
 using AllianceModel = AionLightning.Game.Model.Alliance.PlayerAlliance;
 using LeagueModel = AionLightning.Game.Model.League.League;
@@ -19,6 +20,10 @@ public sealed class Player : Creature
 {
     public int AccountId { get; init; }
     public Race Race { get; init; }
+
+    /// <summary>Java <c>Player.getTribe()</c> (transform-model override omitted — polymorph/transform
+    /// isn't ported yet, see migration_plan.md).</summary>
+    public override TribeClass Tribe => Race == Race.ELYOS ? TribeClass.Pc : TribeClass.PcDark;
     public Gender Gender { get; init; }
     public PlayerClass PlayerClass { get; set; }
     public byte Level { get; set; }
