@@ -104,6 +104,16 @@ public sealed class CM_USE_ITEM : AionClientPacket
             return;
         }
 
+        // Ride (mount) item — fires the quest hook (Java RideAction.act() -> QuestEngine.rideAction,
+        // passing the item's own template id). note: only the quest-hook firing is wired here; the
+        // full mount visuals (PlayerMode.RIDE, SM_EMOTION RIDE, RideData/RideInfo lookup, cast-time
+        // delay, dismount-on-hit observers) are not ported — see RideAction in ItemTemplate.cs.
+        if (template.IsRideItem)
+        {
+            await _questEngine.OnRideAsync(player, item.ItemId, _conn, ct);
+            return;
+        }
+
         // Selectable reward box — opens item-choice dialog
         if (template.IsSelectableBox)
         {

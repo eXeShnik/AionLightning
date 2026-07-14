@@ -24,6 +24,9 @@ public sealed class QuestTemplate
     // "Coin fountain"-style presence/consume gate (Java InventoryItems, distinct from CollectItems)
     // — e.g. quest 1717 requires + consumes one 186000031 coin item, with no <collect_items> at all.
     [XmlElement("inventory_items")]      public InventoryItemsHolder?  InventoryItems { get; set; }
+    // Event/lunar/movie-style bonus gate (Java QuestBonuses, quest_data.xsd maxOccurs="unbounded" but
+    // only the first entry is ever read — Java QuestService.getRewardItems: `bonuses.get(0)`).
+    [XmlElement("bonus")]                 public List<QuestBonus>      BonusList      { get; set; } = new();
 
     /// <summary>
     /// The quest's single reward block, or the last-declared one when <see cref="RewardsList"/> has
@@ -94,4 +97,14 @@ public sealed class QuestKill
     private HashSet<int>? _npcIds;
     public HashSet<int> NpcIds => _npcIds ??= new HashSet<int>(
         NpcIdsRaw.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse));
+}
+
+/// <summary>Maps to &lt;bonus type="..." level="N" skill="N"/&gt; (Java QuestBonuses/BonusType). Type is
+/// kept as the raw XML string (e.g. "MOVIE", "LUNAR", "TASK") to match <see cref="QuestEngine.QuestEngine.RegisterOnBonusApply"/>'s
+/// string-keyed index instead of introducing a parallel BonusType enum.</summary>
+public sealed class QuestBonus
+{
+    [XmlAttribute("type")]  public string Type  { get; set; } = "NONE";
+    [XmlAttribute("level")] public int    Level { get; set; }
+    [XmlAttribute("skill")] public int    Skill { get; set; }
 }

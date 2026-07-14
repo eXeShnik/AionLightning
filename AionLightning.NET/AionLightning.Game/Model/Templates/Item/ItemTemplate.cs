@@ -47,6 +47,8 @@ public sealed class ItemTemplate
     public bool IsTuningScroll  => Actions?.Tuning != null;
     // title item — presence of <titleadd> in <actions>
     public int? TitleAddId      => Actions?.TitleAdd?.TitleId is > 0 and int id ? id : null;
+    // mount/ride item — presence of <ride> in <actions> (Java RideAction)
+    public bool IsRideItem      => Actions?.Ride != null;
 
     // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
@@ -144,6 +146,7 @@ public sealed class ItemActions
     [XmlElement("titleadd")]    public TitleAddAction?   TitleAdd     { get; set; }
     [XmlElement("houseobject")] public HouseObjectAction? HouseObject  { get; set; }
     [XmlElement("housedeco")]   public HouseDecoAction?   HouseDeco    { get; set; }
+    [XmlElement("ride")]        public RideAction?       Ride         { get; set; }
 }
 
 public sealed class DyeAction
@@ -207,6 +210,15 @@ public sealed class TitleAddAction
     [XmlAttribute("titleid")] public int TitleId { get; set; }
     // minutes=0 (absent) means permanent; >0 means timed (timed expiry deferred — stored as permanent)
     [XmlAttribute("minutes")] public int Minutes { get; set; }
+}
+
+/// <summary>Maps to &lt;ride npc_id="N"/&gt; (Java RideAction) — marks an item as mount-use. NpcId is
+/// the ride-visual lookup key (Java RideInfo/RideData, used to pick the mount model/animation); this
+/// port only fires the quest hook on use (see CM_USE_ITEM.RunAsync), so NpcId itself is unused here —
+/// the full mount visuals (PlayerMode.RIDE, SM_EMOTION RIDE, dismount-on-hit observers) are not ported.</summary>
+public sealed class RideAction
+{
+    [XmlAttribute("npc_id")] public int NpcId { get; set; }
 }
 
 /// <summary>Maps to &lt;houseobject id="N"/&gt; (Java SummonHouseObjectAction) — turning this item into a

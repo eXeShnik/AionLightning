@@ -7,8 +7,10 @@ using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Templates.Quest;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.QuestEngine.Handlers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
 namespace AionLightning.Game.Services;
 
@@ -27,12 +29,13 @@ public sealed class QuestRewardService
     private readonly IPlayerDao               _playerDao;
     private readonly ExperienceService        _expService;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly QuestEngineType          _questEngine;
     private readonly RateOptions              _rates;
     private readonly ILogger<QuestRewardService> _log;
 
     public QuestRewardService(IDataManager dataManager, IQuestDao questDao, IItemDao itemDao,
         IPlayerDao playerDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
-        IOptions<RateOptions> rates, ILogger<QuestRewardService> log)
+        QuestEngineType questEngine, IOptions<RateOptions> rates, ILogger<QuestRewardService> log)
     {
         _dataManager  = dataManager;
         _questDao     = questDao;
@@ -40,6 +43,7 @@ public sealed class QuestRewardService
         _playerDao    = playerDao;
         _expService   = expService;
         _connRegistry = connRegistry;
+        _questEngine  = questEngine;
         _rates        = rates.Value;
         _log          = log;
     }
@@ -206,6 +210,39 @@ public sealed class QuestRewardService
                 await conn.SendAsync(new SM_INVENTORY_ADD_ITEM(granted), ct);
         }
 
+        // Bonus-type hook (Java QuestService.getRewardItems' <bonus> branch): only the first declared
+        // <bonus> is read. Dispatches onBonusApplyEvent to any quest registered against this bonus type
+        // (e.g. event quests 80016/80018 for MOVIE) and, unless a handler reports FAILED, grants the
+        // BonusService.getQuestBonus extra item.
+        if (template.BonusList.Count > 0 && template.BonusList[0].Type != "NONE")
+        {
+            string bonusType = template.BonusList[0].Type;
+            var bonusResult = await _questEngine.OnBonusApplyAsync(player, bonusType, conn, ct);
+            if (bonusResult != HandlerResult.Failed)
+            {
+                var bonusItem = GetQuestBonusItem(bonusType);
+                if (bonusItem is { } bi && _dataManager.Items.GetTemplate(bi.ItemId) is { } bonusTemplate
+                    && player.Inventory.CanReceive(bi.ItemId, bonusTemplate.MaxStackCount))
+                {
+                    var existedBonus = player.Inventory.FindByItemId(bi.ItemId);
+                    Item bonusGranted;
+                    if (existedBonus is not null)
+                    {
+                        existedBonus.Count += bi.Count;
+                        bonusGranted = existedBonus;
+                    }
+                    else
+                    {
+                        long uid = await _itemDao.NextUniqueIdAsync(ct);
+                        bonusGranted = new Item { UniqueId = uid, ItemId = bi.ItemId, Count = bi.Count, Slot = -1 };
+                        player.Inventory.Add(bonusGranted);
+                    }
+                    await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+                    await conn.SendAsync(new SM_INVENTORY_ADD_ITEM([bonusGranted]), ct);
+                }
+            }
+        }
+
         // Award kinah (gold attribute)
         long gold = rewards?.Gold ?? 0;
         if (_rates.QuestKinahRate != 1.0f)
@@ -277,4 +314,17 @@ public sealed class QuestRewardService
 
         return true;
     }
+
+    /// <summary>
+    /// Java BonusService.getQuestBonus: rolls an extra reward item from an item_groups.xml group
+    /// keyed by bonus type (TASK -> craft groups, MANASTONE -> manastone groups, MEDAL -> medal
+    /// groups by bonus level; BOSS/MOVIE/etc. return null in Java too). item_groups.xml and its
+    /// BonusItemGroup/CraftGroup/ManastoneGroup/MedalGroup data holders are not ported (see
+    /// migration_plan.md), so this always returns null — a documented no-op. This does not regress
+    /// the quests this hook currently unblocks (80016/80018/80034-80039), which all use bonus type
+    /// MOVIE or LUNAR: Java's own getQuestBonus returns null for MOVIE, and LUNAR falls into Java's
+    /// "not implemented" default branch (also null) — so those quests never granted a bonus item in
+    /// Java either. Only the onBonusApplyEvent side effects (e.g. playing a movie) matter for them.
+    /// </summary>
+    private static (int ItemId, long Count)? GetQuestBonusItem(string bonusType) => null;
 }
