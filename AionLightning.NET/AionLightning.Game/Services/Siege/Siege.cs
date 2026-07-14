@@ -140,6 +140,9 @@ public abstract class Siege
 
     protected Task UpdateOutpostStatusByFortressAsync(FortressLocation location, CancellationToken ct) =>
         Service.UpdateOutpostStatusByFortressAsync(location, ct);
+
+    protected Task UpdateTiamarantaRiftsStatusAsync(bool isPreparation, bool isSync, CancellationToken ct) =>
+        Service.UpdateTiamarantaRiftsStatusAsync(isPreparation, isSync, ct);
 }
 
 /// <summary>Java services.siegeservice.Siege&lt;SL extends SiegeLocation&gt; — strongly-typed half; see

@@ -119,6 +119,23 @@ public sealed class PlayerEnterWorldService
             player.Position = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
         }
 
+        Position bindPos;
+        if (player.BindPosition.HasValue)
+        {
+            bindPos = player.BindPosition.Value;
+        }
+        else
+        {
+            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+            bindPos = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
+        }
+
+        // Java PlayerController.validateLoginZone() — relocate a player who logged in inside a hostile-
+        // owned/besieged fortress zone (or without rift access to Tiamaranta's Eye) to their bind point.
+        // SiegeService.ValidateLoginZone self-gates on GameServer:Siege:Enable (no-op/true when disabled).
+        if (!_siegeService.ValidateLoginZone(player))
+            player.Position = bindPos;
+
         var tpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
 
         player.BasePhysicalAttack   = tpl?.MainHandAttack    ?? 0;
@@ -445,16 +462,6 @@ public sealed class PlayerEnterWorldService
         await conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
         await conn.SendAsync(new SM_GAME_TIME(), ct);
 
-        Position bindPos;
-        if (player.BindPosition.HasValue)
-        {
-            bindPos = player.BindPosition.Value;
-        }
-        else
-        {
-            var spawn = _dataManager.PlayerInitial.GetSpawnLocation(player.Race);
-            bindPos = new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
-        }
         await conn.SendAsync(new SM_BIND_POINT_INFO(bindPos), ct);
 
         await conn.SendAsync(SM_TITLE_INFO.TitleList(player.OwnedTitles), ct);

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AionLightning.Commons.Services;
+using AionLightning.Game.Combat.Effects;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
@@ -37,6 +38,7 @@ public sealed class SiegeService(
     CronService cronService,
     MailFormatter mailFormatter,
     SpawnService spawnService,
+    TeleportService teleportService,
     IOptions<SiegeOptions> options,
     IOptions<SiegeScheduleOptions> scheduleOptions,
     ILogger<SiegeService> log)
@@ -44,11 +46,26 @@ public sealed class SiegeService(
     // Java SiegeService.SIEGE_LOCATION_STATUS_BROADCAST_SCHEDULE — hourly fortress-status resync.
     private const string StatusBroadcastCron = "0 0 * ? * *";
 
+    // Java hardcoded world ids used throughout the Tiamaranta rift / fortress-buff / login-zone logic.
+    private const int TiamarantaEyeWorldId = 600040000;
+    private const int TiamarantaWorldId = 600030000;
+    private const int SillusWorldId = 600050000;
+    private const int SilonaWorldId = 600060000;
+
+    // Java checkSiegeStart(locationId): only source 4011's own cron fire actually starts anything — it
+    // drives startPreparations(), which starts all four source sieges together ~300s later.
+    private const int TiamarantaPrepSourceId = 4011;
+
     private readonly Influence _influence = new();
     private readonly ConcurrentDictionary<int, SiegeInstance> _activeSieges = new();
     private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, SiegeNpc>> _siegeNpcsByLocation = new();
     private readonly ConcurrentDictionary<int, SiegeNpc> _siegeNpcsByObjectId = new();
     private readonly Dictionary<int, List<string>> _siegeSchedule = new();
+
+    // Java SiegeService's cl/cr/tl/tr — Tiamaranta's Eye infiltration route status: cl = Western
+    // entrance, cr = Eastern entrance, tl = Elyos abyss gate, tr = Asmodian abyss gate.
+    private volatile bool _cl, _cr, _tl, _tr;
+    private readonly ConcurrentDictionary<int, Npc> _tiamarantaPortals = new();
 
     public IReadOnlyDictionary<int, FortressLocation> Fortresses => dataManager.Sieges.Fortresses;
     public IReadOnlyDictionary<int, ArtifactLocation> Artifacts => dataManager.Sieges.Artifacts;
@@ -336,9 +353,18 @@ public sealed class SiegeService(
         }
 
         foreach (var (locationId, cronExpressions) in scheduleOptions.Value.Fortresses)
-            await ScheduleLocationAsync(locationId, cronExpressions);
+            await ScheduleLocationAsync(locationId, cronExpressions, () => StartSiegeAsync(locationId));
+
+        // Java checkSiegeStart(locationId): a source's own cron fire is a no-op unless it's location
+        // 4011 — that one drives startPreparations(), which resets/starts all four sources together.
+        // The other three still get their cron tracked in _siegeSchedule so UpdateFortressNextState can
+        // compute their own next-vulnerable-state window, matching Java (whose SiegeStartRunnable is
+        // likewise registered for every source even though only 4011's firing does anything).
         foreach (var (locationId, cronExpressions) in scheduleOptions.Value.Sources)
-            await ScheduleLocationAsync(locationId, cronExpressions);
+        {
+            Func<Task>? onFire = locationId == TiamarantaPrepSourceId ? () => StartPreparationsAsync() : null;
+            await ScheduleLocationAsync(locationId, cronExpressions, onFire);
+        }
 
         await cronService.Schedule(() => FireAndForget(StartOutpostSiegesAsync(), "outpost race-protector siege start"),
             options.Value.RaceProtectorSpawnCron, longRunningTask: true);
@@ -361,11 +387,13 @@ public sealed class SiegeService(
             StatusBroadcastCron, longRunningTask: true);
     }
 
-    private async Task ScheduleLocationAsync(int locationId, List<string> cronExpressions)
+    private async Task ScheduleLocationAsync(int locationId, List<string> cronExpressions, Func<Task>? onFire)
     {
         _siegeSchedule[locationId] = cronExpressions;
+        if (onFire is null) return;
+
         foreach (var cron in cronExpressions)
-            await cronService.Schedule(() => FireAndForget(StartSiegeAsync(locationId), $"siege start for location {locationId}"), cron, longRunningTask: true);
+            await cronService.Schedule(() => FireAndForget(onFire(), $"siege start for location {locationId}"), cron, longRunningTask: true);
     }
 
     private async Task StartOutpostSiegesAsync()
@@ -488,13 +516,13 @@ public sealed class SiegeService(
 
             if (outpost.Race == newOutpostRace) continue;
 
+            bool oldSilenteraState = outpost.IsSilenteraAllowed;
+
             await StopSiegeAsync(outpost.LocationId, ct);
             DeSpawnNpcs(outpost.LocationId);
             await SetOwnerAsync(outpost.LocationId, newOutpostRace, 0, ct);
 
-            // note: Java's broadcastStatusAndUpdate(outpost, oldSilentraState) (SM_RIFT_ANNOUNCE for the
-            // Silentera Canyon infiltration-route flag) belongs to the Tiamaranta rift subsystem — out of
-            // scope for this phase, see SourceLocation/SiegeShield's P2 deferral notes.
+            await BroadcastStatusAndUpdateAsync(outpost, oldSilenteraState, ct);
 
             if (newOutpostRace == SiegeRace.BALAUR) continue;
 
@@ -505,13 +533,10 @@ public sealed class SiegeService(
         }
     }
 
-    // note: Java's updateTiamarantaRiftsStatus(boolean, boolean)/startPreparations/checkSiegeStart
-    // (Tiamaranta Eye infiltration-route rift portals + the shared source-siege preparation sequence)
-    // depend on the world-map-instance + zone/teleport framework — out of scope for this phase. Sources
-    // start directly on their own schedule instead (see SiegeScheduleOptions.Sources' note).
-
     /// <summary>Java broadcastState(SiegeLocation) — a location's vulnerability flag flipped.
-    /// No-op while <see cref="SiegeOptions.Enable"/> is false.</summary>
+    /// Also refreshes every online player's fortress shrine buff (Java's shared broadcast() helper calls
+    /// fortressBuffRemove/fortressBuffApply before every siege-state packet). No-op while
+    /// <see cref="SiegeOptions.Enable"/> is false.</summary>
     public async Task BroadcastStateAsync(SiegeLocation location, CancellationToken ct = default)
     {
         if (!options.Value.Enable) return;
@@ -519,12 +544,15 @@ public sealed class SiegeService(
         var packet = new SM_SIEGE_LOCATION_STATE(location);
         foreach (var conn in connRegistry.GetAll())
         {
-            if (conn.ActivePlayer is null) continue;
+            if (conn.ActivePlayer is not { } player) continue;
+            FortressBuffRemove(player);
+            FortressBuffApply(player);
             try { await conn.SendAsync(packet, ct); } catch { }
         }
     }
 
-    /// <summary>Java broadcastUpdate(SiegeLocation) — full ownership/ratio resync after a capture.
+    /// <summary>Java broadcastUpdate(SiegeLocation) — full ownership/ratio resync after a capture. Also
+    /// refreshes every online player's fortress shrine buff (see <see cref="BroadcastStateAsync"/>).
     /// No-op while <see cref="SiegeOptions.Enable"/> is false (influence is still recalculated either way).</summary>
     public async Task BroadcastUpdateAsync(SiegeLocation location, CancellationToken ct = default)
     {
@@ -535,6 +563,8 @@ public sealed class SiegeService(
         foreach (var conn in connRegistry.GetAll())
         {
             if (conn.ActivePlayer is not { } player) continue;
+            FortressBuffRemove(player);
+            FortressBuffApply(player);
             try
             {
                 await conn.SendAsync(new SM_SIEGE_LOCATION_INFO(location, this, player), ct);
@@ -547,15 +577,20 @@ public sealed class SiegeService(
         }
     }
 
-    /// <summary>Java onPlayerLogin(Player) — only the always-sent first part (siege ownership +
-    /// influence ratio); the Tiamaranta rift-route SM_RIFT_ANNOUNCE part is P2+ (rift subsystem not
-    /// ported). No-op while <see cref="SiegeOptions.Enable"/> is false.</summary>
+    /// <summary>Java onPlayerLogin(Player) — siege ownership + influence ratio, plus both
+    /// SM_RIFT_ANNOUNCE variants (Silentera Canyon outpost state, Tiamaranta's Eye rift state). No-op
+    /// while <see cref="SiegeOptions.Enable"/> is false.</summary>
     public async ValueTask OnPlayerLoginAsync(Player player, GsClientConnection conn, CancellationToken ct = default)
     {
         if (!options.Value.Enable) return;
 
         await conn.SendAsync(new SM_INFLUENCE_RATIO(this), ct);
         await conn.SendAsync(new SM_SIEGE_LOCATION_INFO(this, player), ct);
+
+        bool gelkmaros = GetOutpost(3111)?.IsSilenteraAllowed ?? false;
+        bool inggison = GetOutpost(2111)?.IsSilenteraAllowed ?? false;
+        await conn.SendAsync(new SM_RIFT_ANNOUNCE(gelkmaros, inggison), ct);
+        await conn.SendAsync(new SM_RIFT_ANNOUNCE(_cl, _cr, _tl, _tr), ct);
     }
 
     /// <summary>Java onEnterSiegeWorld(Player). No-op while <see cref="SiegeOptions.Enable"/> is false.</summary>
@@ -568,5 +603,449 @@ public sealed class SiegeService(
 
         await conn.SendAsync(new SM_SHIELD_EFFECT(worldLocations), ct);
         await conn.SendAsync(new SM_ABYSS_ARTIFACT_INFO(worldArtifacts), ct);
+    }
+
+    /// <summary>
+    /// Java validateLoginZone(Player) — returns false when the player must be relocated to their bind
+    /// point (inside a hostile-owned/besieged fortress zone, or the Tiamaranta's Eye rift they'd need is
+    /// closed), true otherwise (including the "already relocated to a source's entry point" case).
+    /// Always returns true (no-op) while <see cref="SiegeOptions.Enable"/> is false.
+    /// </summary>
+    public bool ValidateLoginZone(Player player)
+    {
+        if (!options.Value.Enable) return true;
+
+        if (player.Position.WorldId == TiamarantaEyeWorldId)
+        {
+            // Elyos need the western rift (cl) open; Asmodians need the eastern rift (cr) open, or
+            // tolerate its absence while source 4011 is still in its preparation window.
+            return player.Race == Race.ELYOS
+                ? _cl
+                : _cr || (GetSource(TiamarantaPrepSourceId)?.IsPreparation ?? false);
+        }
+
+        // note: Java's isInActiveSiegeZone(player) tests the live SIEGE ZoneType instance the player's
+        // knownlist places them in (isVulnerable() && isInsideLocation(player)) — that zone/knownlist
+        // framework isn't ported yet (see SiegeLocation's P2 doc comment). Approximated here as
+        // "same world id as the vulnerable location" — coarser than Java's actual zone polygon, so a
+        // player merely sharing the open-world map with a besieged fortress (not literally inside its
+        // siege perimeter) may be relocated slightly more aggressively than Java would.
+        foreach (var fortress in Fortresses.Values)
+        {
+            if (fortress.IsVulnerable && fortress.WorldId == player.Position.WorldId && fortress.IsEnemy(player.Race))
+                return false;
+        }
+
+        foreach (var source in Sources.Values)
+        {
+            if (source.IsVulnerable && source.WorldId == player.Position.WorldId && source.GetEntryPosition() is { } entry)
+            {
+                player.Position = entry;
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    // --- Tiamaranta rift subsystem (Java updateTiamarantaRiftsStatus/spawnTiamarantaPortels/
+    // deSpawnTiamarantaPortals/startPreparations/broadcastStatusAndUpdate) ---
+
+    /// <summary>
+    /// Java updateTiamarantaRiftsStatus(boolean isPreparation, boolean isSync) — recomputes whether the
+    /// Tiamaranta's Eye rift portals should be open, based on how many of the four Tiamaranta sources
+    /// each race currently controls. No-op while <see cref="SiegeOptions.Enable"/> is false.
+    /// </summary>
+    public async Task UpdateTiamarantaRiftsStatusAsync(bool isPreparation, bool isSync, CancellationToken ct = default)
+    {
+        if (!options.Value.Enable) return;
+
+        if (isPreparation)
+        {
+            await BroadcastStatusAndUpdateAsync(aSources: 0, eSources: 0, isPreparation, isSync, ct);
+            return;
+        }
+
+        int sourceState = 0, aSources = 0, eSources = 0;
+        foreach (var source in Sources.Values)
+        {
+            sourceState += source.IsVulnerable ? 0 : 1;
+            if (source.Race == SiegeRace.ASMODIANS) aSources++;
+            else if (source.Race == SiegeRace.ELYOS) eSources++;
+        }
+
+        // sourceState == 4 -> all four source sieges are over or not started
+        if (sourceState == 4)
+            await BroadcastStatusAndUpdateAsync(aSources, eSources, isPreparation, isSync, ct);
+    }
+
+    /// <summary>Java broadcastStatusAndUpdate(OutpostLocation, boolean oldSilentraState) — announces a
+    /// Silentera Canyon infiltration-route (outpost) open/close, then resyncs SM_RIFT_ANNOUNCE for both
+    /// Balaurea outposts. No-op while <see cref="SiegeOptions.Enable"/> is false.</summary>
+    public async Task BroadcastStatusAndUpdateAsync(OutpostLocation outpost, bool oldSilenteraState, CancellationToken ct = default)
+    {
+        if (!options.Value.Enable) return;
+
+        SM_SYSTEM_MESSAGE? info = null;
+        if (oldSilenteraState != outpost.IsSilenteraAllowed)
+        {
+            info = outpost.IsSilenteraAllowed
+                ? (outpost.LocationId == 2111 ? SM_SYSTEM_MESSAGE.FieldAbyssLightUnderpassSpawn() : SM_SYSTEM_MESSAGE.FieldAbyssDarkUnderpassSpawn())
+                : (outpost.LocationId == 2111 ? SM_SYSTEM_MESSAGE.FieldAbyssLightUnderpassDespawn() : SM_SYSTEM_MESSAGE.FieldAbyssDarkUnderpassDespawn());
+        }
+
+        bool gelkmaros = GetOutpost(3111)?.IsSilenteraAllowed ?? false;
+        bool inggison = GetOutpost(2111)?.IsSilenteraAllowed ?? false;
+        await BroadcastRiftAsync(new SM_RIFT_ANNOUNCE(gelkmaros, inggison), info, ct);
+    }
+
+    /// <summary>Java broadcastStatusAndUpdate(int aSources, int eSources, boolean isPreparation, boolean
+    /// isSync) — recomputes the Tiamaranta's Eye rift flags from each race's controlled-source count,
+    /// (re)spawns the rift portals, and schedules the delayed "abyss gate" opening 1h30m after the
+    /// entrance rifts appear. No-op while <see cref="SiegeOptions.Enable"/> is false.</summary>
+    public async Task BroadcastStatusAndUpdateAsync(int aSources, int eSources, bool isPreparation, bool isSync, CancellationToken ct = default)
+    {
+        if (!options.Value.Enable) return;
+
+        DeSpawnTiamarantaPortals();
+        _cl = eSources > 1;
+        _cr = aSources > 1;
+
+        if (isSync)
+        {
+            _tl = _cl;
+            _tr = _cr;
+            SpawnTiamarantaPortals(_cl, _cr, _tl, _tr);
+        }
+        else if (!isPreparation && (_cl || _cr))
+        {
+            _ = ScheduleAbyssGateOpenAsync(ct);
+            SpawnTiamarantaPortals(_cl, _cr, tl: false, tr: false);
+        }
+
+        await BroadcastRiftAsync(new SM_RIFT_ANNOUNCE(_cl, _cr, _tl, _tr), null, ct);
+    }
+
+    /// <summary>Java's 5400000ms (1h30m) delayed inner Runnable inside broadcastStatusAndUpdate(int,int,
+    /// boolean,boolean) — opens the Elyos/Asmodian Eye Abyss Gate rifts if they haven't already been
+    /// opened by a sync in the meantime.</summary>
+    private async Task ScheduleAbyssGateOpenAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(5_400_000), ct);
+            if (_tl && _tr) return;
+
+            _tl = _cl;
+            _tr = _cr;
+            SpawnTiamarantaPortals(cl: false, cr: false, _tl, _tr);
+            await BroadcastRiftAsync(new SM_RIFT_ANNOUNCE(_cl, _cr, _tl, _tr), null, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            log.LogError(e, "Error opening Tiamaranta's Eye abyss gate rift");
+        }
+    }
+
+    /// <summary>Java spawnTiamarantaPortels(boolean,boolean,boolean,boolean) — hardcoded Tiamaranta's
+    /// Eye rift portal coordinates, ported as-is (Java itself marks these "TODO: move to datapack").</summary>
+    private void SpawnTiamarantaPortals(bool cl, bool cr, bool tl, bool tr)
+    {
+        if (cl) SpawnTiamarantaPortal(701286, 1524.450f, 1250.425f, 247.048f, 60);
+        if (cr) SpawnTiamarantaPortal(701287, 1526.465f, 1784.999f, 250.436f, 60);
+        if (tl) SpawnTiamarantaPortal(701288, 116.665f, 1543.754f, 295.997f, 0);
+        if (tr) SpawnTiamarantaPortal(701289, 117.260f, 1929.155f, 295.691f, 0);
+    }
+
+    // note: Java also stamped a client-side decoration "staticId" (1594/2282/681/680) onto each portal's
+    // spawn template — a purely visual reference this port's Npc model has no field for; the portal NPC
+    // used for the actual rift teleport interaction is unaffected.
+    private void SpawnTiamarantaPortal(int npcId, float x, float y, float z, int heading)
+    {
+        if (dataManager.Npcs.GetTemplate(npcId) is not { } template) return;
+
+        var npc = spawnService.SpawnNpcAt(template, new Position(x, y, z, heading, TiamarantaWorldId));
+        _tiamarantaPortals[npcId] = npc;
+
+        var infoPacket = new SM_NPC_INFO(npc);
+        var scope = npc.Position;
+        _ = Task.Run(async () =>
+        {
+            foreach (var conn in connRegistry.GetAll())
+                if (conn.ActivePlayer is { } p && p.Position.SameScope(scope))
+                    try { await conn.SendAsync(infoPacket); } catch { }
+        });
+    }
+
+    /// <summary>Java deSpawnTiamarantaPortals() — removes any currently-spawned rift portals and resets
+    /// the route flags. Java's parallel despawn of the Tiamaranta's Eye world boss (Sunayaka) is not
+    /// ported — that world-boss spawn schedule is out of scope for this phase (see SiegeOptions's doc
+    /// comment on unported world-boss schedules).</summary>
+    private void DeSpawnTiamarantaPortals()
+    {
+        _cl = _cr = _tl = _tr = false;
+        if (_tiamarantaPortals.IsEmpty) return;
+
+        var portals = _tiamarantaPortals.Values.ToList();
+        _tiamarantaPortals.Clear();
+
+        foreach (var portal in portals)
+            world.Remove(portal);
+
+        _ = Task.Run(async () =>
+        {
+            foreach (var portal in portals)
+            {
+                var deletePacket = new SM_DELETE(portal.ObjectId);
+                var scope = portal.Position;
+                foreach (var conn in connRegistry.GetAll())
+                    if (conn.ActivePlayer is { } p && p.Position.SameScope(scope))
+                        try { await conn.SendAsync(deletePacket); } catch { }
+            }
+        });
+    }
+
+    /// <summary>Java broadcast(SM_RIFT_ANNOUNCE, SM_SYSTEM_MESSAGE) — sends the rift packet to everyone,
+    /// and the accompanying flavor message only to players currently in a Balaurea-siege map.</summary>
+    private async Task BroadcastRiftAsync(SM_RIFT_ANNOUNCE rift, SM_SYSTEM_MESSAGE? info, CancellationToken ct)
+    {
+        // note: Java gated `info` on player.getWorldType() == WorldType.BALAUREA, a world-type enum this
+        // port hasn't added (see SiegeOptions's doc comment on unported subsystems). Approximated as
+        // "currently in one of this server's siege-location worlds", since Balaurea is exactly the set
+        // of maps that host fortresses/outposts/sources.
+        var balaureaWorldIds = Locations.Values.Select(l => l.WorldId).ToHashSet();
+
+        foreach (var conn in connRegistry.GetAll())
+        {
+            if (conn.ActivePlayer is not { } player) continue;
+            try
+            {
+                await conn.SendAsync(rift, ct);
+                if (info is not null && balaureaWorldIds.Contains(player.Position.WorldId))
+                    await conn.SendAsync(info, ct);
+            }
+            catch
+            {
+                // best-effort broadcast
+            }
+        }
+    }
+
+    // --- Source-siege preparation sequence (Java startPreparations) ---
+
+    /// <summary>
+    /// Java startPreparations() — the shared pre-siege sequence for all four Tiamaranta sources: reset
+    /// every non-Balaur source's ownership to Balaur immediately, then 300s later evict anyone left in
+    /// Tiamaranta's Eye and start all four source sieges together, then 310s later clear the shield/state
+    /// display. Fired by source 4011's own cron entry (see <see cref="ScheduleSieges"/>). No-op while
+    /// <see cref="SiegeOptions.Enable"/> is false.
+    /// </summary>
+    public async Task StartPreparationsAsync(CancellationToken ct = default)
+    {
+        if (!options.Value.Enable) return;
+
+        log.LogDebug("SiegeService: starting preparations of all source locations");
+
+        foreach (var source in Sources.Values)
+            source.IsPreparation = true;
+
+        _ = ScheduleSourceSiegeStartAsync(ct);
+        _ = ScheduleSourceClearAsync(ct);
+
+        foreach (var source in Sources.Values.Where(s => s.Race != SiegeRace.BALAUR))
+        {
+            DeSpawnNpcs(source.LocationId);
+            await SetOwnerAsync(source.LocationId, SiegeRace.BALAUR, 0, ct);
+            SpawnNpcs(source.LocationId, SiegeRace.BALAUR, SiegeModType.PEACE);
+
+            // note: Java's per-player SM_SYSTEM_MESSAGE(1301037/1301039) "ownership reset to Balaur" chat
+            // announcement + immediate per-source SM_SIEGE_LOCATION_INFO repaint are skipped here —
+            // SetOwnerAsync/SpawnNpcs above already keep the real ownership/NPC state correct, and the
+            // next status broadcast resyncs every client's view regardless; only the flavor text is omitted.
+        }
+
+        await UpdateTiamarantaRiftsStatusAsync(isPreparation: true, isSync: false, ct);
+    }
+
+    /// <summary>Java's 300s-delayed inner Runnable inside startPreparations() — evicts anyone still in
+    /// Tiamaranta's Eye to their bind point, then starts all four source sieges.</summary>
+    private async Task ScheduleSourceSiegeStartAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(300), ct);
+
+            foreach (var player in world.GetAll().Where(p => p.Position.WorldId == TiamarantaEyeWorldId).ToList())
+            {
+                var bind = ResolveBindPosition(player);
+                await teleportService.TeleportToAsync(player, bind.WorldId, 0, bind.X, bind.Y, bind.Z, (byte)bind.Heading, ct: ct);
+            }
+
+            foreach (var source in Sources.Values)
+                await StartSiegeAsync(source.LocationId, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            log.LogError(e, "Error starting source sieges after preparation delay");
+        }
+    }
+
+    /// <summary>Java's 310s-delayed inner Runnable inside startPreparations() — broadcasts the shield
+    /// effect + siege-location-state(2) display to everyone currently in the Tiamaranta source map.</summary>
+    private async Task ScheduleSourceClearAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(310), ct);
+
+            foreach (var conn in connRegistry.GetAll())
+            {
+                if (conn.ActivePlayer is not { } player || player.Position.WorldId != TiamarantaWorldId) continue;
+                foreach (var source in Sources.Values)
+                {
+                    try
+                    {
+                        await conn.SendAsync(new SM_SHIELD_EFFECT(source.LocationId, this), ct);
+                        await conn.SendAsync(new SM_SIEGE_LOCATION_STATE(source.LocationId, 2), ct);
+                    }
+                    catch
+                    {
+                        // best-effort broadcast
+                    }
+                }
+            }
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            log.LogError(e, "Error clearing source preparation display");
+        }
+    }
+
+    /// <summary>Java Player bind-or-spawn fallback (same pattern used by PlayerEnterWorldService/
+    /// CM_REVIVE) — used to relocate players evicted from Tiamaranta's Eye during preparation.</summary>
+    private Position ResolveBindPosition(Player player)
+    {
+        if (player.BindPosition.HasValue) return player.BindPosition.Value;
+
+        var spawn = dataManager.PlayerInitial.GetSpawnLocation(player.Race);
+        return new Position(spawn.X, spawn.Y, spawn.Z, spawn.Heading, spawn.MapId);
+    }
+
+    // --- Fortress shrine buffs (Java fortressBuffApply/fortressBuffRemove) ---
+
+    /// <summary>
+    /// Java fortressBuffApply(Player) — grants the "Commendation" (own race currently controls the
+    /// shrine) or "Encouragement" (a different, non-Balaur race controls it) abyss buff to a player
+    /// standing in the Sillus/Silona/Pradeth fortress zones, based on each shrine's current owning race.
+    /// No-op while <see cref="SiegeOptions.Enable"/> is false.
+    /// </summary>
+    public void FortressBuffApply(Player player)
+    {
+        if (!options.Value.Enable) return;
+
+        switch (player.Position.WorldId)
+        {
+            case SillusWorldId:
+                ApplyShrineBuff(player, GetSiegeLocation(5011), commendationSkillId: 12135, encouragementSkillId: 12136);
+                break;
+            case SilonaWorldId:
+                ApplyShrineBuff(player, GetSiegeLocation(6011), commendationSkillId: 12137, encouragementSkillId: 12138);
+                ApplyShrineBuff(player, GetSiegeLocation(6021), commendationSkillId: 12139, encouragementSkillId: 12140);
+                break;
+        }
+    }
+
+    private void ApplyShrineBuff(Player player, SiegeLocation? shrine, int commendationSkillId, int encouragementSkillId)
+    {
+        if (shrine is null) return;
+
+        var playerSiegeRace = SiegeRaceExtensions.FromPlayerRace(player.Race);
+        int? skillId = shrine.Race == playerSiegeRace ? commendationSkillId
+                     : shrine.Race != SiegeRace.BALAUR ? encouragementSkillId
+                     : null;
+        if (skillId is not { } id) return;
+
+        ApplyBuffSkill(player, id);
+    }
+
+    /// <summary>
+    /// Java SkillEngine.getInstance().applyEffectDirectly(skillId, player, player, 0) — this port has no
+    /// standalone "apply a skill's buff outside of a live cast" service (the full pipeline lives inline
+    /// in CM_CASTSPELL). Reuses the same pure stat-delta calculator CM_CASTSPELL relies on
+    /// (<see cref="StatEffectCalculator"/>) for the common combat-stat subset; shield/mp-shield/one-time-
+    /// crit-or-attack/hide/transform/periodic-mp special-case fields (irrelevant for these plain shrine
+    /// buffs) are intentionally left at their zero default rather than duplicating that whole pipeline.
+    /// note: falls back to bookkeeping-only (an effect entry with no stat deltas) if the skill id has no
+    /// loaded template.
+    /// </summary>
+    private void ApplyBuffSkill(Player player, int skillId)
+    {
+        if (player.GetActiveEffects().Any(e => e.SkillId == skillId)) return;
+
+        var template = dataManager.Skills.GetTemplate(skillId);
+        if (template is null)
+        {
+            player.AddEffect(new AbnormalState { SkillId = skillId, EffectorId = player.ObjectId, Expiry = DateTime.MaxValue });
+            return;
+        }
+
+        var stat = StatEffectCalculator.Compute(template, player, level: 0);
+        int durationMs = template.Duration > 0 ? template.Duration : template.Effects?.EffectDuration ?? 0;
+
+        player.AddEffect(new AbnormalState
+        {
+            SkillId = skillId,
+            EffectorId = player.ObjectId,
+            Expiry = durationMs > 0 ? DateTime.UtcNow.AddMilliseconds(durationMs) : DateTime.MaxValue,
+            SpeedStatUpPct = stat.SpeedStatUpPct,
+            PreBuffMovSpeed = player.MovementSpeed,
+            MaxHpDelta = stat.MaxHpDelta,
+            MaxMpDelta = stat.MaxMpDelta,
+            MagicBoostDeltaVal = stat.MagicBoostDeltaVal,
+            HealBoostDeltaVal = stat.HealBoostDeltaVal,
+            PhysAccDeltaVal = stat.PhysAccDeltaVal,
+            MagicAccDeltaVal = stat.MagicAccDeltaVal,
+            ParryDeltaVal = stat.ParryDeltaVal,
+            BlockDeltaVal = stat.BlockDeltaVal,
+            PhysCritDeltaVal = stat.PhysCritDeltaVal,
+            MagicCritDeltaVal = stat.MagicCritDeltaVal,
+            PhysCritResistDeltaVal = stat.PhysCritResistDeltaVal,
+            MagicCritResistDeltaVal = stat.MagicCritResistDeltaVal,
+            StrikeFortitudeDeltaVal = stat.StrikeFortitudeDeltaVal,
+            SpellFortitudeDeltaVal = stat.SpellFortitudeDeltaVal,
+            CastTimeDeltaVal = stat.CastTimeDeltaVal,
+            ConcentrationDeltaVal = stat.ConcentrationDeltaVal,
+            MagicSuppressionDeltaVal = stat.MagicSuppressionDeltaVal,
+            PdefStatUpDeltaVal = stat.PdefStatUpDeltaVal,
+            MagicDefDeltaVal = stat.MagicDefDeltaVal,
+            PatkStatUpDeltaVal = stat.PatkStatUpDeltaVal,
+            MagicAtkStatUpDeltaVal = stat.MagicAtkStatUpDeltaVal,
+            EvasionStatUpDeltaVal = stat.EvasionStatUpDeltaVal,
+            MResistStatUpDeltaVal = stat.MResistStatUpDeltaVal,
+            AtkSpeedStatUpDeltaVal = stat.AtkSpeedStatUpDeltaVal,
+        });
+    }
+
+    /// <summary>
+    /// Java fortressBuffRemove(Player) — clears whichever shrine buff family the player currently holds.
+    /// Java's if/elseif chain checks 12135..12140 individually but every branch from 12137 onward removes
+    /// the identical four-id set, so it's collapsed here into one combined check. No-op while
+    /// <see cref="SiegeOptions.Enable"/> is false.
+    /// </summary>
+    public void FortressBuffRemove(Player player)
+    {
+        if (!options.Value.Enable) return;
+
+        var activeSkillIds = player.GetActiveEffects().Select(e => e.SkillId).ToHashSet();
+
+        if (activeSkillIds.Contains(12135)) player.RemoveEffectBySkillId(12135);
+        else if (activeSkillIds.Contains(12136)) player.RemoveEffectBySkillId(12136);
+        else if (activeSkillIds.Overlaps([12137, 12138, 12139, 12140]))
+        {
+            player.RemoveEffectBySkillId(12137);
+            player.RemoveEffectBySkillId(12138);
+            player.RemoveEffectBySkillId(12139);
+            player.RemoveEffectBySkillId(12140);
+        }
     }
 }

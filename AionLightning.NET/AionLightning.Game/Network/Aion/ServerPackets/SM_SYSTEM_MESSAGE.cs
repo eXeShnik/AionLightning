@@ -290,4 +290,11 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE HousingOrderCloseDoorAll() => new(1401381);
     // "You haven't had any interactions recently." (msg code 1401504)
     public static SM_SYSTEM_MESSAGE NoRelationshipRecently() => new(1401504);
+
+    // Silentera Canyon infiltration-route (outpost silentera) open/close announcements — Java
+    // STR_FIELDABYSS_LIGHTUNDERPASS_SPAWN/DARKUNDERPASS_SPAWN/LIGHTUNDERPASS_DESPAWN/DARKUNDERPASS_DESPAWN.
+    public static SM_SYSTEM_MESSAGE FieldAbyssLightUnderpassSpawn() => new(1400328);
+    public static SM_SYSTEM_MESSAGE FieldAbyssDarkUnderpassSpawn() => new(1400329);
+    public static SM_SYSTEM_MESSAGE FieldAbyssLightUnderpassDespawn() => new(1400330);
+    public static SM_SYSTEM_MESSAGE FieldAbyssDarkUnderpassDespawn() => new(1400331);
 }

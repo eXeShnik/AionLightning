@@ -76,8 +76,9 @@ public sealed class SourceSiege : Siege<SourceLocation>
 
         await Service.SetOwnerAsync(SiegeLocationId, Location.Race, Location.LegionId, ct);
 
-        // note: Java's updateTiamarantaRiftsStatus(false, false) — the Tiamaranta Eye infiltration-route
-        // rift subsystem is out of scope for this phase (see SourceLocation/SiegeShield P2 notes).
+        // Java updateTiamarantaRiftsStatus(false, false) — resyncs the Tiamaranta Eye infiltration-route
+        // rift portals now that this source's ownership changed.
+        await UpdateTiamarantaRiftsStatusAsync(isPreparation: false, isSync: false, ct);
     }
 
     private void OnCapture()
