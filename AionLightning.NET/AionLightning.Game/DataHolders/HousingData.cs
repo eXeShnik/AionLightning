@@ -36,6 +36,12 @@ public sealed class HousingData
 
     public HouseAddress? GetAddress(int addressId) => _addresses.GetValueOrDefault(addressId);
 
+    /// <summary>Resolves the land that owns a given address id. Java kept a bidirectional
+    /// address-&gt;land reference on the loaded template graph; this holder only indexes addresses/lands
+    /// separately, so the lookup is a linear scan over the (small, load-time-only) land set instead.</summary>
+    public HousingLand? GetLandByAddress(int addressId) =>
+        _lands.Values.FirstOrDefault(l => l.Addresses.Any(a => a.Id == addressId));
+
     public Building? GetBuilding(int buildingId) => _buildingDefs.GetValueOrDefault(buildingId);
 
     private void LoadBuildingDefs(string path, ILogger log)

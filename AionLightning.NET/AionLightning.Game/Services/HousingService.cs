@@ -99,6 +99,17 @@ public sealed class HousingService(
         }
     }
 
+    /// <summary>Java getCustomHouses() — a snapshot of every custom house tracked by this service,
+    /// regardless of ownership. Used by HousingBidService to correlate persisted bids/auto-fill auctions
+    /// to houses at startup.</summary>
+    public List<House> GetCustomHouses()
+    {
+        lock (_lock)
+        {
+            return _customHouses.Values.ToList();
+        }
+    }
+
     /// <summary>Java getPlayerStudio(int).</summary>
     public House? GetPlayerStudio(int playerId)
     {

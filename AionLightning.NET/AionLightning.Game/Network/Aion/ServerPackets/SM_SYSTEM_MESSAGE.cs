@@ -230,4 +230,48 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // Java embeds the item name via a client-side DescriptionId; this port uses a plain string param
     // instead (same simplification as the M381 summon-name messages — see migration_plan.md).
     public static SM_SYSTEM_MESSAGE ToypetFeedNotLoveFlavor(string petName, string itemName) => new(1400618, petName, itemName);
+
+    // House auction/bidding messages (Java STR_MSG_HOUSING_*, network.aion.serverpackets.SM_SYSTEM_MESSAGE)
+    // "You made a bid for %addr0." (msg code 1401265)
+    public static SM_SYSTEM_MESSAGE HousingBidSuccess(int address) => new(1401265, address.ToString());
+    // "You have been passed over in favor of a higher bid." (msg code 1401266)
+    public static SM_SYSTEM_MESSAGE HousingBidCancel() => new(1401266);
+    // "%addr0 is sold to you." (msg code 1401267)
+    public static SM_SYSTEM_MESSAGE HousingBidWin(int address) => new(1401267, address.ToString());
+    // "You listed %addr0 for auction." (msg code 1401268)
+    public static SM_SYSTEM_MESSAGE HousingAuctionMyHouse(int address) => new(1401268, address.ToString());
+    // "You successfully auctioned %addr0." (msg code 1401269)
+    public static SM_SYSTEM_MESSAGE HousingAuctionSuccess(int address) => new(1401269, address.ToString());
+    // "Listed %addr0 was not auctioned." (msg code 1401270)
+    public static SM_SYSTEM_MESSAGE HousingAuctionFail(int address) => new(1401270, address.ToString());
+    // "Already listed. Please refresh your list." (msg code 1401372)
+    public static SM_SYSTEM_MESSAGE HousingAuctionFailAlreadyRegistered() => new(1401372);
+    // "You cannot make a bid now." (msg code 1401274)
+    public static SM_SYSTEM_MESSAGE HousingCantBidTimeout() => new(1401274);
+    // "You cannot register now." (msg code 1401308)
+    public static SM_SYSTEM_MESSAGE HousingCantAuctionTimeout() => new(1401308);
+    // "You must complete %quest0 first." (msg code 1401277)
+    public static SM_SYSTEM_MESSAGE HousingCantOwnNotCompleteQuest(int questId) => new(1401277, questId.ToString());
+    // "You cannot place this bid because the amount exceeds the bid limit." (msg code 1401497)
+    public static SM_SYSTEM_MESSAGE HousingCantBidExcessAmount() => new(1401497);
+    // "The home you have made an offer for has a new high bid of %num0 Kinah." (msg code 1401324)
+    public static SM_SYSTEM_MESSAGE HousingPriceChange(long kinah) => new(1401324, kinah.ToString());
+    // "You cannot make a bid for your own house." (msg code 1401221)
+    public static SM_SYSTEM_MESSAGE HousingCantBidMyHouse() => new(1401221);
+    // "You can only bid on a house one time." (msg code 1401222)
+    public static SM_SYSTEM_MESSAGE HousingCantBidSuccBidHouse() => new(1401222);
+    // "You are currently the highest bidder for another house." (msg code 1401223)
+    public static SM_SYSTEM_MESSAGE HousingCantBidOtherHouse() => new(1401223);
+    // "You may bid after the grace period ends on your other house." (msg code 1401224)
+    public static SM_SYSTEM_MESSAGE HousingCantBidGraceHouse() => new(1401224);
+    // "You must be Level %0 or higher to bid on the house." (msg code 1401225)
+    public static SM_SYSTEM_MESSAGE HousingCantBidLowLevel(int minLevel) => new(1401225, minLevel.ToString());
+    // "Your housing payment is due. Please pay your maintenance costs." (msg code 1401226)
+    public static SM_SYSTEM_MESSAGE HousingOverdue() => new(1401226);
+    // "Your house has been seized against your unpaid maintenance fees." (msg code 1401227)
+    public static SM_SYSTEM_MESSAGE HousingSequestrate() => new(1401227);
+    // "You cannot bid because your house payment is overdue." (msg code 1401349)
+    public static SM_SYSTEM_MESSAGE HousingCantBidOverdue() => new(1401349);
+    // "You cannot register your house for auction because your house payment is overdue." (msg code 1401317)
+    public static SM_SYSTEM_MESSAGE HousingCantAuctionOverdue() => new(1401317);
 }

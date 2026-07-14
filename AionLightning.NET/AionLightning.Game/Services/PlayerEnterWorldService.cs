@@ -1,9 +1,11 @@
+using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.Item;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using Microsoft.Extensions.Options;
 using GameWorld = AionLightning.Game.World.World;
 using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 
@@ -35,6 +37,8 @@ public sealed class PlayerEnterWorldService
     private readonly SkillLearnService        _skillLearn;
     private readonly SiegeService             _siegeService;
     private readonly HousingService           _housingService;
+    private readonly HousingBidService        _housingBidService;
+    private readonly IOptions<HousingOptions> _housingOptions;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -59,7 +63,9 @@ public sealed class PlayerEnterWorldService
         SkillLearnService skillLearn,
         PetService petService,
         SiegeService siegeService,
-        HousingService housingService)
+        HousingService housingService,
+        HousingBidService housingBidService,
+        IOptions<HousingOptions> housingOptions)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -84,6 +90,8 @@ public sealed class PlayerEnterWorldService
         _petService    = petService;
         _siegeService  = siegeService;
         _housingService = housingService;
+        _housingBidService = housingBidService;
+        _housingOptions = housingOptions;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -520,5 +528,7 @@ public sealed class PlayerEnterWorldService
 
         await _siegeService.OnPlayerLoginAsync(player, conn, ct);
         await _housingService.OnPlayerLoginAsync(player, conn, ct);
+        if (_housingOptions.Value.Enable)
+            await _housingBidService.OnPlayerLoginAsync(player, conn, ct);
     }
 }

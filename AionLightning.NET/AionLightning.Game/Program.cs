@@ -36,7 +36,8 @@ builder.Services
     .AddAionOptions<GeoDataOptions>("GameServer:GeoData")
     .AddAionOptions<SiegeOptions>("GameServer:Siege")
     .AddAionOptions<SiegeScheduleOptions>("GameServer:Siege:Schedule")
-    .AddAionOptions<HousingOptions>("GameServer:Housing");
+    .AddAionOptions<HousingOptions>("GameServer:Housing")
+    .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -106,6 +107,7 @@ builder.Services.AddSingleton<IManastoneDao, ManastoneDaoImpl>();
 builder.Services.AddSingleton<IPlayerTitleDao, PlayerTitleDaoImpl>();
 builder.Services.AddSingleton<IPetDao, PetDaoImpl>();
 builder.Services.AddSingleton<IHouseDao, HouseDaoImpl>();
+builder.Services.AddSingleton<IHouseBidsDao, HouseBidsDaoImpl>();
 builder.Services.AddSingleton<ISiegeDao, SiegeDaoImpl>();
 
 // Scripting
@@ -149,6 +151,7 @@ builder.Services.AddSingleton<PortalService>();
 builder.Services.AddSingleton<PetService>();
 builder.Services.AddSingleton<SiegeService>();
 builder.Services.AddSingleton<HousingService>();
+builder.Services.AddSingleton<HousingBidService>();
 builder.Services.AddSingleton<FollowService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FollowService>());
 builder.Services.AddHostedService<EmptyInstanceCheckerService>();
@@ -183,6 +186,7 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 builder.Services.AddHostedService<SchemaMigrationHost>();
 builder.Services.AddHostedService<SiegeServiceHostedService>();
 builder.Services.AddHostedService<HousingServiceHostedService>();
+builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Ai.AiEngineHostedService>();

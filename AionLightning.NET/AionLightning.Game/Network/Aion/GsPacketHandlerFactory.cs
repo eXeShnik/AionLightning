@@ -69,6 +69,9 @@ public sealed class GsPacketHandlerFactory
     private readonly PetService              _petService;
     private readonly PortalService           _portalService;
     private readonly SiegeService            _siegeService;
+    private readonly HousingBidService       _housingBidService;
+    private readonly IOptions<HousingOptions> _housingOptions;
+    private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -122,7 +125,10 @@ public sealed class GsPacketHandlerFactory
         TeleportService teleport,
         PortalService portalService,
         PetService petService,
-        SiegeService siegeService)
+        SiegeService siegeService,
+        HousingBidService housingBidService,
+        IOptions<HousingOptions> housingOptions,
+        IOptions<HousingAuctionOptions> housingAuctionOptions)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -176,6 +182,9 @@ public sealed class GsPacketHandlerFactory
         _portalService       = portalService;
         _petService          = petService;
         _siegeService        = siegeService;
+        _housingBidService   = housingBidService;
+        _housingOptions      = housingOptions;
+        _housingAuctionOptions = housingAuctionOptions;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -352,14 +361,14 @@ public sealed class GsPacketHandlerFactory
                 0x1A0 => new CM_HOUSE_OPEN_DOOR(),
                 0x1A2 => new CM_USE_HOUSE_OBJECT(),
                 0x1A3 => new CM_RELEASE_OBJECT(),
-                0x1B2 => new CM_REGISTER_HOUSE(),
+                0x1B2 => new CM_REGISTER_HOUSE(conn, _itemDao, _dataManager, _housingBidService, _housingOptions, _housingAuctionOptions),
                 0x1B4 => new CM_MEGAPHONE(conn, _connRegistry, _itemDao),
                 0x1B7 => new CM_CHECK_MAIL_SIZE2(),
-                0x1B8 => new CM_GET_HOUSE_BIDS(),
+                0x1B8 => new CM_GET_HOUSE_BIDS(conn, _housingBidService),
                 0x1B9 => new CM_FAST_TRACK_CHECK(),
                 0x1BC => new CM_HOUSE_TELEPORT(),
                 0x1BD => new CM_HOUSE_PAY_RENT(),
-                0x1BF => new CM_PLACE_BID(),
+                0x1BF => new CM_PLACE_BID(conn, _housingBidService, _housingOptions),
                 0x2E4 => new CM_WINDSTREAM(conn, _connRegistry),
                 0x2E5 => new CM_MOTION(conn, _connRegistry, _motionDao),
                 0x2E6 => new CM_EXCHANGE_OK(conn, _connRegistry, _exchangeService, _itemDao),
