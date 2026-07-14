@@ -33,6 +33,7 @@ public sealed class PvpKillHandler(
     ILegionDao                legionDao,
     RateOptions               rates,
     DuelService               duelService,
+    SerialKillerService       serialKillerService,
     QuestEngineType           questEngine)
     : IEventHandler<DeathEvent>
 {
@@ -107,6 +108,13 @@ public sealed class PvpKillHandler(
             killer.AbyssLastKill, killer.AbyssLastAp, killer.AbyssLastGp, ct);
 
         await AwardLegionContributionAsync(killer, apGain, ct);
+
+        // Serial Killer subsystem (Java SerialKillerService, called from PvpService.doReward right
+        // after the reward loop, before notifyKillQuests). Reward-for-killing-an-SK is checked first
+        // (it needs victim's rank as it stood coming into this kill), then the killer's own rank is
+        // recomputed from this kill.
+        await serialKillerService.OnSerialKillerDeathAsync(killer, victim, ct);
+        await serialKillerService.OnPvpKillAsync(killer, victim, ct);
 
         // PvP Phase 1: notify kill_in_world quests (Java PvpService.notifyKillQuests, minus the
         // group/alliance distribution — Phase 2, needs AggroList on Creature). Keyed by the

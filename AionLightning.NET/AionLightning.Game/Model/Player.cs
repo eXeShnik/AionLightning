@@ -186,6 +186,15 @@ public sealed class Player : Creature
     public long AbyssLastGp    { get; set; }
     public int  AbyssTopRanking{ get; set; }
 
+    // Serial Killer system (Java services.SerialKillerService + services.serialkillers.SerialKiller,
+    // folded directly onto Player rather than a nested object — the same flattening the AbyssRank
+    // fields above already use). In-memory only, matching Java (its serialKillers map is never
+    // persisted to a DAO): both fields reset to 0 on server restart. SerialKillerRank is 0 (none), 1, or
+    // 2; SerialKillerVictims is the raw cross-race-kills-while-invading counter that rank is derived
+    // from (see SerialKillerService.GetKillerRank).
+    public int SerialKillerRank    { get; set; }
+    public int SerialKillerVictims { get; set; }
+
     // Base physical attack from class/level stat template (updated on login and level-up)
     public int BasePhysicalAttack { get; set; }
 

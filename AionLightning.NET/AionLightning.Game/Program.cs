@@ -42,7 +42,8 @@ builder.Services
     .AddAionOptions<HousingOptions>("GameServer:Housing")
     .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction")
     .AddAionOptions<DoorOptions>("GameServer:Doors")
-    .AddAionOptions<FallDamageOptions>("GameServer:FallDamage");
+    .AddAionOptions<FallDamageOptions>("GameServer:FallDamage")
+    .AddAionOptions<SerialKillerOptions>("GameServer:SerialKiller");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -195,6 +196,8 @@ builder.Services.AddHostedService<AutoSaveService>();
 builder.Services.AddHostedService<AbyssResetService>();
 builder.Services.AddSingleton<CronService>();
 builder.Services.AddHostedService<CronServiceHostedService>();
+builder.Services.AddSingleton<SerialKillerService>();
+builder.Services.AddHostedService<SerialKillerServiceHostedService>(); // after CronServiceHostedService — needs the scheduler already running
 
 // System mail (siege rewards, housing auction/maintenance)
 builder.Services.AddSingleton<AionLightning.Game.Services.Mail.SystemMailService>();
