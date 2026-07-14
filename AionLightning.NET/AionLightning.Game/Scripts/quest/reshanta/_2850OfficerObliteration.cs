@@ -6,10 +6,10 @@
 // Bespoke vs the rest of this port (per _1702 precedent): no rank-keyed dispatcher exists, so this
 // reuses the kill_in_world hook (QuestEngine.RegisterKillInWorld/OnPlayerKillAsync) scoped to
 // Reshanta's own world id (400010000) and checks the victim's AbyssRank itself.
-// note: Player.AbyssRank only models the 9 soldier grades (AbyssRankService caps at rank 9).
-// STAR1_OFFICER is rank 10 (Glory Points, ids 10+), which is not modeled, so victim.AbyssRank never
-// reaches it and this quest cannot complete until officer/general ranks are implemented - ported for
-// parity anyway, matching how _1702 documents the same rank limitation.
+// note: Player.AbyssRank now models the full 1-18 rank range - soldier ranks (1-9) from AP, officer/
+// general ranks (10-18) from Glory Points via AbyssRankService.AddGloryPoints. STAR1_OFFICER is rank
+// 10, so victim.AbyssRank reaches it once the player accrues enough GP (see
+// AbyssRankService.GpThresholds); this quest can now complete.
 using System.Threading;
 using System.Threading.Tasks;
 using AionLightning.Game.Dao;

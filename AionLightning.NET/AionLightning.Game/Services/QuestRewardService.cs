@@ -270,7 +270,7 @@ public sealed class QuestRewardService
         {
             bool questRankUp = AbyssRankService.AddAp(player, apReward);
             await conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
-            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
             if (questRankUp)
             {
                 var rankUpdatePkt = new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank);

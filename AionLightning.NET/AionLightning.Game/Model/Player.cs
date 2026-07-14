@@ -126,6 +126,14 @@ public sealed class Player : Creature
     public int  AbyssLastKill   { get; set; }
     public long AbyssLastAp     { get; set; }
 
+    // Glory Points — drive officer/general rank promotion (ranks 10-18), separate from the AP-driven
+    // soldier ranks (1-9). See AbyssRankService.AddGloryPoints.
+    public long AbyssGp        { get; set; }
+    public long AbyssDailyGp   { get; set; }
+    public long AbyssWeeklyGp  { get; set; }
+    public long AbyssLastGp    { get; set; }
+    public int  AbyssTopRanking{ get; set; }
+
     // Base physical attack from class/level stat template (updated on login and level-up)
     public int BasePhysicalAttack { get; set; }
 

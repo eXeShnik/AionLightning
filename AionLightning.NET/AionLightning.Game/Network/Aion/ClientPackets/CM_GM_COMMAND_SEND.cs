@@ -79,6 +79,10 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
                 await HandleGiveAp(player, apAmount, ct);
                 break;
 
+            case ".gp" when parts.Length >= 2 && long.TryParse(parts[1], out var gpAmount):
+                await HandleGiveGp(player, gpAmount, ct);
+                break;
+
             case ".spawn" when parts.Length >= 2 && int.TryParse(parts[1], out var spawnNpcId):
                 await HandleSpawnNpc(player, spawnNpcId, ct);
                 break;
@@ -214,7 +218,14 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
     private async ValueTask HandleGiveAp(Player player, long amount, CancellationToken ct)
     {
         AbyssRankService.AddAp(player, amount);
-        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
+        await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
+    }
+
+    private async ValueTask HandleGiveGp(Player player, long amount, CancellationToken ct)
+    {
+        AbyssRankService.AddGloryPoints(player, amount);
+        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
         await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
     }
 

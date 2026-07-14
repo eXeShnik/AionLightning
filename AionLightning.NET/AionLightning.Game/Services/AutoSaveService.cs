@@ -53,12 +53,12 @@ public sealed class AutoSaveService : BackgroundService
                 {
                     await _playerDao.UpdatePositionAsync(player.ObjectId, player.Position, ct);
                     await _playerDao.UpdateExpLevelAsync(player.ObjectId, player.Exp, player.Level, ct);
-                    await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+                    await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
                     await _playerDao.UpdateAbyssKillStatsAsync(player.ObjectId,
                         player.AbyssAllKill, player.AbyssMaxRank,
-                        player.AbyssDailyKill, player.AbyssDailyAp,
-                        player.AbyssWeeklyKill, player.AbyssWeeklyAp,
-                        player.AbyssLastKill, player.AbyssLastAp, ct);
+                        player.AbyssDailyKill, player.AbyssDailyAp, player.AbyssDailyGp,
+                        player.AbyssWeeklyKill, player.AbyssWeeklyAp, player.AbyssWeeklyGp,
+                        player.AbyssLastKill, player.AbyssLastAp, player.AbyssLastGp, ct);
                     await _playerDao.UpdateHpMpAsync(player.ObjectId, player.CurrentHp, player.CurrentMp, ct);
                     await _playerDao.UpdateFpAsync(player.ObjectId, player.CurrentFp, ct);
                     await _playerDao.UpdateDpAsync(player.ObjectId, player.Dp, ct);

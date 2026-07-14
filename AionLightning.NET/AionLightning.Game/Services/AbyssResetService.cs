@@ -5,8 +5,10 @@ using Microsoft.Extensions.Logging;
 namespace AionLightning.Game.Services;
 
 /// <summary>
-/// Resets abyss daily kill/AP counters at midnight UTC.
+/// Resets abyss daily kill/AP/GP counters at midnight UTC.
 /// On Monday midnight also rotates weekly → last-week and resets weekly counters.
+/// note: Java's per-rank dailyReduceGp officer/general decay (AbyssRankEnum.dailyReduceGp) is not
+/// applied here — see AbyssRankService.GpThresholds comment.
 /// </summary>
 public sealed class AbyssResetService : BackgroundService
 {
@@ -60,12 +62,15 @@ public sealed class AbyssResetService : BackgroundService
             {
                 p.AbyssLastKill   = p.AbyssWeeklyKill;
                 p.AbyssLastAp     = p.AbyssWeeklyAp;
+                p.AbyssLastGp     = p.AbyssWeeklyGp;
                 p.AbyssWeeklyKill = 0;
                 p.AbyssWeeklyAp   = 0;
+                p.AbyssWeeklyGp   = 0;
             }
 
             p.AbyssDailyKill = 0;
             p.AbyssDailyAp   = 0;
+            p.AbyssDailyGp   = 0;
         }
     }
 }

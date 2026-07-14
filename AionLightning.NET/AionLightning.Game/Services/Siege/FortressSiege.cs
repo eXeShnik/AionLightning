@@ -86,6 +86,7 @@ public sealed class FortressSiege : Siege<FortressLocation>
             var winnerRaceCounter = SiegeCounter.GetRaceCounter(Location.Race);
             await GiveRewardsToPlayersAsync(winnerRaceCounter, ct);
             await AwardAbyssPointsAsync(winnerRaceCounter, ct);
+            await AwardGloryPointsAsync(winnerRaceCounter, ct);
         }
 
         await UpdateOutpostStatusByFortressAsync(Location, ct);
@@ -206,7 +207,34 @@ public sealed class FortressSiege : Siege<FortressLocation>
             // AddAp's return value only reports whether the rank advanced; AbyssPoints is mutated
             // regardless, so persist unconditionally (matches Combat.Handlers.PvpKillHandler's pattern).
             AbyssRankService.AddAp(player, ap);
-            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
+        }
+    }
+
+    /// <summary>
+    /// Java giveGloryPointsToPlayers — mirrors <see cref="AwardAbyssPointsAsync"/> but for the
+    /// Glory Points that drive officer/general promotion (<see cref="AbyssRankService.AddGloryPoints"/>).
+    /// note: like <see cref="Siege.AddAbyssPoints"/>, nothing currently calls
+    /// <see cref="Siege.AddGloryPoints"/> to populate <see cref="SiegeRaceCounter.PlayerGloryPoints"/> —
+    /// Java fed it via the GlobalCallbackHelper-based GloryPointsListener (see OnSiegeStartAsync note),
+    /// which observed AbyssPointsService.addGp calls server-wide while the siege was active and routed
+    /// them here only for players physically inside the fortress zone. That AOP-based routing has no
+    /// equivalent (dropped framework, see CLAUDE.md) and the actual per-tick/per-damage GP award amounts
+    /// during an active siege were not located in this pass either — both need a follow-up before this
+    /// map is ever non-empty. The award/persist plumbing below is kept ready for that future phase.
+    /// </summary>
+    private async Task AwardGloryPointsAsync(SiegeRaceCounter winnerCounter, CancellationToken ct)
+    {
+        foreach (var (playerId, gp) in winnerCounter.PlayerGloryPoints)
+        {
+            if (_world.GetPlayerByObjectId(playerId) is not { } player) continue;
+            AbyssRankService.AddGloryPoints(player, gp);
+            await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
+            await _playerDao.UpdateAbyssKillStatsAsync(player.ObjectId,
+                player.AbyssAllKill, player.AbyssMaxRank,
+                player.AbyssDailyKill, player.AbyssDailyAp, player.AbyssDailyGp,
+                player.AbyssWeeklyKill, player.AbyssWeeklyAp, player.AbyssWeeklyGp,
+                player.AbyssLastKill, player.AbyssLastAp, player.AbyssLastGp, ct);
         }
     }
 }

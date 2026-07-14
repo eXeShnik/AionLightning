@@ -29,10 +29,12 @@ public interface IPlayerDao
     Task<int> MarkDeletedAsync(int playerId, CancellationToken ct = default);
     Task<bool> CancelDeletionAsync(int playerId, int accountId, CancellationToken ct = default);
     Task UpdateNoteAsync(int playerId, string note, CancellationToken ct = default);
-    Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, CancellationToken ct = default);
+    Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, long abyssGp, int abyssTopRanking,
+        CancellationToken ct = default);
     Task UpdateAbyssKillStatsAsync(int playerId, int allKill, int maxRank,
-        int dailyKill, long dailyAp, int weeklyKill, long weeklyAp,
-        int lastKill, long lastAp, CancellationToken ct = default);
+        int dailyKill, long dailyAp, long dailyGp,
+        int weeklyKill, long weeklyAp, long weeklyGp,
+        int lastKill, long lastAp, long lastGp, CancellationToken ct = default);
     Task ResetAbyssDailyStatsAsync(bool weekly, CancellationToken ct = default);
     Task<IReadOnlyList<AbyssRankEntry>> GetTopAbyssRankAsync(Race race, int limit, CancellationToken ct = default);
     Task UpdateNameAsync(int playerId, string name, CancellationToken ct = default);

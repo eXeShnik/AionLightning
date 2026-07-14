@@ -98,13 +98,13 @@ public sealed class PvpKillHandler(
         if (victimConn is not null)
             try { await victimConn.SendAsync(SM_ABYSS_RANK.ForPlayer(victim), ct); } catch { }
 
-        await playerDao.UpdateAbyssAsync(killer.ObjectId, killer.AbyssPoints, killer.AbyssRank, ct);
-        await playerDao.UpdateAbyssAsync(victim.ObjectId, victim.AbyssPoints, victim.AbyssRank, ct);
+        await playerDao.UpdateAbyssAsync(killer.ObjectId, killer.AbyssPoints, killer.AbyssRank, killer.AbyssGp, killer.AbyssTopRanking, ct);
+        await playerDao.UpdateAbyssAsync(victim.ObjectId, victim.AbyssPoints, victim.AbyssRank, victim.AbyssGp, victim.AbyssTopRanking, ct);
         await playerDao.UpdateAbyssKillStatsAsync(killer.ObjectId,
             killer.AbyssAllKill, killer.AbyssMaxRank,
-            killer.AbyssDailyKill, killer.AbyssDailyAp,
-            killer.AbyssWeeklyKill, killer.AbyssWeeklyAp,
-            killer.AbyssLastKill, killer.AbyssLastAp, ct);
+            killer.AbyssDailyKill, killer.AbyssDailyAp, killer.AbyssDailyGp,
+            killer.AbyssWeeklyKill, killer.AbyssWeeklyAp, killer.AbyssWeeklyGp,
+            killer.AbyssLastKill, killer.AbyssLastAp, killer.AbyssLastGp, ct);
 
         await AwardLegionContributionAsync(killer, apGain, ct);
 

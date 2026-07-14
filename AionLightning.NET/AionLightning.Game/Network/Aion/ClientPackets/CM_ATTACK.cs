@@ -451,7 +451,7 @@ public sealed class CM_ATTACK : AionClientPacket
                 await _conn.SendAsync(SM_ABYSS_RANK.ForPlayer(player), ct);
                 if (npcRankUp)
                     await BroadcastAsync(new SM_ABYSS_RANK_UPDATE(player.ObjectId, player.AbyssRank), ct);
-                await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, ct);
+                await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, ct);
                 await AwardLegionContributionAsync(player, ap, ct);
             }
 

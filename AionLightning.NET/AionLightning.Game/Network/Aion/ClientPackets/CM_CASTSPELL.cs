@@ -1670,7 +1670,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                     try { await c.SendAsync(rankPkt); } catch { }
                         }
-                        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
+                        await _playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, CancellationToken.None);
                         await AwardLegionContributionAsync(player, ap, registry, _legionDao, CancellationToken.None);
                     }
 
@@ -3036,7 +3036,7 @@ public sealed class CM_CASTSPELL : AionClientPacket
                                 if (c.ActivePlayer?.Position.WorldId == castWorldId)
                                     try { await c.SendAsync(rankPkt); } catch { }
                         }
-                        await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, CancellationToken.None);
+                        await playerDao.UpdateAbyssAsync(player.ObjectId, player.AbyssPoints, player.AbyssRank, player.AbyssGp, player.AbyssTopRanking, CancellationToken.None);
                         await AwardLegionContributionAsync(player, ap, registry, legionDao, CancellationToken.None);
                     }
 

@@ -17,7 +17,8 @@ public sealed class PlayerDaoImpl : IPlayerDao
         level, deletion_date, bind_x, bind_y, bind_z, bind_world_id, note, abyss_points, abyss_rank,
         bonus_title_id, dp, soul_sickness, current_hp, current_mp, npc_expands, current_fp,
         abyss_all_kill, abyss_max_rank, abyss_daily_kill, abyss_daily_ap,
-        abyss_weekly_kill, abyss_weekly_ap, abyss_last_kill, abyss_last_ap
+        abyss_weekly_kill, abyss_weekly_ap, abyss_last_kill, abyss_last_ap,
+        abyss_gp, abyss_daily_gp, abyss_weekly_gp, abyss_last_gp, abyss_top_ranking
         """;
 
     public async Task<IReadOnlyList<Player>> FindByAccountIdAsync(int accountId, CancellationToken ct = default)
@@ -175,29 +176,37 @@ public sealed class PlayerDaoImpl : IPlayerDao
         await conn.ExecuteAsync("UPDATE players SET note=@note WHERE id=@playerId", new { playerId, note });
     }
 
-    public async Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, CancellationToken ct = default)
+    public async Task UpdateAbyssAsync(int playerId, long abyssPoints, int abyssRank, long abyssGp,
+        int abyssTopRanking, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
         await conn.ExecuteAsync(
-            "UPDATE players SET abyss_points=@abyssPoints, abyss_rank=@abyssRank WHERE id=@playerId",
-            new { playerId, abyssPoints, abyssRank });
+            """
+            UPDATE players SET
+                abyss_points=@abyssPoints, abyss_rank=@abyssRank,
+                abyss_gp=@abyssGp, abyss_top_ranking=@abyssTopRanking
+            WHERE id=@playerId
+            """,
+            new { playerId, abyssPoints, abyssRank, abyssGp, abyssTopRanking });
     }
 
     public async Task UpdateAbyssKillStatsAsync(int playerId, int allKill, int maxRank,
-        int dailyKill, long dailyAp, int weeklyKill, long weeklyAp,
-        int lastKill, long lastAp, CancellationToken ct = default)
+        int dailyKill, long dailyAp, long dailyGp,
+        int weeklyKill, long weeklyAp, long weeklyGp,
+        int lastKill, long lastAp, long lastGp, CancellationToken ct = default)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
         await conn.ExecuteAsync(
             """
             UPDATE players SET
                 abyss_all_kill=@allKill, abyss_max_rank=@maxRank,
-                abyss_daily_kill=@dailyKill, abyss_daily_ap=@dailyAp,
-                abyss_weekly_kill=@weeklyKill, abyss_weekly_ap=@weeklyAp,
-                abyss_last_kill=@lastKill, abyss_last_ap=@lastAp
+                abyss_daily_kill=@dailyKill, abyss_daily_ap=@dailyAp, abyss_daily_gp=@dailyGp,
+                abyss_weekly_kill=@weeklyKill, abyss_weekly_ap=@weeklyAp, abyss_weekly_gp=@weeklyGp,
+                abyss_last_kill=@lastKill, abyss_last_ap=@lastAp, abyss_last_gp=@lastGp
             WHERE id=@playerId
             """,
-            new { playerId, allKill, maxRank, dailyKill, dailyAp, weeklyKill, weeklyAp, lastKill, lastAp });
+            new { playerId, allKill, maxRank, dailyKill, dailyAp, dailyGp, weeklyKill, weeklyAp, weeklyGp,
+                lastKill, lastAp, lastGp });
     }
 
     public async Task ResetAbyssDailyStatsAsync(bool weekly, CancellationToken ct = default)
@@ -208,14 +217,14 @@ public sealed class PlayerDaoImpl : IPlayerDao
             await conn.ExecuteAsync(
                 """
                 UPDATE players SET
-                    abyss_last_kill=abyss_weekly_kill, abyss_last_ap=abyss_weekly_ap,
-                    abyss_weekly_kill=0, abyss_weekly_ap=0,
-                    abyss_daily_kill=0,  abyss_daily_ap=0
+                    abyss_last_kill=abyss_weekly_kill, abyss_last_ap=abyss_weekly_ap, abyss_last_gp=abyss_weekly_gp,
+                    abyss_weekly_kill=0, abyss_weekly_ap=0, abyss_weekly_gp=0,
+                    abyss_daily_kill=0,  abyss_daily_ap=0,  abyss_daily_gp=0
                 """);
         }
         else
         {
-            await conn.ExecuteAsync("UPDATE players SET abyss_daily_kill=0, abyss_daily_ap=0");
+            await conn.ExecuteAsync("UPDATE players SET abyss_daily_kill=0, abyss_daily_ap=0, abyss_daily_gp=0");
         }
     }
 
@@ -286,6 +295,11 @@ public sealed class PlayerDaoImpl : IPlayerDao
             AbyssWeeklyAp    = r.abyss_weekly_ap,
             AbyssLastKill    = r.abyss_last_kill,
             AbyssLastAp      = r.abyss_last_ap,
+            AbyssGp          = r.abyss_gp,
+            AbyssDailyGp     = r.abyss_daily_gp,
+            AbyssWeeklyGp    = r.abyss_weekly_gp,
+            AbyssLastGp      = r.abyss_last_gp,
+            AbyssTopRanking  = r.abyss_top_ranking,
             BonusTitleId     = r.bonus_title_id,
             Dp                  = r.dp,
             SoulSicknessCount   = r.soul_sickness,
@@ -361,5 +375,6 @@ public sealed class PlayerDaoImpl : IPlayerDao
         string? note, long abyss_points, int abyss_rank,
         int bonus_title_id, int dp, int soul_sickness, int? current_hp, int? current_mp, int npc_expands, int current_fp,
         int abyss_all_kill, int abyss_max_rank, int abyss_daily_kill, long abyss_daily_ap,
-        int abyss_weekly_kill, long abyss_weekly_ap, int abyss_last_kill, long abyss_last_ap);
+        int abyss_weekly_kill, long abyss_weekly_ap, int abyss_last_kill, long abyss_last_ap,
+        long abyss_gp, long abyss_daily_gp, long abyss_weekly_gp, long abyss_last_gp, int abyss_top_ranking);
 }
