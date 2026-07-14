@@ -77,6 +77,8 @@ public sealed class GsPacketHandlerFactory
     private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
     private readonly IHouseDao                _houseDao;
     private readonly InstanceService          _instanceService;
+    private readonly IPlayerRegisteredItemsDao _playerRegisteredItemsDao;
+    private readonly IHouseObjectCooldownsDao  _houseObjectCooldownsDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -137,8 +139,12 @@ public sealed class GsPacketHandlerFactory
         IOptions<HousingOptions> housingOptions,
         IOptions<HousingAuctionOptions> housingAuctionOptions,
         IHouseDao houseDao,
-        InstanceService instanceService)
+        InstanceService instanceService,
+        IPlayerRegisteredItemsDao playerRegisteredItemsDao,
+        IHouseObjectCooldownsDao houseObjectCooldownsDao)
     {
+        _playerRegisteredItemsDao = playerRegisteredItemsDao;
+        _houseObjectCooldownsDao  = houseObjectCooldownsDao;
         _log           = log;
         _loggerFactory = loggerFactory;
         _gsInfo        = gsInfo.Value;
@@ -281,7 +287,7 @@ public sealed class GsPacketHandlerFactory
                 0x10D => new CM_FRIEND_ADD(conn, _playerDao, _socialDao, _connRegistry),
                 0x10E => new CM_GROUP_DISTRIBUTION(conn, _connRegistry, _groupService),
                 0x10F => new CM_UNK(),
-                0x110 => new CM_HOUSE_EDIT(),
+                0x110 => new CM_HOUSE_EDIT(conn, _dataManager, _itemDao, _playerRegisteredItemsDao, _housingOptions),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
                 0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
@@ -373,8 +379,8 @@ public sealed class GsPacketHandlerFactory
                 0x19E => new CM_ABYSS_RANKING_PLAYERS(conn, _playerDao),
                 0x19F => new CM_MAC_ADDRESS(),
                 0x1A0 => new CM_HOUSE_OPEN_DOOR(conn, _housingService, _dataManager, _teleport, _housingOptions),
-                0x1A2 => new CM_USE_HOUSE_OBJECT(),
-                0x1A3 => new CM_RELEASE_OBJECT(),
+                0x1A2 => new CM_USE_HOUSE_OBJECT(conn, _housingService, _houseObjectCooldownsDao, _playerRegisteredItemsDao, _housingOptions),
+                0x1A3 => new CM_RELEASE_OBJECT(conn, _housingOptions),
                 0x1B2 => new CM_REGISTER_HOUSE(conn, _itemDao, _dataManager, _housingBidService, _housingOptions, _housingAuctionOptions),
                 0x1B4 => new CM_MEGAPHONE(conn, _connRegistry, _itemDao),
                 0x1B7 => new CM_CHECK_MAIL_SIZE2(),
@@ -388,7 +394,7 @@ public sealed class GsPacketHandlerFactory
                 0x2E6 => new CM_EXCHANGE_OK(conn, _connRegistry, _exchangeService, _itemDao),
                 0x2E7 => new CM_EXCHANGE_CANCEL(conn, _connRegistry, _exchangeService),
                 0x2E8 => new CM_MANASTONE(conn, _itemDao, _manastoneDao, _dataManager),
-                0x2E9 => new CM_HOUSE_DECORATE(),
+                0x2E9 => new CM_HOUSE_DECORATE(conn, _houseController, _playerRegisteredItemsDao, _housingOptions),
                 0x2EA => new CM_HOUSE_KICK(conn, _houseController, _housingOptions, _loggerFactory.CreateLogger<CM_HOUSE_KICK>()),
                 0x2EB => new CM_HOUSE_SETTINGS(conn, _housingService, _houseDao, _houseController, _housingOptions),
                 0x2EC => new CM_CHARGE_ITEM(),

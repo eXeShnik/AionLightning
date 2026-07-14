@@ -142,6 +142,8 @@ public sealed class ItemActions
     [XmlElement("decompose")]    public DecomposeAction?  Decompose    { get; set; }
     [XmlElement("tuning")]       public TuningAction?     Tuning       { get; set; }
     [XmlElement("titleadd")]    public TitleAddAction?   TitleAdd     { get; set; }
+    [XmlElement("houseobject")] public HouseObjectAction? HouseObject  { get; set; }
+    [XmlElement("housedeco")]   public HouseDecoAction?   HouseDeco    { get; set; }
 }
 
 public sealed class DyeAction
@@ -205,6 +207,22 @@ public sealed class TitleAddAction
     [XmlAttribute("titleid")] public int TitleId { get; set; }
     // minutes=0 (absent) means permanent; >0 means timed (timed expiry deferred — stored as permanent)
     [XmlAttribute("minutes")] public int Minutes { get; set; }
+}
+
+/// <summary>Maps to &lt;houseobject id="N"/&gt; (Java SummonHouseObjectAction) — turning this item into a
+/// placed <see cref="AionLightning.Game.Model.GameObjects.HouseObject"/> whose template id is <see cref="TemplateId"/>
+/// (housing_objects.xml). See Services.Item.HouseObjectFactory.CreateFromItem.</summary>
+public sealed class HouseObjectAction
+{
+    [XmlAttribute("id")] public int TemplateId { get; set; }
+}
+
+/// <summary>Maps to &lt;housedeco id="N"/&gt; (Java DecorateAction) — turning this item into a custom
+/// building-part <see cref="AionLightning.Game.Model.GameObjects.HouseDecoration"/> whose part id is
+/// <see cref="TemplateId"/> (house_parts.xml).</summary>
+public sealed class HouseDecoAction
+{
+    [XmlAttribute("id")] public int TemplateId { get; set; }
 }
 
 /// <summary>Maps to <uselimits usedelay="..." usedelayid="..."/> — mirrors Java ItemUseLimits.</summary>

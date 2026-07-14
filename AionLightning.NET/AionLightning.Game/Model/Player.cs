@@ -62,6 +62,28 @@ public sealed class Player : Creature
     public byte BuildingOwnerState { get; set; }
     public bool IsBuildingInState(PlayerHouseOwnerFlags flag) => (BuildingOwnerState & (byte)flag) != 0;
 
+    // Housing P3 (Java model.gameobjects.player.HouseObjectCooldownList): objectId -> unix-ms reuse time,
+    // loaded once at login (PlayerEnterWorldService) and upserted immediately whenever a cooldown is set
+    // (CM_USE_HOUSE_OBJECT) — no periodic/logout batch flush, matching this phase's "persist what you
+    // touch, immediately" convention (see HouseRegistry's class doc).
+    public Dictionary<int, long> HouseObjectCooldowns { get; } = new();
+
+    public bool CanUseHouseObject(int objectId) =>
+        !HouseObjectCooldowns.TryGetValue(objectId, out long next) || next <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    public int GetHouseObjectReuseDelay(int objectId)
+    {
+        if (!HouseObjectCooldowns.TryGetValue(objectId, out long next)) return 0;
+        long remainingMs = next - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        return remainingMs <= 0 ? 0 : (int)(remainingMs / 1000);
+    }
+
+    public void SetHouseObjectCooldown(int objectId, int delaySeconds)
+    {
+        if (delaySeconds <= 0) { HouseObjectCooldowns.Remove(objectId); return; }
+        HouseObjectCooldowns[objectId] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + delaySeconds * 1000L;
+    }
+
     // Bind point (Obelisk) — null means no bind, CM_REVIVE stays in place
     public Position? BindPosition { get; set; }
 

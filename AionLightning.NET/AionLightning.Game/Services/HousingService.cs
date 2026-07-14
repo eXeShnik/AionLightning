@@ -2,6 +2,7 @@ using AionLightning.Game.Configs.Options;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.GameObjects;
 using AionLightning.Game.Model.House;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Templates.Housing;
@@ -25,6 +26,7 @@ namespace AionLightning.Game.Services;
 /// </summary>
 public sealed class HousingService(
     IHouseDao houseDao,
+    IPlayerRegisteredItemsDao registeredItemsDao,
     IDataManager dataManager,
     IOptions<HousingOptions> options,
     ILogger<HousingService> log)
@@ -134,6 +136,93 @@ public sealed class HousingService(
         house.FixBuildingStates();
         house.Position = new Position(address.X, address.Y, address.Z, 0, address.MapId);
         house.Registry.LoadDefaultParts(building);
+    }
+
+    /// <summary>
+    /// Java House.spawn()'s <c>PlayerRegisteredItemsDAO.loadRegistry(playerObjectId)</c> call, collapsed
+    /// (like <see cref="SpawnHouses"/>) into a single startup-time sweep over every owned house instead of
+    /// Java's per-house-spawn invocation. Resolves each DB row into a <see cref="HouseObject"/> or, for the
+    /// "DECOR" sentinel rows, a custom <see cref="HouseDecoration"/> (re-activating it via
+    /// <see cref="HouseRegistry.SetPartInUse"/> when it was in use at last save) — see
+    /// <see cref="Dao.PlayerRegisteredItemRow"/>'s doc for the shared-table layout.
+    /// No-op unless <see cref="HousingOptions.Enable"/> is true. Called once at startup by
+    /// <see cref="HousingServiceHostedService"/>, after <see cref="SpawnHouses"/>.
+    /// </summary>
+    public async Task LoadRegisteredItemsAsync(CancellationToken ct = default)
+    {
+        if (!options.Value.Enable) return;
+
+        List<House> owned;
+        lock (_lock)
+        {
+            owned = _customHouses.Values.Concat(_studios.Values)
+                .Where(h => h.IsOwned && h.Status is HouseStatus.Active or HouseStatus.SellWait)
+                .ToList();
+        }
+
+        int rowsLoaded = 0;
+        foreach (var house in owned)
+        {
+            var rows = await registeredItemsDao.LoadByPlayerAsync(house.PlayerObjectId, ct);
+            foreach (var row in rows)
+                ApplyRegisteredItemRow(house, row);
+            rowsLoaded += rows.Count;
+        }
+
+        log.LogInformation("HousingService: loaded {Rows} registered item row(s) across {Houses} owned house(s)",
+            rowsLoaded, owned.Count);
+    }
+
+    private void ApplyRegisteredItemRow(House house, PlayerRegisteredItemRow row)
+    {
+        if (string.Equals(row.Area, "DECOR", StringComparison.OrdinalIgnoreCase))
+        {
+            var part = dataManager.HouseParts.GetPartById(row.ItemId);
+            if (part is null) return; // note: house_parts.xml missing this id — can't resolve its slot type.
+
+            var decor = new HouseDecoration(row.ItemId, part.Type, row.Floor, row.ItemUniqueId)
+            {
+                IsUsed = row.OwnerUseCount > 0, // Java reuses owner_use_count as the "isUsed" bit for DECOR rows
+                PersistentState = PersistentState.Updated,
+            };
+            house.Registry.PutCustomPart(decor);
+            if (decor.IsUsed)
+                house.Registry.SetPartInUse(decor, decor.Floor);
+        }
+        else
+        {
+            var template = dataManager.HousingObjects.GetTemplateById(row.ItemId);
+            var obj = new HouseObject(house, row.ItemUniqueId, row.ItemId, template)
+            {
+                X = row.X,
+                Y = row.Y,
+                Z = row.Z,
+                Heading = (byte)row.H,
+                Color = row.Color,
+                ColorExpireEnd = row.ColorExpires,
+                OwnerUsedCount = row.OwnerUseCount,
+                VisitorUsedCount = row.VisitorUseCount,
+                ExpireEnd = template is { UseDays: > 0 } ? row.ExpireTime ?? 0 : 0,
+                PersistentState = PersistentState.Updated,
+            };
+            house.Registry.PutObject(obj);
+        }
+    }
+
+    /// <summary>Locates a placed/registered house object by its registry objectId across every house this
+    /// service tracks. Java resolves this via World.findVisibleObject (HouseObject extends VisibleObject);
+    /// this port never spawns HouseObjects into the shared World store (see <see cref="SpawnHouses"/>'s own
+    /// doc on why houses themselves stay out of it too), so CM_USE_HOUSE_OBJECT/CM_RELEASE_OBJECT scan the
+    /// housing dictionaries directly instead.</summary>
+    public HouseObject? FindHouseObject(int objectId)
+    {
+        lock (_lock)
+        {
+            foreach (var house in _customHouses.Values.Concat(_studios.Values))
+                if (house.Registry.GetObjectByObjId(objectId) is { } obj)
+                    return obj;
+        }
+        return null;
     }
 
     /// <summary>Houses (custom + studios) currently spawned in the same world/instance scope as

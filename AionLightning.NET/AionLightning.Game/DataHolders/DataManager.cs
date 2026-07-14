@@ -37,6 +37,7 @@ public sealed class DataManager : IDataManager
     public FlyRingData                    FlyRings      { get; } = new();
     public HousingData                    Housing       { get; } = new();
     public HousePartsData                  HouseParts    { get; } = new();
+    public HousingObjectData               HousingObjects { get; } = new();
     public SiegeLocationData               Sieges        { get; } = new();
     public SiegeSpawnData                  SiegeSpawns   { get; } = new();
 
@@ -78,6 +79,7 @@ public sealed class DataManager : IDataManager
         FlyRings.Load(dataRoot, log);
         Housing.Load(dataRoot, log);
         HouseParts.Load(dataRoot, log);
+        HousingObjects.Load(dataRoot, log);
         Sieges.Load(dataRoot, log);
         SiegeSpawns.Load(dataRoot, log);
 

@@ -39,6 +39,7 @@ public sealed class PlayerEnterWorldService
     private readonly HousingService           _housingService;
     private readonly HousingBidService        _housingBidService;
     private readonly IOptions<HousingOptions> _housingOptions;
+    private readonly IHouseObjectCooldownsDao _houseObjectCooldownsDao;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -65,7 +66,8 @@ public sealed class PlayerEnterWorldService
         SiegeService siegeService,
         HousingService housingService,
         HousingBidService housingBidService,
-        IOptions<HousingOptions> housingOptions)
+        IOptions<HousingOptions> housingOptions,
+        IHouseObjectCooldownsDao houseObjectCooldownsDao)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -92,6 +94,7 @@ public sealed class PlayerEnterWorldService
         _housingService = housingService;
         _housingBidService = housingBidService;
         _housingOptions = housingOptions;
+        _houseObjectCooldownsDao = houseObjectCooldownsDao;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -529,6 +532,14 @@ public sealed class PlayerEnterWorldService
         await _siegeService.OnPlayerLoginAsync(player, conn, ct);
         await _housingService.OnPlayerLoginAsync(player, conn, ct);
         if (_housingOptions.Value.Enable)
+        {
             await _housingBidService.OnPlayerLoginAsync(player, conn, ct);
+
+            // P3: Java Player.houseObjectCooldownList — loaded once at login, upserted immediately by
+            // CM_USE_HOUSE_OBJECT whenever a cooldown is set (see Player.SetHouseObjectCooldown's doc).
+            var cooldowns = await _houseObjectCooldownsDao.LoadAsync(player.ObjectId, ct);
+            foreach (var (cooldownObjectId, reuseTimeMs) in cooldowns)
+                player.HouseObjectCooldowns[cooldownObjectId] = reuseTimeMs;
+        }
     }
 }

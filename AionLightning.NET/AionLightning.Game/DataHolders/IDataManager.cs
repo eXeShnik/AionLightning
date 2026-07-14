@@ -35,6 +35,7 @@ public interface IDataManager
     FlyRingData                    FlyRings      { get; }
     HousingData                    Housing       { get; }
     HousePartsData                  HouseParts    { get; }
+    HousingObjectData               HousingObjects { get; }
     SiegeLocationData               Sieges        { get; }
     SiegeSpawnData                   SiegeSpawns   { get; }
 }

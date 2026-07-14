@@ -107,8 +107,15 @@ public sealed class CM_LEVEL_READY : AionClientPacket
         // that comes into/out of range without a full zone reload won't render/despawn until the next
         // enter-world. No-op entirely unless HousingOptions.Enable is true.
         if (_housingOptions.Enable)
+        {
             foreach (var house in _housingService.GetHousesInScope(scope))
                 try { await _houseController.SeeAsync(house, player, _conn, ct); } catch { }
+
+            // P3: Java CM_LEVEL_READY also sends the player's own placed-furniture list here
+            // (player.getHouseRegistry() != null branch).
+            if (player.ActiveHouse is { } activeHouse)
+                try { await _conn.SendAsync(new SM_HOUSE_OBJECTS(activeHouse.Registry.SpawnedObjects), ct); } catch { }
+        }
 
         await _eventBus.PublishAsync(new PlayerEnteredWorldEvent(player), ct);
 
