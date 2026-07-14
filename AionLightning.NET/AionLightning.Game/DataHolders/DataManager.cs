@@ -44,6 +44,8 @@ public sealed class DataManager : IDataManager
     public StaticDoorData                  StaticDoors   { get; } = new();
     public RiftData                        Rifts         { get; } = new();
     public RiftSpawnData                   RiftSpawns    { get; } = new();
+    public BaseData                        Bases         { get; } = new();
+    public BaseSpawnData                   BaseSpawns    { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -90,6 +92,8 @@ public sealed class DataManager : IDataManager
         StaticDoors.Load(dataRoot, log);
         Rifts.Load(dataRoot, log);
         RiftSpawns.Load(dataRoot, log);
+        Bases.Load(dataRoot, log);
+        BaseSpawns.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

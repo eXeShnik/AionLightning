@@ -3,6 +3,7 @@ using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Model.GameObjects;
+using AionLightning.Game.Model.GameObjects.Base;
 using AionLightning.Game.Model.GameObjects.Siege;
 using AionLightning.Game.Model.Templates.Gatherable;
 using AionLightning.Game.Model.Templates.Spawns;
@@ -205,6 +206,29 @@ public sealed class SpawnService
         var position = new Position(siegeTemplate.X, siegeTemplate.Y, siegeTemplate.Z, siegeTemplate.Heading, siegeTemplate.WorldId);
         var npc = SpawnNpc(template, position, siegeTemplate.RespawnTime);
         return new SiegeNpc(npc, siegeTemplate.SiegeId, siegeTemplate.SiegeRace);
+    }
+
+    /// <summary>
+    /// Java SpawnEngine's base-spawn counterpart to <see cref="SpawnSiegeNpc"/> (services.base.Base.spawn()
+    /// /spawnBoss() iterate the base's spawn templates and call SpawnEngine.spawnObject directly) — spawns
+    /// a single base-tagged NPC from a flattened <see cref="BaseSpawnTemplate"/> (see
+    /// DataHolders.BaseSpawnData), reusing the same creation/AI-binding path as regular NPCs
+    /// (<see cref="SpawnNpc"/>) and wrapping the result as a <see cref="BaseNpc"/> for the caller
+    /// (BaseService) to register and broadcast. Returns null when the referenced NPC id has no known
+    /// template.
+    /// note: like <see cref="SpawnSiegeNpc"/>, an individual base NPC killed outright (not via a
+    /// location-wide DespawnBase/SpawnDefenders cycle) respawns as a plain, untagged Npc through the
+    /// generic death/respawn pipeline (NpcAiService/CM_ATTACK/CM_CASTSPELL -> ScheduleRespawn) — see
+    /// SpawnSiegeNpc's own note for the same caveat.
+    /// </summary>
+    public BaseNpc? SpawnBaseNpc(BaseSpawnTemplate baseTemplate)
+    {
+        var template = _dataManager.Npcs.GetTemplate(baseTemplate.NpcId);
+        if (template is null) return null;
+
+        var position = new Position(baseTemplate.X, baseTemplate.Y, baseTemplate.Z, baseTemplate.Heading, baseTemplate.WorldId);
+        var npc = SpawnNpc(template, position, baseTemplate.RespawnTime);
+        return new BaseNpc(npc, baseTemplate.BaseId, baseTemplate.BaseRace, baseTemplate.HandlerType == BaseSpawnHandlerType.Boss);
     }
 
     private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position, int respawnTime = 0, string walkerId = "")

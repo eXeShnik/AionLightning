@@ -42,4 +42,6 @@ public interface IDataManager
     StaticDoorData                   StaticDoors   { get; }
     RiftData                         Rifts         { get; }
     RiftSpawnData                    RiftSpawns    { get; }
+    BaseData                         Bases         { get; }
+    BaseSpawnData                    BaseSpawns    { get; }
 }

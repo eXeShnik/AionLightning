@@ -36,6 +36,7 @@ builder.Services
     .AddAionOptions<GeoDataOptions>("GameServer:GeoData")
     .AddAionOptions<SiegeOptions>("GameServer:Siege")
     .AddAionOptions<SiegeScheduleOptions>("GameServer:Siege:Schedule")
+    .AddAionOptions<BaseOptions>("GameServer:Base")
     .AddAionOptions<RiftOptions>("GameServer:Rift")
     .AddAionOptions<RiftScheduleOptions>("GameServer:Rift:Schedule")
     .AddAionOptions<HousingOptions>("GameServer:Housing")
@@ -66,6 +67,7 @@ builder.Services.AddTransient<IEventHandler<DeathEvent>, PvpKillHandler>(); // P
 builder.Services.AddTransient<IEventHandler<DeathEvent>, InstanceDeathHandler>(); // instance script onDie(Npc)/onDie(Player)
 builder.Services.AddTransient<IEventHandler<DeathEvent>, QuestPlayerDeathHandler>(); // quest onDie(player)
 builder.Services.AddTransient<IEventHandler<DeathEvent>, SiegeBossDeathHandler>(); // siege boss death ends the siege
+builder.Services.AddTransient<IEventHandler<DeathEvent>, BaseBossDeathHandler>(); // base boss death captures the outpost
 // Phase 5 Batch 0: bridges CM_LEVEL_READY's PlayerEnteredWorldEvent into QuestEngine.OnEnterWorldAsync
 builder.Services.AddTransient<IEventHandler<PlayerEnteredWorldEvent>, QuestEnterWorldHandler>();
 // M265+: pre-damage handlers (mutate MutableDamage to absorb)
@@ -116,6 +118,7 @@ builder.Services.AddSingleton<IHouseObjectCooldownsDao, HouseObjectCooldownsDaoI
 builder.Services.AddSingleton<IPlayerRegisteredItemsDao, PlayerRegisteredItemsDaoImpl>();
 builder.Services.AddSingleton<IHouseScriptsDao, HouseScriptsDaoImpl>();
 builder.Services.AddSingleton<ISiegeDao, SiegeDaoImpl>();
+builder.Services.AddSingleton<IBaseDao, BaseDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -166,6 +169,7 @@ builder.Services.AddSingleton<PetService>();
 builder.Services.AddSingleton<AionLightning.Game.Model.Siege.Influence>();
 builder.Services.AddSingleton<AionLightning.Game.Services.Siege.Assault.BalaurAssaultService>();
 builder.Services.AddSingleton<SiegeService>();
+builder.Services.AddSingleton<BaseService>();
 builder.Services.AddSingleton<RiftService>();
 builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();
@@ -208,6 +212,7 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 // Hosted services: schema migration first, then quest engine bootstrap, then server
 builder.Services.AddHostedService<SchemaMigrationHost>();
 builder.Services.AddHostedService<SiegeServiceHostedService>();
+builder.Services.AddHostedService<BaseServiceHostedService>();
 builder.Services.AddHostedService<RiftServiceHostedService>();
 builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
