@@ -2,7 +2,9 @@ using AionLightning.Game.Ai;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.GameObjects.Siege;
 using AionLightning.Game.Model.Templates.Gatherable;
+using AionLightning.Game.Model.Templates.Spawns;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Logging;
@@ -140,6 +142,29 @@ public sealed class SpawnService
     /// <summary>Spawns an NPC at an arbitrary position (e.g. from a GM command).</summary>
     public Npc SpawnNpcAt(Model.Templates.Npc.NpcTemplate template, Position position)
         => SpawnNpc(template, position);
+
+    /// <summary>
+    /// Java SpawnEngine/VisibleObjectSpawner.spawnSiegeNpc — spawns a single siege-tagged NPC from a
+    /// flattened <see cref="SiegeSpawnTemplate"/> (see DataHolders.SiegeSpawnData), reusing the same
+    /// creation/AI-binding path as regular NPCs (<see cref="SpawnNpc"/>) and wrapping the result as a
+    /// <see cref="SiegeNpc"/> for the caller (SiegeService) to register and broadcast. Returns null when
+    /// the referenced NPC id has no known template.
+    /// note: Java re-invoked SpawnEngine.spawnObject with the same SiegeSpawnTemplate on death-respawn,
+    /// so a respawned guard stayed siege-tagged. This port's generic death/respawn pipeline
+    /// (NpcAiService -> ScheduleRespawn) only knows about plain <see cref="Npc"/>/NpcTemplate, so an
+    /// individual siege NPC killed mid-siege respawns as a plain (untagged, unregistered) NPC instead of
+    /// a re-registered SiegeNpc. Full-location DeSpawnNpcs/SpawnNpcs at siege start/stop is unaffected —
+    /// see SiegeService.SpawnNpcs/DeSpawnNpcs.
+    /// </summary>
+    public SiegeNpc? SpawnSiegeNpc(SiegeSpawnTemplate siegeTemplate)
+    {
+        var template = _dataManager.Npcs.GetTemplate(siegeTemplate.NpcId);
+        if (template is null) return null;
+
+        var position = new Position(siegeTemplate.X, siegeTemplate.Y, siegeTemplate.Z, siegeTemplate.Heading, siegeTemplate.WorldId);
+        var npc = SpawnNpc(template, position, siegeTemplate.RespawnTime);
+        return new SiegeNpc(npc, siegeTemplate.SiegeId, siegeTemplate.SiegeRace);
+    }
 
     private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position, int respawnTime = 0, string walkerId = "")
     {

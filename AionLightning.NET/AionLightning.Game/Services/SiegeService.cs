@@ -36,6 +36,7 @@ public sealed class SiegeService(
     PlayerConnectionRegistry connRegistry,
     CronService cronService,
     MailFormatter mailFormatter,
+    SpawnService spawnService,
     IOptions<SiegeOptions> options,
     IOptions<SiegeScheduleOptions> scheduleOptions,
     ILogger<SiegeService> log)
@@ -165,23 +166,78 @@ public sealed class SiegeService(
         log.LogInformation("SiegeService: loaded ownership for {Count} siege location(s)", Locations.Count);
     }
 
-    // note: Java's spawnNpcs/deSpawnNpcs drive the siege spawn engine (SpawnGroup2 filtered by
-    // SiegeSpawnTemplate race/modtype) and the SiegeNpc controller wiring — that spawn-template
-    // subclass doesn't exist in this port yet. No-op stubs until P2's follow-up adds the siege spawn
-    // engine; RegisterSiegeNpc/UnregisterSiegeNpc below exist so that engine has somewhere to plug in.
+    /// <summary>
+    /// Java SiegeService.spawnNpcs(int, SiegeRace, SiegeModType) — spawns every static siege-spawn
+    /// template for this location whose race/mod matches the currently-requested state (the call sites
+    /// in Services.Siege.* already pass the location's live race and PEACE/SIEGE mod, mirroring Java's
+    /// own call sites), tags each as a <see cref="SiegeNpc"/>, registers it, and broadcasts SM_NPC_INFO
+    /// to whoever is already in scope. A no-op while <see cref="SiegeOptions.Enable"/> is false, matching
+    /// Java's SiegeConfig.SIEGE_ENABLED guard inside VisibleObjectSpawner.spawnSiegeNpc.
+    /// </summary>
     public void SpawnNpcs(int siegeLocationId, SiegeRace race, SiegeModType type)
     {
+        if (!options.Value.Enable) return;
+
+        var siegeSpawns = dataManager.SiegeSpawns.GetSiegeSpawnsBySiegeId(siegeLocationId);
+        if (siegeSpawns.Count == 0) return;
+
+        var spawned = new List<SiegeNpc>();
+        foreach (var template in siegeSpawns)
+        {
+            if (template.SiegeRace != race || template.SiegeModType != type) continue;
+
+            if (spawnService.SpawnSiegeNpc(template) is not { } siegeNpc) continue;
+            RegisterSiegeNpc(siegeNpc);
+            spawned.Add(siegeNpc);
+        }
+
+        if (spawned.Count == 0) return;
+
+        _ = Task.Run(async () =>
+        {
+            foreach (var siegeNpc in spawned)
+            {
+                var infoPacket = new SM_NPC_INFO(siegeNpc.Npc);
+                var scope = siegeNpc.Npc.Position;
+                foreach (var conn in connRegistry.GetAll())
+                    if (conn.ActivePlayer is { } p && p.Position.SameScope(scope))
+                        try { await conn.SendAsync(infoPacket); } catch { }
+            }
+        });
     }
 
+    /// <summary>Java SiegeService.deSpawnNpcs(int) — removes every currently-registered siege NPC for
+    /// this location from the world and the registry, broadcasting SM_DELETE to whoever can see them.</summary>
     public void DeSpawnNpcs(int siegeLocationId)
     {
+        var localNpcs = GetLocalSiegeNpcs(siegeLocationId).ToList();
+        if (localNpcs.Count == 0) return;
+
+        foreach (var siegeNpc in localNpcs)
+        {
+            world.Remove(siegeNpc.Npc);
+            UnregisterSiegeNpc(siegeNpc);
+        }
+
+        _ = Task.Run(async () =>
+        {
+            foreach (var siegeNpc in localNpcs)
+            {
+                var deletePacket = new SM_DELETE(siegeNpc.Npc.ObjectId);
+                var scope = siegeNpc.Npc.Position;
+                foreach (var conn in connRegistry.GetAll())
+                    if (conn.ActivePlayer is { } p && p.Position.SameScope(scope))
+                        try { await conn.SendAsync(deletePacket); } catch { }
+            }
+        });
     }
 
     // --- Siege-NPC registry (Java World.getLocalSiegeNpcs) ---
-    // Always empty in this build (nothing calls RegisterSiegeNpc until the siege spawn engine exists),
-    // so Siege.InitSiegeBoss always throws SiegeException today — see its own doc comment. Kept so the
-    // boss-death/damage event handlers (Combat.Handlers.SiegeBoss*Handler) and InitSiegeBoss have a
-    // ready-made lookup the moment spawning is wired up.
+    // Populated by SpawnNpcs/emptied by DeSpawnNpcs above. Boss identification (Siege.InitSiegeBoss
+    // looking for the single IsBoss==true entry) still always throws SiegeException today: Java flags the
+    // boss via NpcTemplate.getAbyssNpcType()==BOSS, and that field doesn't exist in this port's NPC static
+    // data yet (see SiegeNpc.IsBoss/Siege.InitSiegeBoss doc comments) — a separate, already-documented gap
+    // from the spawn engine itself.
 
     public IEnumerable<SiegeNpc> GetLocalSiegeNpcs(int locationId) =>
         _siegeNpcsByLocation.TryGetValue(locationId, out var bucket) ? bucket.Values : [];

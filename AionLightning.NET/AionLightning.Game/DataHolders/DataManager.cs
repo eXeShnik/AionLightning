@@ -37,6 +37,7 @@ public sealed class DataManager : IDataManager
     public FlyRingData                    FlyRings      { get; } = new();
     public HousingData                    Housing       { get; } = new();
     public SiegeLocationData               Sieges        { get; } = new();
+    public SiegeSpawnData                  SiegeSpawns   { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -76,6 +77,7 @@ public sealed class DataManager : IDataManager
         FlyRings.Load(dataRoot, log);
         Housing.Load(dataRoot, log);
         Sieges.Load(dataRoot, log);
+        SiegeSpawns.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

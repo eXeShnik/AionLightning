@@ -7,9 +7,9 @@ namespace AionLightning.Game.Model.GameObjects.Siege;
 /// for hostility checks between opposing siege spawns. This port's <see cref="Npc"/> is sealed (the
 /// project favors composition over Java's class-per-behavior hierarchy), so SiegeNpc wraps an Npc
 /// instance instead of extending it.
-/// note: nothing constructs this yet — the siege spawn engine (SpawnGroup2 filtered by
-/// SiegeSpawnTemplate race/modtype, Java SiegeService.spawnNpcs/deSpawnNpcs) is P2. This type exists
-/// so P2 has a ready-made siege-NPC identity to attach to spawned Npc instances.
+/// Constructed by <see cref="AionLightning.Game.Services.SpawnService.SpawnSiegeNpc"/> and registered via
+/// <see cref="AionLightning.Game.Services.SiegeService.RegisterSiegeNpc"/> whenever
+/// SiegeService.SpawnNpcs spawns a location's siege-spawn templates.
 /// </summary>
 public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace, bool isBoss = false)
 {
@@ -18,6 +18,9 @@ public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace, bool isB
     public SiegeRace SiegeRace { get; } = siegeRace;
 
     /// <summary>Java NpcTemplate.getAbyssNpcType() == AbyssNpcType.BOSS — identifies the single siege
-    /// boss NPC whose death (see Services.Siege.Siege.InitSiegeBoss) ends the siege.</summary>
+    /// boss NPC whose death (see Services.Siege.Siege.InitSiegeBoss) ends the siege.
+    /// note: always false in this port — AbyssNpcType isn't part of the ported NPC static data, so
+    /// nothing ever constructs a SiegeNpc with isBoss: true yet; InitSiegeBoss will keep throwing until
+    /// that data is ported.</summary>
     public bool IsBoss { get; } = isBoss;
 }

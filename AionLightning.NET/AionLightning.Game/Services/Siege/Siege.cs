@@ -106,11 +106,12 @@ public abstract class Siege
     }
 
     /// <summary>
-    /// Java initSiegeBoss() — locates the single BOSS-flagged siege NPC for this location. Always throws
-    /// today: nothing populates <see cref="SiegeService.GetLocalSiegeNpcs"/> until the siege spawn engine
-    /// (SpawnNpcs/DeSpawnNpcs, see SiegeService) is ported — that path only fires when
-    /// <see cref="Configs.Options.SiegeOptions.Enable"/> is true, which gates the scheduling that would
-    /// call this in the first place.
+    /// Java initSiegeBoss() — locates the single BOSS-flagged siege NPC for this location.
+    /// <see cref="SiegeService.GetLocalSiegeNpcs"/> is now populated by SiegeService.SpawnNpcs, but this
+    /// still always throws today: Java flags the boss via NpcTemplate.getAbyssNpcType()==BOSS, and that
+    /// field isn't part of this port's NPC static data yet, so <see cref="SiegeNpc.IsBoss"/> is never
+    /// true. Only reachable when <see cref="Configs.Options.SiegeOptions.Enable"/> is true, since that
+    /// gates both the scheduling that calls this and SpawnNpcs itself.
     /// </summary>
     protected void InitSiegeBoss()
     {
