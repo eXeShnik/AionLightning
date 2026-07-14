@@ -3784,8 +3784,25 @@ Priority order chosen for player-visible impact per unit of work:
 - [ ] **C2: Quest engine depth** — current QuestService covers XML kill/collect basics. Port the
       Java questEngine handler model (per-quest logic; Java has 76 engine files + script handlers)
       onto the existing Roslyn scripting infra (Scripts/ folder pattern from Login).
-- [ ] **C3: NPC AI** — replace single NpcAiService with a port of the ai2 state machine
+- [~] **C3: NPC AI** — replace single NpcAiService with a port of the ai2 state machine
       (idle/patrol/aggro/return, leash, social aggro, flee) — biggest combat-feel gap.
+      **2026-07-14: scriptable ai2 layer DONE (structural).** Foundation `Ai/` namespace
+      (`NpcAi2` script base + `[AiName]` + `AiEngine` + `AiEngineHostedService`, mirrors the
+      instance engine; SpawnService binds a scripted AI per `NpcTemplate.Ai` + fires OnSpawned).
+      **All 456 Java `ai/**` scripts ported** into `Scripts/ai/**` (37 root + 4 classNpc bases,
+      333 instance across 43 subfolders, 21 siege, 33 worlds, 11 portals, 6 events, 6 quests,
+      5 walkers). Whole-tree Roslyn probe: 456 discovered, 0 CS errors; Game builds clean.
+      Ported STRUCTURALLY per the "migrated even if degraded" directive — the 52-file ai2
+      framework (AggroEventHandler/AttackEventHandler/SkillAttackManager/aggroList/knownList/
+      AI2Actions/WalkManager/EmoteManager/doors/pollInstance) was NOT ported; those delegations
+      are documented `// note:` no-ops and NpcAiService still owns combat/wander/aggro. STILL
+      OWED for real behaviour: script-driven skill casting (UseSkill/SendMsg are stubs),
+      instance door API, WorldMapInstance.getNpcs(id) plural lookup, scripted NPC despawn/die,
+      known-list/aggro-list script access, onDialogSelect hook, ai2 poll questions
+      (SHOULD_DECAY/RESPAWN/REWARD), EmoteManager/NpcShoutsService. Two `[AiName]` values are
+      duplicated (churatwinblade/debilkarimthemaker) — faithful to Java 4.6 (same @AIName in
+      lowerUdasTemple + udasTempleLower); Register is last-wins like Java. Probe: `qprobe_ai`
+      against `Scripts/ai`.
 - [ ] **C4: Geodata** — port geoEngine (43 files) or integrate a minimal Z-lookup + LoS service;
       prerequisite for correct ranged combat, pathing, and fall damage.
 - [ ] **C5: Instances** — portal/entry flow exists (PortalData, InstanceExitData); add instance
