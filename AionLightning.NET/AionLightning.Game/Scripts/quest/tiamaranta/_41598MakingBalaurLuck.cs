@@ -3,8 +3,10 @@
 // 186000096), accept to start, then hand back the two collect_items (186000096 + 186000174) via
 // CHECK_USER_HAS_QUEST_ITEM_SIMPLE to flip to REWARD, and complete with SELECTED_QUEST_NOREWARD (which
 // consumes the collect items). The quest has an empty <rewards/> block (a MEDAL bonus only).
-// note: the special-cube guard is preserved via IsFullSpecialCube (a no-op false in this port, so the
-// accept never blocks and the STR_MSG_FULL_INVENTORY warning branch is dead — dropped). Java's onCanAct
+// note: the special-cube guard is wired via IsFullSpecialCube (Java Storage.isFullSpecialCube — counts
+// the player's cube items whose template carries an &lt;inventory id="N"/&gt; entry against the fixed
+// 102-slot special-cube capacity); the STR_MSG_FULL_INVENTORY warning packet on that branch is a cosmetic
+// notice and is dropped (same convention as gelkmaros/_20021). Java's onCanAct
 // gate (restricting quest actions to npc 730555) has no hook in this port and is dropped — it is not the
 // sole progression gate, the dialog flow above drives the quest. The inventoryItemCheck warning packet
 // (STR_QUEST_ACQUIRE_ERROR_INVENTORY_ITEM) is a cosmetic notice and is dropped. The Java canRepeat()
@@ -71,7 +73,7 @@ public sealed class _41598MakingBalaurLuck : QuestHandlerBase
                     }
                     else
                     {
-                        // note: Java sends STR_MSG_FULL_INVENTORY here — dead branch (IsFullSpecialCube is always false).
+                        // note: Java sends STR_MSG_FULL_INVENTORY here — cosmetic notice, dropped.
                         return await SendQuestSelectionDialogAsync(conn, targetObjId, ct);
                     }
                 }

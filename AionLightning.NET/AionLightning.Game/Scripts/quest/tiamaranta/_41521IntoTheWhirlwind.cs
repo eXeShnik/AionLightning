@@ -4,12 +4,12 @@
 // var0 0->1 and teleports the player to the arena. Talk 205963 (var0 1->2), then kill 6x {218278/218279}
 // and 8x {218284/218285} (var0 2->3), then hand in at 205963 (removes the item, flips to REWARD).
 // Turn in at 205962.
-// note: the abnormal-effect leg is the core gate and cannot be expressed — there is no quest-callable
-// effect apply/check API in this port (OnItemUse carries no zone info either). Both the SkillEngine
-// applyEffectDirectly(2252) in the item-use leg and the hasAbnormalEffect(2252) gate on the 701134 talk
-// are therefore dropped: talking to 701134 while the quest is at START simply advances var0 0->1, so the
-// quest stays completable. The subsequent TeleportService2 relocation (which does not gate progression,
-// var0 is already advanced) is dropped too — no script-callable teleport helper exists.
+// The abnormal-effect gate is wired via QuestHandlerBase.HasEffect/ApplyEffectDirectly (skill 2252 is a
+// pure polymorph/nofly transformation with no combat stat deltas, so a bookkeeping-only AbnormalState is
+// sufficient) and the zone gate via QuestHandlerBase.IsInsideZone (Player.CurrentZones, tracked by
+// ZoneService on movement).
+// note: the TeleportService2 relocation on the 701134 talk (which does not gate progression, var0 is
+// already advanced by that point) is dropped — no script-callable teleport helper exists.
 using System.Threading;
 using System.Threading.Tasks;
 using AionLightning.Game.Dao;
@@ -31,6 +31,9 @@ public sealed class _41521IntoTheWhirlwind : QuestHandlerBase
     private const int EffectNpc = 701134;
     private const int TurnInNpc = 205963;
     private const int QuestItem = 182212525;
+    private const int TransformEffectSkillId = 2252;      // "Drakan Transformation" — polymorph/nofly, no combat stat deltas
+    private const int TransformEffectDurationMs = 60_000;
+    private const string ItemUseZone = "LDF4B_ITEMUSEAREA_Q41521A";
 
     private static readonly int[] Mobs = { 218278, 218279, 218284, 218285 };
 
@@ -74,10 +77,10 @@ public sealed class _41521IntoTheWhirlwind : QuestHandlerBase
         }
         else if (entry.Status == QuestStatus.START)
         {
-            // note: Java gates this on player.hasAbnormalEffect(2252); the effect can't be applied/checked
-            // in this port, so the gate is dropped — the talk advances var0 0->1 unconditionally.
             if (targetId == EffectNpc)
             {
+                if (!HasEffect(player, TransformEffectSkillId))
+                    return false;
                 if (entry.GetVar(0) == 0)
                     await ChangeQuestStepAsync(conn, entry, 0, 1, toReward: false, ct);
                 // note: Java teleports to (1097.74, 124.24, 61.56) here — no script-callable teleport; dropped.
@@ -159,9 +162,9 @@ public sealed class _41521IntoTheWhirlwind : QuestHandlerBase
         if (itemId != QuestItem) return ValueTask.FromResult(false);
         var entry = player.Quests.Get(QuestId);
         if (entry is null || entry.Status != QuestStatus.START) return ValueTask.FromResult(false);
-        // note: Java applies abnormal effect 2252 (SkillEngine.applyEffectDirectly) when var0 is 0/3 and the
-        // player stands in zone LDF4B_ITEMUSEAREA_Q41521A. Neither the effect-apply API nor the item-use
-        // zone context exist in this port, so the effect is dropped (see class summary). Item use is a no-op.
+        int var0 = entry.GetVar(0);
+        if ((var0 == 0 || var0 == 3) && IsInsideZone(player, ItemUseZone))
+            ApplyEffectDirectly(player, TransformEffectSkillId, TransformEffectDurationMs);
         return ValueTask.FromResult(true);
     }
 }

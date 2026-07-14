@@ -171,9 +171,39 @@ public abstract class QuestHandlerBase : IQuestHandler
         return e is not null && e.Status != QuestStatus.COMPLETE;
     }
 
-    /// <summary>Special-cube (title-storage bag) inventory check (Java isFullSpecialCube). Not modelled in
-    /// this port — always returns false (never full), so a special-cube gate never blocks progression.</summary>
-    protected static bool IsFullSpecialCube(Player player) => false;
+    /// <summary>Special-cube inventory-full check (Java Storage.isFullSpecialCube): counts the player's
+    /// cube items whose template carries an &lt;inventory id="N"/&gt; entry with N &gt; 0 (mostly
+    /// gathering-tool quest items) against the fixed 102-slot special-cube capacity (Java
+    /// StorageType.CUBE specialLimit). The regular warehouse/account-warehouse storages are separate
+    /// and are not counted, matching Java (which checks only the player's own Storage instance).</summary>
+    protected bool IsFullSpecialCube(Player player)
+    {
+        const int SpecialCubeLimit = 102;
+        int count = player.Inventory.All.Count(i => DataManager.Items.GetTemplate(i.ItemId)?.ExtraInventoryId > 0);
+        return count >= SpecialCubeLimit;
+    }
+
+    /// <summary>Whether the player currently has an active (non-expired) abnormal effect for the given
+    /// skill id (Java EffectController.hasAbnormalEffect).</summary>
+    protected static bool HasEffect(Player player, int skillId)
+        => player.GetActiveEffects().Any(e => e.SkillId == skillId);
+
+    /// <summary>Grants the player an abnormal effect for <paramref name="skillId"/> without a full skill
+    /// cast (Java SkillEngine.applyEffectDirectly). No stat deltas are computed — sufficient for quest
+    /// gating/state-marker skills (e.g. polymorph/transformation skills with no combat stat effects);
+    /// for skills that do carry stat deltas, cast through the normal skill-effect pipeline instead.</summary>
+    protected static void ApplyEffectDirectly(Player player, int skillId, int durationMs)
+        => player.AddEffect(new AbnormalState
+        {
+            SkillId    = skillId,
+            EffectorId = player.ObjectId,
+            Expiry     = DateTime.UtcNow.AddMilliseconds(durationMs),
+        });
+
+    /// <summary>Whether the player's tracked current-zone set contains the named region (Java
+    /// Creature.isInsideZone), updated on every movement tick by <see cref="ZoneService"/>.</summary>
+    protected static bool IsInsideZone(Player player, string zoneName)
+        => player.CurrentZones.Contains(zoneName);
 
     /// <summary>Ascends the player to a main class (Java ClassChangeService.setClass, ascension
     /// 2nd-class change): validates the switch, persists the new class, grants/persists the new

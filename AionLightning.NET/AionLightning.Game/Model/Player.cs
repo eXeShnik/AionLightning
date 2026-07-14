@@ -280,12 +280,14 @@ public sealed class Player : Creature
     public int TitleBonusMaxHp { get; set; }
     public int TitleBonusMaxMp { get; set; }
 
-    // Divine Power — drained to 0 on bind revive (cleared via CM_REVIVE), max 8000
+    // Divine Power — drained to 0 on bind revive (cleared via CM_REVIVE), max 4000
     public int Dp { get; set; }
 
-    /// <summary>Max Divine Power (Java getGameStats().getMaxDp()). Modelled as the standard 8000 cap
-    /// (the port does not yet compute the per-class/level DP cap).</summary>
-    public int MaxDp => 8000;
+    /// <summary>Max Divine Power (Java getGameStats().getMaxDp() = getStat(StatEnum.MAXDP, 4000)).
+    /// Modelled as the flat Java base of 4000 — no MAXDP stat-bonus function (items/skills that add to
+    /// the stat) is ported, matching the hardcoded 4000 checks already used by the sibling quests
+    /// _1989/_2989/_2990/_4944/_3940.</summary>
+    public int MaxDp => 4000;
 
     // Soul sickness stacks (0-10); each stack reduces MaxHp/MaxMp by 5 % (Java deathCount)
     public int SoulSicknessCount { get; set; }

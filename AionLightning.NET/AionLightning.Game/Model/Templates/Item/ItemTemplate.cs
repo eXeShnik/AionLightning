@@ -26,6 +26,7 @@ public sealed class ItemTemplate
     [XmlElement("enchant")]           public ItemEnchantInfo?  EnchantInfo { get; set; }
     [XmlElement("uselimits")]         public ItemUseLimits?    UseLimits   { get; set; }
     [XmlElement("stigma")]            public StigmaTemplate?   Stigma      { get; set; }
+    [XmlElement("inventory")]         public ExtraInventoryInfo? ExtraInventory { get; set; }
 
     public int? UseSkillId        => Actions?.SkillUse?.SkillId;
     public int? SkillLearnId      => Actions?.SkillLearn?.SkillId;
@@ -47,6 +48,9 @@ public sealed class ItemTemplate
     public bool IsTuningScroll  => Actions?.Tuning != null;
     // title item — presence of <titleadd> in <actions>
     public int? TitleAddId      => Actions?.TitleAdd?.TitleId is > 0 and int id ? id : null;
+    // Special-cube membership id (Java getExtraInventoryId): -1 when the <inventory id="N"/> element
+    // is absent, else its N (game data uses 1 or 2 — mostly gathering-tool quest rings/items).
+    public int ExtraInventoryId => ExtraInventory?.Id ?? -1;
     // mount/ride item — presence of <ride> in <actions> (Java RideAction)
     public bool IsRideItem      => Actions?.Ride != null;
 
@@ -197,6 +201,14 @@ public sealed class ItemEnchantInfo
 public sealed class DecomposeAction
 {
     [XmlAttribute("select")] public bool IsSelect { get; set; }
+}
+
+/// <summary>Maps to &lt;inventory id="N"/&gt; (Java ExtraInventory) — marks an item as belonging to the
+/// player's special cube (a separate 102-slot storage; see Java Storage.isFullSpecialCube) instead of
+/// the regular cube, when N &gt; 0.</summary>
+public sealed class ExtraInventoryInfo
+{
+    [XmlAttribute("id")] public int Id { get; set; }
 }
 
 public sealed class TuningAction
