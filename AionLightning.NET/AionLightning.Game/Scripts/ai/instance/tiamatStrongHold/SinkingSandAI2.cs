@@ -2,7 +2,7 @@
 // skill 3s after spawn, then self-kills.
 using AionLightning.Game.Ai;
 
-namespace Ai;
+namespace Ai.TiamatStrongHold;
 
 [AiName("sinkingsand")]
 public sealed class SinkingSandAI2 : NpcAi2

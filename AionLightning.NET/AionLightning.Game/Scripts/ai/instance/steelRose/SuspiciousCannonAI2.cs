@@ -3,7 +3,7 @@
 using AionLightning.Game.Ai;
 using AionLightning.Game.Model;
 
-namespace Ai;
+namespace Ai.SteelRose;
 
 [AiName("suspiciouscannonroza")]
 public sealed class SuspiciousCannonAI2 : ActionItemNpcAI2

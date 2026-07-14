@@ -5,7 +5,7 @@ using System;
 using AionLightning.Game.Ai;
 using AionLightning.Game.Model;
 
-namespace Ai;
+namespace Ai.DragonLordsRefuge;
 
 [AiName("calindiflamelord60")]
 // 219359
