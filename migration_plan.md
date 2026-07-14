@@ -5253,3 +5253,22 @@ use World.GetNpcsInScope now if SpawnQuestNpcAndGet handles tracked spawns). Eac
   (sanctum 1929), special-cube (tiamaranta 41598), onRide/mount, + scattered stragglers. Each needs a specialized
   subsystem for 1-10 quests; several (dredgion/flight/class-change) need live testing to verify. 98.1% is the practical
   ceiling for hook-based quest unblocking.
+
+## QUEST MIGRATION COMPLETE (2026-07-14) — 1492/1492 real quests (100%)
+Directive: "fully migrated, maybe not working fine but migrated, ASAP." Achieved. The only un-ported
+Java file is `_9999QuestHandlerTemplate.java` (a developer template, not a quest). Final push built the
+last engine hooks needed so every remaining quest compiles + registers, then a 5-agent parallel fleet
+ported the last 26. Some quests are "migrated but currently unreachable" — they register hooks that
+never fire until their subsystem is built (documented inline with `// note:`):
+- onBonusApply (event MOVIE/LUNAR bonus) — needs the event-bonus dispatch system.
+- onDredgionReward — needs dredgion instance scoring.
+- onRide — needs the mount system.
+- SetPlayerClass (ascension) — sets class only; Java upgradePlayer() skill/stat refresh not wired.
+- IsFullSpecialCube → false; Player.MaxDp → 8000 (flat cap, not per-class computed).
+Full list of quest hooks built this session (17 total incl. these): onDie, onLogOut, onAtDistance,
+follow/escort (reach/lost) + FollowService, SpawnQuestNpcAndGet, onLeaveZone, onKillRanked, AnyNpcAlive,
+onAddAggroList, onPassFlyingRing (+FlyRingData), onFailCraft, onEquipItem, onDredgionReward, onRide,
+onBonusApply, + helpers IsQuestActive/IsFullSpecialCube/SetPlayerClass/Player.MaxDp.
+NON-QUEST work still outstanding for a "fully working" server (NOT quest-blocking): dredgion scoring,
+event-bonus system, mount system, class-change skill-refresh, Housing bidding/registry, sieges, full
+ai2 (455 scripts), geodata (data-blocked). Plus the LIVE client gate on the wire formats built this session.
