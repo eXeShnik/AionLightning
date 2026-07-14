@@ -37,6 +37,10 @@ public sealed class QuestEngine
     private readonly Dictionary<string, List<int>>  _zoneLeaveIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<int>>  _flyRingIndex = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<int, List<int>>     _failCraftIndex = new();
+    private readonly List<int>                      _dredgionRewardIndex = new();
+    private readonly List<int>                      _rideIndex = new();
+    private readonly Dictionary<int, List<int>>     _equipItemIndex = new();
+    private readonly Dictionary<string, List<int>>  _bonusApplyIndex = new(StringComparer.OrdinalIgnoreCase);
     // npcId -> side quest-item drops (Java addHandlerSideQuestDrop)
     private readonly Dictionary<int, List<SideQuestDrop>> _sideDropIndex = new();
     private readonly ILogger<QuestEngine>           _log;
@@ -219,6 +223,90 @@ public sealed class QuestEngine
     {
         if (!_failCraftIndex.TryGetValue(itemId, out var quests)) { quests = []; _failCraftIndex[itemId] = quests; }
         if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Registers a quest for the dredgion-reward hook (Java registerOnDredgionReward). NOTE: the
+    /// dredgion scoring subsystem is not ported, so this hook never fires — the quest is migrated but
+    /// currently unreachable.</summary>
+    public void RegisterOnDredgionReward(int questId)
+    {
+        if (!_dredgionRewardIndex.Contains(questId)) _dredgionRewardIndex.Add(questId);
+    }
+
+    /// <summary>Dispatches the dredgion-reward hook (Java onDredgionRewardEvent). No firing site yet.</summary>
+    public async ValueTask OnDredgionRewardAsync(Player player, int rank, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in _dredgionRewardIndex)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnDredgionRewardAsync(new QuestEnv(null, player, questId, 0), rank, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnDredgionRewardAsync"); }
+    }
+
+    /// <summary>Registers a quest for the mount/ride hook (Java registerOnRide). NOTE: the mount system is
+    /// not ported, so this never fires — quest migrated but unreachable.</summary>
+    public void RegisterOnRide(int questId)
+    {
+        if (!_rideIndex.Contains(questId)) _rideIndex.Add(questId);
+    }
+
+    /// <summary>Dispatches the ride hook (Java onRideEvent). No firing site yet.</summary>
+    public async ValueTask OnRideAsync(Player player, int npcId, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            foreach (int questId in _rideIndex)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnRideAsync(new QuestEnv(null, player, questId, 0), npcId, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnRideAsync"); }
+    }
+
+    /// <summary>Registers a quest against an item id for the equip hook (Java registerOnEquipItem).</summary>
+    public void RegisterOnEquipItem(int itemId, int questId)
+    {
+        if (!_equipItemIndex.TryGetValue(itemId, out var quests)) { quests = []; _equipItemIndex[itemId] = quests; }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Dispatches the equip-item hook (Java onEquipItem) — fired from the equip packet path.</summary>
+    public async ValueTask OnEquipItemAsync(Player player, int itemId, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_equipItemIndex.TryGetValue(itemId, out var questIds)) return;
+            foreach (int questId in questIds)
+                if (_handlers.TryGetValue(questId, out var handler))
+                    await handler.OnEquipItemAsync(new QuestEnv(null, player, questId, 0), itemId, conn, ct);
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnEquipItemAsync"); }
+    }
+
+    /// <summary>Registers a quest against a bonus type for the bonus-apply hook (Java registerOnBonusApply).
+    /// NOTE: the event-bonus system is not ported, so this never fires — quest migrated but unreachable.</summary>
+    public void RegisterOnBonusApply(int questId, string bonusType)
+    {
+        if (!_bonusApplyIndex.TryGetValue(bonusType, out var quests)) { quests = []; _bonusApplyIndex[bonusType] = quests; }
+        if (!quests.Contains(questId)) quests.Add(questId);
+    }
+
+    /// <summary>Dispatches the bonus-apply hook (Java onBonusApplyEvent → HandlerResult). No firing site yet.</summary>
+    public async ValueTask<HandlerResult> OnBonusApplyAsync(Player player, string bonusType, GsClientConnection conn, CancellationToken ct)
+    {
+        try
+        {
+            if (!_bonusApplyIndex.TryGetValue(bonusType, out var questIds)) return HandlerResult.Unknown;
+            foreach (int questId in questIds)
+                if (_handlers.TryGetValue(questId, out var handler))
+                {
+                    var r = await handler.OnBonusApplyAsync(new QuestEnv(null, player, questId, 0), bonusType, conn, ct);
+                    if (r != HandlerResult.Unknown) return r;
+                }
+        }
+        catch (Exception ex) { _log.LogError(ex, "QuestEngine: exception in OnBonusApplyAsync"); }
+        return HandlerResult.Unknown;
     }
 
     /// <summary>Dispatches the fail-craft hook (Java onFailCraft) to quests registered against the failed product item.</summary>

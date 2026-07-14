@@ -150,6 +150,34 @@ public abstract class QuestHandlerBase : IQuestHandler
     /// <summary>Registers THIS quest against a crafted product item id for the fail-craft hook (Java registerOnFailCraft). Call from Register().</summary>
     protected void RegisterOnFailCraft(QuestEngine engine, int itemId) => engine.RegisterOnFailCraft(itemId, QuestId);
 
+    /// <summary>Registers THIS quest for the dredgion-reward hook (Java registerOnDredgionReward). Call from Register().</summary>
+    protected void RegisterOnDredgionReward(QuestEngine engine) => engine.RegisterOnDredgionReward(QuestId);
+
+    /// <summary>Registers THIS quest for the mount/ride hook (Java registerOnRide). Call from Register().</summary>
+    protected void RegisterOnRide(QuestEngine engine) => engine.RegisterOnRide(QuestId);
+
+    /// <summary>Registers THIS quest against an item id for the equip hook (Java registerOnEquipItem). Call from Register().</summary>
+    protected void RegisterOnEquipItem(QuestEngine engine, int itemId) => engine.RegisterOnEquipItem(itemId, QuestId);
+
+    /// <summary>Registers THIS quest against a bonus type for the bonus-apply hook (Java registerOnBonusApply). Call from Register().</summary>
+    protected void RegisterOnBonusApply(QuestEngine engine, string bonusType) => engine.RegisterOnBonusApply(QuestId, bonusType);
+
+    /// <summary>Whether the player has an active (non-COMPLETE) entry for another quest (Java EventService.checkQuestIsActive).</summary>
+    protected static bool IsQuestActive(Player player, int questId)
+    {
+        var e = player.Quests.Get(questId);
+        return e is not null && e.Status != QuestStatus.COMPLETE;
+    }
+
+    /// <summary>Special-cube (title-storage bag) inventory check (Java isFullSpecialCube). Not modelled in
+    /// this port — always returns false (never full), so a special-cube gate never blocks progression.</summary>
+    protected static bool IsFullSpecialCube(Player player) => false;
+
+    /// <summary>Sets the player's class (Java ClassChangeService.setClass, ascension 2nd-class change).
+    /// Minimal: updates <see cref="Player.PlayerClass"/> only — the full skill-list/stigma-slot refresh
+    /// the Java service performs is not replicated, so this is "migrated but not fully wired".</summary>
+    protected static void SetPlayerClass(Player player, PlayerClass newClass) => player.PlayerClass = newClass;
+
     /// <summary>Registers THIS quest for the escort reach-target hook (Java registerAddOnReachTargetEvent). Call from Register().</summary>
     protected void RegisterOnReachTarget(QuestEngine engine) => engine.RegisterOnReachTarget(QuestId);
 
@@ -208,6 +236,10 @@ public abstract class QuestHandlerBase : IQuestHandler
     public virtual ValueTask<bool> OnAddAggroListAsync(QuestEnv env, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnPassFlyingRingAsync(QuestEnv env, string ringName, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
     public virtual ValueTask<bool> OnFailCraftAsync(QuestEnv env, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnDredgionRewardAsync(QuestEnv env, int rank, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnRideAsync(QuestEnv env, int npcId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<bool> OnEquipItemAsync(QuestEnv env, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+    public virtual ValueTask<HandlerResult> OnBonusApplyAsync(QuestEnv env, string bonusType, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(HandlerResult.Unknown);
 
     /// <summary>Opens an NPC dialog page (Java QuestHandler.sendDialogPacket). Always returns true (handled).</summary>
     protected async ValueTask<bool> SendQuestDialogAsync(GsClientConnection conn, int targetObjId, int dialogPageId, CancellationToken ct)

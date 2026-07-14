@@ -243,6 +243,10 @@ public sealed class Player : Creature
     // Divine Power — drained to 0 on bind revive (cleared via CM_REVIVE), max 8000
     public int Dp { get; set; }
 
+    /// <summary>Max Divine Power (Java getGameStats().getMaxDp()). Modelled as the standard 8000 cap
+    /// (the port does not yet compute the per-class/level DP cap).</summary>
+    public int MaxDp => 8000;
+
     // Soul sickness stacks (0-10); each stack reduces MaxHp/MaxMp by 5 % (Java deathCount)
     public int SoulSicknessCount { get; set; }
 

@@ -73,4 +73,16 @@ public interface IQuestHandler
 
     /// <summary>Java onFailCraftEvent: a craft of a registered product item id just failed.</summary>
     ValueTask<bool> OnFailCraftAsync(QuestEnv env, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onDredgionRewardEvent (dredgion scoring not ported — never fires yet).</summary>
+    ValueTask<bool> OnDredgionRewardAsync(QuestEnv env, int rank, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onRideEvent (mount system not ported — never fires yet).</summary>
+    ValueTask<bool> OnRideAsync(QuestEnv env, int npcId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onEquipItem: the player equipped a registered item id.</summary>
+    ValueTask<bool> OnEquipItemAsync(QuestEnv env, int itemId, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(false);
+
+    /// <summary>Java onBonusApplyEvent (event-bonus system not ported — never fires yet).</summary>
+    ValueTask<HandlerResult> OnBonusApplyAsync(QuestEnv env, string bonusType, GsClientConnection conn, CancellationToken ct) => ValueTask.FromResult(HandlerResult.Unknown);
 }

@@ -16,18 +16,21 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
     private readonly IItemDao           _itemDao;
     private readonly IDataManager       _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly AionLightning.Game.QuestEngine.QuestEngine _questEngine;
 
     private byte _action;   // 0 = equip, 1 = unequip
     private long _slot;
     private int _itemUniqueId;
 
     public CM_EQUIP_ITEM(GsClientConnection conn, IItemDao itemDao,
-        IDataManager dataManager, PlayerConnectionRegistry connRegistry)
+        IDataManager dataManager, PlayerConnectionRegistry connRegistry,
+        AionLightning.Game.QuestEngine.QuestEngine questEngine)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
+        _questEngine  = questEngine;
     }
 
     public override void Read(ref PacketReader r)
@@ -51,6 +54,7 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         if (template?.IsStigmaItem == true)
         {
             await HandleStigmaAsync(player, item, template, ct);
+            if (_action == 0) await _questEngine.OnEquipItemAsync(player, item.ItemId, _conn, ct); // Java onEquipItem
             return;
         }
 
@@ -221,6 +225,8 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
             if (other.ActivePlayer?.Position.WorldId == worldId)
                 try { await other.SendAsync(appearance, ct); } catch { }
+
+        if (_action == 0) await _questEngine.OnEquipItemAsync(player, item.ItemId, _conn, ct); // Java onEquipItem
     }
 
     // Handles equip/unequip of stigma stones: shard consumption, skill grant/removal, skill list update.
