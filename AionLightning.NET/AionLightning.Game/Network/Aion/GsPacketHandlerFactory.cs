@@ -63,6 +63,7 @@ public sealed class GsPacketHandlerFactory
     private readonly AuraChildApplier        _auraApplier;
     private readonly QuestEngineType         _questEngine;
     private readonly QuestRewardService      _questRewardService;
+    private readonly ClassChangeService      _classChange;
     private readonly SummonsService          _summonsService;
     private readonly EffectTickScheduler     _effectTickScheduler;
     private readonly ZoneService             _zoneService;
@@ -128,6 +129,7 @@ public sealed class GsPacketHandlerFactory
         AuraChildApplier auraApplier,
         QuestEngineType questEngine,
         QuestRewardService questRewardService,
+        ClassChangeService classChange,
         SummonsService summonsService,
         EffectTickScheduler effectTickScheduler,
         ZoneService zoneService,
@@ -196,6 +198,7 @@ public sealed class GsPacketHandlerFactory
         _auraApplier   = auraApplier;
         _questEngine        = questEngine;
         _questRewardService = questRewardService;
+        _classChange        = classChange;
         _summonsService      = summonsService;
         _effectTickScheduler = effectTickScheduler;
         _zoneService         = zoneService;
@@ -296,7 +299,7 @@ public sealed class GsPacketHandlerFactory
                 0x110 => new CM_HOUSE_EDIT(conn, _dataManager, _itemDao, _playerRegisteredItemsDao, _housingOptions),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
-                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
+                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _classChange, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
                 0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),

@@ -7,14 +7,16 @@
 // (var0->5); killing 205041 (movie 152) spawns 203550 in the instance (var0->6); 203550 then performs the
 // 2nd-class change (SETPRO6 shows the class sub-dialog, SETPRO7..17 pick the class) and flips REWARD.
 //
-// New helper used: SetPlayerClass (Java ClassChangeService.setClass) for the 2nd-class change.
+// Ascension helper used: QuestHandlerBase.ChangeClassAsync (Java ClassChangeService.setClass) for the
+// 2nd-class change, backed by Services/ClassChangeService.cs — persists the new class, grants/persists
+// the new class's skills, refreshes HP/MP/attack, and sends the SM_DIALOG_WINDOW/SM_STATS_INFO/
+// SM_SKILL_LIST client refresh (Java's upgradePlayer() equivalent, now fully ported).
 //
 // Deviations vs Java (state transitions preserved): identical in kind to _1006Ascension - instance via
 // EnterInstanceAsync; TeleportService2 relocations dropped; flight-teleport morph dropped (43s pre-fight
 // delay preserved via the quest timer); mob aggro / corpse despawn have no API and are dropped;
-// SM_ASCENSION_MORPH and the QUEST_FAILED system message are cosmetic drops; SetPlayerClass updates the
-// class only (Java upgradePlayer() not ported); CustomConfig.ENABLE_SIMPLE_2NDCLASS early-return not
-// ported; QUEST_SELECT -> SETPROn switch fallthroughs evaluated independently (per _1007/_2009 precedent).
+// SM_ASCENSION_MORPH and the QUEST_FAILED system message are cosmetic drops; CustomConfig.ENABLE_SIMPLE_2NDCLASS
+// early-return not ported; QUEST_SELECT -> SETPROn switch fallthroughs evaluated independently (per _1007/_2009 precedent).
 using System.Threading;
 using System.Threading.Tasks;
 using AionLightning.Game.Dao;
@@ -226,9 +228,7 @@ public sealed class _2008Ascension : QuestHandlerBase
     private async ValueTask<bool> SetPlayerClassAsync(QuestEnv env, GsClientConnection conn, QuestEntry entry, PlayerClass target, CancellationToken ct)
     {
         var player = env.Player;
-        if (!player.PlayerClass.IsStartingClass()) return false;
-        SetPlayerClass(player, target);
-        // note: base SetPlayerClass updates class only; Java upgradePlayer() (stat/skill recompute) not ported.
+        if (!await ChangeClassAsync(player, target, conn, ct)) return false;
         entry.SetVar(0, 6); // Java changeQuestStep(env, 6, 6, true) -> var0 stays 6, flips REWARD
         entry.Status = QuestStatus.REWARD;
         await UpdateQuestStatusAsync(conn, entry, ct);

@@ -29,6 +29,7 @@ public sealed class QuestEngineHostedService(
     InstanceService instanceService,
     TeleportService teleport,
     FollowService followService,
+    ClassChangeService classChange,
     AionLightning.Game.World.World world,
     CSharpCompilerService compiler,
     ILogger<QuestEngineHostedService> log) : IHostedService
@@ -90,6 +91,7 @@ public sealed class QuestEngineHostedService(
         QuestHandlerBase.InitSkillLearn(skillLearn);
         QuestHandlerBase.InitInstanceServices(instanceService, teleport);
         QuestHandlerBase.InitFollowService(followService);
+        QuestHandlerBase.InitClassChange(classChange);
         QuestHandlerBase.InitWorld(world);
         LoadHandWrittenScripts();
 

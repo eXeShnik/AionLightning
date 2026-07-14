@@ -100,6 +100,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly RepurchaseService         _repurchaseService;
     private readonly QuestEngineType _questEngine;
     private readonly QuestRewardService        _questRewardService;
+    private readonly ClassChangeService        _classChange;
     private readonly ILogger<CM_DIALOG_SELECT> _log;
 
     private int _targetObjectId;
@@ -112,7 +113,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         IMailDao mailDao, SkillLearnService skillLearn, ILegionDao legionDao,
         PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
         QuestEngineType questEngine, QuestRewardService questRewardService,
-        ILogger<CM_DIALOG_SELECT> log)
+        ClassChangeService classChange, ILogger<CM_DIALOG_SELECT> log)
     {
         _conn                = conn;
         _world               = world;
@@ -127,6 +128,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _repurchaseService   = repurchaseService;
         _questEngine         = questEngine;
         _questRewardService  = questRewardService;
+        _classChange         = classChange;
         _log                 = log;
     }
 
@@ -171,7 +173,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         if (_targetObjectId == 0)
         {
             if (ClassChoiceMap.TryGetValue((player.Race, _dialogId), out var newClass))
-                await HandleClassChangeAsync(player, newClass, ct);
+                await _classChange.ChangeClassAsync(player, newClass, _conn, ct);
             return;
         }
 
@@ -302,49 +304,6 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                     _targetObjectId, _dialogId, _questId);
                 break;
         }
-    }
-
-    private async ValueTask HandleClassChangeAsync(Model.Player player, PlayerClass newClass, CancellationToken ct)
-    {
-        // Guard: only starting classes at level 9 may ascend
-        if (!player.PlayerClass.IsStartingClass()) return;
-        if (player.Level < 9) return;
-
-        // Validate the new class is a valid ascension for the starting class
-        bool valid = (player.PlayerClass, newClass) switch
-        {
-            (PlayerClass.WARRIOR, PlayerClass.GLADIATOR or PlayerClass.TEMPLAR)           => true,
-            (PlayerClass.SCOUT,   PlayerClass.ASSASSIN  or PlayerClass.RANGER)            => true,
-            (PlayerClass.MAGE,    PlayerClass.SORCERER  or PlayerClass.SPIRIT_MASTER)     => true,
-            (PlayerClass.PRIEST,  PlayerClass.CLERIC    or PlayerClass.CHANTER)           => true,
-            _ => false,
-        };
-        if (!valid) return;
-
-        var oldClass = player.PlayerClass;
-        player.PlayerClass = newClass;
-        await _playerDao.UpdateClassAsync(player.ObjectId, newClass, ct);
-
-        // Grant all skills for the new class from level 1 to current level (addMissingSkills), then persist.
-        _skillLearn.ApplyAutoLearn(player, 1, player.Level);
-        await _skillLearn.PersistAllAsync(player, ct);
-
-        // Refresh stats for the new class
-        var tpl = _dataManager.PlayerStats.GetTemplate(newClass, player.Level);
-        if (tpl is not null)
-        {
-            player.MaxHp     = (int)((tpl.MaxHp + player.BonusMaxHp + player.PassiveBonusMaxHp + player.TitleBonusMaxHp) * player.SoulSicknessMultiplier);
-            player.MaxMp     = (int)((tpl.MaxMp + player.BonusMaxMp + player.PassiveBonusMaxMp + player.TitleBonusMaxMp) * player.SoulSicknessMultiplier);
-            player.CurrentHp = player.MaxHp;
-            player.CurrentMp = player.MaxMp;
-            player.BasePhysicalAttack = tpl.MainHandAttack;
-        }
-
-        await _conn.SendAsync(new SM_DIALOG_WINDOW(0, 0, 0), ct); // close the class selection UI
-        await _conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
-        await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
-
-        _log.LogInformation("Player {Name} ascended from {Old} to {New}", player.Name, oldClass, newClass);
     }
 
     private async ValueTask HandleQuestSelectAsync(Model.Player player, CancellationToken ct)

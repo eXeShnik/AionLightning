@@ -42,6 +42,7 @@ public abstract class QuestHandlerBase : IQuestHandler
     private static InstanceService? _instanceService;
     private static TeleportService? _teleport;
     private static FollowService? _followService;
+    private static ClassChangeService? _classChange;
     internal static void InitSpawnService(SpawnService spawnService) => _spawnService = spawnService;
     internal static void InitEngine(QuestEngine engine) => _engine = engine;
     internal static void InitSkillLearn(SkillLearnService skillLearn) => _skillLearn = skillLearn;
@@ -51,6 +52,7 @@ public abstract class QuestHandlerBase : IQuestHandler
         _teleport        = teleport;
     }
     internal static void InitFollowService(FollowService followService) => _followService = followService;
+    internal static void InitClassChange(ClassChangeService classChange) => _classChange = classChange;
     private static GameWorld? _world;
     internal static void InitWorld(GameWorld world) => _world = world;
 
@@ -173,10 +175,17 @@ public abstract class QuestHandlerBase : IQuestHandler
     /// this port — always returns false (never full), so a special-cube gate never blocks progression.</summary>
     protected static bool IsFullSpecialCube(Player player) => false;
 
-    /// <summary>Sets the player's class (Java ClassChangeService.setClass, ascension 2nd-class change).
-    /// Minimal: updates <see cref="Player.PlayerClass"/> only — the full skill-list/stigma-slot refresh
-    /// the Java service performs is not replicated, so this is "migrated but not fully wired".</summary>
-    protected static void SetPlayerClass(Player player, PlayerClass newClass) => player.PlayerClass = newClass;
+    /// <summary>Ascends the player to a main class (Java ClassChangeService.setClass, ascension
+    /// 2nd-class change): validates the switch, persists the new class, grants/persists the new
+    /// class's skills, refreshes HP/MP/attack for the new class template, and sends the client's
+    /// dialog-close/stats/skill-list refresh packets via <see cref="ClassChangeService"/>. Returns
+    /// false without effect if the switch fails validation (not a starting class, below level 9, or
+    /// <paramref name="newClass"/> isn't a valid ascension target) or the service isn't wired.</summary>
+    protected static async ValueTask<bool> ChangeClassAsync(Player player, PlayerClass newClass, GsClientConnection conn, CancellationToken ct)
+    {
+        if (_classChange is null) return false;
+        return await _classChange.ChangeClassAsync(player, newClass, conn, ct);
+    }
 
     /// <summary>Registers THIS quest for the escort reach-target hook (Java registerAddOnReachTargetEvent). Call from Register().</summary>
     protected void RegisterOnReachTarget(QuestEngine engine) => engine.RegisterOnReachTarget(QuestId);

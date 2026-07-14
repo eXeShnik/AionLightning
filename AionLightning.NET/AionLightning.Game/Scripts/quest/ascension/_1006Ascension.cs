@@ -8,7 +8,10 @@
 // (movie 151) spawns Pernos in the instance (var0->5); Pernos then performs the 2nd-class change (SETPRO4
 // shows the class sub-dialog, SETPRO5..15 pick the class) and flips REWARD.
 //
-// New helper used: SetPlayerClass (Java ClassChangeService.setClass) for the 2nd-class change.
+// Ascension helper used: QuestHandlerBase.ChangeClassAsync (Java ClassChangeService.setClass) for the
+// 2nd-class change, backed by Services/ClassChangeService.cs — persists the new class, grants/persists
+// the new class's skills, refreshes HP/MP/attack, and sends the SM_DIALOG_WINDOW/SM_STATS_INFO/
+// SM_SKILL_LIST client refresh (Java's upgradePlayer() equivalent, now fully ported).
 //
 // Deviations vs Java (state transitions preserved):
 //  - Instance creation via EnterInstanceAsync (Java getNextAvailableInstance/registerPlayerWithInstance).
@@ -19,7 +22,6 @@
 //  - Spawned-mob aggro (addDamage) and NpcActions.delete corpse cleanup have no API - dropped.
 //  - SM_ASCENSION_MORPH (class-morph visual on entering the instance) and the QUEST_FAILED system message
 //    are cosmetic packets - dropped.
-//  - SetPlayerClass updates the class only; Java's upgradePlayer() stat/skill recompute is not ported.
 //  - CustomConfig.ENABLE_SIMPLE_2NDCLASS (Java early-return that disables this handler) is not ported - the
 //    handler always registers.
 //  - Java's QUEST_SELECT -> SETPROn switch fallthroughs are evaluated independently (per the _1007/_2009
@@ -192,9 +194,7 @@ public sealed class _1006Ascension : QuestHandlerBase
     private async ValueTask<bool> SetPlayerClassAsync(QuestEnv env, GsClientConnection conn, QuestEntry entry, PlayerClass target, CancellationToken ct)
     {
         var player = env.Player;
-        if (!player.PlayerClass.IsStartingClass()) return false;
-        SetPlayerClass(player, target);
-        // note: base SetPlayerClass updates class only; Java upgradePlayer() (stat/skill recompute) not ported.
+        if (!await ChangeClassAsync(player, target, conn, ct)) return false;
         entry.SetVar(0, 5); // Java changeQuestStep(env, 5, 5, true) -> var0 stays 5, flips REWARD
         entry.Status = QuestStatus.REWARD;
         await UpdateQuestStatusAsync(conn, entry, ct);
