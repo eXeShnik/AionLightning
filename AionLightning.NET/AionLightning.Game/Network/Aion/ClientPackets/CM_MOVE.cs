@@ -12,18 +12,21 @@ public sealed class CM_MOVE : AionClientPacket
     private readonly GameWorld _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ZoneService _zoneService;
+    private readonly FallDamageService _fallDamageService;
 
     private float _x, _y, _z;
     private byte _heading, _type;
     private float _x2, _y2, _z2;
     private float _vx, _vy, _vz;
 
-    public CM_MOVE(GsClientConnection conn, GameWorld world, PlayerConnectionRegistry connRegistry, ZoneService zoneService)
+    public CM_MOVE(GsClientConnection conn, GameWorld world, PlayerConnectionRegistry connRegistry,
+        ZoneService zoneService, FallDamageService fallDamageService)
     {
-        _conn         = conn;
-        _world        = world;
-        _connRegistry = connRegistry;
-        _zoneService  = zoneService;
+        _conn              = conn;
+        _world             = world;
+        _connRegistry      = connRegistry;
+        _zoneService       = zoneService;
+        _fallDamageService = fallDamageService;
     }
 
     public override void Read(ref PacketReader r)
@@ -67,6 +70,13 @@ public sealed class CM_MOVE : AionClientPacket
         player.TargetX2      = _x2; player.TargetY2 = _y2; player.TargetZ2 = _z2;
 
         await _zoneService.UpdateZonesAsync(player, _conn, ct);
+
+        // Java CM_MOVE: updateFalling/stopFalling run on every movement tick (not just start/stop
+        // transitions), so this must happen before the broadcast early-return below.
+        if ((_type & MovementMask.Fall) == MovementMask.Fall)
+            await _fallDamageService.UpdateFallingAsync(player, _z, _conn, ct);
+        else
+            await _fallDamageService.StopFallingAsync(player, _z, _conn, ct);
 
         // Only broadcast on movement-state transitions (start or stop).
         // Mid-movement position fixes are NOT broadcast — observing clients interpolate from the start packet.

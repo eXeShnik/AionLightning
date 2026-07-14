@@ -67,6 +67,7 @@ public sealed class GsPacketHandlerFactory
     private readonly SummonsService          _summonsService;
     private readonly EffectTickScheduler     _effectTickScheduler;
     private readonly ZoneService             _zoneService;
+    private readonly FallDamageService       _fallDamageService;
     private readonly TeleportService         _teleport;
     private readonly PetService              _petService;
     private readonly PortalService           _portalService;
@@ -134,6 +135,7 @@ public sealed class GsPacketHandlerFactory
         SummonsService summonsService,
         EffectTickScheduler effectTickScheduler,
         ZoneService zoneService,
+        FallDamageService fallDamageService,
         TeleportService teleport,
         PortalService portalService,
         PetService petService,
@@ -204,6 +206,7 @@ public sealed class GsPacketHandlerFactory
         _summonsService      = summonsService;
         _effectTickScheduler = effectTickScheduler;
         _zoneService         = zoneService;
+        _fallDamageService   = fallDamageService;
         _teleport            = teleport;
         _portalService       = portalService;
         _petService          = petService;
@@ -279,7 +282,7 @@ public sealed class GsPacketHandlerFactory
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus, _auraApplier, _questEngine, _summonsService, _effectTickScheduler),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
                 0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
-                0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService),
+                0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService, _fallDamageService),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
                 0xF4  => new CM_PET(conn, _petService),
                 0xF5  => new CM_OPEN_STATICDOOR(conn, _doorService),

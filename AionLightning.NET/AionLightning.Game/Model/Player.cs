@@ -123,6 +123,11 @@ public sealed class Player : Creature
     public float TargetY2 { get; set; }
     public float TargetZ2 { get; set; }
 
+    // Java PlayerMoveController.fallDistance/lastFallZ — accumulated descent tracked across CM_MOVE
+    // ticks while the FALL movement bit is set, consumed by FallDamageService.
+    public float FallDistance { get; set; }
+    public float LastFallZ    { get; set; }
+
     // Abyss rank system
     public long AbyssPoints { get; set; }
     public int  AbyssRank   { get; set; } = 1;

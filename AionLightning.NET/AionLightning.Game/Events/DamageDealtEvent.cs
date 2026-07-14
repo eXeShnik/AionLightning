@@ -14,6 +14,7 @@ public enum DamageKind
     MagicalSkill,
     Splash,
     DoTTick,
+    Fall,
 }
 
 /// <summary>

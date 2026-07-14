@@ -38,7 +38,8 @@ builder.Services
     .AddAionOptions<SiegeScheduleOptions>("GameServer:Siege:Schedule")
     .AddAionOptions<HousingOptions>("GameServer:Housing")
     .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction")
-    .AddAionOptions<DoorOptions>("GameServer:Doors");
+    .AddAionOptions<DoorOptions>("GameServer:Doors")
+    .AddAionOptions<FallDamageOptions>("GameServer:FallDamage");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -146,6 +147,7 @@ builder.Services.AddSingleton<RepurchaseService>();
 builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddSingleton<SummonsService>();
 builder.Services.AddSingleton<ZoneService>();
+builder.Services.AddSingleton<FallDamageService>();
 // Instance subsystem: channel registry + lifecycle + teleport choke point + scriptable handlers
 builder.Services.AddSingleton<AionLightning.Game.World.InstanceRegistry>();
 builder.Services.AddSingleton<AionLightning.Game.Instance.InstanceEngine>();
