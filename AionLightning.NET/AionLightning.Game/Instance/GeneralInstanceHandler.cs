@@ -18,13 +18,15 @@ public abstract class GeneralInstanceHandler : IInstanceHandler
     private static SpawnService? _spawnService;
     private static GameWorld? _world;
     private static IDataManager? _dataManager;
+    private static DoorService? _doorService;
 
     /// <summary>Wires the shared services once at boot (called from the instance-engine host).</summary>
-    public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager)
+    public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager, DoorService doorService)
     {
         _spawnService = spawnService;
         _world        = world;
         _dataManager  = dataManager;
+        _doorService  = doorService;
     }
 
     /// <summary>The channel this handler drives; set by the engine before <see cref="OnInstanceCreate"/>.</summary>
@@ -49,6 +51,16 @@ public abstract class GeneralInstanceHandler : IInstanceHandler
         if (_world is null) return null;
         var scope = new Position(0, 0, 0, 0, Instance.WorldId, Instance.InstanceId);
         return _world.GetNpcsInScope(scope).FirstOrDefault(n => n.Template.NpcId == npcId);
+    }
+
+    /// <summary>Opens/closes the door with the given map-design id inside this channel (Java
+    /// <c>StaticDoor.setOpen</c>, invoked from instance handlers via e.g. <c>getDoors().get(id).setOpen(...)</c>).
+    /// Returns false when no door with that id is spawned in this instance.</summary>
+    protected bool SetDoorState(int staticId, bool open)
+    {
+        if (_doorService is null) return false;
+        var scope = new Position(0, 0, 0, 0, Instance.WorldId, Instance.InstanceId);
+        return _doorService.SetDoorState(scope, staticId, open);
     }
 
     // --- No-op default hooks (scripts override what they need) ---

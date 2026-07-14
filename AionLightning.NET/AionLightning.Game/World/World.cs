@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.GameObjects;
 
 namespace AionLightning.Game.World;
 
@@ -10,6 +11,7 @@ public sealed class World
     private readonly ConcurrentDictionary<int, Npc>         _npcs       = new();
     private readonly ConcurrentDictionary<int, Gatherable>  _gatherables = new();
     private readonly ConcurrentDictionary<int, Summon>      _summons    = new();
+    private readonly ConcurrentDictionary<int, StaticDoor>  _doors      = new();
 
     // --- Players ---
 
@@ -53,6 +55,20 @@ public sealed class World
     public Gatherable? GetGatherable(int objectId) => _gatherables.GetValueOrDefault(objectId);
     public IEnumerable<Gatherable> GetAllGatherables() => _gatherables.Values;
     public int GatherableCount => _gatherables.Count;
+
+    // --- Static doors ---
+    // Kept in a dedicated collection (not folded into _npcs) so the NPC/combat/AI loops that iterate
+    // GetAllNpcs()/GetNpcsInScope() never have to special-case a non-Creature VisibleObject.
+
+    public bool Add(StaticDoor door)    => _doors.TryAdd(door.ObjectId, door);
+    public bool Remove(StaticDoor door) => _doors.TryRemove(door.ObjectId, out _);
+    public IEnumerable<StaticDoor> GetDoorsInScope(Position scope)
+        => _doors.Values.Where(d => d.Position.SameScope(scope));
+
+    /// <summary>Java WorldMapInstance.getDoors().get(staticId) — the door with this map-design id in the
+    /// given (worldId, instanceId) channel, or null when none is spawned there.</summary>
+    public StaticDoor? GetDoor(Position scope, int staticId)
+        => _doors.Values.FirstOrDefault(d => d.Position.SameScope(scope) && d.StaticId == staticId);
 
     // --- Scoped enumeration (instance-aware) ---
     // "In map/channel X" = same (WorldId, InstanceId) scope. Callers pass a reference Position

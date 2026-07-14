@@ -20,13 +20,15 @@ public abstract class NpcAi2
     private static SpawnService? _spawnService;
     private static GameWorld? _world;
     private static IDataManager? _dataManager;
+    private static DoorService? _doorService;
 
     /// <summary>Wires the shared services once at boot (called from the AI-engine host).</summary>
-    public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager)
+    public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager, DoorService doorService)
     {
         _spawnService = spawnService;
         _world        = world;
         _dataManager  = dataManager;
+        _doorService  = doorService;
     }
 
     /// <summary>The NPC this AI drives; set by <see cref="AiEngine.Create"/> right after construction.</summary>
@@ -105,6 +107,15 @@ public abstract class NpcAi2
     {
         if (_world is null || Owner is null) return null;
         return _world.GetNpcsInScope(Owner.Position).FirstOrDefault(n => n.Template.NpcId == npcId);
+    }
+
+    /// <summary>Opens/closes the door with the given map-design id in the owner's world/instance scope
+    /// (Java AI scripts reach doors via <c>WorldMapInstance.getDoors()</c>). Returns false when no door
+    /// with that id is spawned in scope.</summary>
+    protected bool SetDoorState(int staticId, bool open)
+    {
+        if (_doorService is null || Owner is null) return false;
+        return _doorService.SetDoorState(Owner.Position, staticId, open);
     }
 
     /// <summary>

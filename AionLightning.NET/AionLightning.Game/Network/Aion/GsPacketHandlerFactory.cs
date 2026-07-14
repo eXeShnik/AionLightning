@@ -80,6 +80,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IPlayerRegisteredItemsDao _playerRegisteredItemsDao;
     private readonly IHouseObjectCooldownsDao  _houseObjectCooldownsDao;
     private readonly IHouseScriptsDao          _houseScriptsDao;
+    private readonly DoorService                _doorService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -143,8 +144,10 @@ public sealed class GsPacketHandlerFactory
         InstanceService instanceService,
         IPlayerRegisteredItemsDao playerRegisteredItemsDao,
         IHouseObjectCooldownsDao houseObjectCooldownsDao,
-        IHouseScriptsDao houseScriptsDao)
+        IHouseScriptsDao houseScriptsDao,
+        DoorService doorService)
     {
+        _doorService              = doorService;
         _playerRegisteredItemsDao = playerRegisteredItemsDao;
         _houseObjectCooldownsDao  = houseObjectCooldownsDao;
         _houseScriptsDao          = houseScriptsDao;
@@ -273,7 +276,7 @@ public sealed class GsPacketHandlerFactory
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
                 0xF4  => new CM_PET(conn, _petService),
-                0xF5  => new CM_OPEN_STATICDOOR(conn, _connRegistry),
+                0xF5  => new CM_OPEN_STATICDOOR(conn, _doorService),
                 0xF6  => new CM_PETITION(),
                 0xF7  => new CM_PET_EMOTE(conn, _petService),
                 0xF9  => new CM_CHAT_MESSAGE_PUBLIC(conn, _connRegistry),

@@ -2,9 +2,11 @@ using AionLightning.Game.Ai;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.GameObjects;
 using AionLightning.Game.Model.GameObjects.Siege;
 using AionLightning.Game.Model.Templates.Gatherable;
 using AionLightning.Game.Model.Templates.Spawns;
+using StaticDoorTemplates = AionLightning.Game.Model.Templates.StaticDoor;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using Microsoft.Extensions.Logging;
@@ -69,6 +71,41 @@ public sealed class SpawnService
         }
 
         _log.LogInformation("SpawnService: spawned {Spawned} gatherables ({Skipped} skipped)", gSpawned, gSkipped);
+
+        int doorsSpawned = 0;
+        foreach (int worldId in _dataManager.StaticDoors.WorldIds)
+            doorsSpawned += SpawnDoors(worldId, instanceId: 0);
+
+        _log.LogInformation("SpawnService: spawned {Spawned} static doors", doorsSpawned);
+    }
+
+    /// <summary>
+    /// Populates a world/instance channel with its static doors (Java StaticDoorSpawnManager.spawnTemplate).
+    /// Java skips ABYSS/HOUSE door types here ("assign house doors to houses ... abyss doors need
+    /// owners" — TODO in the original), a decision this port keeps as-is; only plain DOOR templates spawn.
+    /// </summary>
+    public int SpawnDoors(int worldId, int instanceId)
+    {
+        var templates = _dataManager.StaticDoors.GetWorldDoors(worldId);
+        if (templates.Count == 0) return 0;
+
+        int spawned = 0;
+        foreach (var template in templates)
+        {
+            if (template.Type != StaticDoorTemplates.DoorType.DOOR) continue;
+
+            var door = new StaticDoor(template)
+            {
+                ObjectId = ObjectIdFactory.Next(),
+                Position = new Position(template.X, template.Y, template.Z, 0, worldId, instanceId),
+            };
+            _world.Add(door);
+            spawned++;
+        }
+
+        if (spawned > 0)
+            _log.LogInformation("SpawnService: spawned static doors: {World} [{Instance}] : {Count}", worldId, instanceId, spawned);
+        return spawned;
     }
 
     /// <summary>
@@ -103,9 +140,11 @@ public sealed class SpawnService
             }
         }
 
-        _log.LogInformation("SpawnService: instance {World}:{Instance} spawned {Npc} NPCs, {Gather} gatherables",
-            worldId, instanceId, npcSpawned, gSpawned);
-        return npcSpawned + gSpawned;
+        int doorSpawned = SpawnDoors(worldId, instanceId);
+
+        _log.LogInformation("SpawnService: instance {World}:{Instance} spawned {Npc} NPCs, {Gather} gatherables, {Doors} doors",
+            worldId, instanceId, npcSpawned, gSpawned, doorSpawned);
+        return npcSpawned + gSpawned + doorSpawned;
     }
 
     private Gatherable SpawnGatherable(GatherableTemplate template, Position position, int respawnTime = 0)

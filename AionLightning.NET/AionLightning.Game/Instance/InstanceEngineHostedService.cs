@@ -20,12 +20,13 @@ public sealed class InstanceEngineHostedService(
     SpawnService spawnService,
     GameWorld world,
     IDataManager dataManager,
+    DoorService doorService,
     CSharpCompilerService compiler,
     ILogger<InstanceEngineHostedService> log) : IHostedService
 {
     public Task StartAsync(CancellationToken ct)
     {
-        GeneralInstanceHandler.InitServices(spawnService, world, dataManager);
+        GeneralInstanceHandler.InitServices(spawnService, world, dataManager, doorService);
 
         string scriptsFolder = Path.Combine(AppContext.BaseDirectory, "Scripts", "instance");
         if (!Directory.Exists(scriptsFolder))

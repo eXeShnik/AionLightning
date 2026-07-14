@@ -1,34 +1,31 @@
 using AionLightning.Commons.Network;
-using AionLightning.Game.Model;
-using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
-/// <summary>Client requests opening a static door object. Opcode 0xF5.</summary>
+/// <summary>Client requests opening a static door. Opcode 0xF5. Java CM_OPEN_STATICDOOR →
+/// StaticDoorService.openStaticDoor (this port: DoorService.TryOpenDoor).</summary>
 public sealed class CM_OPEN_STATICDOOR : AionClientPacket
 {
     private readonly GsClientConnection _conn;
-    private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly DoorService _doorService;
 
-    private int _doorObjectId;
+    /// <summary>Java reads this as "doorId" — it is the door's map-design/static id (Java
+    /// <c>getSpawn().getStaticId()</c>), not an AION object id.</summary>
+    private int _staticId;
 
-    public CM_OPEN_STATICDOOR(GsClientConnection conn, PlayerConnectionRegistry connRegistry)
+    public CM_OPEN_STATICDOOR(GsClientConnection conn, DoorService doorService)
     {
-        _conn         = conn;
-        _connRegistry = connRegistry;
+        _conn        = conn;
+        _doorService = doorService;
     }
 
-    public override void Read(ref PacketReader r) => _doorObjectId = r.ReadD();
+    public override void Read(ref PacketReader r) => _staticId = r.ReadD();
 
-    public override async ValueTask RunAsync(CancellationToken ct)
+    public override ValueTask RunAsync(CancellationToken ct)
     {
-        if (_conn.ActivePlayer is null) return;
-
-        var packet  = new SM_EMOTION(_doorObjectId, EmotionType.OPEN_DOOR, state: 0);
-        int worldId = _conn.ActivePlayer.Position.WorldId;
-        await _conn.SendAsync(packet, ct);
-        foreach (var other in _connRegistry.GetAllExcept(_conn.ActivePlayer.ObjectId))
-            if (other.ActivePlayer?.Position.WorldId == worldId)
-                try { await other.SendAsync(packet, ct); } catch { }
+        if (_conn.ActivePlayer is { } player)
+            _doorService.TryOpenDoor(player, _staticId);
+        return ValueTask.CompletedTask;
     }
 }

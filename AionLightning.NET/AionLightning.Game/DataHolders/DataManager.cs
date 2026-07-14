@@ -40,6 +40,7 @@ public sealed class DataManager : IDataManager
     public HousingObjectData               HousingObjects { get; } = new();
     public SiegeLocationData               Sieges        { get; } = new();
     public SiegeSpawnData                  SiegeSpawns   { get; } = new();
+    public StaticDoorData                  StaticDoors   { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -82,6 +83,7 @@ public sealed class DataManager : IDataManager
         HousingObjects.Load(dataRoot, log);
         Sieges.Load(dataRoot, log);
         SiegeSpawns.Load(dataRoot, log);
+        StaticDoors.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

@@ -37,7 +37,8 @@ builder.Services
     .AddAionOptions<SiegeOptions>("GameServer:Siege")
     .AddAionOptions<SiegeScheduleOptions>("GameServer:Siege:Schedule")
     .AddAionOptions<HousingOptions>("GameServer:Housing")
-    .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction");
+    .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction")
+    .AddAionOptions<DoorOptions>("GameServer:Doors");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -157,6 +158,7 @@ builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();
 builder.Services.AddSingleton<AionLightning.Game.Controllers.HouseController>();
 builder.Services.AddSingleton<MaintenanceTask>();
+builder.Services.AddSingleton<DoorService>();
 builder.Services.AddSingleton<FollowService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FollowService>());
 builder.Services.AddHostedService<EmptyInstanceCheckerService>();

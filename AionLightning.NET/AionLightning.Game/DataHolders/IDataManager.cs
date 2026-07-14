@@ -38,4 +38,5 @@ public interface IDataManager
     HousingObjectData               HousingObjects { get; }
     SiegeLocationData               Sieges        { get; }
     SiegeSpawnData                   SiegeSpawns   { get; }
+    StaticDoorData                   StaticDoors   { get; }
 }
