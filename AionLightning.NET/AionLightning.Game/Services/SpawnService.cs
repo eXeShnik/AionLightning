@@ -1,3 +1,4 @@
+using AionLightning.Game.Ai;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
@@ -19,16 +20,18 @@ public sealed class SpawnService
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ILogger<SpawnService> _log;
     private readonly RateOptions _rates;
+    private readonly AiEngine _aiEngine;
 
     public SpawnService(IDataManager dataManager, GameWorld world,
         PlayerConnectionRegistry connRegistry, ILogger<SpawnService> log,
-        IOptions<RateOptions> rates)
+        IOptions<RateOptions> rates, AiEngine aiEngine)
     {
         _dataManager  = dataManager;
         _world        = world;
         _connRegistry = connRegistry;
         _log          = log;
         _rates        = rates.Value;
+        _aiEngine     = aiEngine;
     }
 
     public void SpawnAll()
@@ -158,6 +161,16 @@ public sealed class SpawnService
         }
 
         _world.Add(npc);
+
+        // Bind + fire the script-driven AI (if one is registered for this template's ai-name).
+        // NpcAiService remains the archetype-driven combat/wander driver regardless — this only
+        // gives scripted NPCs a live NpcAi2 instance to react through (see AiEngineHostedService).
+        if (_aiEngine.HasAi(template.Ai))
+        {
+            npc.ScriptedAi = _aiEngine.Create(template.Ai, npc);
+            npc.ScriptedAi?.OnSpawned();
+        }
+
         return npc;
     }
 

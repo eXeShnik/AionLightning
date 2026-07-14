@@ -1,3 +1,4 @@
+using AionLightning.Game.Ai;
 using AionLightning.Game.Model.Templates.Npc;
 
 namespace AionLightning.Game.Model;
@@ -5,6 +6,9 @@ namespace AionLightning.Game.Model;
 public sealed class Npc : Creature
 {
     public NpcTemplate Template { get; }
+
+    /// <summary>The compiled per-NPC AI script bound to this instance's ai-name, or null when none is registered (see <see cref="Ai.AiEngine"/>).</summary>
+    public NpcAi2? ScriptedAi { get; set; }
 
     public byte Level => Template.Level;
 

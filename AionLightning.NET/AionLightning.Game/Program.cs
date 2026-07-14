@@ -136,6 +136,7 @@ builder.Services.AddSingleton<ZoneService>();
 // Instance subsystem: channel registry + lifecycle + teleport choke point + scriptable handlers
 builder.Services.AddSingleton<AionLightning.Game.World.InstanceRegistry>();
 builder.Services.AddSingleton<AionLightning.Game.Instance.InstanceEngine>();
+builder.Services.AddSingleton<AionLightning.Game.Ai.AiEngine>();
 builder.Services.AddSingleton<InstanceService>();
 builder.Services.AddSingleton<TeleportService>();
 builder.Services.AddSingleton<PortalService>();
@@ -168,6 +169,7 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 builder.Services.AddHostedService<SchemaMigrationHost>();
 builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();
+builder.Services.AddHostedService<AionLightning.Game.Ai.AiEngineHostedService>();
 builder.Services.AddHostedService<GameServerHost>();
 
 await builder.Build().RunAsync();
