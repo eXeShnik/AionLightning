@@ -6,7 +6,7 @@ using AionLightning.Game.Model;
 namespace Ai;
 
 [AiName("summoner")]
-public sealed class SummonerAI2 : AggressiveNpcAI2
+public class SummonerAI2 : AggressiveNpcAI2
 {
     public override void OnSpawned()
     {

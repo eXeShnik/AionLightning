@@ -5,7 +5,7 @@ using AionLightning.Game.Ai;
 namespace Ai;
 
 [AiName("onedmgperhit")]
-public sealed class OneDmgPerHitAI2 : NoActionAI2
+public class OneDmgPerHitAI2 : NoActionAI2
 {
     // note: Java overrode modifyDamage to clamp incoming damage to 1; no damage-modification hook exists
     // on NpcAi2 yet.

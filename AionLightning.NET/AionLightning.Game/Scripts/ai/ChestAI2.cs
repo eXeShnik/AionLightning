@@ -6,7 +6,7 @@ using AionLightning.Game.Model;
 namespace Ai;
 
 [AiName("chest")]
-public sealed class ChestAI2 : ActionItemNpcAI2
+public class ChestAI2 : ActionItemNpcAI2
 {
     public override void OnDialogStart(Player player)
     {

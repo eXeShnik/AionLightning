@@ -6,7 +6,7 @@ using AionLightning.Game.Model;
 namespace Ai;
 
 [AiName("shifter")]
-public sealed class ShifterAI2 : ActionItemNpcAI2
+public class ShifterAI2 : ActionItemNpcAI2
 {
     protected override void HandleUseItemFinish(Player player)
     {
