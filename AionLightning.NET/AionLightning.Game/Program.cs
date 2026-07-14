@@ -138,6 +138,8 @@ builder.Services.AddSingleton<SpawnService>();
 builder.Services.AddSingleton<SkillLearnService>();
 builder.Services.AddSingleton<StigmaService>();
 builder.Services.AddSingleton<ClassChangeService>();
+builder.Services.AddSingleton<CubeExpandService>();
+builder.Services.AddSingleton<ArmsfusionService>();
 builder.Services.AddSingleton<ExperienceService>();
 builder.Services.AddSingleton<LootService>();
 builder.Services.AddSingleton<ExchangeService>();

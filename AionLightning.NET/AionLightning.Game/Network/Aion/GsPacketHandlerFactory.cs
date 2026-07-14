@@ -66,6 +66,8 @@ public sealed class GsPacketHandlerFactory
     private readonly QuestEngineType         _questEngine;
     private readonly QuestRewardService      _questRewardService;
     private readonly ClassChangeService      _classChange;
+    private readonly CubeExpandService       _cubeExpandService;
+    private readonly ArmsfusionService       _armsfusionService;
     private readonly SummonsService          _summonsService;
     private readonly EffectTickScheduler     _effectTickScheduler;
     private readonly ZoneService             _zoneService;
@@ -140,6 +142,8 @@ public sealed class GsPacketHandlerFactory
         QuestEngineType questEngine,
         QuestRewardService questRewardService,
         ClassChangeService classChange,
+        CubeExpandService cubeExpandService,
+        ArmsfusionService armsfusionService,
         SummonsService summonsService,
         EffectTickScheduler effectTickScheduler,
         ZoneService zoneService,
@@ -220,6 +224,8 @@ public sealed class GsPacketHandlerFactory
         _questEngine        = questEngine;
         _questRewardService = questRewardService;
         _classChange        = classChange;
+        _cubeExpandService  = cubeExpandService;
+        _armsfusionService  = armsfusionService;
         _summonsService      = summonsService;
         _effectTickScheduler = effectTickScheduler;
         _zoneService         = zoneService;
@@ -324,7 +330,7 @@ public sealed class GsPacketHandlerFactory
                 0x110 => new CM_HOUSE_EDIT(conn, _dataManager, _itemDao, _playerRegisteredItemsDao, _housingOptions),
                 0x112 => new CM_DELETE_QUEST(conn, _questDao),
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
-                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _classChange, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
+                0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _classChange, _cubeExpandService, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
                 0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService, _riftService, _privateStoreService),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),
@@ -383,8 +389,8 @@ public sealed class GsPacketHandlerFactory
                 0x169 => new CM_SUMMON_ATTACK(conn, _world, _summonsService),
                 0x16A => new CM_AUTO_GROUP(),
                 0x16B => new CM_SUMMON_MOVE(),
-                0x16C => new CM_FUSION_WEAPONS(conn, _itemDao, _dataManager),
-                0x16D => new CM_BREAK_WEAPONS(conn, _itemDao),
+                0x16C => new CM_FUSION_WEAPONS(conn, _armsfusionService),
+                0x16D => new CM_BREAK_WEAPONS(conn, _armsfusionService),
                 0x16F => new CM_SUMMON_CASTSPELL(),
                 0x170 => new CM_REPLACE_ITEM(conn, _itemDao),
                 0x171 => new CM_BLOCK_SET_REASON(conn, _socialDao),

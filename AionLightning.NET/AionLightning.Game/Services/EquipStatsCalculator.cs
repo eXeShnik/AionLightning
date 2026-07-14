@@ -59,6 +59,16 @@ public static class EquipStatsCalculator
                 if (item.EnchantLevel > 0)
                     AccumulateEnchant(item.EnchantLevel, (int)item.Slot, tpl,
                         ref hp, ref pDef, ref mDef, ref pAtk, ref mAtk, ref pCritRes);
+
+                // Java ItemEquipmentListener.onItemEquipment: a fused main/sub-hand weapon also
+                // contributes the fused (secondary) weapon's full stat modifiers. The additional
+                // 10%-of-weapon-damage MAIN_HAND_POWER/BOOST_MAGICAL_SKILL bonus Java applies on top
+                // is not ported — this port has no MAIN_HAND_POWER stat pipeline and WeaponStats does
+                // not carry a boost_magical_skill attribute.
+                if (item.FusionedItemId != 0)
+                    Accumulate(item.FusionedItemId, dm, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,
+                        ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes,
+                        ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost, ref parry, ref block, ref sF, ref spF, ref speed, ref flySpd);
             }
             foreach (var stone in item.ManaStones)
                 Accumulate(stone.ItemId, dm, ref hp, ref mp, ref pDef, ref mDef, ref pAtk, ref mRes, ref mAtk,

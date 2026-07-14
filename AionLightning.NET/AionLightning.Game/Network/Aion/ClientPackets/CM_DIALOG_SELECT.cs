@@ -101,6 +101,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
     private readonly QuestEngineType _questEngine;
     private readonly QuestRewardService        _questRewardService;
     private readonly ClassChangeService        _classChange;
+    private readonly CubeExpandService         _cubeExpandService;
     private readonly ILogger<CM_DIALOG_SELECT> _log;
 
     private int _targetObjectId;
@@ -113,7 +114,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         IMailDao mailDao, SkillLearnService skillLearn, ILegionDao legionDao,
         PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
         QuestEngineType questEngine, QuestRewardService questRewardService,
-        ClassChangeService classChange, ILogger<CM_DIALOG_SELECT> log)
+        ClassChangeService classChange, CubeExpandService cubeExpandService, ILogger<CM_DIALOG_SELECT> log)
     {
         _conn                = conn;
         _world               = world;
@@ -129,6 +130,7 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         _questEngine         = questEngine;
         _questRewardService  = questRewardService;
         _classChange         = classChange;
+        _cubeExpandService   = cubeExpandService;
         _log                 = log;
     }
 
@@ -266,8 +268,12 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
                 break;
 
             case EXTEND_INVENTORY:
-                await HandleExpandCubeAsync(player, ct);
+            {
+                var npc = _world.GetNpcByObjectId(_targetObjectId);
+                if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
+                await _cubeExpandService.ExpandCubeAsync(player, npc, _conn, ct);
                 break;
+            }
 
             case OPEN_STIGMA_WINDOW:
             {
@@ -383,49 +389,6 @@ public sealed class CM_DIALOG_SELECT : AionClientPacket
         if (template is null) return;
 
         await _questRewardService.GrantAndCompleteAsync(_conn, player, entry, template, _rewardIndex, ct);
-    }
-
-    private async ValueTask HandleExpandCubeAsync(Model.Player player, CancellationToken ct)
-    {
-        var npc = _world.GetNpcByObjectId(_targetObjectId);
-        if (npc is null || player.Position.DistanceTo(npc.Position) > MaxInteractRange) return;
-
-        if (!_dataManager.CubeExpander.IsCubeExpander(npc.Template.NpcId)) return;
-
-        int nextLevel = player.NpcExpands + 1;
-        long? price   = _dataManager.CubeExpander.GetExpandPrice(npc.Template.NpcId, nextLevel);
-        if (price is null)
-        {
-            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CannotExpandCubeMore(), ct);
-            return;
-        }
-
-        var  kinah   = player.Inventory.FindByItemId(KinahItemId);
-        long current = kinah?.Count ?? 0;
-        if (current < price.Value)
-        {
-            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
-            return;
-        }
-
-        // Deduct kinah, expand cube
-        kinah!.Count         -= price.Value;
-        player.NpcExpands++;
-        player.Inventory.Capacity = player.CubeCapacity;
-
-        await _playerDao.UpdateCubeExpandAsync(player.ObjectId, player.NpcExpands, ct);
-        await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-
-        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinah]), ct);
-        await _conn.SendAsync(SM_CUBE_UPDATE.CubeSize(
-            player.Inventory.BagSlotUsed, player.NpcExpands, player.QuestExpands), ct);
-
-        var statTpl = _dataManager.PlayerStats.GetTemplate(player.PlayerClass, player.Level);
-        await _conn.SendAsync(new SM_STATS_INFO(player, statTpl, _dataManager.ExpTable), ct);
-        await _conn.SendAsync(SM_SYSTEM_MESSAGE.CubeExpanded(9), ct);
-
-        _log.LogInformation("Player {Name} expanded cube to {Slots} slots (npcExpands={Level})",
-            player.Name, player.CubeCapacity, player.NpcExpands);
     }
 
     private async ValueTask HandleCraftSkillUpgradeAsync(Model.Player player, CancellationToken ct)
