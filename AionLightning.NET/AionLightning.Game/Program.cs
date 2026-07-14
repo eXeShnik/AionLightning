@@ -110,6 +110,7 @@ builder.Services.AddSingleton<IHouseDao, HouseDaoImpl>();
 builder.Services.AddSingleton<IHouseBidsDao, HouseBidsDaoImpl>();
 builder.Services.AddSingleton<IHouseObjectCooldownsDao, HouseObjectCooldownsDaoImpl>();
 builder.Services.AddSingleton<IPlayerRegisteredItemsDao, PlayerRegisteredItemsDaoImpl>();
+builder.Services.AddSingleton<IHouseScriptsDao, HouseScriptsDaoImpl>();
 builder.Services.AddSingleton<ISiegeDao, SiegeDaoImpl>();
 
 // Scripting

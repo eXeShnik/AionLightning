@@ -79,6 +79,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_UI_INVENTORY_FULL — "Inventory is full." (msg code 1300042)
     public static SM_SYSTEM_MESSAGE InventoryFull() => new(1300042);
 
+    // STR_MSG_HOUSING_SCRIPT_OVERFLOW (msg code 1401399)
+    public static SM_SYSTEM_MESSAGE HousingScriptOverflow() => new(1401399);
+
     // STR_DEATH_REGISTER_RESURRECT_POINT — "You have set your resurrection point." (msg code 1300670)
     public static SM_SYSTEM_MESSAGE BindPointSet() => new(1300670, string.Empty);
 

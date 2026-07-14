@@ -29,6 +29,11 @@ public sealed class HouseRegistry
 
     public House Owner { get; }
 
+    /// <summary>Java House.getPlayerScripts() — the house's 8 decoration-script slots. Populated at
+    /// house-load time by HousingService.LoadHouseScriptsAsync (see PlayerScripts.LoadPersisted) and
+    /// mutated live by CM_HOUSE_SCRIPT.</summary>
+    public PlayerScripts Scripts { get; } = new();
+
     public HouseRegistry(House owner) => Owner = owner;
 
     /// <summary>Java House.putDefaultParts() — populates the default decoration for every part slot from

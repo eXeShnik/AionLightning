@@ -79,6 +79,7 @@ public sealed class GsPacketHandlerFactory
     private readonly InstanceService          _instanceService;
     private readonly IPlayerRegisteredItemsDao _playerRegisteredItemsDao;
     private readonly IHouseObjectCooldownsDao  _houseObjectCooldownsDao;
+    private readonly IHouseScriptsDao          _houseScriptsDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -141,10 +142,12 @@ public sealed class GsPacketHandlerFactory
         IHouseDao houseDao,
         InstanceService instanceService,
         IPlayerRegisteredItemsDao playerRegisteredItemsDao,
-        IHouseObjectCooldownsDao houseObjectCooldownsDao)
+        IHouseObjectCooldownsDao houseObjectCooldownsDao,
+        IHouseScriptsDao houseScriptsDao)
     {
         _playerRegisteredItemsDao = playerRegisteredItemsDao;
         _houseObjectCooldownsDao  = houseObjectCooldownsDao;
+        _houseScriptsDao          = houseScriptsDao;
         _log           = log;
         _loggerFactory = loggerFactory;
         _gsInfo        = gsInfo.Value;
@@ -274,7 +277,7 @@ public sealed class GsPacketHandlerFactory
                 0xF6  => new CM_PETITION(),
                 0xF7  => new CM_PET_EMOTE(conn, _petService),
                 0xF9  => new CM_CHAT_MESSAGE_PUBLIC(conn, _connRegistry),
-                0xFC  => new CM_HOUSE_SCRIPT(),
+                0xFC  => new CM_HOUSE_SCRIPT(conn, _houseScriptsDao, _housingOptions),
                 0xFD  => new CM_TARGET_SELECT(conn, _world, _connRegistry),
                 0xFE  => new CM_CHAT_MESSAGE_WHISPER(conn, _connRegistry),
                 0x100 => new CM_EXCHANGE_ADD_KINAH(conn, _connRegistry, _exchangeService),

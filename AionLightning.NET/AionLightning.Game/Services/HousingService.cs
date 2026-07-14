@@ -27,6 +27,7 @@ namespace AionLightning.Game.Services;
 public sealed class HousingService(
     IHouseDao houseDao,
     IPlayerRegisteredItemsDao registeredItemsDao,
+    IHouseScriptsDao houseScriptsDao,
     IDataManager dataManager,
     IOptions<HousingOptions> options,
     ILogger<HousingService> log)
@@ -171,6 +172,38 @@ public sealed class HousingService(
 
         log.LogInformation("HousingService: loaded {Rows} registered item row(s) across {Houses} owned house(s)",
             rowsLoaded, owned.Count);
+    }
+
+    /// <summary>
+    /// Java House.spawn()'s <c>HouseScriptsDAO.getPlayerScripts(houseId)</c> call, collapsed (like
+    /// <see cref="SpawnHouses"/>/<see cref="LoadRegisteredItemsAsync"/>) into a single startup-time sweep
+    /// over every house instead of Java's per-house-spawn invocation. Unlike
+    /// <see cref="LoadRegisteredItemsAsync"/>, this runs for every house regardless of ownership — Java
+    /// loads scripts unconditionally as the very first line of house.spawn(), before its ownership check.
+    /// No-op unless <see cref="HousingOptions.Enable"/> is true. Called once at startup by
+    /// <see cref="HousingServiceHostedService"/>, after <see cref="SpawnHouses"/>.
+    /// </summary>
+    public async Task LoadHouseScriptsAsync(CancellationToken ct = default)
+    {
+        if (!options.Value.Enable) return;
+
+        List<House> houses;
+        lock (_lock)
+        {
+            houses = _customHouses.Values.Concat(_studios.Values).ToList();
+        }
+
+        int rowsLoaded = 0;
+        foreach (var house in houses)
+        {
+            var rows = await houseScriptsDao.LoadAsync(house.Id, ct);
+            foreach (var (position, script) in rows)
+                house.Registry.Scripts.LoadPersisted(position, script);
+            rowsLoaded += rows.Count;
+        }
+
+        log.LogInformation("HousingService: loaded {Rows} house script row(s) across {Houses} house(s)",
+            rowsLoaded, houses.Count);
     }
 
     private void ApplyRegisteredItemRow(House house, PlayerRegisteredItemRow row)
