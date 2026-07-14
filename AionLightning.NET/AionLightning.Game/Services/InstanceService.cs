@@ -1,7 +1,9 @@
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Instance;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Alliance;
 using AionLightning.Game.Model.Group;
+using AionLightning.Game.Model.League;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using GameWorld = AionLightning.Game.World.World;
@@ -76,6 +78,23 @@ public sealed class InstanceService
         instance.RegisteredGroupId = group.GroupId;
         foreach (var member in group.Members)
             instance.Register(member.ObjectId);
+    }
+
+    /// <summary>Registers every current alliance member (across all subgroups) with the channel.</summary>
+    public void RegisterAllianceWithInstance(WorldMapInstanceType instance, PlayerAlliance alliance)
+    {
+        instance.RegisteredAllianceId = alliance.AllianceId;
+        foreach (var member in alliance.Members)
+            instance.Register(member.ObjectId);
+    }
+
+    /// <summary>Registers every member of every alliance in the league with the channel.</summary>
+    public void RegisterLeagueWithInstance(WorldMapInstanceType instance, League league)
+    {
+        instance.RegisteredLeagueId = league.LeagueId;
+        foreach (var leagueMember in league.Members)
+            foreach (var member in leagueMember.Alliance.Members)
+                instance.Register(member.ObjectId);
     }
 
     /// <summary>The channel of <paramref name="worldId"/> that <paramref name="objectId"/> is registered to, or null.</summary>

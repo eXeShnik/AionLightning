@@ -136,6 +136,8 @@ builder.Services.AddSingleton<ExperienceService>();
 builder.Services.AddSingleton<LootService>();
 builder.Services.AddSingleton<ExchangeService>();
 builder.Services.AddSingleton<GroupService>();
+builder.Services.AddSingleton<AllianceService>();
+builder.Services.AddSingleton<LeagueService>();
 builder.Services.AddSingleton<QuestService>();
 builder.Services.AddSingleton<QuestRewardService>();
 builder.Services.AddSingleton<QuestEngineType>();

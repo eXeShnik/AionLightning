@@ -39,6 +39,8 @@ public sealed class GsPacketHandlerFactory
     private readonly IMailDao       _mailDao;
     private readonly ExchangeService _exchangeService;
     private readonly GroupService    _groupService;
+    private readonly AllianceService _allianceService;
+    private readonly LeagueService   _leagueService;
     private readonly IQuestDao       _questDao;
     private readonly IMacroDao       _macroDao;
     private readonly QuestService    _questService;
@@ -107,6 +109,8 @@ public sealed class GsPacketHandlerFactory
         IMailDao mailDao,
         ExchangeService exchangeService,
         GroupService groupService,
+        AllianceService allianceService,
+        LeagueService leagueService,
         IQuestDao questDao,
         IMacroDao macroDao,
         QuestService questService,
@@ -178,6 +182,8 @@ public sealed class GsPacketHandlerFactory
         _mailDao         = mailDao;
         _exchangeService = exchangeService;
         _groupService    = groupService;
+        _allianceService = allianceService;
+        _leagueService   = leagueService;
         _questDao        = questDao;
         _macroDao        = macroDao;
         _questService    = questService;
@@ -315,8 +321,8 @@ public sealed class GsPacketHandlerFactory
                 0x11D => new CM_EXCHANGE_REQUEST(conn, _world, _connRegistry, _exchangeService),
                 0x11E => new CM_GM_BOOKMARK(conn, _connRegistry),
                 0x11F => new CM_CHAT_GROUP_INFO(conn, _connRegistry),
-                0x122 => new CM_PLAYER_STATUS_INFO(conn, _connRegistry, _groupService),
-                0x123 => new CM_INVITE_TO_GROUP(conn, _connRegistry, _groupService, _responseRegistry),
+                0x122 => new CM_PLAYER_STATUS_INFO(conn, _connRegistry, _groupService, _allianceService, _leagueService),
+                0x123 => new CM_INVITE_TO_GROUP(conn, _connRegistry, _groupService, _responseRegistry, _allianceService, _leagueService),
                 0x124 => new CM_READ_MAIL(conn, _mailDao),
                 0x126 => new CM_SEND_MAIL(conn, _playerDao, _mailDao, _itemDao, _connRegistry),
                 0x127 => new CM_CHECK_MAIL_SIZE(),
@@ -390,7 +396,7 @@ public sealed class GsPacketHandlerFactory
                 0x192 => new CM_COMPOSITE_STONES(conn, _itemDao),
                 0x197 => new CM_SHOW_BRAND(conn, _connRegistry),
                 0x19A => new CM_GROUP_LOOT(conn, _connRegistry),
-                0x19B => new CM_DISTRIBUTION_SETTINGS(conn, _connRegistry, _groupService),
+                0x19B => new CM_DISTRIBUTION_SETTINGS(conn, _connRegistry, _groupService, _allianceService),
                 0x19D => new CM_REPORT_PLAYER(conn, _loggerFactory.CreateLogger<CM_REPORT_PLAYER>()),
                 0x19E => new CM_ABYSS_RANKING_PLAYERS(conn, _playerDao),
                 0x19F => new CM_MAC_ADDRESS(),

@@ -1,4 +1,6 @@
 using AionLightning.Game.Model.Group;
+using AllianceModel = AionLightning.Game.Model.Alliance.PlayerAlliance;
+using LeagueModel = AionLightning.Game.Model.League.League;
 using HouseModel = AionLightning.Game.Model.House.House;
 using AionLightning.Game.Model.House;
 using AionLightning.Game.Model.Item;
@@ -68,6 +70,13 @@ public sealed class Player : Creature
 
     // Party group — null when not in a group
     public PlayerGroup? Group { get; set; }
+
+    // Raid alliance (group-of-groups) — null when not in an alliance
+    public AllianceModel? Alliance { get; set; }
+
+    // League (alliance-of-alliances) — derived from the alliance's league membership, like Java's
+    // player.getPlayerAlliance2().getLeague(); there is no independent per-player league field.
+    public LeagueModel? League => Alliance?.League;
 
     // M381: active Spiritmaster-style summon — one per master (Java rule); null when no summon is out
     public Summon? Summon { get; set; }

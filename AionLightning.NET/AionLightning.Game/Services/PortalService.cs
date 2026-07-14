@@ -53,28 +53,63 @@ public sealed class PortalService
         await _teleport.TeleportToAsync(player, worldId, instance.InstanceId,
             loc.Value.X, loc.Value.Y, loc.Value.Z, loc.Value.Heading, portAnimation: 0, ct);
 
-        var group = player.Group;
-        if (group is not null)
+        foreach (var member in TeamMembersOf(player))
         {
-            foreach (var member in group.Members)
-            {
-                if (member.ObjectId == player.ObjectId) continue;
-                await _teleport.TeleportToAsync(member, worldId, instance.InstanceId,
-                    loc.Value.X, loc.Value.Y, loc.Value.Z, loc.Value.Heading, portAnimation: 0, ct);
-            }
+            if (member.ObjectId == player.ObjectId) continue;
+            await _teleport.TeleportToAsync(member, worldId, instance.InstanceId,
+                loc.Value.X, loc.Value.Y, loc.Value.Z, loc.Value.Heading, portAnimation: 0, ct);
         }
 
         return true;
     }
 
+    /// <summary>Broadest current team (league > alliance > group > solo) — Java's <c>getCurrentTeam()</c>.</summary>
+    private static IEnumerable<Player> TeamMembersOf(Player player)
+    {
+        if (player.League is { } league)
+            return league.Members.SelectMany(m => m.Alliance.Members).Select(m => m.Player);
+        if (player.Alliance is { } alliance)
+            return alliance.Members.Select(m => m.Player);
+        if (player.Group is { } group)
+            return group.Members;
+        return [player];
+    }
+
     /// <summary>
-    /// Finds the channel the player (or their group) is already registered to, or allocates a new one
-    /// (Java's <c>case 0</c>/<c>case 6</c> re-entry-then-register branches, collapsed to solo/group).
+    /// Finds the channel the player (or their broadest current team) is already registered to, or
+    /// allocates a new one (Java's <c>case 0</c>/<c>case 6</c> re-entry-then-register branches,
+    /// collapsed to solo/group/alliance/league).
     /// </summary>
     private WorldMapInstanceType ResolveInstance(Player player, int worldId)
     {
         var existing = _instanceService.GetRegisteredInstance(worldId, player.ObjectId);
         if (existing is not null) return existing;
+
+        if (player.League is { } league)
+        {
+            foreach (var member in TeamMembersOf(player))
+            {
+                existing = _instanceService.GetRegisteredInstance(worldId, member.ObjectId);
+                if (existing is not null) return existing;
+            }
+
+            var createdForLeague = _instanceService.GetNextAvailableInstance(worldId);
+            _instanceService.RegisterLeagueWithInstance(createdForLeague, league);
+            return createdForLeague;
+        }
+
+        if (player.Alliance is { } alliance)
+        {
+            foreach (var member in alliance.Members)
+            {
+                existing = _instanceService.GetRegisteredInstance(worldId, member.ObjectId);
+                if (existing is not null) return existing;
+            }
+
+            var createdForAlliance = _instanceService.GetNextAvailableInstance(worldId);
+            _instanceService.RegisterAllianceWithInstance(createdForAlliance, alliance);
+            return createdForAlliance;
+        }
 
         var group = player.Group;
         if (group is null)
