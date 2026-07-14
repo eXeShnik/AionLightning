@@ -86,6 +86,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IHouseObjectCooldownsDao  _houseObjectCooldownsDao;
     private readonly IHouseScriptsDao          _houseScriptsDao;
     private readonly DoorService                _doorService;
+    private readonly KiskService                 _kiskService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -155,9 +156,11 @@ public sealed class GsPacketHandlerFactory
         IPlayerRegisteredItemsDao playerRegisteredItemsDao,
         IHouseObjectCooldownsDao houseObjectCooldownsDao,
         IHouseScriptsDao houseScriptsDao,
-        DoorService doorService)
+        DoorService doorService,
+        KiskService kiskService)
     {
         _doorService              = doorService;
+        _kiskService              = kiskService;
         _playerRegisteredItemsDao = playerRegisteredItemsDao;
         _houseObjectCooldownsDao  = houseObjectCooldownsDao;
         _houseScriptsDao          = houseScriptsDao;
@@ -260,7 +263,7 @@ public sealed class GsPacketHandlerFactory
             GsClientConnection.AionState.IN_GAME => opcode switch
             {
                 0xA6  => new CM_MAY_QUIT(),
-                0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager, _playerDao, _itemDao),
+                0xA7  => new CM_REVIVE(conn, _connRegistry, _dataManager, _playerDao, _itemDao, _kiskService),
                 0xA8  => new CM_UI_SETTINGS(conn, _settingsDao),
                 0xA9  => new CM_OBJECT_SEARCH(conn, _dataManager),
                 0xAB  => new CM_LEVEL_READY(conn, _world, _connRegistry, _eventBus, _siegeService,
@@ -271,7 +274,7 @@ public sealed class GsPacketHandlerFactory
                 0xC1  => new CM_QUIT(conn),
                 0xC4  => new CM_EQUIP_ITEM(conn, _itemDao, _dataManager, _connRegistry, _questEngine),
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
-                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillLearn, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine),
+                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillLearn, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine, _kiskService),
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillLearn, _spawnService,
                     _housingService, _houseController, _housingBidService, _houseDao),
                 0xC9  => new CM_EMOTION(conn, _connRegistry, _flyController, _zoneService, _teleport),

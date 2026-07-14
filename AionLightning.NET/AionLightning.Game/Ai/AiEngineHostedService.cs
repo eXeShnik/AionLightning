@@ -22,12 +22,13 @@ public sealed class AiEngineHostedService(
     IDataManager dataManager,
     DoorService doorService,
     NpcShoutsService shoutsService,
+    KiskService kiskService,
     CSharpCompilerService compiler,
     ILogger<AiEngineHostedService> log) : IHostedService
 {
     public Task StartAsync(CancellationToken ct)
     {
-        NpcAi2.InitServices(spawnService, world, dataManager, doorService, shoutsService);
+        NpcAi2.InitServices(spawnService, world, dataManager, doorService, shoutsService, kiskService);
 
         string scriptsFolder = Path.Combine(AppContext.BaseDirectory, "Scripts", "ai");
         if (!Directory.Exists(scriptsFolder))

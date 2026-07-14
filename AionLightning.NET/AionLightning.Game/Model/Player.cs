@@ -1,4 +1,5 @@
 using AionLightning.Game.Model.Group;
+using KiskModel = AionLightning.Game.Model.GameObjects.Kisk;
 using AllianceModel = AionLightning.Game.Model.Alliance.PlayerAlliance;
 using LeagueModel = AionLightning.Game.Model.League.League;
 using HouseModel = AionLightning.Game.Model.House.House;
@@ -120,6 +121,12 @@ public sealed class Player : Creature
 
     // Bind point (Obelisk) — null means no bind, CM_REVIVE stays in place
     public Position? BindPosition { get; set; }
+
+    // Bound kisk (bindstone) — null when not bound to any deployed kisk. Java Player.kisk.
+    // note: unlike a real bind point, this is in-memory only (no logout persistence — see Java
+    // KiskService.boundButOfflinePlayer); this port has no player-logout hook to populate an
+    // equivalent offline-rebind map, so relogging while bound loses the kisk binding.
+    public KiskModel? Kisk { get; set; }
 
     // Client display/social settings (from CM_CUSTOM_SETTINGS)
     public int DisplaySettings { get; set; }

@@ -216,6 +216,19 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_ITEM_CANT_USE_UNTIL_DELAY_TIME — "You cannot use this item yet." (msg code 1300400)
     public static SM_SYSTEM_MESSAGE ItemCantUseUntilDelayTime() => new(1300400);
 
+    // Kisk (bindstone) messages — Java SM_SYSTEM_MESSAGE STR_BINDSTONE_*/STR_CANNOT_REGISTER_BINDSTONE_*
+    public static SM_SYSTEM_MESSAGE CannotRegisterBindstoneNoAuthority() => new(1300799);
+    public static SM_SYSTEM_MESSAGE CannotRegisterBindstoneFarFromNpc()  => new(1300800);
+    public static SM_SYSTEM_MESSAGE CannotRegisterBindstoneNotBindstone() => new(1300801);
+    public static SM_SYSTEM_MESSAGE BindstoneIsDestroyed() => new(1300802);
+    public static SM_SYSTEM_MESSAGE BindstoneIsRemoved()   => new(1300803);
+    public static SM_SYSTEM_MESSAGE CannotUseBindstoneItemWhileFlying() => new(1300806);
+    public static SM_SYSTEM_MESSAGE BindstoneRegister()           => new(1390159);
+    public static SM_SYSTEM_MESSAGE BindstoneAlreadyInstalled()   => new(1390160);
+    public static SM_SYSTEM_MESSAGE BindstoneAlreadyRegistered()  => new(1390161);
+    public static SM_SYSTEM_MESSAGE BindstoneIsAttacked()         => new(1390166);
+    public static SM_SYSTEM_MESSAGE CannotRegisterBindstoneFull() => new(1400247);
+
     // STR_UI_STIGMA_NOT_ENOUGH_MATERIAL — "Not enough stigma shards." (msg code 1300450)
     public static SM_SYSTEM_MESSAGE StigmaNotEnoughShards() => new(1300450);
 

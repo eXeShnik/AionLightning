@@ -53,6 +53,9 @@ public sealed class ItemTemplate
     public int ExtraInventoryId => ExtraInventory?.Id ?? -1;
     // mount/ride item — presence of <ride> in <actions> (Java RideAction)
     public bool IsRideItem      => Actions?.Ride != null;
+    // kisk (bindstone) deploy item — presence of <toypetspawn npcid="N"/> in <actions>. Despite the
+    // XML/Java element name, this is the kisk-placement action (Java ToyPetSpawnAction), not a toy pet.
+    public int? KiskSpawnNpcId  => Actions?.KiskSpawn?.NpcId is > 0 and int id ? id : null;
 
     // Two-hand weapon types: suffixed _2H or the BOW type (mirrors Java isTwoHandWeapon)
     private static readonly HashSet<string> TwoHandTypes = ["SWORD_2H", "POLEARM_2H", "STAFF_2H",
@@ -151,6 +154,7 @@ public sealed class ItemActions
     [XmlElement("houseobject")] public HouseObjectAction? HouseObject  { get; set; }
     [XmlElement("housedeco")]   public HouseDecoAction?   HouseDeco    { get; set; }
     [XmlElement("ride")]        public RideAction?       Ride         { get; set; }
+    [XmlElement("toypetspawn")] public KiskSpawnAction?  KiskSpawn    { get; set; }
 }
 
 public sealed class DyeAction
@@ -231,6 +235,14 @@ public sealed class TitleAddAction
 public sealed class RideAction
 {
     [XmlAttribute("npc_id")] public int NpcId { get; set; }
+}
+
+/// <summary>Maps to &lt;toypetspawn npcid="N"/&gt; (Java ToyPetSpawnAction) — spawns a kisk (bindstone)
+/// NPC from <see cref="NpcId"/> (npc_templates.xml, ai="kisk"/"invisiblekisk") at the player's position.
+/// See Services.KiskService.SpawnKiskAsync.</summary>
+public sealed class KiskSpawnAction
+{
+    [XmlAttribute("npcid")] public int NpcId { get; set; }
 }
 
 /// <summary>Maps to &lt;houseobject id="N"/&gt; (Java SummonHouseObjectAction) — turning this item into a

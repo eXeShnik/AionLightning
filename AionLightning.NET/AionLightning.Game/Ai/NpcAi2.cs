@@ -1,5 +1,6 @@
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.GameObjects;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
 
@@ -22,16 +23,18 @@ public abstract class NpcAi2
     private static IDataManager? _dataManager;
     private static DoorService? _doorService;
     private static NpcShoutsService? _shoutsService;
+    private static KiskService? _kiskService;
 
     /// <summary>Wires the shared services once at boot (called from the AI-engine host).</summary>
     public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager,
-        DoorService doorService, NpcShoutsService shoutsService)
+        DoorService doorService, NpcShoutsService shoutsService, KiskService kiskService)
     {
         _spawnService  = spawnService;
         _world         = world;
         _dataManager   = dataManager;
         _doorService   = doorService;
         _shoutsService = shoutsService;
+        _kiskService   = kiskService;
     }
 
     /// <summary>The NPC this AI drives; set by <see cref="AiEngine.Create"/> right after construction.</summary>
@@ -175,4 +178,18 @@ public abstract class NpcAi2
 
     /// <summary>note: always true until leash/return-to-spawn state is exposed to scripts.</summary>
     protected bool IsHome() => true;
+
+    /// <summary>Resolves this AI's owner back to the <see cref="Kisk"/> wrapper it belongs to, or null
+    /// when the owner isn't a registered kisk NPC (Java <c>KiskAI2.getOwner()</c> cast). Used by
+    /// KiskAI2/InvisiblekiskAI2 to reach <see cref="Services.KiskService"/> from their lifecycle hooks.</summary>
+    protected Kisk? GetKisk() => _kiskService?.GetByNpc(Owner);
+
+    /// <summary>Java <c>KiskService.getInstance().removeKisk(getOwner())</c> — despawns this AI's kisk
+    /// and unbinds every member. No-op if the owner isn't a registered kisk.</summary>
+    protected void RemoveKisk()
+    {
+        if (_kiskService is null) return;
+        var kisk = GetKisk();
+        if (kisk is not null) _ = _kiskService.RemoveKiskAsync(kisk);
+    }
 }

@@ -552,7 +552,8 @@ public sealed class NpcAiService : BackgroundService
             var targetConn = _connRegistry.Get(target.ObjectId);
             if (targetConn is not null)
             {
-                try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { /* ignore */ }
+                int kiskTime = target.Kisk?.RemainingLifetime ?? 0;
+                try { await targetConn.SendAsync(new SM_DIE(remainingKiskTime: kiskTime), ct); } catch { /* ignore */ }
                 try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(npc.Template.Name), ct); } catch { }
             }
 
@@ -1160,7 +1161,8 @@ public sealed class NpcAiService : BackgroundService
         var killedConn = _connRegistry.Get(killed.ObjectId);
         if (killedConn is not null)
         {
-            try { await killedConn.SendAsync(new SM_DIE(), ct); } catch { }
+            int kiskTime = killed.Kisk?.RemainingLifetime ?? 0;
+            try { await killedConn.SendAsync(new SM_DIE(remainingKiskTime: kiskTime), ct); } catch { }
             try { await killedConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(npc.Template.Name), ct); } catch { }
         }
 

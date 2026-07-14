@@ -136,6 +136,7 @@ public sealed class FallDamageService
                 try { await other.SendAsync(abnormalPkt, ct); } catch { }
             }
 
-        try { await conn.SendAsync(new SM_DIE(), ct); } catch { }
+        int kiskTime = player.Kisk?.RemainingLifetime ?? 0;
+        try { await conn.SendAsync(new SM_DIE(remainingKiskTime: kiskTime), ct); } catch { }
     }
 }

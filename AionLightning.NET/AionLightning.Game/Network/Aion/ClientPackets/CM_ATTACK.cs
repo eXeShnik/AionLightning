@@ -369,7 +369,8 @@ public sealed class CM_ATTACK : AionClientPacket
             var targetConn = _connRegistry.Get(deadPlayer.ObjectId);
             if (targetConn is not null)
             {
-                try { await targetConn.SendAsync(new SM_DIE(), ct); } catch { }
+                int kiskTime = deadPlayer.Kisk?.RemainingLifetime ?? 0;
+                try { await targetConn.SendAsync(new SM_DIE(remainingKiskTime: kiskTime), ct); } catch { }
                 try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(player.Name), ct); } catch { }
             }
 

@@ -150,6 +150,7 @@ builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddSingleton<SummonsService>();
 builder.Services.AddSingleton<ZoneService>();
 builder.Services.AddSingleton<FallDamageService>();
+builder.Services.AddSingleton<KiskService>();
 // Instance subsystem: channel registry + lifecycle + teleport choke point + scriptable handlers
 builder.Services.AddSingleton<AionLightning.Game.World.InstanceRegistry>();
 builder.Services.AddSingleton<AionLightning.Game.Instance.InstanceEngine>();

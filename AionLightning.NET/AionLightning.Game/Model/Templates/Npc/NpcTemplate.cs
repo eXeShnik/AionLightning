@@ -26,6 +26,12 @@ public sealed class NpcTemplate
     [XmlElement("bound_radius")]
     public NpcBoundRadius? BoundRadius { get; set; }
 
+    /// <summary>Maps to &lt;kisk_stats usemask=".." members=".." resurrects=".."/&gt; — present only on
+    /// kisk (bindstone) NPC templates (npc_templates.xml ai="kisk"/"invisiblekisk"). Null for every
+    /// other NPC. See <see cref="Model.GameObjects.Kisk"/>.</summary>
+    [XmlElement("kisk_stats")]
+    public KiskStatsTemplate? KiskStats { get; set; }
+
     public int MaxHp => Stats?.MaxHp ?? 100;
 }
 
@@ -34,4 +40,14 @@ public sealed class NpcBoundRadius
     [XmlAttribute("front")] public float Front { get; set; } = 1.0f;
     [XmlAttribute("side")]  public float Side  { get; set; } = 1.0f;
     [XmlAttribute("upper")] public float Upper { get; set; } = 1.0f;
+}
+
+/// <summary>Mirrors Java KiskStatsTemplate — who may bind (useMask: 0/1=race, 2=legion, 3=solo,
+/// 4=group, 5=alliance), how many players may be bound at once, and how many total resurrects the
+/// kisk grants before it self-despawns. Defaults match the Java XML-binding defaults.</summary>
+public sealed class KiskStatsTemplate
+{
+    [XmlAttribute("usemask")]    public int UseMask       { get; set; } = 4;
+    [XmlAttribute("members")]    public int MaxMembers     { get; set; } = 6;
+    [XmlAttribute("resurrects")] public int MaxResurrects  { get; set; } = 18;
 }

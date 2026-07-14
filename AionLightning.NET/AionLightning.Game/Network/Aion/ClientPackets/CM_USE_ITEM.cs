@@ -50,6 +50,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly NpcAiService             _npcAi;
     private readonly IEventBus                _eventBus;
     private readonly QuestEngineType          _questEngine;
+    private readonly KiskService              _kiskService;
 
     private int _uniqueItemId;
     private int _type;
@@ -58,7 +59,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
         IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, SkillLearnService skillLearn,
         IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi,
-        IEventBus eventBus, QuestEngineType questEngine)
+        IEventBus eventBus, QuestEngineType questEngine, KiskService kiskService)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -71,6 +72,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
         _npcAi        = npcAi;
         _eventBus     = eventBus;
         _questEngine  = questEngine;
+        _kiskService  = kiskService;
     }
 
     public override void Read(ref PacketReader r)
@@ -111,6 +113,18 @@ public sealed class CM_USE_ITEM : AionClientPacket
         if (template.IsRideItem)
         {
             await _questEngine.OnRideAsync(player, item.ItemId, _conn, ct);
+            return;
+        }
+
+        // Kisk (bindstone) deploy item — spawns a kisk NPC at the player's position (Java
+        // ToyPetSpawnAction). note: Java delayed the actual spawn behind a 10s windup cast
+        // (cancellable via an ItemUseObserver on move); this port resolves immediately, matching how
+        // the Ride/Dye branches above already collapse Java's windup delays. Java's canAct also checked
+        // a per-zone "canPutKisk" flag — no such zone data is ported, so only the flying/instance/
+        // already-have-a-kisk gates below apply.
+        if (template.KiskSpawnNpcId is int kiskNpcId)
+        {
+            await HandleKiskDeployAsync(player, item, template, kiskNpcId, ct);
             return;
         }
 
@@ -778,6 +792,57 @@ public sealed class CM_USE_ITEM : AionClientPacket
             foreach (var other in _connRegistry.GetAllExcept(player.ObjectId))
                 if (other.ActivePlayer?.Position.WorldId == worldId)
                     try { await other.SendAsync(appearance, ct); } catch { }
+        }
+    }
+
+    private async ValueTask HandleKiskDeployAsync(Player player, Model.Item.Item item, ItemTemplate template,
+        int kiskNpcId, CancellationToken ct)
+    {
+        if (player.FlyState != 0)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CannotUseBindstoneItemWhileFlying(), ct);
+            return;
+        }
+
+        // Java also barred placement inside an instance (STR_CANNOT_REGISTER_BINDSTONE_FAR_FROM_NPC).
+        if (player.Position.InstanceId != 0)
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.CannotRegisterBindstoneFarFromNpc(), ct);
+            return;
+        }
+
+        var limits = template.UseLimits;
+        if (limits is not null && limits.DelayId > 0 && player.IsItemOnCooldown(limits.DelayId))
+        {
+            await _conn.SendAsync(SM_SYSTEM_MESSAGE.ItemCantUseUntilDelayTime(), ct);
+            return;
+        }
+
+        // KiskService already notifies the player when they already have an active kisk deployed.
+        var kisk = await _kiskService.SpawnKiskAsync(player, kiskNpcId, ct);
+        if (kisk is null) return;
+
+        var anim = new SM_ITEM_USAGE_ANIMATION(player.ObjectId, (int)item.UniqueId, item.ItemId);
+        try { await _conn.SendAsync(anim, ct); } catch { }
+        int worldId = player.Position.WorldId;
+        foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
+            if (peer.ActivePlayer?.Position.WorldId == worldId)
+                try { await peer.SendAsync(anim, ct); } catch { }
+
+        if (limits is not null && limits.DelayId > 0 && limits.DelayMs > 0)
+            player.SetItemCooldown(limits.DelayId, limits.DelayMs);
+
+        item.Count--;
+        if (item.Count <= 0)
+        {
+            player.Inventory.Remove(item.UniqueId);
+            await _itemDao.DeleteAsync(item.UniqueId, ct);
+            await _conn.SendAsync(new SM_DELETE_ITEM(item.UniqueId), ct);
+        }
+        else
+        {
+            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
+            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
         }
     }
 }

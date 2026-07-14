@@ -2952,7 +2952,8 @@ public sealed class CM_CASTSPELL : AionClientPacket
                     var targetConn = registry.Get(deadPlayer.ObjectId);
                     if (targetConn is not null)
                     {
-                        try { await targetConn.SendAsync(new SM_DIE()); } catch { }
+                        int kiskTime = deadPlayer.Kisk?.RemainingLifetime ?? 0;
+                        try { await targetConn.SendAsync(new SM_DIE(remainingKiskTime: kiskTime)); } catch { }
                         try { await targetConn.SendAsync(SM_SYSTEM_MESSAGE.YouWereKilledBy(player.Name)); } catch { }
                     }
 

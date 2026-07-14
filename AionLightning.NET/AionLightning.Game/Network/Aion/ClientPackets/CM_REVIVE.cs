@@ -3,6 +3,7 @@ using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -25,17 +26,19 @@ public sealed class CM_REVIVE : AionClientPacket
     private readonly IDataManager             _dataManager;
     private readonly IPlayerDao               _playerDao;
     private readonly IItemDao                 _itemDao;
+    private readonly KiskService              _kiskService;
 
     private int _reviveId;
 
     public CM_REVIVE(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
-        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao)
+        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao, KiskService kiskService)
     {
         _conn         = conn;
         _connRegistry = connRegistry;
         _dataManager  = dataManager;
         _playerDao    = playerDao;
         _itemDao      = itemDao;
+        _kiskService  = kiskService;
     }
 
     public override void Read(ref PacketReader r) => _reviveId = r.ReadC();
@@ -63,11 +66,37 @@ public sealed class CM_REVIVE : AionClientPacket
             case TypeInstance:
                 await HandleInstanceReviveAsync(player, ct);
                 break;
-            // TypeKisk requires Kisk entity support — fall through to bind revive
+            case TypeKisk:
+                await HandleKiskReviveAsync(player, ct);
+                break;
             default:
                 await HandleBindReviveAsync(player, ct);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Java PlayerReviveService.kiskRevive: revives at the player's bound kisk, consuming one of its
+    /// resurrects (KiskService despawns it and unbinds everyone once that hits zero). Falls back to a
+    /// plain bind revive when the player has no active kisk binding — the client shouldn't offer this
+    /// option in that case (see SM_DIE's remainingKiskTime), but a stale/replayed packet could still
+    /// request it.
+    /// note: Java's kiskRevive also special-cased serial-killer ranked players standing in enemy
+    /// territory (forced to a plain bind revive instead) — no serial-killer/PK-rank system is ported
+    /// yet, so that gate is skipped here.
+    /// </summary>
+    private async ValueTask HandleKiskReviveAsync(Player player, CancellationToken ct)
+    {
+        var bindPosition = await _kiskService.ConsumeResurrectionAsync(player, ct);
+        if (bindPosition is null)
+        {
+            await HandleBindReviveAsync(player, ct);
+            return;
+        }
+
+        // Java: revive(player, 25, 25, false, skillId) — kisk revive applies no soul sickness.
+        await ReviveCoreAsync(player, hpPct: 25, mpPct: 25, applySoulSickness: false, skillId: 0,
+            destination: bindPosition, ct: ct);
     }
 
     private async ValueTask HandleBindReviveAsync(Player player, CancellationToken ct)

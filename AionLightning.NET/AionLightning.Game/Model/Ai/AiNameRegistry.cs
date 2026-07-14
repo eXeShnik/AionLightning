@@ -31,6 +31,12 @@ public static class AiNameRegistry
         ["artifact_protector"] = AiArchetype.Guard,
         ["siege_protector"]    = AiArchetype.Guard,
         ["guard"]              = AiArchetype.Guard,
+
+        // Kisks (bindstones) are static, never fight back or proactively aggro, and never grant
+        // XP/loot/AP (Java KiskAI2/InvisiblekiskAI2's pollInstance overrides SHOULD_REWARD/
+        // SHOULD_RESPAWN to NEGATIVE) — NoAction is the closest existing archetype. See Services.KiskService.
+        ["kisk"]          = AiArchetype.NoAction,
+        ["invisiblekisk"] = AiArchetype.NoAction,
     };
 
     /// <summary>
