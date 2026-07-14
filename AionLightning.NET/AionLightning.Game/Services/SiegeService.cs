@@ -41,6 +41,7 @@ public sealed class SiegeService(
     TeleportService teleportService,
     Influence influence,
     Siege.Assault.BalaurAssaultService balaurAssaultService,
+    ZoneService zoneService,
     IOptions<SiegeOptions> options,
     IOptions<SiegeScheduleOptions> scheduleOptions,
     ILogger<SiegeService> log)
@@ -653,9 +654,18 @@ public sealed class SiegeService(
         // "same world id as the vulnerable location" — coarser than Java's actual zone polygon, so a
         // player merely sharing the open-world map with a besieged fortress (not literally inside its
         // siege perimeter) may be relocated slightly more aggressively than Java would.
+        // note: ZoneService.IsInsideZoneType(player, ZoneType.Siege) is OR-ed in below as a belt-and-
+        // suspenders tightening, but it's currently inert: the shipped zones_*.xml never tags a zone
+        // zone_type="SIEGE" (grepped — 0 hits). Java's real signal instead comes from zone_type="FORT"/
+        // "ARTIFACT" zones carrying a siege_id attribute that's cross-referenced against the matching
+        // SiegeLocation (see ZoneService.java's getZoneInstancesByWorldId case FORT/ARTIFACT, which wires
+        // SiegeZoneInstance.onEnter/onLeave to call creature.setInsideZoneType(SIEGE) only while that
+        // specific location isVulnerable()) — this port's ZoneData/ZoneRegion has no siege_id field to
+        // do that per-location cross-reference yet, so the world-id guard below stays load-bearing.
         foreach (var fortress in Fortresses.Values)
         {
-            if (fortress.IsVulnerable && fortress.WorldId == player.Position.WorldId && fortress.IsEnemy(player.Race))
+            if (fortress.IsVulnerable && fortress.IsEnemy(player.Race) &&
+                (fortress.WorldId == player.Position.WorldId || zoneService.IsInsideZoneType(player, Model.Zone.ZoneType.Siege)))
                 return false;
         }
 
@@ -961,6 +971,9 @@ public sealed class SiegeService(
     /// shrine) or "Encouragement" (a different, non-Balaur race controls it) abyss buff to a player
     /// standing in the Sillus/Silona/Pradeth fortress zones, based on each shrine's current owning race.
     /// No-op while <see cref="SiegeOptions.Enable"/> is false.
+    /// note: verified against Java — fortressBuffApply itself gates purely on player.getWorldId() (no
+    /// isInsideZoneType(SIEGE) check in the real source), so the world-id switch below is already
+    /// faithful as-is; left untouched rather than adding an unfaithful zone-type gate.
     /// </summary>
     public void FortressBuffApply(Player player)
     {

@@ -25,11 +25,13 @@ public sealed class FortressAssault : Assault
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly Action<SiegeNpc> _registerNpc;
     private readonly ILogger _log;
+    private readonly ZoneService _zoneService;
 
     private volatile bool _spawned;
 
     public FortressAssault(FortressSiege siege, BalaurAssaultService owner, SpawnService spawnService,
-        IDataManager dataManager, PlayerConnectionRegistry connRegistry, Action<SiegeNpc> registerNpc, ILogger log)
+        IDataManager dataManager, PlayerConnectionRegistry connRegistry, Action<SiegeNpc> registerNpc, ILogger log,
+        ZoneService zoneService)
         : base(siege)
     {
         _isBalaurea = WorldId != 400010000;
@@ -39,6 +41,7 @@ public sealed class FortressAssault : Assault
         _connRegistry = connRegistry;
         _registerNpc = registerNpc;
         _log = log;
+        _zoneService = zoneService;
     }
 
     protected override void ScheduleAssault(int delaySeconds)
@@ -192,13 +195,18 @@ public sealed class FortressAssault : Assault
     /// <summary>Approximates Java's siegeLocation.doOnAllPlayers(Visitor) — that zone/knownlist broadcast
     /// helper isn't ported yet (see FortressSiege's own doc comments on the same gap), so this falls back
     /// to "everyone currently on this fortress's map", matching the substitute pattern SiegeService itself
-    /// already uses elsewhere (e.g. BroadcastRiftAsync).</summary>
+    /// already uses elsewhere (e.g. BroadcastRiftAsync).
+    /// note: ZoneService.IsInsideZoneType(player, ZoneType.Siege) is OR-ed in as a belt-and-suspenders
+    /// tightening — currently inert, since the shipped zones_*.xml never tags a zone zone_type="SIEGE"
+    /// (see SiegeService.ValidateLoginZone's note on the real FORT/siege_id wiring Java uses instead), so
+    /// the world-id fallback remains load-bearing.</summary>
     private void BroadcastToFortress(SM_SYSTEM_MESSAGE message)
     {
         _ = Task.Run(async () =>
         {
             foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer is { } p && p.Position.WorldId == WorldId)
+                if (conn.ActivePlayer is { } p &&
+                    (p.Position.WorldId == WorldId || _zoneService.IsInsideZoneType(p, Model.Zone.ZoneType.Siege)))
                     try { await conn.SendAsync(message); } catch { }
         });
     }

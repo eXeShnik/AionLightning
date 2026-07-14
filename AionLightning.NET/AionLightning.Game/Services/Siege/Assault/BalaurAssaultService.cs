@@ -27,6 +27,7 @@ public sealed class BalaurAssaultService(
     IDataManager dataManager,
     PlayerConnectionRegistry connRegistry,
     Model.Siege.Influence influence,
+    ZoneService zoneService,
     IOptions<SiegeOptions> options,
     ILogger<BalaurAssaultService> log)
 {
@@ -121,7 +122,7 @@ public sealed class BalaurAssaultService(
         switch (siege)
         {
             case FortressSiege fortressSiege:
-                var assault = new FortressAssault(fortressSiege, this, spawnService, dataManager, connRegistry, registerNpc, log);
+                var assault = new FortressAssault(fortressSiege, this, spawnService, dataManager, connRegistry, registerNpc, log, zoneService);
                 assault.StartAssault(delaySeconds);
                 _fortressAssaults[siege.SiegeLocationId] = assault;
                 break;

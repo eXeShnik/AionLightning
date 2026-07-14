@@ -1,8 +1,11 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Controllers;
 using AionLightning.Game.Dao;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.House;
 using AionLightning.Game.Model.Item;
+using AionLightning.Game.Model.Templates.Housing;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
@@ -21,12 +24,18 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
     private readonly IQuestDao                _questDao;
     private readonly SkillLearnService        _skillLearn;
     private readonly SpawnService             _spawnService;
+    private readonly HousingService           _housingService;
+    private readonly HouseController          _houseController;
+    private readonly HousingBidService        _housingBidService;
+    private readonly IHouseDao                _houseDao;
 
     private string _command = string.Empty;
 
     public CM_GM_COMMAND_SEND(GsClientConnection conn, GameWorld world,
         PlayerConnectionRegistry connRegistry, IItemDao itemDao, IDataManager dataManager,
-        IPlayerDao playerDao, IQuestDao questDao, SkillLearnService skillLearn, SpawnService spawnService)
+        IPlayerDao playerDao, IQuestDao questDao, SkillLearnService skillLearn, SpawnService spawnService,
+        HousingService housingService, HouseController houseController, HousingBidService housingBidService,
+        IHouseDao houseDao)
     {
         _conn         = conn;
         _world        = world;
@@ -37,6 +46,10 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         _questDao     = questDao;
         _skillLearn   = skillLearn;
         _spawnService = spawnService;
+        _housingService    = housingService;
+        _houseController   = houseController;
+        _housingBidService = housingBidService;
+        _houseDao          = houseDao;
     }
 
     public override void Read(ref PacketReader r) => _command = r.ReadS();
@@ -125,6 +138,13 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
             case ".skill" when parts.Length >= 2 && int.TryParse(parts[1], out var skId):
                 int skLevel = parts.Length >= 3 && int.TryParse(parts[2], out var sl) ? sl : 1;
                 await HandleAddSkill(player, skId, skLevel, ct);
+                break;
+
+            // Java admincommands.HouseCommand (//house). This port has no house "name" field (see
+            // HandleHouseCommand's own doc note) and no admin.getTarget() selection model, so houses are
+            // addressed by HouseAddress.Id and players by online character name instead.
+            case ".house" when parts.Length >= 2:
+                await HandleHouseCommand(player, parts, ct);
                 break;
         }
     }
@@ -379,4 +399,182 @@ public sealed class CM_GM_COMMAND_SEND : AionClientPacket
         await _skillLearn.LearnSkillAsync(player, skillId, skillLevel, ct: ct);
         await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: true), ct);
     }
+
+    /// <summary>
+    /// Java admincommands.HouseCommand (//house tp|acquire|revoke) — this port has no house "name" field
+    /// (Java's House.getName() has no equivalent on <see cref="Model.House.House"/>, which only tracks the
+    /// numeric <see cref="Model.House.House.Address"/> id) and no admin.getTarget() single-object-selection
+    /// model, so subcommands take a HouseAddress.Id and an online character name instead of a house name
+    /// and a pre-selected target. Adds ".house info" (not in Java) since address-based lookups otherwise
+    /// have no way to discover a house's current owner/status from the client.
+    /// </summary>
+    private async ValueTask HandleHouseCommand(Player admin, string[] parts, CancellationToken ct)
+    {
+        switch (parts[1].ToLowerInvariant())
+        {
+            case "info":
+                int? infoAddress = parts.Length >= 3 && int.TryParse(parts[2], out var ia) ? ia : null;
+                await HandleHouseInfo(admin, infoAddress, ct);
+                break;
+
+            case "tp" when parts.Length >= 3 && int.TryParse(parts[2], out var tpAddress):
+                await HandleHouseTeleport(admin, tpAddress, ct);
+                break;
+
+            case "acquire" when parts.Length >= 4 && int.TryParse(parts[2], out var acquireAddress):
+                await HandleHouseAcquire(admin, acquireAddress, parts[3], ct);
+                break;
+
+            case "revoke" when parts.Length >= 3 && int.TryParse(parts[2], out var revokeAddress):
+                await HandleHouseRevoke(admin, revokeAddress, ct);
+                break;
+
+            default:
+                await SendGmMessage(admin, "Syntax: .house <info [address] | tp <address> | acquire <address> <player> | revoke <address>>", ct);
+                break;
+        }
+    }
+
+    private async ValueTask HandleHouseInfo(Player admin, int? address, CancellationToken ct)
+    {
+        List<Model.House.House> houses = address is { } addr
+            ? (_housingService.GetHouseByAddress(addr) is { } h ? [h] : [])
+            : _housingService.SearchPlayerHouses(admin.ObjectId);
+
+        if (houses.Count == 0)
+        {
+            await SendGmMessage(admin, "No such house!", ct);
+            return;
+        }
+
+        foreach (var house in houses)
+        {
+            string owner = house.IsOwned ? house.PlayerObjectId.ToString() : "none";
+            await SendGmMessage(admin,
+                $"House address={house.Address} building={house.BuildingId} status={house.Status} owner={owner}", ct);
+        }
+    }
+
+    private async ValueTask HandleHouseTeleport(Player admin, int address, CancellationToken ct)
+    {
+        var houseAddress = _dataManager.Housing.GetAddress(address);
+        if (houseAddress is null)
+        {
+            await SendGmMessage(admin, "No such house address!", ct);
+            return;
+        }
+
+        await HandleTeleport(admin, houseAddress.MapId, houseAddress.X, houseAddress.Y, houseAddress.Z, ct);
+    }
+
+    /// <summary>
+    /// Java ChangeHouseOwner(admin, name, acquire=true) — reworked around address+player-name targeting
+    /// (see <see cref="HandleHouseCommand"/>'s doc note). Reuses <see cref="HousingBidService.CompleteHouseSellAsync"/>
+    /// (the same "outright win" path a normal auction uses) to assign ownership, since that already persists
+    /// the house row, refreshes the target's Player.Houses/BuildingOwnerState if online, and sends the
+    /// gated SM_HOUSE_ACQUIRE/SM_HOUSE_OWNER_INFO pair — reusing it here keeps this GM path on the same
+    /// verified send path instead of duplicating it.
+    /// note: Java also revoked the target's existing house first when they already own exactly one (so an
+    /// acquire never grows them past 1 house even though the cap is 2), including deleting an existing
+    /// studio outright. This port skips the studio sub-case: HousingService keeps no "forget this studio"
+    /// hook, so deleting the DB row without also removing the stale entry from HousingService's in-memory
+    /// _studios dictionary would leave it resolvable (SearchPlayerHouses/GetPlayerAddress) until a restart —
+    /// declined instead of leaving that inconsistency.
+    /// </summary>
+    private async ValueTask HandleHouseAcquire(Player admin, int address, string targetName, CancellationToken ct)
+    {
+        var targetConn = _connRegistry.GetByName(targetName);
+        var target = targetConn?.ActivePlayer;
+        if (target is null)
+        {
+            await SendGmMessage(admin, "Player not found or offline.", ct);
+            return;
+        }
+
+        var house = _housingService.GetHouseByAddress(address);
+        if (house is null)
+        {
+            await SendGmMessage(admin, "No such house!", ct);
+            return;
+        }
+
+        if (target.Houses.Count >= 2)
+        {
+            await SendGmMessage(admin, "Player can not own more than 2 houses!", ct);
+            return;
+        }
+
+        if (target.Houses.Count == 1)
+        {
+            var current = target.Houses[0];
+            bool isStudio = _dataManager.Housing.GetBuilding(current.BuildingId)?.Type == BuildingType.PERSONAL_INS;
+            if (isStudio)
+            {
+                await SendGmMessage(admin, "Target owns a studio; revoke it first with .house revoke.", ct);
+                return;
+            }
+
+            current.PlayerObjectId = 0;
+            current.Status = HouseStatus.Active;
+            current.FeePaid = true;
+            current.NextPay = null;
+            current.SellStarted = null;
+            await _houseDao.StoreAsync(current, ct);
+            await _houseController.BroadcastAppearanceAsync(current, ct);
+        }
+
+        await _housingBidService.CompleteHouseSellAsync(target.ObjectId, house, ct);
+        await SendGmMessage(admin, $"House {house.Address} acquired by {targetName}", ct);
+    }
+
+    /// <summary>
+    /// Java ChangeHouseOwner(admin, name, acquire=false) — Java's House.revokeOwner(): deletes the DB row
+    /// outright for a studio, otherwise clears ownership and resets to NoSale/fee-paid. Reworked around
+    /// address targeting (see <see cref="HandleHouseCommand"/>'s doc note); Java's secondary "reactivate
+    /// any of the target's other non-ACTIVE houses" side effect isn't reproduced (a minor, rarely-hit extra
+    /// effect of the original admin tool, not the revoke itself).
+    /// </summary>
+    private async ValueTask HandleHouseRevoke(Player admin, int address, CancellationToken ct)
+    {
+        var house = _housingService.GetHouseByAddress(address);
+        if (house is null || !house.IsOwned)
+        {
+            await SendGmMessage(admin, "Nothing to revoke!", ct);
+            return;
+        }
+
+        bool isStudio = _dataManager.Housing.GetBuilding(house.BuildingId)?.Type == BuildingType.PERSONAL_INS;
+        int previousOwnerId = house.PlayerObjectId;
+
+        if (isStudio)
+        {
+            // note: HousingService keeps no removal hook for its in-memory _studios dictionary, so this
+            // stays resolvable via SearchPlayerHouses/GetPlayerAddress until the next full reload — an
+            // accepted, documented gap for this GM tool (see HandleHouseAcquire's matching note).
+            await _houseDao.DeleteByOwnerAsync(previousOwnerId, ct);
+        }
+        else
+        {
+            house.PlayerObjectId = 0;
+            house.Status = HouseStatus.NoSale;
+            house.FeePaid = true;
+            house.AcquiredTime = default;
+            house.SellStarted = null;
+            house.NextPay = null;
+            await _houseDao.StoreAsync(house, ct);
+            await _houseController.BroadcastAppearanceAsync(house, ct);
+        }
+
+        if (_connRegistry.Get(previousOwnerId)?.ActivePlayer is { } previousOwner)
+        {
+            previousOwner.Houses.RemoveAll(h => h.Id == house.Id);
+            if (previousOwner.Houses.Count == 0)
+                previousOwner.BuildingOwnerState = (byte)PlayerHouseOwnerFlags.BuyStudioAllowed;
+        }
+
+        await SendGmMessage(admin, $"House {house.Address} revoked", ct);
+    }
+
+    private async ValueTask SendGmMessage(Player admin, string message, CancellationToken ct) =>
+        await _conn.SendAsync(new SM_MESSAGE(admin, message, SM_MESSAGE.ChatType.Command), ct);
 }
