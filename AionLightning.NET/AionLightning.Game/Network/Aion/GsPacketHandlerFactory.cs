@@ -72,6 +72,7 @@ public sealed class GsPacketHandlerFactory
     private readonly HousingBidService       _housingBidService;
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
+    private readonly IHouseDao                _houseDao;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -128,7 +129,8 @@ public sealed class GsPacketHandlerFactory
         SiegeService siegeService,
         HousingBidService housingBidService,
         IOptions<HousingOptions> housingOptions,
-        IOptions<HousingAuctionOptions> housingAuctionOptions)
+        IOptions<HousingAuctionOptions> housingAuctionOptions,
+        IHouseDao houseDao)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -185,6 +187,7 @@ public sealed class GsPacketHandlerFactory
         _housingBidService   = housingBidService;
         _housingOptions      = housingOptions;
         _housingAuctionOptions = housingAuctionOptions;
+        _houseDao              = houseDao;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -367,7 +370,7 @@ public sealed class GsPacketHandlerFactory
                 0x1B8 => new CM_GET_HOUSE_BIDS(conn, _housingBidService),
                 0x1B9 => new CM_FAST_TRACK_CHECK(),
                 0x1BC => new CM_HOUSE_TELEPORT(),
-                0x1BD => new CM_HOUSE_PAY_RENT(),
+                0x1BD => new CM_HOUSE_PAY_RENT(conn, _itemDao, _houseDao, _dataManager, _housingOptions),
                 0x1BF => new CM_PLACE_BID(conn, _housingBidService, _housingOptions),
                 0x2E4 => new CM_WINDSTREAM(conn, _connRegistry),
                 0x2E5 => new CM_MOTION(conn, _connRegistry, _motionDao),

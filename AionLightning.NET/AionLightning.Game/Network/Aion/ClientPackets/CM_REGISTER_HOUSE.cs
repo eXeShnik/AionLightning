@@ -98,6 +98,7 @@ public sealed class CM_REGISTER_HOUSE : AionClientPacket
         await _conn.SendAsync(SM_SYSTEM_MESSAGE.HousingAuctionMyHouse(house.Address), ct);
         // note: Java also called ((HouseController) house.getController()).updateAppearance() to refresh
         // the house's "for sale" sign in the world — no house spawn/controller layer exists in this port.
-        await _conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, house), ct);
+        int weeksUntilDue = MaintenanceTask.ComputeWeeksUntilDue(house, houseType == HouseType.STUDIO, MaintenanceTask.MaintenanceCron);
+        await _conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, house, weeksUntilDue), ct);
     }
 }

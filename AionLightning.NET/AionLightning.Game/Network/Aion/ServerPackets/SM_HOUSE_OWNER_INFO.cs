@@ -13,11 +13,16 @@ public sealed class SM_HOUSE_OWNER_INFO : AionServerPacket
 {
     private readonly Player _player;
     private readonly House? _activeHouse;
+    private readonly int _weeksUntilDue;
 
-    public SM_HOUSE_OWNER_INFO(Player player, House? activeHouse) : base(0x107)
+    /// <param name="weeksUntilDue">Java's maintenance-weeks-left field, computed by the caller via
+    /// <see cref="Services.MaintenanceTask.ComputeWeeksUntilDue"/> (0 for no house / unpaid / studio /
+    /// P7 disabled — see that method and <see cref="Services.HousingService.OnPlayerLoginAsync"/>).</param>
+    public SM_HOUSE_OWNER_INFO(Player player, House? activeHouse, int weeksUntilDue = 0) : base(0x107)
     {
         _player = player;
         _activeHouse = activeHouse;
+        _weeksUntilDue = weeksUntilDue;
     }
 
     public override void Write(ref PacketWriter w)
@@ -38,9 +43,8 @@ public sealed class SM_HOUSE_OWNER_INFO : AionServerPacket
         // isn't ported in this phase, so the town level is always the base value 1.
         w.WriteC(1);
 
-        // note: Java computes weeks-until-maintenance-due via MaintenanceTask, which is P2+ (fee/maintenance
-        // subsystem not ported). Always 0 (matches Java's "no fee owed / studio" branch) until that lands.
-        w.WriteC(0);
+        // Weeks until the maintenance bill is due (0 if unpaid/no house/studio — client shows it in red).
+        w.WriteC((byte)_weeksUntilDue);
 
         // Second house info — Java always writes zeroed placeholder fields here too.
         w.WriteD(0);

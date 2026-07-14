@@ -146,6 +146,8 @@ public sealed class HousingService(
 
         if (!options.Value.Enable) return;
 
-        await conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, activeHouse), ct);
+        bool isStudio = activeHouse is not null && IsStudioBuilding(activeHouse.BuildingId);
+        int weeksUntilDue = MaintenanceTask.ComputeWeeksUntilDue(activeHouse, isStudio, MaintenanceTask.MaintenanceCron);
+        await conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, activeHouse, weeksUntilDue), ct);
     }
 }

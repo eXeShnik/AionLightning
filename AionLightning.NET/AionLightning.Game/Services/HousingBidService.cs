@@ -367,7 +367,8 @@ public sealed class HousingBidService(
             if (housingOptions.Value.Enable)
             {
                 await winnerConn.SendAsync(new SM_HOUSE_ACQUIRE(winnerId, obtainedHouse.Address, true), ct);
-                await winnerConn.SendAsync(new SM_HOUSE_OWNER_INFO(winnerPlayer, obtainedHouse), ct);
+                int weeksUntilDue = MaintenanceTask.ComputeWeeksUntilDue(obtainedHouse, isStudio: false, MaintenanceTask.MaintenanceCron);
+                await winnerConn.SendAsync(new SM_HOUSE_OWNER_INFO(winnerPlayer, obtainedHouse, weeksUntilDue), ct);
             }
             await winnerConn.SendAsync(SM_SYSTEM_MESSAGE.HousingBidWin(obtainedHouse.Address), ct);
         }

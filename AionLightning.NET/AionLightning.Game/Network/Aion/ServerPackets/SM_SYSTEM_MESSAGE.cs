@@ -274,4 +274,6 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE HousingCantBidOverdue() => new(1401349);
     // "You cannot register your house for auction because your house payment is overdue." (msg code 1401317)
     public static SM_SYSTEM_MESSAGE HousingCantAuctionOverdue() => new(1401317);
+    // "You do not have enough Kinah." (msg code 1300388, distinct from NoEnoughKinah's 1300137)
+    public static SM_SYSTEM_MESSAGE NotEnoughMoney() => new(1300388);
 }
