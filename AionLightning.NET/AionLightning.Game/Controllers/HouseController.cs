@@ -134,8 +134,9 @@ public sealed class HouseController(
     /// HousingService.SpawnHouse), so addresses without exit coordinates fall back to the house's own
     /// spawn position instead. The onSettingsChange/STR_MSG_HOUSING_* system messages Java sends alongside
     /// the teleport are not reproduced (string ids not confirmed against a live client — see class doc).
+    /// Public so CM_HOUSE_TELEPORT_BACK can reuse it for the single-player "teleport back out" flow.
     /// </summary>
-    private async Task MoveOutsideAsync(Player visitor, House house, HouseAddress? address, CancellationToken ct)
+    public async Task MoveOutsideAsync(Player visitor, House house, HouseAddress? address, CancellationToken ct)
     {
         byte heading = (byte)visitor.Position.Heading;
 

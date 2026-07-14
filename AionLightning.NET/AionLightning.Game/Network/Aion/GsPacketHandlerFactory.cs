@@ -76,6 +76,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
     private readonly IHouseDao                _houseDao;
+    private readonly InstanceService          _instanceService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -135,7 +136,8 @@ public sealed class GsPacketHandlerFactory
         HousingBidService housingBidService,
         IOptions<HousingOptions> housingOptions,
         IOptions<HousingAuctionOptions> housingAuctionOptions,
-        IHouseDao houseDao)
+        IHouseDao houseDao,
+        InstanceService instanceService)
     {
         _log           = log;
         _loggerFactory = loggerFactory;
@@ -195,6 +197,7 @@ public sealed class GsPacketHandlerFactory
         _housingOptions      = housingOptions;
         _housingAuctionOptions = housingAuctionOptions;
         _houseDao              = houseDao;
+        _instanceService       = instanceService;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -307,7 +310,7 @@ public sealed class GsPacketHandlerFactory
                 0x139 => new CM_GODSTONE_SOCKET(conn, _itemDao, _dataManager, _connRegistry),
                 0x13A => new CM_BUY_TRADE_IN_TRADE(),
                 0x13B => new CM_RECIPE_DELETE(conn, _recipeDao),
-                0x13D => new CM_HOUSE_TELEPORT_BACK(),
+                0x13D => new CM_HOUSE_TELEPORT_BACK(conn, _housingService, _dataManager, _houseController, _housingOptions),
                 0x13E => new CM_FAST_TRACK(),
                 0x140 => new CM_BROKER_SETTLE_ACCOUNT(conn, _brokerService, _itemDao),
                 0x142 => new CM_BROKER_CANCEL_REGISTERED(conn, _brokerService),
@@ -369,7 +372,7 @@ public sealed class GsPacketHandlerFactory
                 0x19D => new CM_REPORT_PLAYER(conn, _loggerFactory.CreateLogger<CM_REPORT_PLAYER>()),
                 0x19E => new CM_ABYSS_RANKING_PLAYERS(conn, _playerDao),
                 0x19F => new CM_MAC_ADDRESS(),
-                0x1A0 => new CM_HOUSE_OPEN_DOOR(),
+                0x1A0 => new CM_HOUSE_OPEN_DOOR(conn, _housingService, _dataManager, _teleport, _housingOptions),
                 0x1A2 => new CM_USE_HOUSE_OBJECT(),
                 0x1A3 => new CM_RELEASE_OBJECT(),
                 0x1B2 => new CM_REGISTER_HOUSE(conn, _itemDao, _dataManager, _housingBidService, _housingOptions, _housingAuctionOptions),
@@ -377,7 +380,7 @@ public sealed class GsPacketHandlerFactory
                 0x1B7 => new CM_CHECK_MAIL_SIZE2(),
                 0x1B8 => new CM_GET_HOUSE_BIDS(conn, _housingBidService),
                 0x1B9 => new CM_FAST_TRACK_CHECK(),
-                0x1BC => new CM_HOUSE_TELEPORT(),
+                0x1BC => new CM_HOUSE_TELEPORT(conn, _housingService, _dataManager, _instanceService, _teleport, _housingOptions),
                 0x1BD => new CM_HOUSE_PAY_RENT(conn, _itemDao, _houseDao, _dataManager, _housingOptions),
                 0x1BF => new CM_PLACE_BID(conn, _housingBidService, _housingOptions),
                 0x2E4 => new CM_WINDSTREAM(conn, _connRegistry),
@@ -386,8 +389,8 @@ public sealed class GsPacketHandlerFactory
                 0x2E7 => new CM_EXCHANGE_CANCEL(conn, _connRegistry, _exchangeService),
                 0x2E8 => new CM_MANASTONE(conn, _itemDao, _manastoneDao, _dataManager),
                 0x2E9 => new CM_HOUSE_DECORATE(),
-                0x2EA => new CM_HOUSE_KICK(),
-                0x2EB => new CM_HOUSE_SETTINGS(),
+                0x2EA => new CM_HOUSE_KICK(conn, _houseController, _housingOptions, _loggerFactory.CreateLogger<CM_HOUSE_KICK>()),
+                0x2EB => new CM_HOUSE_SETTINGS(conn, _housingService, _houseDao, _houseController, _housingOptions),
                 0x2EC => new CM_CHARGE_ITEM(),
                 0x2ED => new CM_GROUP_DATA_EXCHANGE(conn, _connRegistry),
                 0x2EE => new CM_LEGION_WH_KINAH(conn, _legionDao, _itemDao, _connRegistry),

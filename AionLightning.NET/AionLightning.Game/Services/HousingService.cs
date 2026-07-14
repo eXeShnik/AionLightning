@@ -192,6 +192,11 @@ public sealed class HousingService(
         }
     }
 
+    /// <summary>Java House.getLevelRestrict() — the minimum level to enter/bid, taken from the owning
+    /// land's sale options (10 when the land can't be resolved, matching Java's fallback).</summary>
+    public int GetLevelRestrict(House house) =>
+        dataManager.Housing.GetLandByAddress(house.Address)?.SaleOptions.MinLevel ?? 10;
+
     /// <summary>Java getCustomHouses() — a snapshot of every custom house tracked by this service,
     /// regardless of ownership. Used by HousingBidService to correlate persisted bids/auto-fill auctions
     /// to houses at startup.</summary>

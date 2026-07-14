@@ -276,4 +276,15 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE HousingCantAuctionOverdue() => new(1401317);
     // "You do not have enough Kinah." (msg code 1300388, distinct from NoEnoughKinah's 1300137)
     public static SM_SYSTEM_MESSAGE NotEnoughMoney() => new(1300388);
+
+    // "You are not authorized to enter." (msg code 1401364)
+    public static SM_SYSTEM_MESSAGE HousingCantEnterNoRight2() => new(1401364);
+    // "Changed House Settings." — door opened to everyone (msg code 1401379)
+    public static SM_SYSTEM_MESSAGE HousingOrderOpenDoor() => new(1401379);
+    // "Changed House Settings." — door opened to friends/legion only (msg code 1401380)
+    public static SM_SYSTEM_MESSAGE HousingOrderCloseDoorWithoutFriends() => new(1401380);
+    // "Changed House Settings." — door closed to everyone (msg code 1401381)
+    public static SM_SYSTEM_MESSAGE HousingOrderCloseDoorAll() => new(1401381);
+    // "You haven't had any interactions recently." (msg code 1401504)
+    public static SM_SYSTEM_MESSAGE NoRelationshipRecently() => new(1401504);
 }

@@ -28,6 +28,15 @@ public static class HousePermissions
         return (permissions & 0x00FF) | state;
     }
 
+    /// <summary>Java HousePermissions.getPacketDoorState() — converts the wire door-state byte
+    /// (as sent by CM_HOUSE_SETTINGS) into a bit-packed door-state constant, or NOT_SET if it doesn't
+    /// match a known state.</summary>
+    public static int GetPacketDoorState(int wireValue)
+    {
+        int shifted = wireValue << 8;
+        return Array.IndexOf(DoorStates, shifted) >= 0 ? shifted : NOT_SET;
+    }
+
     public static int GetNoticeState(int permissions) =>
         (permissions & SHOW_OWNER) == SHOW_OWNER ? SHOW_OWNER : NOT_SET;
 
