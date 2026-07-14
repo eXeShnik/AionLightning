@@ -49,6 +49,7 @@ public sealed class HousingBidService(
     IMailDao mailDao,
     MailFormatter mailFormatter,
     PlayerConnectionRegistry connRegistry,
+    TownService townService,
     CronService cronService,
     IOptions<HousingOptions> housingOptions,
     IOptions<HousingAuctionOptions> auctionOptions,
@@ -368,7 +369,8 @@ public sealed class HousingBidService(
             {
                 await winnerConn.SendAsync(new SM_HOUSE_ACQUIRE(winnerId, obtainedHouse.Address, true), ct);
                 int weeksUntilDue = MaintenanceTask.ComputeWeeksUntilDue(obtainedHouse, isStudio: false, MaintenanceTask.MaintenanceCron);
-                await winnerConn.SendAsync(new SM_HOUSE_OWNER_INFO(winnerPlayer, obtainedHouse, weeksUntilDue), ct);
+                int townLevel = townService.GetTownLevel(dataManager.Housing.GetAddress(obtainedHouse.Address)?.TownId ?? 0);
+                await winnerConn.SendAsync(new SM_HOUSE_OWNER_INFO(winnerPlayer, obtainedHouse, weeksUntilDue, townLevel), ct);
             }
             await winnerConn.SendAsync(SM_SYSTEM_MESSAGE.HousingBidWin(obtainedHouse.Address), ct);
         }

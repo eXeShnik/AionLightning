@@ -17,6 +17,7 @@ public sealed class CM_REGISTER_HOUSE : AionClientPacket
     private readonly IItemDao _itemDao;
     private readonly IDataManager _dataManager;
     private readonly HousingBidService _bidService;
+    private readonly TownService _townService;
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IOptions<HousingAuctionOptions> _auctionOptions;
 
@@ -29,6 +30,7 @@ public sealed class CM_REGISTER_HOUSE : AionClientPacket
         IItemDao itemDao,
         IDataManager dataManager,
         HousingBidService bidService,
+        TownService townService,
         IOptions<HousingOptions> housingOptions,
         IOptions<HousingAuctionOptions> auctionOptions)
     {
@@ -36,6 +38,7 @@ public sealed class CM_REGISTER_HOUSE : AionClientPacket
         _itemDao = itemDao;
         _dataManager = dataManager;
         _bidService = bidService;
+        _townService = townService;
         _housingOptions = housingOptions;
         _auctionOptions = auctionOptions;
     }
@@ -99,6 +102,7 @@ public sealed class CM_REGISTER_HOUSE : AionClientPacket
         // note: Java also called ((HouseController) house.getController()).updateAppearance() to refresh
         // the house's "for sale" sign in the world — no house spawn/controller layer exists in this port.
         int weeksUntilDue = MaintenanceTask.ComputeWeeksUntilDue(house, houseType == HouseType.STUDIO, MaintenanceTask.MaintenanceCron);
-        await _conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, house, weeksUntilDue), ct);
+        int townLevel = _townService.GetTownLevel(_dataManager.Housing.GetAddress(house.Address)?.TownId ?? 0);
+        await _conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, house, weeksUntilDue, townLevel), ct);
     }
 }

@@ -92,6 +92,9 @@ public sealed class GsPacketHandlerFactory
     private readonly KiskService                 _kiskService;
     private readonly PrivateStoreService         _privateStoreService;
     private readonly StigmaService                _stigmaService;
+    private readonly TownService                  _townService;
+    private readonly RenameService                _renameService;
+    private readonly WeddingService                _weddingService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -167,8 +170,14 @@ public sealed class GsPacketHandlerFactory
         DoorService doorService,
         KiskService kiskService,
         PrivateStoreService privateStoreService,
-        StigmaService stigmaService)
+        StigmaService stigmaService,
+        TownService townService,
+        RenameService renameService,
+        WeddingService weddingService)
     {
+        _townService              = townService;
+        _renameService             = renameService;
+        _weddingService            = weddingService;
         _doorService              = doorService;
         _kiskService              = kiskService;
         _privateStoreService      = privateStoreService;
@@ -289,7 +298,7 @@ public sealed class GsPacketHandlerFactory
                 0xC1  => new CM_QUIT(conn),
                 0xC4  => new CM_EQUIP_ITEM(conn, _itemDao, _dataManager, _connRegistry, _questEngine, _stigmaService),
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
-                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillLearn, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine, _kiskService),
+                0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillLearn, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine, _kiskService, _weddingService),
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillLearn, _spawnService,
                     _housingService, _houseController, _housingBidService, _houseDao),
                 0xC9  => new CM_EMOTION(conn, _connRegistry, _flyController, _zoneService, _teleport),
@@ -384,7 +393,7 @@ public sealed class GsPacketHandlerFactory
                 0x162 => new CM_LEGION_UPLOAD_INFO(),
                 0x163 => new CM_LEGION_UPLOAD_EMBLEM(),
                 0x166 => new CM_SHOW_MAP(),
-                0x167 => new CM_APPEARANCE(conn, _playerDao, _connRegistry, _itemDao, _legionDao),
+                0x167 => new CM_APPEARANCE(conn, _connRegistry, _itemDao, _legionDao, _renameService),
                 0x168 => new CM_SUMMON_EMOTION(),
                 0x169 => new CM_SUMMON_ATTACK(conn, _world, _summonsService),
                 0x16A => new CM_AUTO_GROUP(),
@@ -421,7 +430,7 @@ public sealed class GsPacketHandlerFactory
                 0x1A0 => new CM_HOUSE_OPEN_DOOR(conn, _housingService, _dataManager, _teleport, _housingOptions),
                 0x1A2 => new CM_USE_HOUSE_OBJECT(conn, _housingService, _houseObjectCooldownsDao, _playerRegisteredItemsDao, _housingOptions),
                 0x1A3 => new CM_RELEASE_OBJECT(conn, _housingOptions),
-                0x1B2 => new CM_REGISTER_HOUSE(conn, _itemDao, _dataManager, _housingBidService, _housingOptions, _housingAuctionOptions),
+                0x1B2 => new CM_REGISTER_HOUSE(conn, _itemDao, _dataManager, _housingBidService, _townService, _housingOptions, _housingAuctionOptions),
                 0x1B4 => new CM_MEGAPHONE(conn, _connRegistry, _itemDao),
                 0x1B7 => new CM_CHECK_MAIL_SIZE2(),
                 0x1B8 => new CM_GET_HOUSE_BIDS(conn, _housingBidService),

@@ -266,6 +266,14 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // 1400158: rename successful — "Legion name changed to %0."
     public static SM_SYSTEM_MESSAGE LegionRenamed(string newName) => new(1400158, newName);
 
+    // Player rename messages (STR_RENAME_*, Java RenameService.renamePlayer)
+    // 1400151: invalid character-name format
+    public static SM_SYSTEM_MESSAGE RenameNameInvalid() => new(1400151);
+    // 1400153: name is the same as current
+    public static SM_SYSTEM_MESSAGE RenameNameUnchanged() => new(1400153);
+    // 1400155: name already in use / forbidden
+    public static SM_SYSTEM_MESSAGE RenameNameTaken() => new(1400155);
+
     // STR_WAREHOUSE_FULL_INVENTORY — "Your inventory is full, so you cannot receive a pet gift." (msg code 1390149)
     public static SM_SYSTEM_MESSAGE PetGiftInventoryFull() => new(1390149);
 

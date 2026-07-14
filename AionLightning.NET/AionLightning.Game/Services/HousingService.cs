@@ -29,6 +29,7 @@ public sealed class HousingService(
     IPlayerRegisteredItemsDao registeredItemsDao,
     IHouseScriptsDao houseScriptsDao,
     IDataManager dataManager,
+    TownService townService,
     IOptions<HousingOptions> options,
     ILogger<HousingService> log)
 {
@@ -368,6 +369,12 @@ public sealed class HousingService(
 
         bool isStudio = activeHouse is not null && IsStudioBuilding(activeHouse.BuildingId);
         int weeksUntilDue = MaintenanceTask.ComputeWeeksUntilDue(activeHouse, isStudio, MaintenanceTask.MaintenanceCron);
-        await conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, activeHouse, weeksUntilDue), ct);
+        int townLevel = ResolveTownLevel(activeHouse);
+        await conn.SendAsync(new SM_HOUSE_OWNER_INFO(player, activeHouse, weeksUntilDue, townLevel), ct);
     }
+
+    /// <summary>Java TownService.getTownById(address.getTownId()).getLevel() — resolves the housing
+    /// owner-info town level for a given (possibly null) active house.</summary>
+    private int ResolveTownLevel(House? activeHouse) =>
+        activeHouse is null ? 1 : townService.GetTownLevel(dataManager.Housing.GetAddress(activeHouse.Address)?.TownId ?? 0);
 }

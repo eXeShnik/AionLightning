@@ -43,7 +43,11 @@ builder.Services
     .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction")
     .AddAionOptions<DoorOptions>("GameServer:Doors")
     .AddAionOptions<FallDamageOptions>("GameServer:FallDamage")
-    .AddAionOptions<SerialKillerOptions>("GameServer:SerialKiller");
+    .AddAionOptions<SerialKillerOptions>("GameServer:SerialKiller")
+    .AddAionOptions<TownOptions>("GameServer:Town")
+    .AddAionOptions<WeatherOptions>("GameServer:Weather")
+    .AddAionOptions<NameOptions>("GameServer:Name")
+    .AddAionOptions<WeddingOptions>("GameServer:Wedding");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -120,6 +124,7 @@ builder.Services.AddSingleton<IPlayerRegisteredItemsDao, PlayerRegisteredItemsDa
 builder.Services.AddSingleton<IHouseScriptsDao, HouseScriptsDaoImpl>();
 builder.Services.AddSingleton<ISiegeDao, SiegeDaoImpl>();
 builder.Services.AddSingleton<IBaseDao, BaseDaoImpl>();
+builder.Services.AddSingleton<ITownDao, TownDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -198,6 +203,10 @@ builder.Services.AddSingleton<CronService>();
 builder.Services.AddHostedService<CronServiceHostedService>();
 builder.Services.AddSingleton<SerialKillerService>();
 builder.Services.AddHostedService<SerialKillerServiceHostedService>(); // after CronServiceHostedService — needs the scheduler already running
+builder.Services.AddSingleton<TownService>();
+builder.Services.AddSingleton<WeatherService>();
+builder.Services.AddSingleton<RenameService>();
+builder.Services.AddSingleton<WeddingService>();
 
 // System mail (siege rewards, housing auction/maintenance)
 builder.Services.AddSingleton<AionLightning.Game.Services.Mail.SystemMailService>();
@@ -216,12 +225,14 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 
 // Hosted services: schema migration first, then quest engine bootstrap, then server
 builder.Services.AddHostedService<SchemaMigrationHost>();
+builder.Services.AddHostedService<TownServiceHostedService>();
 builder.Services.AddHostedService<SiegeServiceHostedService>();
 builder.Services.AddHostedService<BaseServiceHostedService>();
 builder.Services.AddHostedService<RiftServiceHostedService>();
 builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();
+builder.Services.AddHostedService<WeatherServiceHostedService>(); // after CronServiceHostedService — arms the weather rotation cron
 builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Ai.AiEngineHostedService>();

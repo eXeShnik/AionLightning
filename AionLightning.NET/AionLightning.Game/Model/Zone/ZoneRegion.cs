@@ -28,6 +28,10 @@ public sealed class ZoneRegion
     /// <summary>Raw <c>flags</c> XML attribute bitmask; not consumed by any ported system yet.</summary>
     public int Flags { get; init; }
 
+    /// <summary>Parsed <c>town_id</c> XML attribute (Java <c>ZoneInstance.getTownId()</c>); 0 when the
+    /// zone isn't a town's residence area. Consumed by <see cref="Services.TownService.GetTownIdByPosition"/>.</summary>
+    public int TownId { get; init; }
+
     /// <summary>Inclusive z bounds (Java <c>AbstractArea.isInsideZ</c>: z &gt;= minZ &amp;&amp; z &lt;= maxZ). Unused for <see cref="ZoneAreaType.Sphere"/>, which tests a true 3D radius instead.</summary>
     public float MinZ { get; init; }
     public float MaxZ { get; init; }

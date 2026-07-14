@@ -51,6 +51,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
     private readonly IEventBus                _eventBus;
     private readonly QuestEngineType          _questEngine;
     private readonly KiskService              _kiskService;
+    private readonly WeddingService           _weddingService;
 
     private int _uniqueItemId;
     private int _type;
@@ -59,7 +60,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
     public CM_USE_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
         IRecipeDao recipeDao, PlayerConnectionRegistry connRegistry, SkillLearnService skillLearn,
         IPlayerTitleDao titleDao, GameWorld world, NpcAiService npcAi,
-        IEventBus eventBus, QuestEngineType questEngine, KiskService kiskService)
+        IEventBus eventBus, QuestEngineType questEngine, KiskService kiskService, WeddingService weddingService)
     {
         _conn         = conn;
         _itemDao      = itemDao;
@@ -73,6 +74,7 @@ public sealed class CM_USE_ITEM : AionClientPacket
         _eventBus     = eventBus;
         _questEngine  = questEngine;
         _kiskService  = kiskService;
+        _weddingService = weddingService;
     }
 
     public override void Read(ref PacketReader r)
@@ -98,6 +100,15 @@ public sealed class CM_USE_ITEM : AionClientPacket
         // (e.g. start a quest-item quest, play its dialog). If handled, skip normal item use.
         if (await _questEngine.OnItemUseAsync(player, item.ItemId, _conn, ct))
             return;
+
+        // Wedding-ring propose trigger (Java WeddingService's chat-command flow has no chat-command
+        // engine ported here — see WeddingService's own doc comment for why this item use replaces it).
+        if (item.ItemId == WeddingService.RingItemId)
+        {
+            if (player.Target is Player targetPlayer)
+                await _weddingService.ProposeAsync(player, targetPlayer, ct);
+            return;
+        }
 
         // Dye item used on a target item
         if (_type == 2 && template.Actions?.Dye is not null)

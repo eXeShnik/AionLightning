@@ -46,4 +46,5 @@ public interface IPlayerDao
     Task UpdateFpAsync(int playerId, int currentFp, CancellationToken ct = default);
     Task UpdateClassAsync(int playerId, PlayerClass newClass, CancellationToken ct = default);
     Task UpdateGenderAsync(int playerId, Gender gender, CancellationToken ct = default);
+    Task UpdatePartnerIdAsync(int playerId, int partnerId, CancellationToken ct = default);
 }

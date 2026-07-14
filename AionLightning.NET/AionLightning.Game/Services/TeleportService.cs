@@ -24,15 +24,18 @@ public sealed class TeleportService
     private readonly IDataManager _dataManager;
     private readonly InstanceService _instanceService;
     private readonly ZoneService _zoneService;
+    private readonly WeatherService _weatherService;
     private readonly ILogger<TeleportService> _log;
 
     public TeleportService(PlayerConnectionRegistry connRegistry, IDataManager dataManager,
-        InstanceService instanceService, ZoneService zoneService, ILogger<TeleportService> log)
+        InstanceService instanceService, ZoneService zoneService, WeatherService weatherService,
+        ILogger<TeleportService> log)
     {
         _connRegistry    = connRegistry;
         _dataManager     = dataManager;
         _instanceService = instanceService;
         _zoneService     = zoneService;
+        _weatherService  = weatherService;
         _log             = log;
     }
 
@@ -198,6 +201,10 @@ public sealed class TeleportService
                 // Cross-scope: full zone reload. CM_LEVEL_READY from the client re-introduces peers/NPCs.
                 await conn.SendAsync(new SM_CHANNEL_INFO(), ct);
                 await conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);
+
+                // Java WeatherService.loadWeather(player) — re-sent on every world change (not just
+                // initial login), so this stays outside the byte-verified PlayerEnterWorldService sequence.
+                await _weatherService.SendWeatherAsync(player, conn, ct);
             }
             else
             {

@@ -14,15 +14,20 @@ public sealed class SM_HOUSE_OWNER_INFO : AionServerPacket
     private readonly Player _player;
     private readonly House? _activeHouse;
     private readonly int _weeksUntilDue;
+    private readonly int _townLevel;
 
     /// <param name="weeksUntilDue">Java's maintenance-weeks-left field, computed by the caller via
     /// <see cref="Services.MaintenanceTask.ComputeWeeksUntilDue"/> (0 for no house / unpaid / studio /
     /// P7 disabled — see that method and <see cref="Services.HousingService.OnPlayerLoginAsync"/>).</param>
-    public SM_HOUSE_OWNER_INFO(Player player, House? activeHouse, int weeksUntilDue = 0) : base(0x107)
+    /// <param name="townLevel">Java resolves this via TownService.getTownById(address.getTownId()).getLevel()
+    /// — callers pass <see cref="Services.TownService.GetTownLevel"/>'s result (default 1 for no house /
+    /// unknown town, matching TownService's own fallback).</param>
+    public SM_HOUSE_OWNER_INFO(Player player, House? activeHouse, int weeksUntilDue = 0, int townLevel = 1) : base(0x107)
     {
         _player = player;
         _activeHouse = activeHouse;
         _weeksUntilDue = weeksUntilDue;
+        _townLevel = townLevel;
     }
 
     public override void Write(ref PacketWriter w)
@@ -38,10 +43,7 @@ public sealed class SM_HOUSE_OWNER_INFO : AionServerPacket
             w.WriteD(_activeHouse.BuildingId);
         }
         w.WriteC(_player.BuildingOwnerState);
-
-        // note: Java resolves the real town level via TownService (per address.getTownId()). TownService
-        // isn't ported in this phase, so the town level is always the base value 1.
-        w.WriteC(1);
+        w.WriteC((byte)_townLevel);
 
         // Weeks until the maintenance bill is due (0 if unpaid/no house/studio — client shows it in red).
         w.WriteC((byte)_weeksUntilDue);

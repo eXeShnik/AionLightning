@@ -95,6 +95,11 @@ public sealed class Player : Creature
     // Legion (guild) — null when not in a legion
     public LegionModel? Legion { get; set; }
 
+    /// <summary>Java Player.partnerId — the spouse's objectId, or 0 when unmarried (Java
+    /// Player.isMarried() == PartnerId != 0). See <see cref="Services.WeddingService"/>.</summary>
+    public int PartnerId { get; set; }
+    public bool IsMarried => PartnerId != 0;
+
     // Housing P1 (Java Player.houses/getActiveHouse/buildingOwnerStates): populated by
     // HousingService.OnPlayerLoginAsync at login (no lazy self-population via a static service lookup,
     // unlike Java — this port has no static HousingService singleton to call back into).

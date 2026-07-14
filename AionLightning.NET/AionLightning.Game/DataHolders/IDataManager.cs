@@ -44,4 +44,5 @@ public interface IDataManager
     RiftSpawnData                    RiftSpawns    { get; }
     BaseData                         Bases         { get; }
     BaseSpawnData                    BaseSpawns    { get; }
+    WeatherData                      Weather       { get; }
 }

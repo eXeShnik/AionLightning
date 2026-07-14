@@ -41,6 +41,8 @@ public sealed class PlayerEnterWorldService
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IHouseObjectCooldownsDao _houseObjectCooldownsDao;
     private readonly StigmaService            _stigmaService;
+    private readonly TownService              _townService;
+    private readonly IOptions<TownOptions>    _townOptions;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -69,8 +71,12 @@ public sealed class PlayerEnterWorldService
         HousingBidService housingBidService,
         IOptions<HousingOptions> housingOptions,
         IHouseObjectCooldownsDao houseObjectCooldownsDao,
-        StigmaService stigmaService)
+        StigmaService stigmaService,
+        TownService townService,
+        IOptions<TownOptions> townOptions)
     {
+        _townService   = townService;
+        _townOptions   = townOptions;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
         _itemDao       = itemDao;
@@ -555,6 +561,16 @@ public sealed class PlayerEnterWorldService
                     }
                 }
             }
+        }
+
+        // Java TownService.onEnterWorld — gated behind TownOptions.SendTownListOnLogin (default false)
+        // until SM_TOWNS_LIST's opcode is confirmed against a live 4.6 client capture; the town-level
+        // lookup itself (used by SM_HOUSE_OWNER_INFO) is always functional regardless of this flag.
+        if (_townOptions.Value.SendTownListOnLogin)
+        {
+            var raceTowns = _townService.GetTownsForRace(player.Race);
+            if (raceTowns.Count > 0)
+                await conn.SendAsync(new SM_TOWNS_LIST(raceTowns), ct);
         }
 
         await _siegeService.OnPlayerLoginAsync(player, conn, ct);

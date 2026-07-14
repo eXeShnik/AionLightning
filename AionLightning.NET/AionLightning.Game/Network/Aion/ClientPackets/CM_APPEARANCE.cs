@@ -2,38 +2,42 @@ using AionLightning.Commons.Network;
 using AionLightning.Game.Dao;
 using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
 /// <summary>
 /// Client submits an appearance or rename request. Opcode 0x167.
-/// type=0: player rename (consumes item 169680000/169680001, updates name, re-broadcasts).
+/// type=0: player rename (consumes item 169670000/169670001, updates name, re-broadcasts — see
+///         <see cref="RenameService"/>).
 /// type=1: legion rename (consumes item 169680000/169680001, updates legion name, notifies members).
 /// type=2: cosmetic item — stub (no-op; requires CosmeticItemAction).
 /// </summary>
 public sealed class CM_APPEARANCE : AionClientPacket
 {
-    // Legion/player rename coupon itemIds (Java RenameService constants)
-    private static readonly HashSet<int> RenameItemIds = [169680000, 169680001];
+    // Legion-rename coupon itemIds (Java RenameService.renameLegion constants)
+    private static readonly HashSet<int> LegionRenameItemIds = [169680000, 169680001];
+    // Player-rename coupon itemIds (Java RenameService.renamePlayer constants)
+    private static readonly HashSet<int> PlayerRenameItemIds = [RenameService.RenameCouponItemId1, RenameService.RenameCouponItemId2];
 
     private readonly GsClientConnection       _conn;
-    private readonly IPlayerDao               _playerDao;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IItemDao                 _itemDao;
     private readonly ILegionDao               _legionDao;
+    private readonly RenameService             _renameService;
 
     private byte   _type;
     private int    _itemObjId;
     private string _name = string.Empty;
 
-    public CM_APPEARANCE(GsClientConnection conn, IPlayerDao playerDao,
-        PlayerConnectionRegistry connRegistry, IItemDao itemDao, ILegionDao legionDao)
+    public CM_APPEARANCE(GsClientConnection conn,
+        PlayerConnectionRegistry connRegistry, IItemDao itemDao, ILegionDao legionDao, RenameService renameService)
     {
         _conn         = conn;
-        _playerDao    = playerDao;
         _connRegistry = connRegistry;
         _itemDao      = itemDao;
         _legionDao    = legionDao;
+        _renameService = renameService;
     }
 
     public override void Read(ref PacketReader r)
@@ -60,12 +64,25 @@ public sealed class CM_APPEARANCE : AionClientPacket
 
     private async ValueTask HandlePlayerRenameAsync(Player player, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_name) || _name.Length < 2 || _name.Length > 16) return;
+        if (string.IsNullOrWhiteSpace(_name)) return;
 
         var renameItem = player.Inventory.Get(_itemObjId);
-        if (renameItem is null) return;
+        if (renameItem is null || !PlayerRenameItemIds.Contains(renameItem.ItemId)) return;
 
-        if (await _playerDao.ExistsByNameAsync(_name, ct)) return;
+        var result = await _renameService.RenameAsync(player, _name, ct);
+        switch (result)
+        {
+            case RenameResult.InvalidFormat:
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.RenameNameInvalid(), ct);
+                return;
+            case RenameResult.Forbidden:
+            case RenameResult.Taken:
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.RenameNameTaken(), ct);
+                return;
+            case RenameResult.Unchanged:
+                await _conn.SendAsync(SM_SYSTEM_MESSAGE.RenameNameUnchanged(), ct);
+                return;
+        }
 
         renameItem.Count--;
         if (renameItem.Count <= 0)
@@ -78,9 +95,6 @@ public sealed class CM_APPEARANCE : AionClientPacket
         {
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([renameItem]), ct);
         }
-
-        player.Name = _name;
-        await _playerDao.UpdateNameAsync(player.ObjectId, _name, ct);
 
         int worldId = player.Position.WorldId;
         var equipment = player.Inventory.All.Where(i => i.IsEquipped).ToList();
@@ -100,7 +114,7 @@ public sealed class CM_APPEARANCE : AionClientPacket
 
         // Validate rename item
         var renameItem = player.Inventory.Get(_itemObjId);
-        if (renameItem is null || !RenameItemIds.Contains(renameItem.ItemId)) return;
+        if (renameItem is null || !LegionRenameItemIds.Contains(renameItem.ItemId)) return;
 
         // Name validations matching Java RenameService.renameLegion
         if (string.Equals(legion.Name, _name, StringComparison.OrdinalIgnoreCase))

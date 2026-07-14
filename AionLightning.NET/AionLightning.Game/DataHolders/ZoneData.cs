@@ -20,6 +20,7 @@ public sealed class ZoneXml
     [XmlAttribute("mapid")] public int MapId { get; set; }
     [XmlAttribute("zone_type")] public string ZoneType { get; set; } = string.Empty;
     [XmlAttribute("flags")] public int Flags { get; set; }
+    [XmlAttribute("town_id")] public int TownId { get; set; }
     [XmlElement("points")] public PointsXml? Points { get; set; }
     [XmlElement("cylinder")] public CylinderXml? Cylinder { get; set; }
     [XmlElement("sphere")] public SphereXml? Sphere { get; set; }
@@ -126,6 +127,7 @@ public sealed class ZoneData
                 AreaType = ZoneAreaType.Polygon,
                 ZoneType = zoneType,
                 Flags = zone.Flags,
+                TownId = zone.TownId,
                 MinZ = zone.Points.Bottom,
                 MaxZ = zone.Points.Top,
                 PolyX = zone.Points.Point.Select(p => p.X).ToArray(),
@@ -142,6 +144,7 @@ public sealed class ZoneData
                 AreaType = ZoneAreaType.Cylinder,
                 ZoneType = zoneType,
                 Flags = zone.Flags,
+                TownId = zone.TownId,
                 MinZ = zone.Cylinder.Bottom,
                 MaxZ = zone.Cylinder.Top,
                 CenterX = zone.Cylinder.X,
@@ -159,6 +162,7 @@ public sealed class ZoneData
                 AreaType = ZoneAreaType.Sphere,
                 ZoneType = zoneType,
                 Flags = zone.Flags,
+                TownId = zone.TownId,
                 CenterX = zone.Sphere.X,
                 CenterY = zone.Sphere.Y,
                 CenterZ = zone.Sphere.Z,

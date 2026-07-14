@@ -46,6 +46,7 @@ public sealed class DataManager : IDataManager
     public RiftSpawnData                   RiftSpawns    { get; } = new();
     public BaseData                        Bases         { get; } = new();
     public BaseSpawnData                   BaseSpawns    { get; } = new();
+    public WeatherData                     Weather       { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -94,6 +95,7 @@ public sealed class DataManager : IDataManager
         RiftSpawns.Load(dataRoot, log);
         Bases.Load(dataRoot, log);
         BaseSpawns.Load(dataRoot, log);
+        Weather.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

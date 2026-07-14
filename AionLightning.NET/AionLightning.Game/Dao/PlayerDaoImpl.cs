@@ -18,7 +18,7 @@ public sealed class PlayerDaoImpl : IPlayerDao
         bonus_title_id, dp, soul_sickness, current_hp, current_mp, npc_expands, current_fp,
         abyss_all_kill, abyss_max_rank, abyss_daily_kill, abyss_daily_ap,
         abyss_weekly_kill, abyss_weekly_ap, abyss_last_kill, abyss_last_ap,
-        abyss_gp, abyss_daily_gp, abyss_weekly_gp, abyss_last_gp, abyss_top_ranking
+        abyss_gp, abyss_daily_gp, abyss_weekly_gp, abyss_last_gp, abyss_top_ranking, partner_id
         """;
 
     public async Task<IReadOnlyList<Player>> FindByAccountIdAsync(int accountId, CancellationToken ct = default)
@@ -307,6 +307,7 @@ public sealed class PlayerDaoImpl : IPlayerDao
             CurrentMp           = r.current_mp ?? 0,
             NpcExpands          = r.npc_expands,
             CurrentFp           = r.current_fp,
+            PartnerId           = r.partner_id,
         };
 
         if (r.bind_x.HasValue && r.bind_y.HasValue && r.bind_z.HasValue && r.bind_world_id.HasValue)
@@ -364,6 +365,13 @@ public sealed class PlayerDaoImpl : IPlayerDao
             new { g = gender.ToString(), playerId });
     }
 
+    public async Task UpdatePartnerIdAsync(int playerId, int partnerId, CancellationToken ct = default)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync("UPDATE players SET partner_id=@partnerId WHERE id=@playerId",
+            new { partnerId, playerId });
+    }
+
     private sealed record PlayerRow(
         int id, string name, int account_id, long exp,
         float x, float y, float z, int heading, int world_id,
@@ -376,5 +384,6 @@ public sealed class PlayerDaoImpl : IPlayerDao
         int bonus_title_id, int dp, int soul_sickness, int? current_hp, int? current_mp, int npc_expands, int current_fp,
         int abyss_all_kill, int abyss_max_rank, int abyss_daily_kill, long abyss_daily_ap,
         int abyss_weekly_kill, long abyss_weekly_ap, int abyss_last_kill, long abyss_last_ap,
-        long abyss_gp, long abyss_daily_gp, long abyss_weekly_gp, long abyss_last_gp, int abyss_top_ranking);
+        long abyss_gp, long abyss_daily_gp, long abyss_weekly_gp, long abyss_last_gp, int abyss_top_ranking,
+        int partner_id);
 }
