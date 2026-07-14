@@ -34,7 +34,7 @@ public sealed class ItemDaoImpl : IItemDao
                 UniqueId       = reader.GetInt64(0),
                 ItemId         = reader.GetInt32(1),
                 Count          = reader.GetInt64(2),
-                Slot           = reader.GetInt32(3),
+                Slot           = reader.GetInt64(3),
                 StorageType    = reader.GetByte(4),
                 EnchantLevel   = reader.GetByte(5),
                 GodStoneItemId = reader.GetInt32(6),
@@ -108,7 +108,7 @@ public sealed class ItemDaoImpl : IItemDao
                 UniqueId     = reader.GetInt64(0),
                 ItemId       = reader.GetInt32(1),
                 Count        = reader.GetInt64(2),
-                Slot         = reader.GetInt32(3),
+                Slot         = reader.GetInt64(3),
                 EnchantLevel = reader.GetByte(4),
                 StorageType  = 2,
             });

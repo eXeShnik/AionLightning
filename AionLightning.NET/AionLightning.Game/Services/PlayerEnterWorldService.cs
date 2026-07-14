@@ -40,6 +40,7 @@ public sealed class PlayerEnterWorldService
     private readonly HousingBidService        _housingBidService;
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IHouseObjectCooldownsDao _houseObjectCooldownsDao;
+    private readonly StigmaService            _stigmaService;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -67,7 +68,8 @@ public sealed class PlayerEnterWorldService
         HousingService housingService,
         HousingBidService housingBidService,
         IOptions<HousingOptions> housingOptions,
-        IHouseObjectCooldownsDao houseObjectCooldownsDao)
+        IHouseObjectCooldownsDao houseObjectCooldownsDao,
+        StigmaService stigmaService)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -95,6 +97,7 @@ public sealed class PlayerEnterWorldService
         _housingBidService = housingBidService;
         _housingOptions = housingOptions;
         _houseObjectCooldownsDao = houseObjectCooldownsDao;
+        _stigmaService  = stigmaService;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -185,6 +188,24 @@ public sealed class PlayerEnterWorldService
                 foreach (var (skillLevel, skillId) in stigma.GetSkills())
                     player.Skills.AddSkill(skillId, skillLevel, isStigma: true);
         }
+
+        // Java StigmaService.onPlayerLogin's second pass: after every equipped stigma's skills are
+        // granted (above), re-validate each one against the player's current level/quest-unlocked slot
+        // count, prerequisite skills and class — auto-unequip anything that no longer qualifies (DB row
+        // edited by hand, or slots that unlocked via a quest that was later reset).
+        bool stigmaCorrected = false;
+        foreach (var equippedItem in player.Inventory.All.Where(i => i.IsEquipped && StigmaService.IsStigmaSlot(i.Slot)).ToList())
+        {
+            var stigmaTpl = _dataManager.Items.GetTemplate(equippedItem.ItemId);
+            if (stigmaTpl is null || !_stigmaService.IsValidForPlayer(player, equippedItem, stigmaTpl))
+            {
+                equippedItem.IsEquipped = false;
+                equippedItem.Slot       = -1;
+                stigmaCorrected = true;
+            }
+        }
+        if (stigmaCorrected)
+            await _itemDao.SaveAllAsync(objectId, player.Inventory.All, ct);
 
         player.Inventory.Capacity = player.CubeCapacity;
 
@@ -456,7 +477,7 @@ public sealed class PlayerEnterWorldService
         await conn.SendAsync(new SM_WAREHOUSE_INFO(player.Warehouse.All), ct);
         await conn.SendAsync(new SM_STATS_INFO(player, tpl, _dataManager.ExpTable), ct);
         await conn.SendAsync(new SM_DP_INFO(player.ObjectId, player.Dp), ct);
-        await conn.SendAsync(SM_CUBE_UPDATE.StigmaSlots(0), ct);
+        await conn.SendAsync(SM_CUBE_UPDATE.StigmaSlots((byte)_stigmaService.GetAdvancedStigmaSlotCount(player)), ct);
         await conn.SendAsync(new SM_INSTANCE_INFO(player), ct);
         await conn.SendAsync(new SM_CHANNEL_INFO(), ct);
         await conn.SendAsync(new SM_PLAYER_SPAWN(player), ct);

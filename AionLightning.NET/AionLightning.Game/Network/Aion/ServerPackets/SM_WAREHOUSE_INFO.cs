@@ -44,7 +44,7 @@ public sealed class SM_WAREHOUSE_INFO : AionServerPacket
         w.WriteH(0);
         w.WriteD(0);
 
-        w.WriteH(item.Slot);
+        w.WriteH((int)item.Slot);
         w.WriteC(0); // cloth flag
 
         if (item.EnchantLevel > 0)

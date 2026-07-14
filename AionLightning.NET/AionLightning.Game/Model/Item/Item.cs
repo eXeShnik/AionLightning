@@ -5,7 +5,9 @@ public sealed class Item
     public long UniqueId     { get; init; }
     public int  ItemId       { get; init; }
     public long Count        { get; set; }
-    public int  Slot         { get; set; } = -1;     // equipment slot bitmask when IsEquipped; bag position otherwise
+    public long Slot         { get; set; } = -1;     // equipment slot bitmask when IsEquipped; bag position otherwise.
+                                                       // long because ADV_STIGMA1..6 and STIGMA3..6 bitmasks (Java
+                                                       // ItemSlot bits 32-52) overflow a 32-bit int.
     public byte StorageType  { get; set; } = 0;     // 0 = inventory, 1 = personal warehouse
     public byte EnchantLevel    { get; set; } = 0;      // 0-15
     public int  GodStoneItemId  { get; set; } = 0;      // itemId of socketed godstone (0 = none)

@@ -131,6 +131,7 @@ builder.Services.AddSingleton<GsPacketHandlerFactory>();
 // Services
 builder.Services.AddSingleton<SpawnService>();
 builder.Services.AddSingleton<SkillLearnService>();
+builder.Services.AddSingleton<StigmaService>();
 builder.Services.AddSingleton<ClassChangeService>();
 builder.Services.AddSingleton<ExperienceService>();
 builder.Services.AddSingleton<LootService>();

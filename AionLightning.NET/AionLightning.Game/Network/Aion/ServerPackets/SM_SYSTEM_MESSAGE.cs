@@ -232,6 +232,21 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_UI_STIGMA_NOT_ENOUGH_MATERIAL — "Not enough stigma shards." (msg code 1300450)
     public static SM_SYSTEM_MESSAGE StigmaNotEnoughShards() => new(1300450);
 
+    // Java: SM_SYSTEM_MESSAGE(1300403, skillName) — "The %0 skill has been removed." Sent per skill on stigma unequip.
+    public static SM_SYSTEM_MESSAGE StigmaSkillRemoved(string skillName) => new(1300403, skillName);
+
+    // Java: SM_SYSTEM_MESSAGE(1300410, thisItemName, dependentItemName) — unequip blocked because another
+    // equipped (advanced) stigma requires a skill this stone grants.
+    public static SM_SYSTEM_MESSAGE StigmaRequiredForOtherStigma(string thisItemName, string dependentItemName)
+        => new(1300410, thisItemName, dependentItemName);
+
+    // STR_STIGMA_CANNT_UNEQUIP_STONE_FIRST_UNEQUIP_CURRENT_EQUIPPED_ITEM (msg code 1300444) — dual-wield
+    // stigma (140000005/140000007) cannot be unequipped while an off-hand weapon is still equipped.
+    public static SM_SYSTEM_MESSAGE StigmaCannotUnequipWhileDualWielding() => new(1300444);
+
+    // STR_CANNOT_USE_ITEM_INVALID_CLASS (msg code 1300371) — item cannot be used by the player's class.
+    public static SM_SYSTEM_MESSAGE CannotUseItemInvalidClass() => new(1300371);
+
     // STR_EDIT_CHAR_ALL_CANT_NO_ITEM — "Need a Plastic Surgery Ticket." (msg code 901752)
     public static SM_SYSTEM_MESSAGE CharEditNoPlasticSurgeryTicket() => new(901752);
 

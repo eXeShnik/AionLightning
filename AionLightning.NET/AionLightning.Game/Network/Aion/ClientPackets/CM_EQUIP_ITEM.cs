@@ -17,6 +17,7 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
     private readonly IDataManager       _dataManager;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly AionLightning.Game.QuestEngine.QuestEngine _questEngine;
+    private readonly StigmaService _stigmaService;
 
     private byte _action;   // 0 = equip, 1 = unequip
     private long _slot;
@@ -24,13 +25,14 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
 
     public CM_EQUIP_ITEM(GsClientConnection conn, IItemDao itemDao,
         IDataManager dataManager, PlayerConnectionRegistry connRegistry,
-        AionLightning.Game.QuestEngine.QuestEngine questEngine)
+        AionLightning.Game.QuestEngine.QuestEngine questEngine, StigmaService stigmaService)
     {
         _conn         = conn;
         _itemDao      = itemDao;
         _dataManager  = dataManager;
         _connRegistry = connRegistry;
         _questEngine  = questEngine;
+        _stigmaService = stigmaService;
     }
 
     public override void Read(ref PacketReader r)
@@ -63,14 +65,14 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         {
             // Equip: if another item already occupies this slot, move it to the bag first
             displaced = player.Inventory.All
-                .FirstOrDefault(i => i.UniqueId != item.UniqueId && i.IsEquipped && i.Slot == (int)_slot);
+                .FirstOrDefault(i => i.UniqueId != item.UniqueId && i.IsEquipped && i.Slot == _slot);
             if (displaced is not null)
             {
                 displaced.Slot       = -1;
                 displaced.IsEquipped = false;
             }
 
-            item.Slot       = (int)_slot;
+            item.Slot       = _slot;
             item.IsEquipped = true;
         }
         else
@@ -229,91 +231,15 @@ public sealed class CM_EQUIP_ITEM : AionClientPacket
         if (_action == 0) await _questEngine.OnEquipItemAsync(player, item.ItemId, _conn, ct); // Java onEquipItem
     }
 
-    // Handles equip/unequip of stigma stones: shard consumption, skill grant/removal, skill list update.
-    // Stigma items do not affect combat stats or appearance — only the player's skill list.
+    // Handles equip/unequip of stigma stones: validation, shard consumption, skill grant/removal and
+    // client notification all live in StigmaService (Java services.StigmaService), reused here and by
+    // the login-time restore/hack-guard in PlayerEnterWorldService. Stigma items do not affect combat
+    // stats or appearance — only the player's skill list.
     private async ValueTask HandleStigmaAsync(Player player, Item item, ItemTemplate template, CancellationToken ct)
     {
-        var stigma = template.Stigma!;
-
-        if (_action == 0) // equip
-        {
-            // Validate shard count before modifying any state
-            if (stigma.Shard > 0)
-            {
-                const int ShardItemId = 141000001;
-                var shardItem = player.Inventory.FindByItemId(ShardItemId);
-                if (shardItem is null || shardItem.Count < stigma.Shard)
-                {
-                    await _conn.SendAsync(SM_SYSTEM_MESSAGE.StigmaNotEnoughShards(), ct);
-                    return;
-                }
-            }
-
-            // If another stigma is already in this slot, remove its skills first
-            var displaced = player.Inventory.All
-                .FirstOrDefault(i => i.UniqueId != item.UniqueId && i.IsEquipped && i.Slot == (int)_slot);
-            if (displaced is not null)
-            {
-                var dispTpl = _dataManager.Items.GetTemplate(displaced.ItemId);
-                if (dispTpl?.Stigma is { } dispStigma)
-                    foreach (var (skillLevel, skillId) in dispStigma.GetSkills())
-                    {
-                        player.Skills.RemoveStigmaSkill(skillId);
-                        try { await _conn.SendAsync(new SM_SKILL_REMOVE(skillId, skillLevel, isStigma: true), ct); } catch { }
-                    }
-                displaced.Slot       = -1;
-                displaced.IsEquipped = false;
-            }
-
-            item.Slot       = (int)_slot;
-            item.IsEquipped = true;
-
-            // Consume shards (already validated above, so !null && .Count >= shard)
-            if (stigma.Shard > 0)
-            {
-                const int ShardItemId = 141000001;
-                var shardItem = player.Inventory.FindByItemId(ShardItemId)!;
-                if (shardItem.Count == stigma.Shard)
-                {
-                    player.Inventory.Remove(shardItem.UniqueId);
-                    await _itemDao.DeleteAsync(shardItem.UniqueId, ct);
-                }
-                else
-                {
-                    shardItem.Count -= stigma.Shard;
-                    try { await _conn.SendAsync(new SM_INVENTORY_UPDATE_ITEM(shardItem, SM_INVENTORY_UPDATE_ITEM.UpdateType.DecItemUse), ct); } catch { }
-                }
-            }
-
-            // Grant stigma skills and collect the newly added entries for the response packet
-            var granted = new List<Model.Skill.PlayerSkillEntry>();
-            foreach (var (skillLevel, skillId) in stigma.GetSkills())
-            {
-                player.Skills.AddSkill(skillId, skillLevel, isStigma: true);
-                var entry = player.Skills.GetEntry(skillId);
-                if (entry is not null) granted.Add(entry);
-            }
-
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
-            if (granted.Count > 0)
-                await _conn.SendAsync(new SM_SKILL_LIST(granted, isNew: true), ct);
-        }
-        else // unequip
-        {
-            foreach (var (skillLevel, skillId) in stigma.GetSkills())
-            {
-                player.Skills.RemoveStigmaSkill(skillId);
-                try { await _conn.SendAsync(new SM_SKILL_REMOVE(skillId, skillLevel, isStigma: true), ct); } catch { }
-            }
-
-            item.Slot       = -1;
-            item.IsEquipped = false;
-
-            await _itemDao.SaveAllAsync(player.ObjectId, player.Inventory.All, ct);
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([item]), ct);
-            // Full skill list refresh so the client removes the stigma skills from the skill bar
-            await _conn.SendAsync(new SM_SKILL_LIST(player.Skills.AllSkills, isNew: false), ct);
-        }
+        if (_action == 0)
+            await _stigmaService.EquipStigmaAsync(player, item, template, _slot, _conn, ct);
+        else
+            await _stigmaService.UnequipStigmaAsync(player, item, template, _conn, ct);
     }
 }

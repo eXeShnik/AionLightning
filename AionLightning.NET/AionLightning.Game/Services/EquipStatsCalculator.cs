@@ -57,7 +57,7 @@ public static class EquipStatsCalculator
                     ref evade, ref pAcc, ref pCrit, ref pCritRes, ref mAcc, ref mCrit, ref mCritRes,
                     ref atkSpd, ref conc, ref mBoost, ref mSuppress, ref healBoost, ref parry, ref block, ref sF, ref spF, ref speed, ref flySpd);
                 if (item.EnchantLevel > 0)
-                    AccumulateEnchant(item.EnchantLevel, item.Slot, tpl,
+                    AccumulateEnchant(item.EnchantLevel, (int)item.Slot, tpl,
                         ref hp, ref pDef, ref mDef, ref pAtk, ref mAtk, ref pCritRes);
             }
             foreach (var stone in item.ManaStones)

@@ -70,10 +70,11 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
         w.WriteH(0);            // current DP
         w.WriteC(0x00);         // unk
 
-        // Equipment mask: OR of each equipped slot id
+        // Equipment mask: OR of each equipped slot id. Truncated to 32 bits per iteration, matching Java
+        // (see SM_UPDATE_PLAYER_APPEARANCE) — stigma slot bits are lost intentionally (no visible appearance).
         int mask = 0;
         foreach (var item in _equipment)
-            mask |= item.Slot;
+            mask = (int)((uint)mask | (uint)item.Slot);
         w.WriteD(mask);
 
         // Per-item entries: templateId + godstone + dye + enchant glow

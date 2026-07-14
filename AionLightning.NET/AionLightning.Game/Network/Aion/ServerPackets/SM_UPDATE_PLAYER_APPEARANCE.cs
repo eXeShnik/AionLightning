@@ -19,8 +19,10 @@ public sealed class SM_UPDATE_PLAYER_APPEARANCE : AionServerPacket
     {
         w.WriteD(_playerObjectId);
 
-        // Equipment slot mask: OR of all equipped slot values
-        int mask = _equipped.Aggregate(0, (acc, item) => acc | item.Slot);
+        // Equipment slot mask: OR of all equipped slot values. Truncated to 32 bits per iteration —
+        // mirrors Java SM_UPDATE_PLAYER_APPEARANCE's `mask = (int)(mask | item.getEquipmentSlot())`;
+        // stigma slot bits (30-52) are intentionally lost here since stigmas carry no visible appearance.
+        int mask = _equipped.Aggregate(0, (acc, item) => (int)((uint)acc | (uint)item.Slot));
         w.WriteD(mask);
 
         foreach (var item in _equipped)

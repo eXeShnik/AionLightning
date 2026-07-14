@@ -1,4 +1,5 @@
 using System.Xml.Serialization;
+using AionLightning.Game.Model;
 
 namespace AionLightning.Game.Model.Templates.Item;
 
@@ -18,6 +19,9 @@ public sealed class ItemTemplate
     [XmlAttribute("armor_type")]         public string ArmorTypeName     { get; set; } = string.Empty;
     [XmlAttribute("mask")]              public int    Mask             { get; set; }
     [XmlAttribute("option_slot_bonus")] public int   OptionSlotBonus  { get; set; }
+    // Comma-separated per-class required level (17 entries, PlayerClass ordinal order); "0" = class cannot
+    // use the item. Mirrors Java ItemTemplate.restrict/isClassSpecific.
+    [XmlAttribute("restrict")]         public string Restrict         { get; set; } = string.Empty;
 
     [XmlElement("actions")]           public ItemActions?      Actions     { get; set; }
     [XmlElement("weapon_stats")]      public WeaponStats?      WeaponStats { get; set; }
@@ -94,6 +98,36 @@ public sealed class ItemTemplate
     // CAN_PROC_ENCHANT = 1 << 10 = 1024 (Java ItemMask)
     public bool CanSocketGodstone  => (Mask & 1024) != 0;
     public bool IsStigmaItem       => Stigma != null;
+
+    private int[]? _restricts;
+    // Parses <see cref="Restrict"/> once and caches it (mirrors Java ItemTemplate.afterUnmarshal).
+    private int[] Restricts => _restricts ??= ParseRestricts();
+
+    private int[] ParseRestricts()
+    {
+        var arr = new int[17]; // PlayerClass ordinals 0..16 (ALL=17 is never a real player class)
+        if (string.IsNullOrEmpty(Restrict)) return arr;
+        var parts = Restrict.Split(',');
+        for (int i = 0; i < parts.Length && i < arr.Length; i++)
+            int.TryParse(parts[i], out arr[i]);
+        return arr;
+    }
+
+    /// <summary>Mirrors Java ItemTemplate.isClassSpecific: true when the per-class "restrict" required-level
+    /// entry is positive for the player's class, falling back to the class's starting class for advanced
+    /// classes (e.g. a Warrior-restricted item is also usable by Gladiator/Templar).</summary>
+    public bool IsClassSpecific(PlayerClass playerClass)
+    {
+        var restricts = Restricts;
+        int idx = (int)playerClass;
+        bool related = idx >= 0 && idx < restricts.Length && restricts[idx] > 0;
+        if (!related && !playerClass.IsStartingClass())
+        {
+            int startingIdx = (int)playerClass.GetStartingClassFor();
+            related = startingIdx >= 0 && startingIdx < restricts.Length && restricts[startingIdx] > 0;
+        }
+        return related;
+    }
 
     // Magical weapon types: their min/max damage is magical attack, not physical
     private static readonly HashSet<string> MagicalWeaponTypes =
@@ -282,6 +316,11 @@ public sealed class StigmaTemplate
     /// <summary>Space-separated "skillLevel:skillId" pairs, e.g. "9:11504" or "1:19 2:20".</summary>
     [XmlAttribute("skill")] public string SkillData { get; set; } = string.Empty;
 
+    /// <summary>Advanced-stigma prerequisite groups (Java Stigma.requireSkill) — each group is a set of
+    /// skill IDs where the player must already know at least one to equip this stone. Absent for regular
+    /// (non-advanced) stigmas.</summary>
+    [XmlElement("require_skill")] public List<StigmaRequireSkill> RequireSkill { get; set; } = new();
+
     public IReadOnlyList<(int SkillLevel, int SkillId)> GetSkills()
     {
         if (string.IsNullOrEmpty(SkillData)) return [];
@@ -295,5 +334,26 @@ public sealed class StigmaTemplate
                 list.Add((lvl, id));
         }
         return list;
+    }
+}
+
+/// <summary>Maps to &lt;require_skill skillIds="a b c"/&gt; inside &lt;stigma&gt; (Java Stigma.RequireSkill) —
+/// one prerequisite group for an advanced stigma. The player must know at least one skill from every
+/// declared group before the stone can be equipped (Java StigmaService.notifyEquipAction).</summary>
+public sealed class StigmaRequireSkill
+{
+    /// <summary>Space-separated skill IDs, e.g. "236 237 238 239 240 2039 2811".</summary>
+    [XmlAttribute("skillIds")] public string SkillIdsRaw { get; set; } = string.Empty;
+
+    public IReadOnlyList<int> SkillIds
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(SkillIdsRaw)) return [];
+            var list = new List<int>();
+            foreach (var part in SkillIdsRaw.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                if (int.TryParse(part, out int id)) list.Add(id);
+            return list;
+        }
     }
 }
