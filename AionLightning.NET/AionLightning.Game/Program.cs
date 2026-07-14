@@ -158,6 +158,12 @@ builder.Services.AddSingleton<AuraChildApplier>();
 builder.Services.AddSingleton<PlayerEnterWorldService>();
 builder.Services.AddHostedService<AutoSaveService>();
 builder.Services.AddHostedService<AbyssResetService>();
+builder.Services.AddSingleton<CronService>();
+builder.Services.AddHostedService<CronServiceHostedService>();
+
+// System mail (siege rewards, housing auction/maintenance)
+builder.Services.AddSingleton<AionLightning.Game.Services.Mail.SystemMailService>();
+builder.Services.AddSingleton<AionLightning.Game.Services.Mail.MailFormatter>();
 
 // Account registry (TCS bridge for LS auth roundtrip)
 builder.Services.AddSingleton<GameAccountRegistry>();
