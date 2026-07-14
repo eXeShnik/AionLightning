@@ -153,6 +153,8 @@ builder.Services.AddSingleton<InstanceService>();
 builder.Services.AddSingleton<TeleportService>();
 builder.Services.AddSingleton<PortalService>();
 builder.Services.AddSingleton<PetService>();
+builder.Services.AddSingleton<AionLightning.Game.Model.Siege.Influence>();
+builder.Services.AddSingleton<AionLightning.Game.Services.Siege.Assault.BalaurAssaultService>();
 builder.Services.AddSingleton<SiegeService>();
 builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();

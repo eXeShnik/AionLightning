@@ -20,9 +20,20 @@ public sealed record SiegeOptions
     /// outpost currently eligible (Java SiegeService.initSieges' "Outpost siege start" cron block).</summary>
     public string RaceProtectorSpawnCron { get; init; } = "0 0 21 ? * *";
 
-    // note: the remaining Java SiegeConfig keys (BALAUR_AUTO_ASSAULT/BALAUR_ASSAULT_RATE, the Sunayaka/
-    // Moltenus world-boss spawn schedules, SIEGE_HEALTH_MOD_ENABLED/MULTIPLIER, SIEGE_SHIELD_ENABLED,
-    // SIEGE_IDA_ENABLED) belong to subsystems not ported in this phase (Balaur assault service, world
-    // boss spawns, legendary-npc health scaling, geo shields) — adding config for them now would be dead
-    // configuration until whichever phase ports those subsystems.
+    /// <summary>
+    /// Java SiegeConfig.BALAUR_AUTO_ASSAULT (gameserver.siege.assault.enable). Java's own default is
+    /// true; this port defaults to <b>false</b> regardless of <see cref="Enable"/> — a second, explicit
+    /// gate on top of it (Services.Siege.Assault.BalaurAssaultService), since the assault subsystem spawns
+    /// escalating balaur waves and hasn't been validated against a live client capture yet.
+    /// </summary>
+    public bool BalaurAutoAssault { get; init; } = false;
+
+    /// <summary>Java SiegeConfig.BALAUR_ASSAULT_RATE (gameserver.siege.assault.rate) — multiplier applied
+    /// to the per-fortress assault-eligibility roll (see BalaurAssaultService.CalcFortressInfluence).</summary>
+    public float BalaurAssaultRate { get; init; } = 1.0f;
+
+    // note: the remaining Java SiegeConfig keys (the Sunayaka/Moltenus world-boss spawn schedules,
+    // SIEGE_HEALTH_MOD_ENABLED/MULTIPLIER, SIEGE_SHIELD_ENABLED, SIEGE_IDA_ENABLED) belong to subsystems
+    // not ported in this phase (world boss spawns, legendary-npc health scaling, geo shields) — adding
+    // config for them now would be dead configuration until whichever phase ports those subsystems.
 }

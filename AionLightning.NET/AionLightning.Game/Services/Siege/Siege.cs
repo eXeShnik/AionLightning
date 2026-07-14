@@ -73,9 +73,7 @@ public abstract class Siege
 
         StartTime = DateTime.UtcNow;
         await OnSiegeStartAsync(ct);
-        // note: Java's BalaurAssaultService.onSiegeStart hook (SiegeConfig.BALAUR_AUTO_ASSAULT) is P3+ —
-        // the balaur-assault subsystem (BalaurAssaultService/Assault/FortressAssault/ArtifactAssault) is
-        // not ported.
+        Service.NotifyBalaurAssaultStart(this);
     }
 
     /// <summary>Java stopSiege() — idempotent; a double-stop is logged and ignored rather than thrown.</summary>
@@ -88,7 +86,7 @@ public abstract class Siege
         }
 
         await OnSiegeFinishAsync(ct);
-        // note: Java's BalaurAssaultService.onSiegeFinish hook — see StartSiegeAsync note.
+        Service.NotifyBalaurAssaultFinish(this);
     }
 
     /// <summary>

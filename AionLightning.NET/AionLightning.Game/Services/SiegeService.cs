@@ -39,6 +39,8 @@ public sealed class SiegeService(
     MailFormatter mailFormatter,
     SpawnService spawnService,
     TeleportService teleportService,
+    Influence influence,
+    Siege.Assault.BalaurAssaultService balaurAssaultService,
     IOptions<SiegeOptions> options,
     IOptions<SiegeScheduleOptions> scheduleOptions,
     ILogger<SiegeService> log)
@@ -56,7 +58,6 @@ public sealed class SiegeService(
     // drives startPreparations(), which starts all four source sieges together ~300s later.
     private const int TiamarantaPrepSourceId = 4011;
 
-    private readonly Influence _influence = new();
     private readonly ConcurrentDictionary<int, SiegeInstance> _activeSieges = new();
     private readonly ConcurrentDictionary<int, ConcurrentDictionary<int, SiegeNpc>> _siegeNpcsByLocation = new();
     private readonly ConcurrentDictionary<int, SiegeNpc> _siegeNpcsByObjectId = new();
@@ -101,7 +102,7 @@ public sealed class SiegeService(
         outpost.FortressDependency.Any(fortressId =>
             Fortresses.TryGetValue(fortressId, out var f) && f.Race == outpost.LocationRace);
 
-    public Influence GetInfluence() => _influence;
+    public Influence GetInfluence() => influence;
 
     public Model.Legion.Legion? GetLegion(int legionId) => legionService.GetById(legionId);
 
@@ -179,7 +180,7 @@ public sealed class SiegeService(
                 await siegeDao.UpsertAsync(loc.LocationId, loc.Race, loc.LegionId, ct);
         }
 
-        _influence.Recalculate(Locations.Values);
+        influence.Recalculate(Locations.Values);
         log.LogInformation("SiegeService: loaded ownership for {Count} siege location(s)", Locations.Count);
     }
 
@@ -272,6 +273,28 @@ public sealed class SiegeService(
         _siegeNpcsByObjectId.TryRemove(npc.Npc.ObjectId, out _);
         if (_siegeNpcsByLocation.TryGetValue(npc.SiegeId, out var bucket))
             bucket.TryRemove(npc.Npc.ObjectId, out _);
+    }
+
+    /// <summary>
+    /// Java Siege.startSiege()'s <c>if (SiegeConfig.BALAUR_AUTO_ASSAULT) BalaurAssaultService.getInstance().
+    /// onSiegeStart(this);</c> call — invoked by <see cref="Siege.Siege.StartSiegeAsync"/> right after the
+    /// siege's own OnSiegeStartAsync completes. Double-gated on both <see cref="SiegeOptions.Enable"/> and
+    /// <see cref="SiegeOptions.BalaurAutoAssault"/> (both default false); the <see cref="Enable"/> check is
+    /// defense in depth only, since nothing ever calls StartSiegeAsync while it's false (ScheduleSieges
+    /// no-ops, see its own doc comment).
+    /// </summary>
+    public void NotifyBalaurAssaultStart(SiegeInstance siege)
+    {
+        if (!options.Value.Enable || !options.Value.BalaurAutoAssault) return;
+        balaurAssaultService.OnSiegeStart(siege, RegisterSiegeNpc);
+    }
+
+    /// <summary>Java Siege.stopSiege()'s matching <c>BalaurAssaultService.getInstance().onSiegeFinish(this)</c>
+    /// call — see <see cref="NotifyBalaurAssaultStart"/>.</summary>
+    public void NotifyBalaurAssaultFinish(SiegeInstance siege)
+    {
+        if (!options.Value.Enable || !options.Value.BalaurAutoAssault) return;
+        balaurAssaultService.OnSiegeFinish(siege);
     }
 
     // --- Active siege lifecycle (Java SiegeService.startSiege/stopSiege/getSiege) ---
@@ -556,7 +579,7 @@ public sealed class SiegeService(
     /// No-op while <see cref="SiegeOptions.Enable"/> is false (influence is still recalculated either way).</summary>
     public async Task BroadcastUpdateAsync(SiegeLocation location, CancellationToken ct = default)
     {
-        _influence.Recalculate(Locations.Values);
+        influence.Recalculate(Locations.Values);
         if (!options.Value.Enable) return;
 
         var influencePacket = new SM_INFLUENCE_RATIO(this);

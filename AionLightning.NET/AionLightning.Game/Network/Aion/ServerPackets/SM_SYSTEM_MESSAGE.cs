@@ -297,4 +297,10 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE FieldAbyssDarkUnderpassSpawn() => new(1400329);
     public static SM_SYSTEM_MESSAGE FieldAbyssLightUnderpassDespawn() => new(1400330);
     public static SM_SYSTEM_MESSAGE FieldAbyssDarkUnderpassDespawn() => new(1400331);
+
+    // Balaur auto-assault flavor announcements (Services.Siege.Assault.*) — Java STR_ABYSS_CARRIER_SPAWN/
+    // STR_ABYSS_CARRIER_DROP_DRAGON/STR_ABYSS_DRAGON_BOSS_KILLED.
+    public static SM_SYSTEM_MESSAGE AbyssCarrierSpawn() => new(1301044);
+    public static SM_SYSTEM_MESSAGE AbyssCarrierDropDragon() => new(1301042);
+    public static SM_SYSTEM_MESSAGE AbyssDragonBossKilled() => new(1390199);
 }
