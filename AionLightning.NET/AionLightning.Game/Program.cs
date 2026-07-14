@@ -146,6 +146,7 @@ builder.Services.AddSingleton<LegionService>();
 builder.Services.AddSingleton<GatherService>();
 builder.Services.AddSingleton<BrokerService>();
 builder.Services.AddSingleton<RepurchaseService>();
+builder.Services.AddSingleton<PrivateStoreService>();
 builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddSingleton<SummonsService>();
 builder.Services.AddSingleton<ZoneService>();

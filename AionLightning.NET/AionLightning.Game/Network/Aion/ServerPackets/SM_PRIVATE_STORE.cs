@@ -3,7 +3,8 @@ using AionLightning.Game.Model;
 
 namespace AionLightning.Game.Network.Aion.ServerPackets;
 
-/// <summary>Sends a private store's item listing to a viewing player. Opcode 0x9D.</summary>
+/// <summary>Sends a private store's item listing to a viewing player. Opcode 0x9D (4.5-era packet
+/// table). TODO: verify opcode against a live 4.6 client capture before enabling.</summary>
 public sealed class SM_PRIVATE_STORE : AionServerPacket
 {
     private readonly Player _seller;
@@ -15,7 +16,7 @@ public sealed class SM_PRIVATE_STORE : AionServerPacket
 
     public override void Write(ref PacketWriter w)
     {
-        var items = _seller.StoreItems ?? [];
+        var items = _seller.Store?.Items ?? [];
         w.WriteD(_seller.ObjectId);
         w.WriteH((short)items.Count);
 

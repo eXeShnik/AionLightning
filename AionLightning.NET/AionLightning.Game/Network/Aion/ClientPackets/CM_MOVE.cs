@@ -13,6 +13,7 @@ public sealed class CM_MOVE : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ZoneService _zoneService;
     private readonly FallDamageService _fallDamageService;
+    private readonly PrivateStoreService _privateStoreService;
 
     private float _x, _y, _z;
     private byte _heading, _type;
@@ -20,13 +21,14 @@ public sealed class CM_MOVE : AionClientPacket
     private float _vx, _vy, _vz;
 
     public CM_MOVE(GsClientConnection conn, GameWorld world, PlayerConnectionRegistry connRegistry,
-        ZoneService zoneService, FallDamageService fallDamageService)
+        ZoneService zoneService, FallDamageService fallDamageService, PrivateStoreService privateStoreService)
     {
-        _conn              = conn;
-        _world             = world;
-        _connRegistry      = connRegistry;
-        _zoneService       = zoneService;
-        _fallDamageService = fallDamageService;
+        _conn                = conn;
+        _world               = world;
+        _connRegistry        = connRegistry;
+        _zoneService         = zoneService;
+        _fallDamageService   = fallDamageService;
+        _privateStoreService = privateStoreService;
     }
 
     public override void Read(ref PacketReader r)
@@ -62,6 +64,12 @@ public sealed class CM_MOVE : AionClientPacket
 
         // Java CM_MOVE: reject movement while rooted, stunned, sleeping, etc. (CANT_MOVE_STATE + isUnderFear)
         if ((player.ActiveCcFlags & AbnormalCcFlags.CantMove) != 0) return;
+
+        // note: Java's client keeps the private-store owner anchored while the shop UI is open, so the
+        // server never receives a real CM_MOVE for them; this server is authoritative, so a client that
+        // sends one anyway (modified client, desync) closes the shop rather than silently ignoring it.
+        if ((_type & MovementMask.StartMove) != 0 && (player.State & CreatureState.PrivateShop) != 0)
+            await _privateStoreService.CloseStoreAsync(player, ct);
 
         // Update player state
         player.Position      = player.Position with { X = _x, Y = _y, Z = _z, Heading = _heading };

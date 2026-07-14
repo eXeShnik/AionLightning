@@ -72,6 +72,9 @@ public sealed class CM_ATTACK : AionClientPacket
         // Java Creature.canAttack(): block if CANT_ATTACK_STATE (stun/sleep/paralyze/etc.) is active
         if ((player.ActiveCcFlags & AbnormalCcFlags.CantAttack) != 0) return;
 
+        // Java Creature.canAttack() also returns false while a private store is open.
+        if ((player.State & CreatureState.PrivateShop) != 0) return;
+
         // M292: blind — forced DODGE when blinded (Java AttackCalcObserver: Rnd.get(0,100) <= value → DODGE)
         if ((player.ActiveCcFlags & AbnormalCcFlags.Blind) != 0)
         {

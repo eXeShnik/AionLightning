@@ -87,6 +87,7 @@ public sealed class GsPacketHandlerFactory
     private readonly IHouseScriptsDao          _houseScriptsDao;
     private readonly DoorService                _doorService;
     private readonly KiskService                 _kiskService;
+    private readonly PrivateStoreService         _privateStoreService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -157,10 +158,12 @@ public sealed class GsPacketHandlerFactory
         IHouseObjectCooldownsDao houseObjectCooldownsDao,
         IHouseScriptsDao houseScriptsDao,
         DoorService doorService,
-        KiskService kiskService)
+        KiskService kiskService,
+        PrivateStoreService privateStoreService)
     {
         _doorService              = doorService;
         _kiskService              = kiskService;
+        _privateStoreService      = privateStoreService;
         _playerRegisteredItemsDao = playerRegisteredItemsDao;
         _houseObjectCooldownsDao  = houseObjectCooldownsDao;
         _houseScriptsDao          = houseScriptsDao;
@@ -291,8 +294,8 @@ public sealed class GsPacketHandlerFactory
                 0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus),
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus, _auraApplier, _questEngine, _summonsService, _effectTickScheduler),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
-                0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService),
-                0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService, _fallDamageService),
+                0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService, _privateStoreService),
+                0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService, _fallDamageService, _privateStoreService),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
                 0xF4  => new CM_PET(conn, _petService),
                 0xF5  => new CM_OPEN_STATICDOOR(conn, _doorService),
@@ -317,11 +320,11 @@ public sealed class GsPacketHandlerFactory
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
                 0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _classChange, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
-                0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService),
+                0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService, _privateStoreService),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),
                 0x118 => new CM_SET_NOTE(conn, _playerDao, _socialDao, _connRegistry),
                 0x119 => new CM_LEGION_MODIFY_EMBLEM(conn, _legionService, _connRegistry),
-                0x11D => new CM_EXCHANGE_REQUEST(conn, _world, _connRegistry, _exchangeService),
+                0x11D => new CM_EXCHANGE_REQUEST(conn, _world, _connRegistry, _exchangeService, _privateStoreService),
                 0x11E => new CM_GM_BOOKMARK(conn, _connRegistry),
                 0x11F => new CM_CHAT_GROUP_INFO(conn, _connRegistry),
                 0x122 => new CM_PLAYER_STATUS_INFO(conn, _connRegistry, _groupService, _allianceService, _leagueService),
@@ -355,10 +358,10 @@ public sealed class GsPacketHandlerFactory
                 0x14E => new CM_CHANGE_CHANNEL(conn, _connRegistry, _world),
                 0x153 => new CM_QUESTIONNAIRE(),
                 0x154 => new CM_ABYSS_RANKING_LEGIONS(conn, _legionDao),
-                0x155 => new CM_PRIVATE_STORE(conn, _connRegistry),
+                0x155 => new CM_PRIVATE_STORE(conn, _privateStoreService),
                 0x156 => new CM_DELETE_ITEM(conn, _itemDao),
                 0x159 => new CM_BROKER_LIST(conn, _brokerService),
-                0x15A => new CM_PRIVATE_STORE_NAME(conn, _connRegistry),
+                0x15A => new CM_PRIVATE_STORE_NAME(conn, _privateStoreService),
                 0x15B => new CM_SUMMON_COMMAND(conn, _summonsService),
                 0x15C => new CM_BUY_BROKER_ITEM(conn, _brokerService),
                 0x15D => new CM_REGISTER_BROKER_ITEM(conn, _brokerService),

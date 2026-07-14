@@ -13,24 +13,27 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
 {
     private const int KinahItemId = 182400001;
 
-    private readonly GsClientConnection _conn;
-    private readonly GameWorld          _world;
-    private readonly IDataManager       _dataManager;
-    private readonly IPlayerDao         _playerDao;
-    private readonly IItemDao           _itemDao;
-    private readonly PortalService      _portalService;
+    private readonly GsClientConnection  _conn;
+    private readonly GameWorld           _world;
+    private readonly IDataManager        _dataManager;
+    private readonly IPlayerDao          _playerDao;
+    private readonly IItemDao            _itemDao;
+    private readonly PortalService       _portalService;
+    private readonly PrivateStoreService _privateStoreService;
 
     private int _targetObjectId;
 
     public CM_SHOW_DIALOG(GsClientConnection conn, GameWorld world,
-        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao, PortalService portalService)
+        IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao, PortalService portalService,
+        PrivateStoreService privateStoreService)
     {
-        _conn          = conn;
-        _world         = world;
-        _dataManager   = dataManager;
-        _playerDao     = playerDao;
-        _itemDao       = itemDao;
-        _portalService = portalService;
+        _conn                = conn;
+        _world               = world;
+        _dataManager         = dataManager;
+        _playerDao           = playerDao;
+        _itemDao             = itemDao;
+        _portalService       = portalService;
+        _privateStoreService = privateStoreService;
     }
 
     public override void Read(ref PacketReader r) => _targetObjectId = r.ReadD();
@@ -42,12 +45,11 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
         var player = _conn.ActivePlayer;
         if (player is null) return;
 
-        // Private store: if the target is a player with an open shop, send the store listing
+        // Private store: if the target is a player, try to send its store listing (no-op if closed)
         var storeOwner = _world.GetPlayerByObjectId(_targetObjectId);
         if (storeOwner is not null)
         {
-            if ((storeOwner.State & CreatureState.PrivateShop) != 0)
-                await _conn.SendAsync(new SM_PRIVATE_STORE(storeOwner), ct);
+            await _privateStoreService.GetStoreListAsync(player, _targetObjectId, ct);
             return;
         }
 

@@ -1,4 +1,5 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Model;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Services;
 using GameWorld = AionLightning.Game.World.World;
@@ -12,16 +13,19 @@ public sealed class CM_EXCHANGE_REQUEST : AionClientPacket
     private readonly GameWorld                _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly ExchangeService          _exchangeService;
+    private readonly PrivateStoreService      _privateStoreService;
 
     private int _targetObjectId;
 
     public CM_EXCHANGE_REQUEST(GsClientConnection conn, GameWorld world,
-        PlayerConnectionRegistry connRegistry, ExchangeService exchangeService)
+        PlayerConnectionRegistry connRegistry, ExchangeService exchangeService,
+        PrivateStoreService privateStoreService)
     {
-        _conn            = conn;
-        _world           = world;
-        _connRegistry    = connRegistry;
-        _exchangeService = exchangeService;
+        _conn                = conn;
+        _world               = world;
+        _connRegistry        = connRegistry;
+        _exchangeService     = exchangeService;
+        _privateStoreService = privateStoreService;
     }
 
     public override void Read(ref PacketReader r) => _targetObjectId = r.ReadD();
@@ -39,6 +43,13 @@ public sealed class CM_EXCHANGE_REQUEST : AionClientPacket
         var target = targetConn?.ActivePlayer;
         if (target is null) return;
         if (_exchangeService.GetSession(target.ObjectId) is not null) return;
+
+        // note: opening a direct trade conflicts with running a personal shop — close it first
+        // (not modeled explicitly in Java; the client keeps the two UIs mutually exclusive there).
+        if ((initiator.State & CreatureState.PrivateShop) != 0)
+            await _privateStoreService.CloseStoreAsync(initiator, ct);
+        if ((target.State & CreatureState.PrivateShop) != 0)
+            await _privateStoreService.CloseStoreAsync(target, ct);
 
         _exchangeService.Start(initiator, target);
 

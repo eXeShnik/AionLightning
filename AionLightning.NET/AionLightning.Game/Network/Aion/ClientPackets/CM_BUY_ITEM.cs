@@ -22,6 +22,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
     private readonly GameWorld                _world;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly RepurchaseService        _repurchaseService;
+    private readonly PrivateStoreService      _privateStoreService;
 
     private int _sellerObjectId;
     private int _tradeActionId;
@@ -29,14 +30,16 @@ public sealed class CM_BUY_ITEM : AionClientPacket
     private bool _invalid;
 
     public CM_BUY_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
-        GameWorld world, PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService)
+        GameWorld world, PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
+        PrivateStoreService privateStoreService)
     {
-        _conn              = conn;
-        _itemDao           = itemDao;
-        _dataManager       = dataManager;
-        _world             = world;
-        _connRegistry      = connRegistry;
-        _repurchaseService = repurchaseService;
+        _conn                = conn;
+        _itemDao             = itemDao;
+        _dataManager         = dataManager;
+        _world               = world;
+        _connRegistry        = connRegistry;
+        _repurchaseService   = repurchaseService;
+        _privateStoreService = privateStoreService;
     }
 
     public override void Read(ref PacketReader r)
@@ -291,125 +294,6 @@ public sealed class CM_BUY_ITEM : AionClientPacket
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(itemsAdded), ct);
     }
 
-    private async ValueTask BuyFromPrivateStoreAsync(Player buyer, CancellationToken ct)
-    {
-        var seller = _world.GetPlayerByObjectId(_sellerObjectId);
-        if (seller?.StoreItems is null) return;
-        if ((seller.State & CreatureState.PrivateShop) == 0) return;
-
-        // Match each requested itemId to a store listing; validate stock
-        var plan = new List<(PrivateStoreItem StoreItem, long Count, long LineCost)>();
-        foreach (var (itemId, count) in _tradeEntries)
-        {
-            var si = seller.StoreItems.FirstOrDefault(s => s.ItemId == itemId);
-            if (si is null || si.Count < count) return;
-            plan.Add((si, count, (long)si.Price * count));
-        }
-        if (plan.Count == 0) return;
-
-        long totalCost = plan.Sum(p => p.LineCost);
-
-        var buyerKinah = buyer.Inventory.FindByItemId(KinahItemId);
-        if ((buyerKinah?.Count ?? 0) < totalCost)
-        {
-            await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
-            return;
-        }
-
-        // Inventory space: count slots needed for items the buyer doesn't already have
-        int slotsNeeded = plan.Count(p => buyer.Inventory.FindByItemId(p.StoreItem.ItemId) is null
-                                          || (_dataManager.Items.GetTemplate(p.StoreItem.ItemId)?.MaxStackCount ?? 1) <= 1);
-        if (buyer.Inventory.BagSlotUsed + slotsNeeded > buyer.Inventory.Capacity)
-        {
-            await _conn.SendAsync(SM_SYSTEM_MESSAGE.InventoryFull(), ct);
-            return;
-        }
-
-        var buyerChanged  = new List<Item>();
-        var sellerChanged = new List<Item>();
-        var sellerDeleted = new List<long>();
-
-        foreach (var (si, qty, _) in plan)
-        {
-            // Decrease seller's actual item
-            var sellerItem = seller.Inventory.Get(si.UniqueId);
-            if (sellerItem is null) return;
-            sellerItem.Count -= qty;
-            if (sellerItem.Count <= 0)
-            {
-                seller.Inventory.Remove(sellerItem.UniqueId);
-                sellerDeleted.Add(sellerItem.UniqueId);
-                seller.StoreItems.RemoveAll(s => s.UniqueId == si.UniqueId);
-            }
-            else
-            {
-                sellerChanged.Add(sellerItem);
-                int idx = seller.StoreItems.FindIndex(s => s.UniqueId == si.UniqueId);
-                if (idx >= 0) seller.StoreItems[idx] = si with { Count = (int)sellerItem.Count };
-            }
-
-            // Add item to buyer
-            var template = _dataManager.Items.GetTemplate(si.ItemId);
-            var existing = buyer.Inventory.FindByItemId(si.ItemId);
-            if (existing is not null && (template?.MaxStackCount ?? 1) > 1)
-            {
-                existing.Count += qty;
-                buyerChanged.Add(existing);
-            }
-            else
-            {
-                long uid    = await _itemDao.NextUniqueIdAsync(ct);
-                var newItem = new Item { UniqueId = uid, ItemId = si.ItemId, Count = qty, Slot = -1 };
-                buyer.Inventory.Add(newItem);
-                buyerChanged.Add(newItem);
-            }
-        }
-
-        // Transfer kinah
-        buyerKinah!.Count -= totalCost;
-        var sellerKinah = seller.Inventory.FindByItemId(KinahItemId);
-        if (sellerKinah is null)
-        {
-            long uid = await _itemDao.NextUniqueIdAsync(ct);
-            sellerKinah = new Item { UniqueId = uid, ItemId = KinahItemId, Count = totalCost, Slot = -1 };
-            seller.Inventory.Add(sellerKinah);
-        }
-        else
-        {
-            sellerKinah.Count += totalCost;
-        }
-        sellerChanged.Add(sellerKinah);
-
-        // Persist both inventories
-        await _itemDao.SaveAllAsync(buyer.ObjectId,  buyer.Inventory.All,  ct);
-        await _itemDao.SaveAllAsync(seller.ObjectId, seller.Inventory.All, ct);
-
-        // Notify buyer
-        await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([buyerKinah]), ct);
-        if (buyerChanged.Count > 0)
-            await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(buyerChanged), ct);
-
-        // Notify seller
-        var sellerConn = _connRegistry.Get(seller.ObjectId);
-        if (sellerConn is not null)
-        {
-            foreach (var uid in sellerDeleted)
-                try { await sellerConn.SendAsync(new SM_DELETE_ITEM(uid), ct); } catch { }
-            if (sellerChanged.Count > 0)
-                try { await sellerConn.SendAsync(new SM_INVENTORY_ADD_ITEM(sellerChanged), ct); } catch { }
-        }
-
-        // Auto-close store when all items have sold
-        if (seller.StoreItems is { Count: 0 })
-        {
-            seller.StoreItems = null;
-            seller.StoreName  = string.Empty;
-            seller.State     &= ~CreatureState.PrivateShop;
-            var closeEmotion = new SM_EMOTION(seller, EmotionType.CLOSE_PRIVATESHOP);
-            int worldId = seller.Position.WorldId;
-            foreach (var conn in _connRegistry.GetAll())
-                if (conn.ActivePlayer?.Position.WorldId == worldId)
-                    try { await conn.SendAsync(closeEmotion, ct); } catch { }
-        }
-    }
+    private ValueTask BuyFromPrivateStoreAsync(Player buyer, CancellationToken ct)
+        => _privateStoreService.BuyFromStoreAsync(buyer, _sellerObjectId, _tradeEntries, ct);
 }

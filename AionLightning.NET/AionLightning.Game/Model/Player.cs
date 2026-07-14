@@ -11,6 +11,7 @@ using PetModel = AionLightning.Game.Model.Pet.Pet;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Skill;
 using AionLightning.Game.Model.Templates.FlyPath;
+using PrivateStoreModel = AionLightning.Game.Model.Trade.PrivateStore;
 
 namespace AionLightning.Game.Model;
 
@@ -363,9 +364,8 @@ public sealed class Player : Creature
     // Motion slots 1-5 (combat animation style); motionId 0 = none
     public Dictionary<byte, short> ActiveMotions { get; } = new();
 
-    // Private store — null when store is closed
-    public List<PrivateStoreItem>? StoreItems { get; set; }
-    public string StoreName { get; set; } = string.Empty;
+    // Private store — null when store is closed. Owned/mutated exclusively through PrivateStoreService.
+    public PrivateStoreModel? Store { get; set; }
 
     // Recoverable XP lost from death (soul sickness) — visible on XP bar as the "grey" portion.
     // Cleared as the player earns XP back. Capped at 25% of expNeeded-for-next-level.
