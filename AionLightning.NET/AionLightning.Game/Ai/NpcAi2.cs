@@ -21,14 +21,17 @@ public abstract class NpcAi2
     private static GameWorld? _world;
     private static IDataManager? _dataManager;
     private static DoorService? _doorService;
+    private static NpcShoutsService? _shoutsService;
 
     /// <summary>Wires the shared services once at boot (called from the AI-engine host).</summary>
-    public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager, DoorService doorService)
+    public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager,
+        DoorService doorService, NpcShoutsService shoutsService)
     {
-        _spawnService = spawnService;
-        _world        = world;
-        _dataManager  = dataManager;
-        _doorService  = doorService;
+        _spawnService  = spawnService;
+        _world         = world;
+        _dataManager   = dataManager;
+        _doorService   = doorService;
+        _shoutsService = shoutsService;
     }
 
     /// <summary>The NPC this AI drives; set by <see cref="AiEngine.Create"/> right after construction.</summary>
@@ -165,9 +168,10 @@ public abstract class NpcAi2
     /// is a placeholder so scripts compile against the eventual script-driven cast path.</summary>
     protected void UseSkill(int skillId, int skillLevel = 1) { }
 
-    /// <summary>note: NPC shout broadcasting lives in <see cref="NpcAiService"/> today (NpcShoutData
-    /// lookups); this is a placeholder for scripts that want to fire a shout directly.</summary>
-    protected void SendMsg(int msgId) { }
+    /// <summary>Broadcasts an NPC-chat message by string id to players near this AI's owner (Java
+    /// <c>NpcShoutsService.sendMsg(npc, msg)</c>). Backed by <see cref="Services.NpcShoutsService"/>;
+    /// a no-op if the owner isn't spawned or the service hasn't been wired yet.</summary>
+    protected void SendMsg(int msgId) => _shoutsService?.SendMsg(Owner, msgId);
 
     /// <summary>note: always true until leash/return-to-spawn state is exposed to scripts.</summary>
     protected bool IsHome() => true;
