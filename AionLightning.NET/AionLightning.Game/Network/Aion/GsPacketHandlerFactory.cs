@@ -73,6 +73,7 @@ public sealed class GsPacketHandlerFactory
     private readonly TeleportService         _teleport;
     private readonly PetService              _petService;
     private readonly PortalService           _portalService;
+    private readonly RiftService             _riftService;
     private readonly SiegeService            _siegeService;
     private readonly HousingService          _housingService;
     private readonly HouseController         _houseController;
@@ -145,6 +146,7 @@ public sealed class GsPacketHandlerFactory
         FallDamageService fallDamageService,
         TeleportService teleport,
         PortalService portalService,
+        RiftService riftService,
         PetService petService,
         SiegeService siegeService,
         HousingService housingService,
@@ -224,6 +226,7 @@ public sealed class GsPacketHandlerFactory
         _fallDamageService   = fallDamageService;
         _teleport            = teleport;
         _portalService       = portalService;
+        _riftService         = riftService;
         _petService          = petService;
         _siegeService        = siegeService;
         _housingService      = housingService;
@@ -323,7 +326,7 @@ public sealed class GsPacketHandlerFactory
                 0x113 => new CM_PLAY_MOVIE_END(conn, _questEngine),
                 0x114 => new CM_DIALOG_SELECT(conn, _world, _dataManager, _questDao, _itemDao, _playerDao, _mailDao, _skillLearn, _legionDao, _connRegistry, _repurchaseService, _questEngine, _questRewardService, _classChange, _loggerFactory.CreateLogger<CM_DIALOG_SELECT>()),
                 0x115 => new CM_LEGION_TABS(),
-                0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService, _privateStoreService),
+                0x116 => new CM_SHOW_DIALOG(conn, _world, _dataManager, _playerDao, _itemDao, _portalService, _riftService, _privateStoreService),
                 0x117 => new CM_CLOSE_DIALOG(conn, _world),
                 0x118 => new CM_SET_NOTE(conn, _playerDao, _socialDao, _connRegistry),
                 0x119 => new CM_LEGION_MODIFY_EMBLEM(conn, _legionService, _connRegistry),

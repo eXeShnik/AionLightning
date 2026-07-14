@@ -36,6 +36,8 @@ builder.Services
     .AddAionOptions<GeoDataOptions>("GameServer:GeoData")
     .AddAionOptions<SiegeOptions>("GameServer:Siege")
     .AddAionOptions<SiegeScheduleOptions>("GameServer:Siege:Schedule")
+    .AddAionOptions<RiftOptions>("GameServer:Rift")
+    .AddAionOptions<RiftScheduleOptions>("GameServer:Rift:Schedule")
     .AddAionOptions<HousingOptions>("GameServer:Housing")
     .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction")
     .AddAionOptions<DoorOptions>("GameServer:Doors")
@@ -164,6 +166,7 @@ builder.Services.AddSingleton<PetService>();
 builder.Services.AddSingleton<AionLightning.Game.Model.Siege.Influence>();
 builder.Services.AddSingleton<AionLightning.Game.Services.Siege.Assault.BalaurAssaultService>();
 builder.Services.AddSingleton<SiegeService>();
+builder.Services.AddSingleton<RiftService>();
 builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();
 builder.Services.AddSingleton<AionLightning.Game.Controllers.HouseController>();
@@ -205,6 +208,7 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 // Hosted services: schema migration first, then quest engine bootstrap, then server
 builder.Services.AddHostedService<SchemaMigrationHost>();
 builder.Services.AddHostedService<SiegeServiceHostedService>();
+builder.Services.AddHostedService<RiftServiceHostedService>();
 builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();

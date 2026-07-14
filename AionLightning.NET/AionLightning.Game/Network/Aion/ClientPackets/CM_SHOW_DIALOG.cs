@@ -19,13 +19,14 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
     private readonly IPlayerDao          _playerDao;
     private readonly IItemDao            _itemDao;
     private readonly PortalService       _portalService;
+    private readonly RiftService         _riftService;
     private readonly PrivateStoreService _privateStoreService;
 
     private int _targetObjectId;
 
     public CM_SHOW_DIALOG(GsClientConnection conn, GameWorld world,
         IDataManager dataManager, IPlayerDao playerDao, IItemDao itemDao, PortalService portalService,
-        PrivateStoreService privateStoreService)
+        RiftService riftService, PrivateStoreService privateStoreService)
     {
         _conn                = conn;
         _world               = world;
@@ -33,6 +34,7 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
         _playerDao           = playerDao;
         _itemDao             = itemDao;
         _portalService       = portalService;
+        _riftService         = riftService;
         _privateStoreService = privateStoreService;
     }
 
@@ -60,6 +62,11 @@ public sealed class CM_SHOW_DIALOG : AionClientPacket
         // Portal NPC: instantly teleport without dialog (routes through PortalService, which also
         // handles instance allocation/re-entry when the destination is an instanced world).
         if (await _portalService.UsePortalAsync(player, npc, ct)) return;
+
+        // Rift invasion portal NPC (master or slave of a currently-open RiftService rift): teleport
+        // through on interact, or silently no-op on the slave/arrival side. See
+        // RiftService.TryUseRiftPortalAsync's doc comment for why there's no confirmation dialog here.
+        if (await _riftService.TryUseRiftPortalAsync(player, npc, ct)) return;
 
         if (string.Equals(npc.Template.NpcType, "BINDSTONE", StringComparison.OrdinalIgnoreCase))
         {

@@ -40,4 +40,6 @@ public interface IDataManager
     SiegeLocationData               Sieges        { get; }
     SiegeSpawnData                   SiegeSpawns   { get; }
     StaticDoorData                   StaticDoors   { get; }
+    RiftData                         Rifts         { get; }
+    RiftSpawnData                    RiftSpawns    { get; }
 }

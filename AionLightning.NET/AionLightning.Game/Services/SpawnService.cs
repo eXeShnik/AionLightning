@@ -178,9 +178,11 @@ public sealed class SpawnService
         });
     }
 
-    /// <summary>Spawns an NPC at an arbitrary position (e.g. from a GM command).</summary>
-    public Npc SpawnNpcAt(Model.Templates.Npc.NpcTemplate template, Position position)
-        => SpawnNpc(template, position);
+    /// <summary>Spawns an NPC at an arbitrary position (e.g. from a GM command, or a rift/siege
+    /// portal/guard spawn point). <paramref name="respawnTime"/> defaults to 0 (generic default-delay
+    /// respawn on death); pass a data-driven value for NPCs that carry their own respawn_time.</summary>
+    public Npc SpawnNpcAt(Model.Templates.Npc.NpcTemplate template, Position position, int respawnTime = 0)
+        => SpawnNpc(template, position, respawnTime);
 
     /// <summary>
     /// Java SpawnEngine/VisibleObjectSpawner.spawnSiegeNpc — spawns a single siege-tagged NPC from a
