@@ -3809,7 +3809,21 @@ Priority order chosen for player-visible impact per unit of work:
       world lifecycle (create/destroy per group), then port 4.6 core instances one by one.
 - [ ] **C6: Flight** — fly state is internal-only; wire SM_EMOTION/SM_STATS fly speed, FP drain on
       flight, no-fly zones.
-- [ ] **C7: Sieges, housing, pets, mail completion** — after C1–C6.
+- [~] **C7: Sieges, housing, pets, mail completion** — pets DONE; siege + housing substantially
+      ported 2026-07-14 (all COMPILED + build-green, gated behind default-off `GameServer:Siege:Enable`
+      / `GameServer:Housing:Enable` so the byte-verified login flow is untouched):
+      - Shared enablers: `CronService` (Quartz) + `SystemMailService`/`MailFormatter`.
+      - **Siege P1** (Model/Siege/** + SiegeLocationData(75 locs) + ISiegeDao + V38 + SiegeService
+        skeleton + 7 SM_* packets) and **P2** (Services/Siege/** lifecycle: start→boss/timer→capture→
+        reward mail+AP→persist; boss death/damage via real DeathEvent/DamageDealtEvent bus; cron starts).
+        OWED: P0 spawn engine (SiegeSpawnTemplate/siege_spawns/SiegeZone — SpawnNpcs stubbed), P4 balaur
+        assault, P5 rifts/outposts/login-zone gating.
+      - **Housing P1** (HousingService owner-info + SM_HOUSE_OWNER_INFO/ACQUIRE), **P6** (HousingBidService
+        auction + IHouseBidsDao + V39 + SM_HOUSE_BIDS/RECEIVE_BIDS + CM bid handlers), **P7** (MaintenanceTask
+        rent sweep + CM/SM_HOUSE_PAY_RENT; weeks-until-due now real). OWED: P2 world spawn/render
+        (HouseController), P3 objects/decor, P4 teleport/settings/door, P5 house scripts, P8 admin.
+      - All new SM_* opcodes are 4.5-era guesses (`// TODO: verify opcode vs live 4.6 client`) — the
+        Enable gate keeps them off until a live-client capture confirms them.
 
 Testing convention going forward: every phase gets verified against the real client before the
 next phase starts (lesson from the login investigation: byte-level correctness is provable, but
