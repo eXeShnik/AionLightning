@@ -2,9 +2,6 @@
 // Start at Yannis (799069); turn-in at Yulia (798928). Progress is a dredgion-run counter on var1
 // (0->6, one per dredgion completion) plus a kill counter on var2 (0->15, mobs 281866/216866).
 // Quest opens the turn-in dialog only once var1==6 && var2==15.
-// note: dredgion scoring subsystem isn't ported yet, so QuestEngine.OnDredgionRewardAsync never
-// fires — OnDredgionRewardAsync below compiles and registers but is currently unreachable; var1 can
-// therefore not advance until dredgion scoring lands. Ported faithfully regardless.
 // note: Java's repeat guard qs.canRepeat() (daily-reset re-entry) is dropped — no QuestEntry.CanRepeat
 // exists in this codebase yet (same omission as every other repeatable quest already ported, e.g.
 // chantra_dredgion's _3722MyNewToy).
@@ -107,8 +104,7 @@ public sealed class _3725MyLuckyNumber : QuestHandlerBase
 
     public override async ValueTask<bool> OnDredgionRewardAsync(QuestEnv env, int rank, GsClientConnection conn, CancellationToken ct)
     {
-        // note: unreachable until dredgion scoring is ported (see class header). Java ignores the
-        // dredgion result rank here — any completion advances the var1 counter (0..6).
+        // Java ignores the dredgion result rank here — any completion advances the var1 counter (0..6).
         var entry = env.Player.Quests.Get(QuestId);
         if (entry is null || entry.Status != QuestStatus.START) return false;
 

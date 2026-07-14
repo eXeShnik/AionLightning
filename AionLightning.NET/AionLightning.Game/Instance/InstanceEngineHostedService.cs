@@ -3,6 +3,7 @@ using AionLightning.Game.DataHolders;
 using AionLightning.Game.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 using GameWorld = AionLightning.Game.World.World;
 
 namespace AionLightning.Game.Instance;
@@ -13,7 +14,8 @@ namespace AionLightning.Game.Instance;
 /// subclass carrying an <see cref="InstanceIdAttribute"/> as the handler factory for its map — the
 /// exact mirror of <c>QuestEngineHostedService.LoadHandWrittenScripts</c>. Handler scripts use a
 /// parameterless constructor (Java <c>newInstance()</c>); they reach game services through the
-/// static injection wired here via <see cref="GeneralInstanceHandler.InitServices"/>.
+/// static injection wired here via <see cref="GeneralInstanceHandler.InitServices"/> and
+/// <see cref="GeneralInstanceHandler.InitQuestEngine"/>.
 /// </summary>
 public sealed class InstanceEngineHostedService(
     InstanceEngine engine,
@@ -21,12 +23,16 @@ public sealed class InstanceEngineHostedService(
     GameWorld world,
     IDataManager dataManager,
     DoorService doorService,
+    QuestEngineType questEngine,
+    PlayerConnectionRegistry connRegistry,
+    TeleportService teleportService,
     CSharpCompilerService compiler,
     ILogger<InstanceEngineHostedService> log) : IHostedService
 {
     public Task StartAsync(CancellationToken ct)
     {
         GeneralInstanceHandler.InitServices(spawnService, world, dataManager, doorService);
+        GeneralInstanceHandler.InitQuestEngine(questEngine, connRegistry, teleportService);
 
         string scriptsFolder = Path.Combine(AppContext.BaseDirectory, "Scripts", "instance");
         if (!Directory.Exists(scriptsFolder))

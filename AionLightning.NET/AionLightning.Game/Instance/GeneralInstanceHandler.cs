@@ -1,6 +1,8 @@
+using AionLightning.Commons.Network;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Model;
 using AionLightning.Game.Services;
+using QuestEngineType = AionLightning.Game.QuestEngine.QuestEngine;
 using GameWorld = AionLightning.Game.World.World;
 using WorldMapInstanceType = AionLightning.Game.World.WorldMapInstance;
 
@@ -19,6 +21,9 @@ public abstract class GeneralInstanceHandler : IInstanceHandler
     private static GameWorld? _world;
     private static IDataManager? _dataManager;
     private static DoorService? _doorService;
+    private static QuestEngineType? _questEngine;
+    private static PlayerConnectionRegistry? _connRegistry;
+    private static TeleportService? _teleportService;
 
     /// <summary>Wires the shared services once at boot (called from the instance-engine host).</summary>
     public static void InitServices(SpawnService spawnService, GameWorld world, IDataManager dataManager, DoorService doorService)
@@ -27,6 +32,19 @@ public abstract class GeneralInstanceHandler : IInstanceHandler
         _world        = world;
         _dataManager  = dataManager;
         _doorService  = doorService;
+    }
+
+    /// <summary>
+    /// Wires the quest-hook dispatch path once at boot (called from the instance-engine host,
+    /// separate from <see cref="InitServices"/> so a script only needs it — like Dredgion — pulls
+    /// in the quest engine and per-player connection lookup it needs to fire
+    /// <c>QuestEngine.OnDredgionRewardAsync</c> and evict players on completion.
+    /// </summary>
+    public static void InitQuestEngine(QuestEngineType questEngine, PlayerConnectionRegistry connRegistry, TeleportService teleportService)
+    {
+        _questEngine     = questEngine;
+        _connRegistry    = connRegistry;
+        _teleportService = teleportService;
     }
 
     /// <summary>The channel this handler drives; set by the engine before <see cref="OnInstanceCreate"/>.</summary>
@@ -61,6 +79,43 @@ public abstract class GeneralInstanceHandler : IInstanceHandler
         if (_doorService is null) return false;
         var scope = new Position(0, 0, 0, 0, Instance.WorldId, Instance.InstanceId);
         return _doorService.SetDoorState(scope, staticId, open);
+    }
+
+    /// <summary>Every online player currently inside this channel (Java <c>instance.getPlayersInside()</c>).</summary>
+    protected IEnumerable<Player> PlayersInside
+        => _world?.GetPlayersInScope(new Position(0, 0, 0, 0, Instance.WorldId, Instance.InstanceId)) ?? [];
+
+    /// <summary>Every NPC currently alive inside this channel (Java <c>instance.getNpcs()</c>).</summary>
+    protected IEnumerable<Npc> NpcsInScope
+        => _world?.GetNpcsInScope(new Position(0, 0, 0, 0, Instance.WorldId, Instance.InstanceId)) ?? [];
+
+    /// <summary>Sends a packet to every player currently inside this channel (Java
+    /// <c>instance.doOnAllPlayers(new Visitor...)</c> + <c>PacketSendUtility.sendPacket</c>).</summary>
+    protected void BroadcastToInstance(AionServerPacket packet)
+    {
+        if (_connRegistry is null) return;
+        var scope = new Position(0, 0, 0, 0, Instance.WorldId, Instance.InstanceId);
+        foreach (var conn in _connRegistry.GetAll())
+            if (conn.ActivePlayer is { } p && p.Position.SameScope(scope))
+                _ = conn.SendAsync(packet);
+    }
+
+    /// <summary>Evicts a player to their race's instance-exit location (Java
+    /// <c>TeleportService2.moveToInstanceExit</c>). No-op if the teleport service isn't wired.</summary>
+    protected ValueTask MoveToInstanceExitAsync(Player player, CancellationToken ct)
+        => _teleportService?.MoveToInstanceExitAsync(player, ct) ?? ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Fires the dredgion-reward quest hook for one player (Java
+    /// <c>QuestEngine.getInstance().onDredgionReward(env)</c>). No-op if the quest engine isn't
+    /// wired or the player has no live connection.
+    /// </summary>
+    protected async ValueTask FireOnDredgionRewardAsync(Player player, int rank, CancellationToken ct)
+    {
+        if (_questEngine is null || _connRegistry is null) return;
+        var conn = _connRegistry.Get(player.ObjectId);
+        if (conn is null) return;
+        await _questEngine.OnDredgionRewardAsync(player, rank, conn, ct);
     }
 
     // --- No-op default hooks (scripts override what they need) ---

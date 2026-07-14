@@ -225,15 +225,15 @@ public sealed class QuestEngine
         if (!quests.Contains(questId)) quests.Add(questId);
     }
 
-    /// <summary>Registers a quest for the dredgion-reward hook (Java registerOnDredgionReward). NOTE: the
-    /// dredgion scoring subsystem is not ported, so this hook never fires — the quest is migrated but
-    /// currently unreachable.</summary>
+    /// <summary>Registers a quest for the dredgion-reward hook (Java registerOnDredgionReward).</summary>
     public void RegisterOnDredgionReward(int questId)
     {
         if (!_dredgionRewardIndex.Contains(questId)) _dredgionRewardIndex.Add(questId);
     }
 
-    /// <summary>Dispatches the dredgion-reward hook (Java onDredgionRewardEvent). No firing site yet.</summary>
+    /// <summary>Dispatches the dredgion-reward hook (Java onDredgionRewardEvent). Fired from
+    /// <c>Scripts/instance/DredgionInstance2.cs</c>'s doReward() port when a dredgion run completes
+    /// (rank is always 0 — Java discards the reward rank on the quest side).</summary>
     public async ValueTask OnDredgionRewardAsync(Player player, int rank, GsClientConnection conn, CancellationToken ct)
     {
         try

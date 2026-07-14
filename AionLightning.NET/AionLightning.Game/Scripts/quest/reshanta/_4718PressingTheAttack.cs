@@ -3,9 +3,6 @@
 // intro relay (0 -> SETPRO1 -> 1). var1 is a dredgion-run counter (0->3, one per dredgion completion);
 // var2 is a kill counter (0->8, mob 214814). Turn-in opens once var1==3 && var2==8; SELECT_QUEST_REWARD
 // then flips var0 1->1 straight to REWARD.
-// note: dredgion scoring subsystem isn't ported yet, so QuestEngine.OnDredgionRewardAsync never
-// fires — OnDredgionRewardAsync below compiles and registers but is currently unreachable; var1 can
-// therefore not advance until dredgion scoring lands. Ported faithfully regardless.
 using System.Threading;
 using System.Threading.Tasks;
 using AionLightning.Game.Dao;
@@ -108,8 +105,7 @@ public sealed class _4718PressingTheAttack : QuestHandlerBase
 
     public override async ValueTask<bool> OnDredgionRewardAsync(QuestEnv env, int rank, GsClientConnection conn, CancellationToken ct)
     {
-        // note: unreachable until dredgion scoring is ported (see class header). Java ignores the
-        // dredgion result rank here — any completion advances the var1 counter (0..3).
+        // Java ignores the dredgion result rank here — any completion advances the var1 counter (0..3).
         var entry = env.Player.Quests.Get(QuestId);
         if (entry is null || entry.Status != QuestStatus.START) return false;
 
