@@ -34,7 +34,8 @@ builder.Services
     .AddAionOptions<RateOptions>("GameServer:Rates")
     .AddAionOptions<GsOptions>("GameServer:Gs")
     .AddAionOptions<GeoDataOptions>("GameServer:GeoData")
-    .AddAionOptions<SiegeOptions>("GameServer:Siege");
+    .AddAionOptions<SiegeOptions>("GameServer:Siege")
+    .AddAionOptions<HousingOptions>("GameServer:Housing");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -144,6 +145,7 @@ builder.Services.AddSingleton<TeleportService>();
 builder.Services.AddSingleton<PortalService>();
 builder.Services.AddSingleton<PetService>();
 builder.Services.AddSingleton<SiegeService>();
+builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<FollowService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FollowService>());
 builder.Services.AddHostedService<EmptyInstanceCheckerService>();
@@ -171,6 +173,7 @@ builder.Services.AddSingleton<IConnectionFactory<GsClientConnection>, GsConnecti
 // Hosted services: schema migration first, then quest engine bootstrap, then server
 builder.Services.AddHostedService<SchemaMigrationHost>();
 builder.Services.AddHostedService<SiegeServiceHostedService>();
+builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Ai.AiEngineHostedService>();

@@ -1,4 +1,6 @@
 using AionLightning.Game.Model.Group;
+using HouseModel = AionLightning.Game.Model.House.House;
+using AionLightning.Game.Model.House;
 using AionLightning.Game.Model.Item;
 using LegionModel = AionLightning.Game.Model.Legion.Legion;
 using AionLightning.Game.Model.Pet;
@@ -51,6 +53,14 @@ public sealed class Player : Creature
 
     // Legion (guild) — null when not in a legion
     public LegionModel? Legion { get; set; }
+
+    // Housing P1 (Java Player.houses/getActiveHouse/buildingOwnerStates): populated by
+    // HousingService.OnPlayerLoginAsync at login (no lazy self-population via a static service lookup,
+    // unlike Java — this port has no static HousingService singleton to call back into).
+    public List<HouseModel> Houses { get; } = new();
+    public HouseModel? ActiveHouse => Houses.FirstOrDefault(h => h.Status is HouseStatus.Active or HouseStatus.SellWait);
+    public byte BuildingOwnerState { get; set; }
+    public bool IsBuildingInState(PlayerHouseOwnerFlags flag) => (BuildingOwnerState & (byte)flag) != 0;
 
     // Bind point (Obelisk) — null means no bind, CM_REVIVE stays in place
     public Position? BindPosition { get; set; }

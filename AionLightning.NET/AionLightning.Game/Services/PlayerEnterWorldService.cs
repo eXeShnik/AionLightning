@@ -34,6 +34,7 @@ public sealed class PlayerEnterWorldService
     private readonly QuestEngineType          _questEngine;
     private readonly SkillLearnService        _skillLearn;
     private readonly SiegeService             _siegeService;
+    private readonly HousingService           _housingService;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -57,7 +58,8 @@ public sealed class PlayerEnterWorldService
         QuestEngineType questEngine,
         SkillLearnService skillLearn,
         PetService petService,
-        SiegeService siegeService)
+        SiegeService siegeService,
+        HousingService housingService)
     {
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
@@ -81,6 +83,7 @@ public sealed class PlayerEnterWorldService
         _skillLearn    = skillLearn;
         _petService    = petService;
         _siegeService  = siegeService;
+        _housingService = housingService;
     }
 
     public async ValueTask EnterWorldAsync(GsClientConnection conn, int objectId, CancellationToken ct)
@@ -516,5 +519,6 @@ public sealed class PlayerEnterWorldService
         }
 
         await _siegeService.OnPlayerLoginAsync(player, conn, ct);
+        await _housingService.OnPlayerLoginAsync(player, conn, ct);
     }
 }

@@ -5289,3 +5289,20 @@ onBonusApply, + helpers IsQuestActive/IsFullSpecialCube/SetPlayerClass/Player.Ma
 NON-QUEST work still outstanding for a "fully working" server (NOT quest-blocking): dredgion scoring,
 event-bonus system, mount system, class-change skill-refresh, Housing bidding/registry, sieges, full
 ai2 (455 scripts), geodata (data-blocked). Plus the LIVE client gate on the wire formats built this session.
+
+## Housing P1 (owner-info-at-login + ownership core) DONE (2026-07-14)
+Built on the 2026-07-13 Housing foundation (Model/Templates/Housing, HousingData, Model/House/House,
+Sql V37 houses, IHouseDao/HouseDaoImpl — all pre-existing; V37 already matches HouseDaoImpl's schema
+exactly, so no new SQL migration was needed here). Added: Model/House/PlayerHouseOwnerFlags (login
+owner-status bit flags), Player.Houses/ActiveHouse/BuildingOwnerState/IsBuildingInState (populated by
+the service, not lazily self-fetched via a static singleton like Java), HousingService (load-all-at-
+startup into address-keyed customHouses / owner-keyed studios maps by building type, SearchPlayerHouses,
+GetPlayerAddress, GetHouseByAddress, GetPlayerStudio, OnPlayerLoginAsync), HousingServiceHostedService,
+SM_HOUSE_OWNER_INFO (0x107) + SM_HOUSE_ACQUIRE (0x113, ported but not yet called — acquisition flow is
+P2/bidding). Wired into PlayerEnterWorldService after SiegeService.OnPlayerLoginAsync. Gated behind new
+HousingOptions.Enable (GameServer:Housing:Enable, default false) mirroring SiegeOptions exactly — data/
+maps/owner-flags always compute, but SM_HOUSE_OWNER_INFO is only sent once the opcode is live-verified.
+Approximated for P1 (both hardcoded rather than computed, since neither subsystem is ported yet):
+town level always 1 (no TownService), maintenance weeks-until-due always 0 (no MaintenanceTask/cron).
+Full solution builds clean. Still deferred: bidding/registry, MaintenanceTask cron, HouseRegistry/
+furniture, teleport-into-house, studio spawn, CM_HOUSE_* handler wiring.
