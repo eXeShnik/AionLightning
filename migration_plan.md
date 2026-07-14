@@ -3803,12 +3803,16 @@ Priority order chosen for player-visible impact per unit of work:
       duplicated (churatwinblade/debilkarimthemaker) — faithful to Java 4.6 (same @AIName in
       lowerUdasTemple + udasTempleLower); Register is last-wins like Java. Probe: `qprobe_ai`
       against `Scripts/ai`.
-- [ ] **C4: Geodata** — port geoEngine (43 files) or integrate a minimal Z-lookup + LoS service;
-      prerequisite for correct ranged combat, pathing, and fall damage.
-- [ ] **C5: Instances** — portal/entry flow exists (PortalData, InstanceExitData); add instance
-      world lifecycle (create/destroy per group), then port 4.6 core instances one by one.
-- [ ] **C6: Flight** — fly state is internal-only; wire SM_EMOTION/SM_STATS fly speed, FP drain on
-      flight, no-fly zones.
+- [ ] **C4: Geodata** — geoEngine (~27 files) already ported; DATA-BLOCKED (zero `.geo`/`meshs.geo`
+      files in repo — needs external client geo assets). Runs on DummyGeoService. The ONLY remaining
+      major subsystem, and it is unblockable from repo contents alone.
+- [x] **C5: Instances** — DONE (InstanceService full-fidelity: (WorldId,InstanceId) scoping, WorldMapInstance/
+      InstanceRegistry, TeleportService, scriptable Instance/ engine, portal/entry flow).
+- [x] **C6: Flight** — DONE 2026-07-14: FlyController state machine (FlyState 0/1/2 + 10s FLY_REUSE),
+      FLY-zone/no-fly gating in CM_EMOTION (ZoneType enum + zone_type parse), FP realigned to Java 2s
+      cadence, fall damage (FallDamageService, through the canonical death path), flight teleport
+      (FlyPathData + TeleportService FLIGHT branch + onFlyTeleportEnd). See
+      memory project-flight-and-tier-complete.
 - [~] **C7: Sieges, housing, pets, mail completion** — pets DONE; siege + housing substantially
       ported 2026-07-14 (all COMPILED + build-green, gated behind default-off `GameServer:Siege:Enable`
       / `GameServer:Housing:Enable` so the byte-verified login flow is untouched):
