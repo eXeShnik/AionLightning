@@ -121,6 +121,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_FLYING_FORBIDDEN_HERE — "You cannot fly here." (msg code 1300960)
     public static SM_SYSTEM_MESSAGE FlyingForbiddenHere() => new(1300960);
 
+    // STR_CANNOT_MOVE_TO_AIRPORT_NO_ROUTE — "There is no route to this airport." (msg code 1300691)
+    public static SM_SYSTEM_MESSAGE CannotMoveToAirportNoRoute() => new(1300691);
+
     // STR_CANT_FLY_NOW_DUE_TO_NOFLY — "You cannot fly due to a No Fly effect." (msg code 1301032)
     public static SM_SYSTEM_MESSAGE CantFlyDueToNoFly() => new(1301032);
 

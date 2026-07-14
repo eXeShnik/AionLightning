@@ -42,9 +42,11 @@ public sealed class FlyController(PlayerConnectionRegistry connRegistry)
     }
 
     /// <summary>
-    /// Java FlyController.endFly — ends both flying and gliding. Called from CM_EMOTION's LAND /
-    /// LAND_FLYTELEPORT case (forceEndFly=false) and from RegenService's 0-FP force-land path
-    /// (forceEndFly=true).
+    /// Java FlyController.endFly — ends both flying and gliding. Called from CM_EMOTION's LAND case
+    /// (forceEndFly=false) and from RegenService's 0-FP force-land path (forceEndFly=true).
+    /// note: LAND_FLYTELEPORT is a distinct emotion in Java — it calls
+    /// <c>PlayerController.onFlyTeleportEnd</c> instead (ported as
+    /// <see cref="Services.TeleportService.OnFlyTeleportEndAsync"/>), not this method.
     /// </summary>
     public async ValueTask EndFlyAsync(Player player, bool forceEndFly, GsClientConnection conn, CancellationToken ct)
     {

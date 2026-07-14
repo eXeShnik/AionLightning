@@ -35,6 +35,7 @@ public sealed class DataManager : IDataManager
     public PetData                        Pets          { get; } = new();
     public PetFeedData                    PetFeed       { get; } = new();
     public FlyRingData                    FlyRings      { get; } = new();
+    public FlyPathData                    FlyPaths      { get; } = new();
     public HousingData                    Housing       { get; } = new();
     public HousePartsData                  HouseParts    { get; } = new();
     public HousingObjectData               HousingObjects { get; } = new();
@@ -78,6 +79,7 @@ public sealed class DataManager : IDataManager
         Pets.Load(dataRoot, log);
         PetFeed.Load(dataRoot, log);
         FlyRings.Load(dataRoot, log);
+        FlyPaths.Load(dataRoot, log);
         Housing.Load(dataRoot, log);
         HouseParts.Load(dataRoot, log);
         HousingObjects.Load(dataRoot, log);

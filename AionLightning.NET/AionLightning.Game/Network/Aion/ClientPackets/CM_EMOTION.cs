@@ -13,6 +13,7 @@ public sealed class CM_EMOTION : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly FlyController _flyController;
     private readonly ZoneService _zoneService;
+    private readonly TeleportService _teleportService;
 
     private EmotionType _emotionType;
     private int _emotion;
@@ -21,12 +22,13 @@ public sealed class CM_EMOTION : AionClientPacket
     private byte _heading;
 
     public CM_EMOTION(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
-        FlyController flyController, ZoneService zoneService)
+        FlyController flyController, ZoneService zoneService, TeleportService teleportService)
     {
-        _conn           = conn;
-        _connRegistry   = connRegistry;
-        _flyController  = flyController;
-        _zoneService    = zoneService;
+        _conn            = conn;
+        _connRegistry    = connRegistry;
+        _flyController   = flyController;
+        _zoneService     = zoneService;
+        _teleportService = teleportService;
     }
 
     public override void Read(ref PacketReader r)
@@ -79,8 +81,14 @@ public sealed class CM_EMOTION : AionClientPacket
                 break;
 
             case EmotionType.LAND:
-            case EmotionType.LAND_FLYTELEPORT:
                 await _flyController.EndFlyAsync(player, forceEndFly: false, _conn, ct);
+                break;
+
+            case EmotionType.LAND_FLYTELEPORT:
+                // Java: player.getController().onFlyTeleportEnd() — distinct from plain LAND. Clears
+                // FLIGHT_TELEPORT state, runs the arrival anti-bug validator, and refreshes zones; it does
+                // NOT call FlyController.endFly (the client is not "flying" in the FlyState sense here).
+                await _teleportService.OnFlyTeleportEndAsync(player, ct);
                 break;
 
             case EmotionType.WALK:

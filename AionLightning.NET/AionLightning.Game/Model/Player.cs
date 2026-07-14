@@ -7,6 +7,7 @@ using AionLightning.Game.Model.Pet;
 using PetModel = AionLightning.Game.Model.Pet.Pet;
 using AionLightning.Game.Model.Quest;
 using AionLightning.Game.Model.Skill;
+using AionLightning.Game.Model.Templates.FlyPath;
 
 namespace AionLightning.Game.Model;
 
@@ -33,6 +34,21 @@ public sealed class Player : Creature
     public long FlyReuseTime { get; set; }
     // Java Player.isUnderNoFly() — true while a NOFLY debuff (the <nofly> skill element) is active.
     public bool UnderNoFly => (ActiveCcFlags & AbnormalCcFlags.NoFly) != 0;
+
+    // Java Player.flightTeleportId — nonzero while actively gliding a flight-master route (set by
+    // TeleportService.FlyTeleportAsync, cleared by TeleportService.OnFlyTeleportEndAsync).
+    public int FlightTeleportId { get; set; }
+    // Java Player.flyLocationId (get/setCurrentFlypath) — the active flypath template, consulted by the
+    // arrival-side anti-bug validator. Null when not mid flight-master teleport.
+    public FlyPathEntry? CurrentFlyPath { get; set; }
+    // Java Player.flyStartTime — unix-ms timestamp stamped when CurrentFlyPath is assigned; used to
+    // detect a too-fast arrival (skip-ahead hack) in the anti-bug validator.
+    public long FlyStartTime { get; set; }
+    // Java Player.flightDistance — distance-along-path reported by the client's CM_MOVE_IN_AIR packets
+    // during the glide; echoed back in SM_PLAYER_INFO while IsUsingFlyTeleport is true.
+    public int FlightDistance { get; set; }
+    // Java Player.isUsingFlyTeleport() — true while genuinely mid flight-master glide.
+    public bool IsUsingFlyTeleport => State.HasFlag(CreatureState.FlightTeleport) && FlightTeleportId != 0;
     public PlayerAppearance Appearance { get; set; } = new();
     public PlayerSkillList  Skills          { get; } = new();
     public PlayerInventory  Inventory       { get; } = new();

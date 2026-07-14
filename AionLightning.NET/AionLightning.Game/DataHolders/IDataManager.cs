@@ -33,6 +33,7 @@ public interface IDataManager
     PetData                        Pets          { get; }
     PetFeedData                    PetFeed       { get; }
     FlyRingData                    FlyRings      { get; }
+    FlyPathData                    FlyPaths      { get; }
     HousingData                    Housing       { get; }
     HousePartsData                  HouseParts    { get; }
     HousingObjectData               HousingObjects { get; }

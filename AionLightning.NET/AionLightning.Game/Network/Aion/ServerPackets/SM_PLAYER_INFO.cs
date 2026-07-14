@@ -160,6 +160,14 @@ public sealed class SM_PLAYER_INFO : AionServerPacket
         w.WriteF(p.Position.Z);
         w.WriteC(0x00);         // move type stop
 
+        if (p.IsUsingFlyTeleport)
+        {
+            w.WriteD(p.FlightTeleportId);
+            w.WriteD(p.FlightDistance);
+        }
+        // note: Java's else-if windstream branch (writes windstreamPath.teleportId/distance) is not
+        // ported — no windstream player-mode/state exists in this port yet.
+
         w.WriteC(0);            // visual state
         w.WriteS(string.Empty); // player note
 
