@@ -47,6 +47,7 @@ public sealed class DataManager : IDataManager
     public BaseData                        Bases         { get; } = new();
     public BaseSpawnData                   BaseSpawns    { get; } = new();
     public WeatherData                     Weather       { get; } = new();
+    public AutoGroupData                   AutoGroups    { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -96,6 +97,7 @@ public sealed class DataManager : IDataManager
         Bases.Load(dataRoot, log);
         BaseSpawns.Load(dataRoot, log);
         Weather.Load(dataRoot, log);
+        AutoGroups.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

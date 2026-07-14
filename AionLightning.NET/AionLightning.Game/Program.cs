@@ -47,7 +47,8 @@ builder.Services
     .AddAionOptions<TownOptions>("GameServer:Town")
     .AddAionOptions<WeatherOptions>("GameServer:Weather")
     .AddAionOptions<NameOptions>("GameServer:Name")
-    .AddAionOptions<WeddingOptions>("GameServer:Wedding");
+    .AddAionOptions<WeddingOptions>("GameServer:Wedding")
+    .AddAionOptions<AutoGroupOptions>("GameServer:AutoGroup");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -75,6 +76,8 @@ builder.Services.AddTransient<IEventHandler<DeathEvent>, SiegeBossDeathHandler>(
 builder.Services.AddTransient<IEventHandler<DeathEvent>, BaseBossDeathHandler>(); // base boss death captures the outpost
 // Phase 5 Batch 0: bridges CM_LEVEL_READY's PlayerEnteredWorldEvent into QuestEngine.OnEnterWorldAsync
 builder.Services.AddTransient<IEventHandler<PlayerEnteredWorldEvent>, QuestEnterWorldHandler>();
+// AutoGroupService queue/pending-enter cleanup — forward-compatible; PlayerLeftWorldEvent has no publisher yet (see handler doc)
+builder.Services.AddTransient<IEventHandler<PlayerLeftWorldEvent>, AutoGroupLogoutHandler>();
 // M265+: pre-damage handlers (mutate MutableDamage to absorb)
 builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, SanctuaryHandler>(); // sanctuary first — full immunity short-circuits everything else
 builder.Services.AddTransient<IEventHandler<DamageReceivingEvent>, AlwaysResistHandler>(); // M276 — magic-only immunity, runs before partial-absorb handlers
@@ -173,6 +176,7 @@ builder.Services.AddSingleton<AionLightning.Game.Ai.AiEngine>();
 builder.Services.AddSingleton<InstanceService>();
 builder.Services.AddSingleton<TeleportService>();
 builder.Services.AddSingleton<PortalService>();
+builder.Services.AddSingleton<AutoGroupService>();
 builder.Services.AddSingleton<PetService>();
 builder.Services.AddSingleton<AionLightning.Game.Model.Siege.Influence>();
 builder.Services.AddSingleton<AionLightning.Game.Services.Siege.Assault.BalaurAssaultService>();

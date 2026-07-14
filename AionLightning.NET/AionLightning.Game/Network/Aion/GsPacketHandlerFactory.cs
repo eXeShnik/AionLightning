@@ -85,6 +85,8 @@ public sealed class GsPacketHandlerFactory
     private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
     private readonly IHouseDao                _houseDao;
     private readonly InstanceService          _instanceService;
+    private readonly AutoGroupService          _autoGroupService;
+    private readonly IOptions<AutoGroupOptions> _autoGroupOptions;
     private readonly IPlayerRegisteredItemsDao _playerRegisteredItemsDao;
     private readonly IHouseObjectCooldownsDao  _houseObjectCooldownsDao;
     private readonly IHouseScriptsDao          _houseScriptsDao;
@@ -164,6 +166,8 @@ public sealed class GsPacketHandlerFactory
         IOptions<HousingAuctionOptions> housingAuctionOptions,
         IHouseDao houseDao,
         InstanceService instanceService,
+        AutoGroupService autoGroupService,
+        IOptions<AutoGroupOptions> autoGroupOptions,
         IPlayerRegisteredItemsDao playerRegisteredItemsDao,
         IHouseObjectCooldownsDao houseObjectCooldownsDao,
         IHouseScriptsDao houseScriptsDao,
@@ -252,6 +256,8 @@ public sealed class GsPacketHandlerFactory
         _housingAuctionOptions = housingAuctionOptions;
         _houseDao              = houseDao;
         _instanceService       = instanceService;
+        _autoGroupService      = autoGroupService;
+        _autoGroupOptions      = autoGroupOptions;
     }
 
     public AionClientPacket? Resolve(ushort opcode, GsClientConnection.AionState state, GsClientConnection conn)
@@ -396,7 +402,7 @@ public sealed class GsPacketHandlerFactory
                 0x167 => new CM_APPEARANCE(conn, _connRegistry, _itemDao, _legionDao, _renameService),
                 0x168 => new CM_SUMMON_EMOTION(),
                 0x169 => new CM_SUMMON_ATTACK(conn, _world, _summonsService),
-                0x16A => new CM_AUTO_GROUP(),
+                0x16A => new CM_AUTO_GROUP(conn, _autoGroupService, _autoGroupOptions),
                 0x16B => new CM_SUMMON_MOVE(),
                 0x16C => new CM_FUSION_WEAPONS(conn, _armsfusionService),
                 0x16D => new CM_BREAK_WEAPONS(conn, _armsfusionService),

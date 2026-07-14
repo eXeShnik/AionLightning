@@ -351,4 +351,18 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE AbyssCarrierSpawn() => new(1301044);
     public static SM_SYSTEM_MESSAGE AbyssCarrierDropDragon() => new(1301042);
     public static SM_SYSTEM_MESSAGE AbyssDragonBossKilled() => new(1390199);
+
+    // AutoGroupService (Java network.aion.serverpackets.SM_SYSTEM_MESSAGE constants of the same names).
+    // "You cannot enter the selected Instanced Zone at your level." (msg code 1400179)
+    public static SM_SYSTEM_MESSAGE AutoGroupLevelRestricted() => new(1400179);
+    // "You have already applied to enter %WORLDNAME0." — Java's AutoGroupService passes the raw map id
+    // where the client-side string wants a world-name token; this port follows the same simplification
+    // already used elsewhere in this file (e.g. RollSelf) of just stringifying the int. (msg code 1400181)
+    public static SM_SYSTEM_MESSAGE AutoGroupAlreadyRegistered(int mapId) => new(1400181, mapId.ToString());
+    // "Only the force captain, vice captain or group leader can apply for group entry." (msg code 1400182)
+    public static SM_SYSTEM_MESSAGE AutoGroupNotLeader() => new(1400182);
+    // "%0 is not able to enter the Instanced Zone right now." (msg code 1400187)
+    public static SM_SYSTEM_MESSAGE AutoGroupMemberCantEnter(string name) => new(1400187, name);
+    // STR_MSG_INSTANCE_REGISTER_SUCCESS (msg code 1400194, no format params)
+    public static SM_SYSTEM_MESSAGE AutoGroupRegistrationSuccess() => new(1400194);
 }

@@ -45,4 +45,5 @@ public interface IDataManager
     BaseData                         Bases         { get; }
     BaseSpawnData                    BaseSpawns    { get; }
     WeatherData                      Weather       { get; }
+    AutoGroupData                    AutoGroups    { get; }
 }
