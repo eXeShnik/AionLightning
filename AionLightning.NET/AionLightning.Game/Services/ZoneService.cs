@@ -34,6 +34,20 @@ public sealed class ZoneService
     }
 
     /// <summary>
+    /// Java <c>Creature.isInsideZoneType(ZoneType)</c> port — true when any zone region the player is
+    /// currently tracked as inside (see <see cref="Player.CurrentZones"/>, kept up to date by
+    /// <see cref="UpdateZonesAsync"/>) is tagged with the given <see cref="ZoneType"/> in its zones.xml
+    /// zone_type attribute. Used by the CM_EMOTION flight gate and the RegenService FP-drain rate.
+    /// </summary>
+    public bool IsInsideZoneType(Player player, Model.Zone.ZoneType type)
+    {
+        foreach (var name in player.CurrentZones)
+            if (_dataManager.Zones.GetByName(name)?.ZoneType == type)
+                return true;
+        return false;
+    }
+
+    /// <summary>
     /// Recomputes the zone regions <paramref name="player"/> is now inside for their current world
     /// (point-in-polygon/cylinder/sphere membership, Java <c>ZoneInstance.isInsideCordinate</c>),
     /// diffs against <see cref="Player.CurrentZones"/>, and fires onEnterZone for newly-entered

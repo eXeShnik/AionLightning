@@ -73,6 +73,7 @@ public sealed class GsPacketHandlerFactory
     private readonly SiegeService            _siegeService;
     private readonly HousingService          _housingService;
     private readonly HouseController         _houseController;
+    private readonly FlyController           _flyController;
     private readonly HousingBidService       _housingBidService;
     private readonly IOptions<HousingOptions> _housingOptions;
     private readonly IOptions<HousingAuctionOptions> _housingAuctionOptions;
@@ -139,6 +140,7 @@ public sealed class GsPacketHandlerFactory
         SiegeService siegeService,
         HousingService housingService,
         HouseController houseController,
+        FlyController flyController,
         HousingBidService housingBidService,
         IOptions<HousingOptions> housingOptions,
         IOptions<HousingAuctionOptions> housingAuctionOptions,
@@ -208,6 +210,7 @@ public sealed class GsPacketHandlerFactory
         _siegeService        = siegeService;
         _housingService      = housingService;
         _houseController     = houseController;
+        _flyController       = flyController;
         _housingBidService   = housingBidService;
         _housingOptions      = housingOptions;
         _housingAuctionOptions = housingAuctionOptions;
@@ -261,7 +264,7 @@ public sealed class GsPacketHandlerFactory
                 0xC5  => new CM_CHAT_PLAYER_INFO(conn, _connRegistry),
                 0xC7  => new CM_USE_ITEM(conn, _itemDao, _dataManager, _recipeDao, _connRegistry, _skillLearn, _playerTitleDao, _world, _npcAi, _eventBus, _questEngine),
                 0xC8  => new CM_GM_COMMAND_SEND(conn, _world, _connRegistry, _itemDao, _dataManager, _playerDao, _questDao, _skillLearn, _spawnService),
-                0xC9  => new CM_EMOTION(conn, _connRegistry),
+                0xC9  => new CM_EMOTION(conn, _connRegistry, _flyController, _zoneService),
                 0xCA  => new CM_PLAYER_LISTENER(),
                 0xCC  => new CM_INSTANCE_LEAVE(conn, _teleport),
                 0xCD  => new CM_LEGION_SEND_EMBLEM(conn, _legionService),

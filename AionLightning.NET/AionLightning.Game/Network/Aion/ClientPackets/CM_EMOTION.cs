@@ -1,6 +1,9 @@
 using AionLightning.Commons.Network;
+using AionLightning.Game.Controllers;
 using AionLightning.Game.Model;
+using AionLightning.Game.Model.Zone;
 using AionLightning.Game.Network.Aion.ServerPackets;
+using AionLightning.Game.Services;
 
 namespace AionLightning.Game.Network.Aion.ClientPackets;
 
@@ -8,6 +11,8 @@ public sealed class CM_EMOTION : AionClientPacket
 {
     private readonly GsClientConnection _conn;
     private readonly PlayerConnectionRegistry _connRegistry;
+    private readonly FlyController _flyController;
+    private readonly ZoneService _zoneService;
 
     private EmotionType _emotionType;
     private int _emotion;
@@ -15,10 +20,13 @@ public sealed class CM_EMOTION : AionClientPacket
     private float _x, _y, _z;
     private byte _heading;
 
-    public CM_EMOTION(GsClientConnection conn, PlayerConnectionRegistry connRegistry)
+    public CM_EMOTION(GsClientConnection conn, PlayerConnectionRegistry connRegistry,
+        FlyController flyController, ZoneService zoneService)
     {
-        _conn         = conn;
-        _connRegistry = connRegistry;
+        _conn           = conn;
+        _connRegistry   = connRegistry;
+        _flyController  = flyController;
+        _zoneService    = zoneService;
     }
 
     public override void Read(ref PacketReader r)
@@ -52,7 +60,39 @@ public sealed class CM_EMOTION : AionClientPacket
         if (player is null) return;
         if (_emotionType == EmotionType.UNKNOWN) return;
 
-        ApplyStateChange(player);
+        switch (_emotionType)
+        {
+            case EmotionType.FLY:
+                // note: Java gates FLY behind a GM-bypass check (accessLevel < GM_FLIGHT_FREE) before the
+                // zone/no-fly checks — no GM/access-level system is ported yet, so every player is gated below.
+                if (!_zoneService.IsInsideZoneType(player, ZoneType.Fly))
+                {
+                    try { await _conn.SendAsync(SM_SYSTEM_MESSAGE.FlyingForbiddenHere(), ct); } catch { }
+                    return;
+                }
+                if (player.UnderNoFly)
+                {
+                    try { await _conn.SendAsync(SM_SYSTEM_MESSAGE.CantFlyDueToNoFly(), ct); } catch { }
+                    return;
+                }
+                await _flyController.StartFlyAsync(player, _conn, ct);
+                break;
+
+            case EmotionType.LAND:
+            case EmotionType.LAND_FLYTELEPORT:
+                await _flyController.EndFlyAsync(player, forceEndFly: false, _conn, ct);
+                break;
+
+            case EmotionType.WALK:
+                // Java: cannot toggle walk while flying or gliding
+                if (player.FlyState > 0) return;
+                player.State |= CreatureState.Walking;
+                break;
+
+            default:
+                ApplyStateChange(player);
+                break;
+        }
 
         int tgtId = _targetObjectId != 0
             ? _targetObjectId
@@ -85,9 +125,6 @@ public sealed class CM_EMOTION : AionClientPacket
             case EmotionType.CHAIR_UP:
                 player.State &= ~CreatureState.Chair;
                 break;
-            case EmotionType.WALK:
-                player.State |= CreatureState.Walking;
-                break;
             case EmotionType.RUN:
                 player.State &= ~CreatureState.Walking;
                 break;
@@ -98,14 +135,6 @@ public sealed class CM_EMOTION : AionClientPacket
             case EmotionType.NEUTRALMODE:
             case EmotionType.NEUTRALMODE2:
                 player.State &= ~CreatureState.WeaponEquipped;
-                break;
-            case EmotionType.FLY:
-                player.State |= CreatureState.Flying;
-                break;
-            case EmotionType.LAND:
-            case EmotionType.LAND_FLYTELEPORT:
-                player.State &= ~CreatureState.Flying;
-                player.State &= ~CreatureState.Gliding;
                 break;
             case EmotionType.POWERSHARD_ON:
                 player.State |= CreatureState.Powershard;

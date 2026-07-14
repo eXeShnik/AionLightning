@@ -47,6 +47,9 @@ public sealed class CM_MOVE : AionClientPacket
             }
         }
         // GLIDE and VEHICLE flags skipped in M5
+        // note: Java reads a glideFlag byte here when (type & MovementMask.Glide) != 0, then in runImpl
+        // calls FlyController.switchToGliding()/onStopGliding(false) based on that bit every move tick.
+        // Left unwired since this Read() doesn't parse the GLIDE sub-field yet — see FlyController.SwitchToGliding's doc.
     }
 
     public override async ValueTask RunAsync(CancellationToken ct)

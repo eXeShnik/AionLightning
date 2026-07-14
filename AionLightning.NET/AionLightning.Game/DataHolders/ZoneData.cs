@@ -18,6 +18,8 @@ public sealed class ZoneXml
 {
     [XmlAttribute("name")] public string Name { get; set; } = string.Empty;
     [XmlAttribute("mapid")] public int MapId { get; set; }
+    [XmlAttribute("zone_type")] public string ZoneType { get; set; } = string.Empty;
+    [XmlAttribute("flags")] public int Flags { get; set; }
     [XmlElement("points")] public PointsXml? Points { get; set; }
     [XmlElement("cylinder")] public CylinderXml? Cylinder { get; set; }
     [XmlElement("sphere")] public SphereXml? Sphere { get; set; }
@@ -113,6 +115,8 @@ public sealed class ZoneData
 
     private static ZoneRegion? BuildRegion(ZoneXml zone, ILogger log)
     {
+        var zoneType = ParseZoneType(zone.ZoneType);
+
         if (zone.Points is not null && zone.Points.Point.Count >= 3)
         {
             return new ZoneRegion
@@ -120,6 +124,8 @@ public sealed class ZoneData
                 Name = zone.Name,
                 WorldId = zone.MapId,
                 AreaType = ZoneAreaType.Polygon,
+                ZoneType = zoneType,
+                Flags = zone.Flags,
                 MinZ = zone.Points.Bottom,
                 MaxZ = zone.Points.Top,
                 PolyX = zone.Points.Point.Select(p => p.X).ToArray(),
@@ -134,6 +140,8 @@ public sealed class ZoneData
                 Name = zone.Name,
                 WorldId = zone.MapId,
                 AreaType = ZoneAreaType.Cylinder,
+                ZoneType = zoneType,
+                Flags = zone.Flags,
                 MinZ = zone.Cylinder.Bottom,
                 MaxZ = zone.Cylinder.Top,
                 CenterX = zone.Cylinder.X,
@@ -149,6 +157,8 @@ public sealed class ZoneData
                 Name = zone.Name,
                 WorldId = zone.MapId,
                 AreaType = ZoneAreaType.Sphere,
+                ZoneType = zoneType,
+                Flags = zone.Flags,
                 CenterX = zone.Sphere.X,
                 CenterY = zone.Sphere.Y,
                 CenterZ = zone.Sphere.Z,
@@ -165,6 +175,18 @@ public sealed class ZoneData
         log.LogDebug("ZoneData: zone {Name} has no recognized area geometry, skipping", zone.Name);
         return null;
     }
+
+    /// <summary>Maps the XML <c>zone_type</c> string to <see cref="Model.Zone.ZoneType"/>; unrecognized
+    /// strings (SUB, ARTIFACT, HOUSE, FORT, LIMIT, WEATHER, DUEL, ...) return null rather than guessing.</summary>
+    private static Model.Zone.ZoneType? ParseZoneType(string zoneType) => zoneType switch
+    {
+        "FLY"    => Model.Zone.ZoneType.Fly,
+        "DAMAGE" => Model.Zone.ZoneType.Damage,
+        "WATER"  => Model.Zone.ZoneType.Water,
+        "SIEGE"  => Model.Zone.ZoneType.Siege,
+        "PVP"    => Model.Zone.ZoneType.Pvp,
+        _        => null,
+    };
 
     public IReadOnlyList<ZoneRegion> GetRegionsForWorld(int worldId)
         => _byWorld.TryGetValue(worldId, out var list) ? list : Array.Empty<ZoneRegion>();

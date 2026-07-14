@@ -24,6 +24,15 @@ public sealed class Player : Creature
     // Flight points — not persisted, starts full each login
     public int MaxFp     { get; set; } = 4000;
     public int CurrentFp { get; set; } = 4000;
+
+    // Flight state machine (Java Player.flyState): 0 = grounded, 1 = flying, 2 = gliding.
+    // Driven exclusively by Controllers.FlyController; read by CM_EMOTION and RegenService.
+    public int FlyState { get; set; }
+    // Unix-ms anti-hack cooldown after starting flight or switching to glide (Java Player.flyReuseTime;
+    // FlyController.FLY_REUSE_TIME = 10s).
+    public long FlyReuseTime { get; set; }
+    // Java Player.isUnderNoFly() — true while a NOFLY debuff (the <nofly> skill element) is active.
+    public bool UnderNoFly => (ActiveCcFlags & AbnormalCcFlags.NoFly) != 0;
     public PlayerAppearance Appearance { get; set; } = new();
     public PlayerSkillList  Skills          { get; } = new();
     public PlayerInventory  Inventory       { get; } = new();

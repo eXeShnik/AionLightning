@@ -1,32 +1,43 @@
+using AionLightning.Game.Controllers;
 using AionLightning.Game.DataHolders;
 using AionLightning.Game.Network.Aion;
 using AionLightning.Game.Network.Aion.ServerPackets;
 using AionLightning.Game.Model;
+using ZoneType = AionLightning.Game.Model.Zone.ZoneType;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace AionLightning.Game.Services;
 
 /// <summary>
-/// Background service that ticks every 6 seconds and restores HP/MP for living players.
-/// NPC HP regen is handled by NpcAiService (MaxHp/4 every 6s with SM_ATTACK_STATUS broadcast).
-/// Player regen follows Java LifeStatsRestoreService: (level+3)*health/100 HP, (level+8)*will/100 MP per tick.
+/// Background service driving two independent tick cadences (Java LifeStatsRestoreService, which
+/// schedules HP/MP restore at 6000ms and FP reduce/restore at 2000ms as separate tasks):
+/// - Every 2s: FP drain/regen for flying/gliding/grounded players (Java FpReduceTask/FpRestoreTask),
+///   plus a poll for glide-ending CC states (see FlyController.StopGlidingAsync doc).
+/// - Every 3rd tick (6s): HP/MP restore for living players — (level+3)*health/100 HP,
+///   (level+8)*will/100 MP per tick (Java LifeStatsRestoreService.HpMpRestoreTask).
+/// NPC HP regen is handled separately by NpcAiService (MaxHp/4 every 6s with SM_ATTACK_STATUS broadcast).
 /// </summary>
 public sealed class RegenService : BackgroundService
 {
-    private static readonly TimeSpan Interval         = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan FpTickInterval   = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan OutOfCombatDelay = TimeSpan.FromSeconds(5);
+    private const int HpMpTicksPerFpTick = 3; // Java HP/MP restore (6000ms) runs every 3rd FP tick (2000ms)
 
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly IDataManager             _dataManager;
+    private readonly ZoneService               _zoneService;
+    private readonly FlyController              _flyController;
     private readonly ILogger<RegenService>    _log;
 
     public RegenService(PlayerConnectionRegistry connRegistry, IDataManager dataManager,
-        ILogger<RegenService> log)
+        ZoneService zoneService, FlyController flyController, ILogger<RegenService> log)
     {
-        _connRegistry = connRegistry;
-        _dataManager  = dataManager;
-        _log          = log;
+        _connRegistry  = connRegistry;
+        _dataManager   = dataManager;
+        _zoneService   = zoneService;
+        _flyController = flyController;
+        _log           = log;
     }
 
     private async Task BroadcastGroupMemberUpdateAsync(Player player, CancellationToken ct)
@@ -46,19 +57,58 @@ public sealed class RegenService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        _log.LogInformation("RegenService started (6-second tick)");
-        using var timer = new PeriodicTimer(Interval);
+        _log.LogInformation("RegenService started (2-second FP tick; HP/MP every {N}rd tick)", HpMpTicksPerFpTick);
+        using var timer = new PeriodicTimer(FpTickInterval);
+        int tick = 0;
         while (await timer.WaitForNextTickAsync(ct))
         {
-            await TickAsync(ct);
+            await FpTickAsync(ct);
+            if (++tick % HpMpTicksPerFpTick == 0)
+                await HpMpTickAsync(ct);
         }
     }
 
-    // FP drain per 6s tick while flying; regen per tick while grounded
-    private const int FpDrainPerTick  = 75;
-    private const int FpRegenPerTick  = 50;
+    /// <summary>
+    /// Java FpReduceTask/FpRestoreTask, folded into one 2s tick: drains FP while flying/gliding (1 per
+    /// tick while gliding inside a FLY zone, else 2), force-lands at 0 FP, and restores 1 FP per tick
+    /// while grounded. Also polls for glide-ending CC states (see FlyController.StopGlidingAsync doc).
+    /// </summary>
+    private async Task FpTickAsync(CancellationToken ct)
+    {
+        foreach (var conn in _connRegistry.GetAll())
+        {
+            var player = conn.ActivePlayer;
+            if (player is null || player.IsAlreadyDead) continue;
 
-    private async Task TickAsync(CancellationToken ct)
+            if (player.FlyState == 2 && (player.ActiveCcFlags & AbnormalCcFlags.CantMove) != 0)
+                await _flyController.StopGlidingAsync(player, removeWings: true, conn, ct);
+
+            if (player.FlyState > 0)
+            {
+                if (player.CurrentFp <= 0)
+                {
+                    await _flyController.EndFlyAsync(player, forceEndFly: true, conn, ct);
+                    continue;
+                }
+
+                bool insideFlyZone = _zoneService.IsInsideZoneType(player, ZoneType.Fly);
+                int reduceFp = player.FlyState == 2 && insideFlyZone ? 1 : 2;
+                player.CurrentFp = Math.Max(0, player.CurrentFp - reduceFp);
+                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct); } catch { }
+            }
+            else if (player.CurrentFp < player.EffectiveMaxFp)
+            {
+                // Java FpRestoreTask.restoreFp: flat +1 FP per 2s tick while grounded
+                int fpRegen = player.BonusRegenFpPct != 0
+                    ? Math.Max(1, (100 + player.BonusRegenFpPct) / 100)
+                    : 1;
+                player.CurrentFp = Math.Min(player.EffectiveMaxFp, player.CurrentFp + fpRegen);
+                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct); } catch { }
+            }
+        }
+    }
+
+    private async Task HpMpTickAsync(CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         foreach (var conn in _connRegistry.GetAll())
@@ -66,37 +116,7 @@ public sealed class RegenService : BackgroundService
             var player = conn.ActivePlayer;
             if (player is null || player.IsAlreadyDead) continue;
 
-            int worldId   = player.Position.WorldId;
-            bool isFlying = player.State.HasFlag(CreatureState.Flying);
-
-            // FP drain while flying (always — not gated by combat delay)
-            if (isFlying && player.CurrentFp > 0)
-            {
-                player.CurrentFp = Math.Max(0, player.CurrentFp - FpDrainPerTick);
-                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct); } catch { }
-
-                if (player.CurrentFp <= 0)
-                {
-                    // Force-land: clear Flying flag and broadcast the landing emotion
-                    player.State &= ~CreatureState.Flying;
-                    player.State &= ~CreatureState.Gliding;
-                    var land = new SM_EMOTION(player, EmotionType.LAND);
-                    try { await conn.SendAsync(land, ct); } catch { }
-                    foreach (var peer in _connRegistry.GetAllExcept(player.ObjectId))
-                        if (peer.ActivePlayer?.Position.WorldId == worldId)
-                            try { await peer.SendAsync(land, ct); } catch { }
-                }
-            }
-
-            // FP regen when grounded and out of combat
-            if (!isFlying && player.CurrentFp < player.EffectiveMaxFp && now - player.LastCombatTime >= OutOfCombatDelay)
-            {
-                int fpRegen = player.BonusRegenFpPct != 0
-                    ? Math.Max(1, FpRegenPerTick * (100 + player.BonusRegenFpPct) / 100)
-                    : FpRegenPerTick;
-                player.CurrentFp = Math.Min(player.EffectiveMaxFp, player.CurrentFp + fpRegen);
-                try { await conn.SendAsync(new SM_FLY_TIME(player.CurrentFp, player.EffectiveMaxFp), ct); } catch { }
-            }
+            int worldId = player.Position.WorldId;
 
             if (now - player.LastCombatTime < OutOfCombatDelay) continue;
 

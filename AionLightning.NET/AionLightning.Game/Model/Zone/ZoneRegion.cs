@@ -20,6 +20,14 @@ public sealed class ZoneRegion
     public required int WorldId { get; init; }
     public required ZoneAreaType AreaType { get; init; }
 
+    /// <summary>Parsed <c>zone_type</c> XML attribute (Java <c>ZoneType</c>); null when the zone carries
+    /// a zone_type string this port doesn't map to a <see cref="ZoneType"/> value (e.g. SUB, ARTIFACT,
+    /// HOUSE — no ported consumer needs those yet).</summary>
+    public ZoneType? ZoneType { get; init; }
+
+    /// <summary>Raw <c>flags</c> XML attribute bitmask; not consumed by any ported system yet.</summary>
+    public int Flags { get; init; }
+
     /// <summary>Inclusive z bounds (Java <c>AbstractArea.isInsideZ</c>: z &gt;= minZ &amp;&amp; z &lt;= maxZ). Unused for <see cref="ZoneAreaType.Sphere"/>, which tests a true 3D radius instead.</summary>
     public float MinZ { get; init; }
     public float MaxZ { get; init; }

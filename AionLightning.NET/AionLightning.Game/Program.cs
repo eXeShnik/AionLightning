@@ -160,6 +160,7 @@ builder.Services.AddSingleton<SiegeService>();
 builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();
 builder.Services.AddSingleton<AionLightning.Game.Controllers.HouseController>();
+builder.Services.AddSingleton<AionLightning.Game.Controllers.FlyController>();
 builder.Services.AddSingleton<MaintenanceTask>();
 builder.Services.AddSingleton<DoorService>();
 builder.Services.AddSingleton<FollowService>();

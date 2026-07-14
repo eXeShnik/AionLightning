@@ -15,4 +15,7 @@ public enum CreatureState
     Flying         = 4096,
     Gliding        = 8192,
     Looting        = 16384,
+    FloatingCorpse = 32768,
+    // Reserved for a later flight-teleport phase (Java FLIGHT_TELEPORT); not yet set or consumed anywhere.
+    FlightTeleport = 65536,
 }
