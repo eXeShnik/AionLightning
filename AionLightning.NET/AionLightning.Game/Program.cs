@@ -35,6 +35,7 @@ builder.Services
     .AddAionOptions<GsOptions>("GameServer:Gs")
     .AddAionOptions<GeoDataOptions>("GameServer:GeoData")
     .AddAionOptions<SiegeOptions>("GameServer:Siege")
+    .AddAionOptions<SiegeScheduleOptions>("GameServer:Siege:Schedule")
     .AddAionOptions<HousingOptions>("GameServer:Housing");
 
 // Database
@@ -52,12 +53,14 @@ builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ProvokerHandler>(
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, CaseHealHandler>();
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, ChangeHateOnAttackedHandler>(); // M376
 builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, HpUpdateHandler>(); // C1: SM_STATUPDATE_HP to damaged players
+builder.Services.AddTransient<IEventHandler<DamageDealtEvent>, SiegeBossDamageHandler>(); // siege boss damage feeds SiegeCounter
 // M287: death event handlers
 builder.Services.AddTransient<IEventHandler<DeathEvent>, HealCastorOnTargetDeadHandler>();
 builder.Services.AddTransient<IEventHandler<DeathEvent>, ResurrectBaseHandler>(); // M379
 builder.Services.AddTransient<IEventHandler<DeathEvent>, PvpKillHandler>(); // PvP Phase 1 — after ResurrectBaseHandler so a Chain-of-Suffering revive is visible via IsAlreadyDead
 builder.Services.AddTransient<IEventHandler<DeathEvent>, InstanceDeathHandler>(); // instance script onDie(Npc)/onDie(Player)
 builder.Services.AddTransient<IEventHandler<DeathEvent>, QuestPlayerDeathHandler>(); // quest onDie(player)
+builder.Services.AddTransient<IEventHandler<DeathEvent>, SiegeBossDeathHandler>(); // siege boss death ends the siege
 // Phase 5 Batch 0: bridges CM_LEVEL_READY's PlayerEnteredWorldEvent into QuestEngine.OnEnterWorldAsync
 builder.Services.AddTransient<IEventHandler<PlayerEnteredWorldEvent>, QuestEnterWorldHandler>();
 // M265+: pre-damage handlers (mutate MutableDamage to absorb)

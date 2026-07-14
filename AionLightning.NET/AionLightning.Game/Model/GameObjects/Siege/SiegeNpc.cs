@@ -11,9 +11,13 @@ namespace AionLightning.Game.Model.GameObjects.Siege;
 /// SiegeSpawnTemplate race/modtype, Java SiegeService.spawnNpcs/deSpawnNpcs) is P2. This type exists
 /// so P2 has a ready-made siege-NPC identity to attach to spawned Npc instances.
 /// </summary>
-public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace)
+public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace, bool isBoss = false)
 {
     public Npc Npc { get; } = npc;
     public int SiegeId { get; } = siegeId;
     public SiegeRace SiegeRace { get; } = siegeRace;
+
+    /// <summary>Java NpcTemplate.getAbyssNpcType() == AbyssNpcType.BOSS — identifies the single siege
+    /// boss NPC whose death (see Services.Siege.Siege.InitSiegeBoss) ends the siege.</summary>
+    public bool IsBoss { get; } = isBoss;
 }
