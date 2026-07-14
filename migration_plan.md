@@ -3813,15 +3813,17 @@ Priority order chosen for player-visible impact per unit of work:
       ported 2026-07-14 (all COMPILED + build-green, gated behind default-off `GameServer:Siege:Enable`
       / `GameServer:Housing:Enable` so the byte-verified login flow is untouched):
       - Shared enablers: `CronService` (Quartz) + `SystemMailService`/`MailFormatter`.
-      - **Siege P1** (Model/Siege/** + SiegeLocationData(75 locs) + ISiegeDao + V38 + SiegeService
-        skeleton + 7 SM_* packets) and **P2** (Services/Siege/** lifecycle: start→boss/timer→capture→
-        reward mail+AP→persist; boss death/damage via real DeathEvent/DamageDealtEvent bus; cron starts).
-        OWED: P0 spawn engine (SiegeSpawnTemplate/siege_spawns/SiegeZone — SpawnNpcs stubbed), P4 balaur
-        assault, P5 rifts/outposts/login-zone gating.
-      - **Housing P1** (HousingService owner-info + SM_HOUSE_OWNER_INFO/ACQUIRE), **P6** (HousingBidService
-        auction + IHouseBidsDao + V39 + SM_HOUSE_BIDS/RECEIVE_BIDS + CM bid handlers), **P7** (MaintenanceTask
-        rent sweep + CM/SM_HOUSE_PAY_RENT; weeks-until-due now real). OWED: P2 world spawn/render
-        (HouseController), P3 objects/decor, P4 teleport/settings/door, P5 house scripts, P8 admin.
+      - **Siege P0/P1/P2/P5 DONE**: P1 data model + SiegeLocationData(75 locs) + ISiegeDao/V38 + 7 SM_*;
+        P2 lifecycle (Services/Siege/** start→boss/timer→capture→reward mail+AP→persist; boss death/damage
+        via real event bus; cron starts); P0 spawn engine (SiegeSpawnData/Sieges*.xml → SpawnSiegeNpc →
+        SpawnNpcs/DeSpawnNpcs register siege NPCs); P5 outpost-status/Tiamaranta rifts/fortress buffs/
+        ValidateLoginZone. OWED: P4 balaur assault (ship-disabled), SiegeZone/ZoneType.SIEGE polygon.
+      - **Housing P1-P7 DONE**: P1 owner-info (SM_HOUSE_OWNER_INFO/ACQUIRE), P2 world spawn/render
+        (HouseController; houses in a separate registry, not the World NPC store), P3 furniture/decor
+        (HouseObject + PlayerRegisteredItems/HouseObjectCooldowns DAOs V40/V41 + 5 SM_HOUSE_* + CM decorate/
+        edit/use/release), P4 teleport/settings/door/kick, P5 house scripts (zlib, V42), P6 auction
+        (HousingBidService + V39), P7 maintenance/rent. OWED: P8 admin GM tool (minor); grace-period
+        studio-swap + per-move house visibility are stubs.
       - All new SM_* opcodes are 4.5-era guesses (`// TODO: verify opcode vs live 4.6 client`) — the
         Enable gate keeps them off until a live-client capture confirms them.
 
