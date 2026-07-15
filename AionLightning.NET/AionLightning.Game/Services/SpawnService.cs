@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AionLightning.Game.Ai;
 using AionLightning.Game.Configs.Options;
 using AionLightning.Game.DataHolders;
@@ -5,6 +6,7 @@ using AionLightning.Game.Model;
 using AionLightning.Game.Model.GameObjects;
 using AionLightning.Game.Model.GameObjects.Base;
 using AionLightning.Game.Model.GameObjects.Siege;
+using AionLightning.Game.Model.Templates.Event;
 using AionLightning.Game.Model.Templates.Gatherable;
 using AionLightning.Game.Model.Templates.Spawns;
 using StaticDoorTemplates = AionLightning.Game.Model.Templates.StaticDoor;
@@ -26,6 +28,12 @@ public sealed class SpawnService
     private readonly ILogger<SpawnService> _log;
     private readonly RateOptions _rates;
     private readonly AiEngine _aiEngine;
+
+    /// <summary>Event-name-tagged NPC registry backing <see cref="SpawnEvent"/>/<see cref="DespawnEvent"/>
+    /// — the seasonal-event counterpart to SiegeService's/BaseService's own siege-/base-id registries,
+    /// except owned here (rather than by a dedicated EventNpc wrapper + external registry) since a
+    /// seasonal event has no per-NPC state beyond "which event spawned it".</summary>
+    private readonly ConcurrentDictionary<string, List<Npc>> _eventNpcsByName = new();
 
     public SpawnService(IDataManager dataManager, GameWorld world,
         PlayerConnectionRegistry connRegistry, ILogger<SpawnService> log,
@@ -229,6 +237,72 @@ public sealed class SpawnService
         var position = new Position(baseTemplate.X, baseTemplate.Y, baseTemplate.Z, baseTemplate.Heading, baseTemplate.WorldId);
         var npc = SpawnNpc(template, position, baseTemplate.RespawnTime);
         return new BaseNpc(npc, baseTemplate.BaseId, baseTemplate.BaseRace, baseTemplate.HandlerType == BaseSpawnHandlerType.Boss);
+    }
+
+    /// <summary>
+    /// Java EventTemplate.Start()'s spawn side — spawns every flattened spot of a seasonal event's NPC
+    /// set into the open world (mirrors <see cref="SpawnInstance"/>'s flatten-and-spawn shape, minus the
+    /// per-instance channel id), tagging the result under <paramref name="eventName"/> so
+    /// <see cref="DespawnEvent"/> can remove the whole group cleanly. Re-spawning under the same name
+    /// replaces the previous group's registry entry — callers (EventService) despawn first so no NPC
+    /// leaks between the two calls.
+    /// </summary>
+    public IReadOnlyList<Npc> SpawnEvent(string eventName, IEnumerable<EventSpawnPoint> spawnPoints)
+    {
+        var spawned = new List<Npc>();
+        foreach (var point in spawnPoints)
+        {
+            var template = _dataManager.Npcs.GetTemplate(point.NpcId);
+            if (template is null) continue;
+
+            var position = new Position(point.X, point.Y, point.Z, point.Heading, point.MapId);
+            spawned.Add(SpawnNpc(template, position, point.RespawnTime));
+        }
+
+        _eventNpcsByName[eventName] = spawned;
+        _log.LogInformation("SpawnService: event '{Event}' spawned {Count} NPCs", eventName, spawned.Count);
+
+        if (spawned.Count > 0)
+            _ = BroadcastEventSpawnAsync(spawned);
+
+        return spawned;
+    }
+
+    /// <summary>Java EventTemplate.Stop()'s despawn side — removes every NPC currently tagged under
+    /// <paramref name="eventName"/> by <see cref="SpawnEvent"/>. Returns the number of NPCs removed (0 if
+    /// the event has no tracked spawn group, e.g. it was never started or has already been stopped).</summary>
+    public int DespawnEvent(string eventName)
+    {
+        if (!_eventNpcsByName.TryRemove(eventName, out var npcs) || npcs.Count == 0) return 0;
+
+        foreach (var npc in npcs)
+            _world.Remove(npc);
+
+        _log.LogInformation("SpawnService: despawned {Count} NPCs for event '{Event}'", npcs.Count, eventName);
+        _ = BroadcastEventDespawnAsync(npcs);
+        return npcs.Count;
+    }
+
+    private async Task BroadcastEventSpawnAsync(List<Npc> spawned)
+    {
+        foreach (var npc in spawned)
+        {
+            var infoPacket = new SM_NPC_INFO(npc);
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer is { } p && p.Position.SameScope(npc.Position))
+                    try { await conn.SendAsync(infoPacket); } catch { }
+        }
+    }
+
+    private async Task BroadcastEventDespawnAsync(List<Npc> removed)
+    {
+        foreach (var npc in removed)
+        {
+            var deletePacket = new SM_DELETE(npc.ObjectId);
+            foreach (var conn in _connRegistry.GetAll())
+                if (conn.ActivePlayer is { } p && p.Position.SameScope(npc.Position))
+                    try { await conn.SendAsync(deletePacket); } catch { }
+        }
     }
 
     private Npc SpawnNpc(Model.Templates.Npc.NpcTemplate template, Position position, int respawnTime = 0, string walkerId = "")

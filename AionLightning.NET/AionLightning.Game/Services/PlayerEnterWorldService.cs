@@ -44,6 +44,7 @@ public sealed class PlayerEnterWorldService
     private readonly TownService              _townService;
     private readonly IOptions<TownOptions>    _townOptions;
     private readonly DisputeLandService       _disputeLandService;
+    private readonly EventService             _eventService;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -75,11 +76,13 @@ public sealed class PlayerEnterWorldService
         StigmaService stigmaService,
         TownService townService,
         IOptions<TownOptions> townOptions,
-        DisputeLandService disputeLandService)
+        DisputeLandService disputeLandService,
+        EventService eventService)
     {
         _townService   = townService;
         _townOptions   = townOptions;
         _disputeLandService = disputeLandService;
+        _eventService  = eventService;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
         _itemDao       = itemDao;
@@ -582,6 +585,10 @@ public sealed class PlayerEnterWorldService
 
         await _siegeService.OnPlayerLoginAsync(player, conn, ct);
         await _housingService.OnPlayerLoginAsync(player, conn, ct);
+
+        // Java EventService.onPlayerLogin — gated behind GameServer:Event:Enable (default false) until
+        // events_config.xml's NPC ids/spawn spots are validated against a live 4.6 client; no-op regardless.
+        await _eventService.OnPlayerLoginAsync(player, conn, ct);
         if (_housingOptions.Value.Enable)
         {
             await _housingBidService.OnPlayerLoginAsync(player, conn, ct);

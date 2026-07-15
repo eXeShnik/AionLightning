@@ -52,6 +52,7 @@ public sealed class DataManager : IDataManager
     public VortexSpawnData                 VortexSpawns  { get; } = new();
     public CuringObjectsData               CuringObjects { get; } = new();
     public ChallengeData                   Challenges    { get; } = new();
+    public EventData                       SeasonalEvents { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -106,6 +107,7 @@ public sealed class DataManager : IDataManager
         VortexSpawns.Load(dataRoot, log);
         CuringObjects.Load(dataRoot, log);
         Challenges.Load(dataRoot, log);
+        SeasonalEvents.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

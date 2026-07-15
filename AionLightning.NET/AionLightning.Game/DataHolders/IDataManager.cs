@@ -50,4 +50,5 @@ public interface IDataManager
     VortexSpawnData                  VortexSpawns  { get; }
     CuringObjectsData                CuringObjects { get; }
     ChallengeData                    Challenges    { get; }
+    EventData                        SeasonalEvents { get; }
 }

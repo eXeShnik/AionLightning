@@ -51,7 +51,8 @@ builder.Services
     .AddAionOptions<WeddingOptions>("GameServer:Wedding")
     .AddAionOptions<AutoGroupOptions>("GameServer:AutoGroup")
     .AddAionOptions<DisputeLandOptions>("GameServer:DisputeLand")
-    .AddAionOptions<ChallengeOptions>("GameServer:Challenge");
+    .AddAionOptions<ChallengeOptions>("GameServer:Challenge")
+    .AddAionOptions<EventOptions>("GameServer:Event");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -225,6 +226,7 @@ builder.Services.AddSingleton<WeddingService>();
 builder.Services.AddSingleton<AnnouncementService>();
 builder.Services.AddSingleton<VeteranRewardService>();
 builder.Services.AddSingleton<ChallengeTaskService>();
+builder.Services.AddSingleton<EventService>();
 
 // System mail (siege rewards, housing auction/maintenance)
 builder.Services.AddSingleton<AionLightning.Game.Services.Mail.SystemMailService>();
@@ -252,6 +254,7 @@ builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();
 builder.Services.AddHostedService<WeatherServiceHostedService>(); // after CronServiceHostedService — arms the weather rotation cron
+builder.Services.AddHostedService<EventServiceHostedService>(); // after CronServiceHostedService — arms the seasonal-event recheck cron
 builder.Services.AddHostedService<LimitedItemTradeServiceHostedService>(); // after CronServiceHostedService — arms the limited-item restock crons
 builder.Services.AddHostedService<DisputeLandServiceHostedService>(); // after CronServiceHostedService — arms the dispute-land cron windows
 builder.Services.AddHostedService<VeteranRewardServiceHostedService>(); // after CronServiceHostedService — arms the minute reward-mail sweep
