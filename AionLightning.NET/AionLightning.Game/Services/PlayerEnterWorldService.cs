@@ -43,6 +43,7 @@ public sealed class PlayerEnterWorldService
     private readonly StigmaService            _stigmaService;
     private readonly TownService              _townService;
     private readonly IOptions<TownOptions>    _townOptions;
+    private readonly DisputeLandService       _disputeLandService;
 
     public PlayerEnterWorldService(
         IPlayerDao playerDao,
@@ -73,10 +74,12 @@ public sealed class PlayerEnterWorldService
         IHouseObjectCooldownsDao houseObjectCooldownsDao,
         StigmaService stigmaService,
         TownService townService,
-        IOptions<TownOptions> townOptions)
+        IOptions<TownOptions> townOptions,
+        DisputeLandService disputeLandService)
     {
         _townService   = townService;
         _townOptions   = townOptions;
+        _disputeLandService = disputeLandService;
         _playerDao     = playerDao;
         _appearanceDao = appearanceDao;
         _itemDao       = itemDao;
@@ -572,6 +575,10 @@ public sealed class PlayerEnterWorldService
             if (raceTowns.Count > 0)
                 await conn.SendAsync(new SM_TOWNS_LIST(raceTowns), ct);
         }
+
+        // Java DisputeLandService.onLogin — gated behind GameServer:DisputeLand:Enable (default false);
+        // no-op until the feature is explicitly turned on, so this never touches the login flow above.
+        await _disputeLandService.OnLoginAsync(conn, ct);
 
         await _siegeService.OnPlayerLoginAsync(player, conn, ct);
         await _housingService.OnPlayerLoginAsync(player, conn, ct);

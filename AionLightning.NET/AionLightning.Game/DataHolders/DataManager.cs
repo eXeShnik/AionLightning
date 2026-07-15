@@ -50,6 +50,7 @@ public sealed class DataManager : IDataManager
     public AutoGroupData                   AutoGroups    { get; } = new();
     public VortexData                      Vortices      { get; } = new();
     public VortexSpawnData                 VortexSpawns  { get; } = new();
+    public CuringObjectsData               CuringObjects { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -102,6 +103,7 @@ public sealed class DataManager : IDataManager
         AutoGroups.Load(dataRoot, log);
         Vortices.Load(dataRoot, log);
         VortexSpawns.Load(dataRoot, log);
+        CuringObjects.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

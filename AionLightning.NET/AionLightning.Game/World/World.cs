@@ -79,4 +79,13 @@ public sealed class World
     public IEnumerable<Npc>        GetNpcsInScope(Position scope)        => _npcs.Values.Where(n => n.Position.SameScope(scope));
     public IEnumerable<Summon>     GetSummonsInScope(Position scope)     => _summons.Values.Where(s => s.Position.SameScope(scope));
     public IEnumerable<Gatherable> GetGatherablesInScope(Position scope) => _gatherables.Values.Where(g => g.Position.SameScope(scope));
+
+    // --- Per-world PvP flag (Java WorldMapInstance.setWorldOption(ZoneAttributes.PVP_ENABLED) /
+    // removeWorldOption) --- storage + accessor only: no PvP-allowed check in this port currently
+    // consults it (open-world player-vs-player combat in CM_ATTACK is unconditional today), so this is
+    // wired up ready for a future combat gate. DisputeLandService is the sole writer today.
+    private readonly ConcurrentDictionary<int, bool> _pvpEnabledWorlds = new();
+
+    public void SetWorldPvpEnabled(int worldId, bool enabled) => _pvpEnabledWorlds[worldId] = enabled;
+    public bool IsWorldPvpEnabled(int worldId) => _pvpEnabledWorlds.GetValueOrDefault(worldId);
 }

@@ -49,7 +49,8 @@ builder.Services
     .AddAionOptions<WeatherOptions>("GameServer:Weather")
     .AddAionOptions<NameOptions>("GameServer:Name")
     .AddAionOptions<WeddingOptions>("GameServer:Wedding")
-    .AddAionOptions<AutoGroupOptions>("GameServer:AutoGroup");
+    .AddAionOptions<AutoGroupOptions>("GameServer:AutoGroup")
+    .AddAionOptions<DisputeLandOptions>("GameServer:DisputeLand");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -202,6 +203,7 @@ builder.Services.AddSingleton<NpcAiService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NpcAiService>());
 builder.Services.AddSingleton<EffectTickScheduler>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<EffectTickScheduler>());
+builder.Services.AddHostedService<CuringZoneService>(); // after EffectTickScheduler — reuses its tick registration
 builder.Services.AddSingleton<AuraChildApplier>();
 builder.Services.AddSingleton<PlayerEnterWorldService>();
 builder.Services.AddHostedService<AutoSaveService>();
@@ -212,6 +214,7 @@ builder.Services.AddSingleton<SerialKillerService>();
 builder.Services.AddHostedService<SerialKillerServiceHostedService>(); // after CronServiceHostedService — needs the scheduler already running
 builder.Services.AddSingleton<TownService>();
 builder.Services.AddSingleton<WeatherService>();
+builder.Services.AddSingleton<DisputeLandService>();
 builder.Services.AddSingleton<RenameService>();
 builder.Services.AddSingleton<WeddingService>();
 
@@ -241,6 +244,8 @@ builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();
 builder.Services.AddHostedService<WeatherServiceHostedService>(); // after CronServiceHostedService — arms the weather rotation cron
+builder.Services.AddHostedService<DisputeLandServiceHostedService>(); // after CronServiceHostedService — arms the dispute-land cron windows
+builder.Services.AddHostedService<GameTimeService>(); // periodic SM_GAME_TIME re-broadcast to keep client day/night synced
 builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Ai.AiEngineHostedService>();

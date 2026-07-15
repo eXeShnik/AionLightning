@@ -48,4 +48,5 @@ public interface IDataManager
     AutoGroupData                    AutoGroups    { get; }
     VortexData                       Vortices      { get; }
     VortexSpawnData                  VortexSpawns  { get; }
+    CuringObjectsData                CuringObjects { get; }
 }
