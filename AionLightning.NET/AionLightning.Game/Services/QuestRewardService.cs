@@ -30,22 +30,25 @@ public sealed class QuestRewardService
     private readonly ExperienceService        _expService;
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly QuestEngineType          _questEngine;
+    private readonly ChallengeTaskService     _challengeTaskService;
     private readonly RateOptions              _rates;
     private readonly ILogger<QuestRewardService> _log;
 
     public QuestRewardService(IDataManager dataManager, IQuestDao questDao, IItemDao itemDao,
         IPlayerDao playerDao, ExperienceService expService, PlayerConnectionRegistry connRegistry,
-        QuestEngineType questEngine, IOptions<RateOptions> rates, ILogger<QuestRewardService> log)
+        QuestEngineType questEngine, ChallengeTaskService challengeTaskService, IOptions<RateOptions> rates,
+        ILogger<QuestRewardService> log)
     {
-        _dataManager  = dataManager;
-        _questDao     = questDao;
-        _itemDao      = itemDao;
-        _playerDao    = playerDao;
-        _expService   = expService;
-        _connRegistry = connRegistry;
-        _questEngine  = questEngine;
-        _rates        = rates.Value;
-        _log          = log;
+        _dataManager   = dataManager;
+        _questDao      = questDao;
+        _itemDao       = itemDao;
+        _playerDao     = playerDao;
+        _expService    = expService;
+        _connRegistry  = connRegistry;
+        _questEngine   = questEngine;
+        _challengeTaskService = challengeTaskService;
+        _rates         = rates.Value;
+        _log           = log;
     }
 
     /// <summary>
@@ -298,6 +301,12 @@ public sealed class QuestRewardService
                 try { await c.SendAsync(SM_TITLE_INFO.BroadcastTitle(player.ObjectId, titleReward), ct); } catch { }
             }
         }
+
+        // Challenge-task progress hook (Java QuestService.finishQuest: QuestCategory.CHALLENGE_TASK gate).
+        // note: QuestTemplate has no ported QuestCategory field yet (see migration_plan.md), so the
+        // "is this a challenge quest" guard lives inside OnChallengeQuestFinishAsync itself instead —
+        // a cheap challenge-quest-id lookup that no-ops for the overwhelming majority of quests.
+        await _challengeTaskService.OnChallengeQuestFinishAsync(player, entry.QuestId, ct);
 
         // Mark complete
         entry.Status        = QuestStatus.COMPLETE;

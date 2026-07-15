@@ -99,6 +99,7 @@ public sealed class GsPacketHandlerFactory
     private readonly TownService                  _townService;
     private readonly RenameService                _renameService;
     private readonly WeddingService                _weddingService;
+    private readonly ChallengeTaskService          _challengeTaskService;
 
     public GsPacketHandlerFactory(
         ILogger<GsPacketHandlerFactory> log,
@@ -181,11 +182,13 @@ public sealed class GsPacketHandlerFactory
         StigmaService stigmaService,
         TownService townService,
         RenameService renameService,
-        WeddingService weddingService)
+        WeddingService weddingService,
+        ChallengeTaskService challengeTaskService)
     {
         _townService              = townService;
         _renameService             = renameService;
         _weddingService            = weddingService;
+        _challengeTaskService      = challengeTaskService;
         _doorService              = doorService;
         _kiskService              = kiskService;
         _privateStoreService      = privateStoreService;
@@ -429,7 +432,7 @@ public sealed class GsPacketHandlerFactory
                 0x187 => new CM_SECURITY_TOKEN(),
                 0x188 => new CM_USE_CHARGE_SKILL(),
                 0x189 => new CM_TUNE(conn, _itemDao, _dataManager),
-                0x18A => new CM_CHALLENGE_LIST(),
+                0x18A => new CM_CHALLENGE_LIST(conn, _challengeTaskService),
                 0x18B => new CM_BONUS_TITLE(conn, _playerDao),
                 0x18E => new CM_SELECTITEM_OK(conn, _itemDao, _dataManager),
                 0x192 => new CM_COMPOSITE_STONES(conn, _itemDao),

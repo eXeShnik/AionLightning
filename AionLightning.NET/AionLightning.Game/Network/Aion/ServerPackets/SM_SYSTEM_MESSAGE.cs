@@ -121,6 +121,9 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     // STR_CRAFT_SKILL_NEED_QUEST — "You must complete the required quest to advance further." (msg code 1300834)
     public static SM_SYSTEM_MESSAGE CraftSkillNeedQuest() => new(1300834);
 
+    // Java ChallengeTaskService.onCityTaskFinish's town level-up notify (msg code 1401520, params townId/level)
+    public static SM_SYSTEM_MESSAGE TownLevelUp(int townId, int level) => new(1401520, townId.ToString(), level.ToString());
+
     // STR_FLYING_FORBIDDEN_HERE — "You cannot fly here." (msg code 1300960)
     public static SM_SYSTEM_MESSAGE FlyingForbiddenHere() => new(1300960);
 

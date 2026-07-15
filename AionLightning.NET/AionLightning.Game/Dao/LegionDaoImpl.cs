@@ -53,7 +53,7 @@ public sealed class LegionDaoImpl : ILegionDao
         await using var conn = await _db.OpenConnectionAsync(ct);
         var memberRow = await conn.QuerySingleOrDefaultAsync<MemberRow>(
             """
-            SELECT lm.player_id, lm.legion_id, lm.rank_id, lm.self_intro, lm.nickname,
+            SELECT lm.player_id, lm.legion_id, lm.rank_id, lm.self_intro, lm.nickname, lm.challenge_score,
                    p.name, p.player_class, p.level, p.world_id
             FROM legion_members lm
             JOIN players p ON p.id = lm.player_id
@@ -128,7 +128,7 @@ public sealed class LegionDaoImpl : ILegionDao
     {
         var rows = await conn.QueryAsync<MemberRow>(
             """
-            SELECT lm.player_id, lm.legion_id, lm.rank_id, lm.self_intro, lm.nickname,
+            SELECT lm.player_id, lm.legion_id, lm.rank_id, lm.self_intro, lm.nickname, lm.challenge_score,
                    p.name, p.player_class, p.level, p.world_id
             FROM legion_members lm
             JOIN players p ON p.id = lm.player_id
@@ -155,14 +155,15 @@ public sealed class LegionDaoImpl : ILegionDao
 
     private static LegionMember ToMember(MemberRow r) => new()
     {
-        ObjectId  = r.player_id,
-        Name      = r.name,
-        Rank      = (LegionRank)r.rank_id,
-        ClassId   = r.player_class,
-        Level     = r.level,
-        WorldId   = r.world_id,
-        SelfIntro = r.self_intro,
-        Nickname  = r.nickname,
+        ObjectId       = r.player_id,
+        Name           = r.name,
+        Rank           = (LegionRank)r.rank_id,
+        ClassId        = r.player_class,
+        Level          = r.level,
+        WorldId        = r.world_id,
+        SelfIntro      = r.self_intro,
+        Nickname       = r.nickname,
+        ChallengeScore = r.challenge_score,
     };
 
     public async Task UpdateWarehouseKinahAsync(int legionId, long kinah, CancellationToken ct)
@@ -258,6 +259,14 @@ public sealed class LegionDaoImpl : ILegionDao
             new { nickname, playerId });
     }
 
+    public async Task UpdateChallengeScoreAsync(int playerId, int challengeScore, CancellationToken ct)
+    {
+        await using var conn = await _db.OpenConnectionAsync(ct);
+        await conn.ExecuteAsync(
+            "UPDATE legion_members SET challenge_score = @challengeScore WHERE player_id = @playerId",
+            new { challengeScore, playerId });
+    }
+
     public async Task UpdatePermissionsAsync(int legionId, short deputy, short centurion, short legionary, short volunteer, CancellationToken ct)
     {
         await using var conn = await _db.OpenConnectionAsync(ct);
@@ -272,6 +281,6 @@ public sealed class LegionDaoImpl : ILegionDao
         long warehouse_kinah);
 
     private sealed record MemberRow(
-        int player_id, int legion_id, byte rank_id, string self_intro, string nickname,
+        int player_id, int legion_id, byte rank_id, string self_intro, string nickname, int challenge_score,
         string name, int player_class, byte level, int world_id);
 }

@@ -11,4 +11,9 @@ public sealed class LegionMember
     public bool IsOnline    { get; set; }
     public string SelfIntro { get; set; } = "";
     public string Nickname  { get; set; } = "";
+
+    /// <summary>Java LegionMember.challengeScore — running score toward the legion's current challenge
+    /// task's per-member contribution-reward ranking (see Services/ChallengeTaskService.cs), reset to 0
+    /// once rewards are distributed for a completed task.</summary>
+    public int ChallengeScore { get; set; }
 }

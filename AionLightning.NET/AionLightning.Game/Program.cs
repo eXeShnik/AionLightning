@@ -50,7 +50,8 @@ builder.Services
     .AddAionOptions<NameOptions>("GameServer:Name")
     .AddAionOptions<WeddingOptions>("GameServer:Wedding")
     .AddAionOptions<AutoGroupOptions>("GameServer:AutoGroup")
-    .AddAionOptions<DisputeLandOptions>("GameServer:DisputeLand");
+    .AddAionOptions<DisputeLandOptions>("GameServer:DisputeLand")
+    .AddAionOptions<ChallengeOptions>("GameServer:Challenge");
 
 // Database
 builder.Services.AddAionDataSource(builder.Configuration, "GameDb");
@@ -133,6 +134,7 @@ builder.Services.AddSingleton<IBaseDao, BaseDaoImpl>();
 builder.Services.AddSingleton<ITownDao, TownDaoImpl>();
 builder.Services.AddSingleton<IAnnouncementDao, AnnouncementDaoImpl>();
 builder.Services.AddSingleton<IVeteranRewardDao, VeteranRewardDaoImpl>();
+builder.Services.AddSingleton<IChallengeTasksDao, ChallengeTasksDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -222,6 +224,7 @@ builder.Services.AddSingleton<RenameService>();
 builder.Services.AddSingleton<WeddingService>();
 builder.Services.AddSingleton<AnnouncementService>();
 builder.Services.AddSingleton<VeteranRewardService>();
+builder.Services.AddSingleton<ChallengeTaskService>();
 
 // System mail (siege rewards, housing auction/maintenance)
 builder.Services.AddSingleton<AionLightning.Game.Services.Mail.SystemMailService>();
