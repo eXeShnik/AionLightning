@@ -46,4 +46,6 @@ public interface IDataManager
     BaseSpawnData                    BaseSpawns    { get; }
     WeatherData                      Weather       { get; }
     AutoGroupData                    AutoGroups    { get; }
+    VortexData                       Vortices      { get; }
+    VortexSpawnData                  VortexSpawns  { get; }
 }

@@ -352,6 +352,15 @@ public sealed class SM_SYSTEM_MESSAGE : AionServerPacket
     public static SM_SYSTEM_MESSAGE AbyssCarrierDropDragon() => new(1301042);
     public static SM_SYSTEM_MESSAGE AbyssDragonBossKilled() => new(1390199);
 
+    // Dimensional Vortex (Services.VortexService) — Java model.vortex.VortexLocation.onLeaveZone /
+    // services.vortexservice.Invasion.kickPlayer.
+    // "You have left the battlefield." (msg code 904305)
+    public static SM_SYSTEM_MESSAGE VortexLeftBattlefield() => new(904305);
+    // "A Rift Portal battle has begun." (msg code 1401454) — Java RVController.onRequest's isVortex accept branch.
+    public static SM_SYSTEM_MESSAGE VortexBattleBegun() => new(1401454);
+    // "You will be returned to where you entered." (msg code 1401474)
+    public static SM_SYSTEM_MESSAGE VortexReturnedToEntry() => new(1401474);
+
     // AutoGroupService (Java network.aion.serverpackets.SM_SYSTEM_MESSAGE constants of the same names).
     // "You cannot enter the selected Instanced Zone at your level." (msg code 1400179)
     public static SM_SYSTEM_MESSAGE AutoGroupLevelRestricted() => new(1400179);

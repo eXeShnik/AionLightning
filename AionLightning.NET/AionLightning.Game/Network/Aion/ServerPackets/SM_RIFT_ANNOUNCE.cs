@@ -8,8 +8,10 @@ namespace AionLightning.Game.Network.Aion.ServerPackets;
 /// state). SiegeService ports actionId 1/5 (Silentera Canyon outpost state and Tiamaranta's Eye
 /// infiltration-route state); RiftService (the general abyss-invasion rift system) adds actionId
 /// 0/2/3/4 here (map overview, master-rift-open, entries-used, despawn) — the RVController-vortex-rift
-/// fields these carry (isVortex) are always written as 0/false since the Dimensional Vortex subsystem
-/// itself is out of scope (see RiftEnum's doc comment).
+/// <c>isVortex</c> flag these carry defaults to false for RiftService's own call sites and is passed
+/// true by Services.VortexService (the Dimensional Vortex subsystem) for its own master-portal-open/
+/// entries-changed broadcasts, mirroring Java's single shared RVController/SM_RIFT_ANNOUNCE for both
+/// features.
 /// Opcode 0xEC (4.5-era packet table). TODO: verify opcode against a live 4.6 client capture before enabling.
 /// </summary>
 public sealed class SM_RIFT_ANNOUNCE : AionServerPacket
@@ -21,6 +23,7 @@ public sealed class SM_RIFT_ANNOUNCE : AionServerPacket
     private readonly int _objectId, _maxEntries, _usedEntries, _remainTime, _minLevel, _maxLevel;
     private readonly float _x, _y, _z;
     private readonly bool _isMaster;
+    private readonly bool _isVortex;
 
     /// <summary>actionId 1 — Gelkmaros/Inggison Silentera Canyon infiltration-route (outpost) state.</summary>
     public SM_RIFT_ANNOUNCE(bool gelkmaros, bool inggison) : base(0xEC)
@@ -56,9 +59,12 @@ public sealed class SM_RIFT_ANNOUNCE : AionServerPacket
 
     /// <summary>actionId 2 — a master rift portal opened (Java's RVController-driven
     /// SM_RIFT_ANNOUNCE(RVController, isMaster=true)). Reports the master NPC's object id, this
-    /// rift's max entry count, remaining open time in seconds, entry level range, and world position.</summary>
+    /// rift's max entry count, remaining open time in seconds, entry level range, and world position.
+    /// <paramref name="isVortex"/> is Java RVController.isVortex — true when this master belongs to the
+    /// Dimensional Vortex subsystem (see Services.VortexService) rather than a general abyss-invasion
+    /// rift; defaults to false so RiftService's own call sites are unaffected.</summary>
     public SM_RIFT_ANNOUNCE(int objectId, int maxEntries, int remainTimeSeconds, int minLevel, int maxLevel,
-        float x, float y, float z) : base(0xEC)
+        float x, float y, float z, bool isVortex = false) : base(0xEC)
     {
         _actionId = 2;
         _objectId = objectId;
@@ -68,16 +74,19 @@ public sealed class SM_RIFT_ANNOUNCE : AionServerPacket
         _maxLevel = maxLevel;
         _x = x; _y = y; _z = z;
         _isMaster = true;
+        _isVortex = isVortex;
     }
 
     /// <summary>actionId 3 — a rift's used-entry count changed (Java's RVController-driven
-    /// SM_RIFT_ANNOUNCE(RVController, isMaster=false)).</summary>
-    public SM_RIFT_ANNOUNCE(int objectId, int usedEntries, int remainTimeSeconds) : base(0xEC)
+    /// SM_RIFT_ANNOUNCE(RVController, isMaster=false)). See the actionId 2 constructor's doc comment
+    /// for <paramref name="isVortex"/>.</summary>
+    public SM_RIFT_ANNOUNCE(int objectId, int usedEntries, int remainTimeSeconds, bool isVortex = false) : base(0xEC)
     {
         _actionId = 3;
         _objectId = objectId;
         _usedEntries = usedEntries;
         _remainTime = remainTimeSeconds;
+        _isVortex = isVortex;
     }
 
     /// <summary>actionId 4 — a rift portal NPC (master or slave) despawned.</summary>
@@ -114,7 +123,7 @@ public sealed class SM_RIFT_ANNOUNCE : AionServerPacket
                 w.WriteF(_x);
                 w.WriteF(_y);
                 w.WriteF(_z);
-                w.WriteC(0); // isVortex — always false, no vortex rifts in this subsystem
+                w.WriteC(_isVortex ? (byte)1 : (byte)0);
                 w.WriteC(_isMaster ? (byte)1 : (byte)0);
                 break;
             case 3:
@@ -123,7 +132,7 @@ public sealed class SM_RIFT_ANNOUNCE : AionServerPacket
                 w.WriteD(_objectId);
                 w.WriteD(_usedEntries);
                 w.WriteD(_remainTime);
-                w.WriteC(0); // isVortex — always false
+                w.WriteC(_isVortex ? (byte)1 : (byte)0);
                 w.WriteC(0); // unk
                 break;
             case 4:

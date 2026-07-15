@@ -76,6 +76,7 @@ public sealed class GsPacketHandlerFactory
     private readonly PetService              _petService;
     private readonly PortalService           _portalService;
     private readonly RiftService             _riftService;
+    private readonly VortexService           _vortexService;
     private readonly SiegeService            _siegeService;
     private readonly HousingService          _housingService;
     private readonly HouseController         _houseController;
@@ -156,6 +157,7 @@ public sealed class GsPacketHandlerFactory
         TeleportService teleport,
         PortalService portalService,
         RiftService riftService,
+        VortexService vortexService,
         PetService petService,
         SiegeService siegeService,
         HousingService housingService,
@@ -246,6 +248,7 @@ public sealed class GsPacketHandlerFactory
         _teleport            = teleport;
         _portalService       = portalService;
         _riftService         = riftService;
+        _vortexService       = vortexService;
         _petService          = petService;
         _siegeService        = siegeService;
         _housingService      = housingService;

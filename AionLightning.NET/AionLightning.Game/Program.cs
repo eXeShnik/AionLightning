@@ -39,6 +39,7 @@ builder.Services
     .AddAionOptions<BaseOptions>("GameServer:Base")
     .AddAionOptions<RiftOptions>("GameServer:Rift")
     .AddAionOptions<RiftScheduleOptions>("GameServer:Rift:Schedule")
+    .AddAionOptions<VortexOptions>("GameServer:Vortex")
     .AddAionOptions<HousingOptions>("GameServer:Housing")
     .AddAionOptions<HousingAuctionOptions>("GameServer:Housing:Auction")
     .AddAionOptions<DoorOptions>("GameServer:Doors")
@@ -74,6 +75,7 @@ builder.Services.AddTransient<IEventHandler<DeathEvent>, InstanceDeathHandler>()
 builder.Services.AddTransient<IEventHandler<DeathEvent>, QuestPlayerDeathHandler>(); // quest onDie(player)
 builder.Services.AddTransient<IEventHandler<DeathEvent>, SiegeBossDeathHandler>(); // siege boss death ends the siege
 builder.Services.AddTransient<IEventHandler<DeathEvent>, BaseBossDeathHandler>(); // base boss death captures the outpost
+builder.Services.AddTransient<IEventHandler<DeathEvent>, VortexGeneratorDeathHandler>(); // vortex generator death ends the invasion
 // Phase 5 Batch 0: bridges CM_LEVEL_READY's PlayerEnteredWorldEvent into QuestEngine.OnEnterWorldAsync
 builder.Services.AddTransient<IEventHandler<PlayerEnteredWorldEvent>, QuestEnterWorldHandler>();
 // AutoGroupService queue/pending-enter cleanup — forward-compatible; PlayerLeftWorldEvent has no publisher yet (see handler doc)
@@ -183,6 +185,7 @@ builder.Services.AddSingleton<AionLightning.Game.Services.Siege.Assault.BalaurAs
 builder.Services.AddSingleton<SiegeService>();
 builder.Services.AddSingleton<BaseService>();
 builder.Services.AddSingleton<RiftService>();
+builder.Services.AddSingleton<VortexService>();
 builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();
 builder.Services.AddSingleton<AionLightning.Game.Controllers.HouseController>();
@@ -233,6 +236,7 @@ builder.Services.AddHostedService<TownServiceHostedService>();
 builder.Services.AddHostedService<SiegeServiceHostedService>();
 builder.Services.AddHostedService<BaseServiceHostedService>();
 builder.Services.AddHostedService<RiftServiceHostedService>();
+builder.Services.AddHostedService<VortexServiceHostedService>();
 builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();
