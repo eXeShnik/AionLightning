@@ -168,6 +168,7 @@ builder.Services.AddSingleton<LegionService>();
 builder.Services.AddSingleton<GatherService>();
 builder.Services.AddSingleton<BrokerService>();
 builder.Services.AddSingleton<RepurchaseService>();
+builder.Services.AddSingleton<LimitedItemTradeService>();
 builder.Services.AddSingleton<PrivateStoreService>();
 builder.Services.AddSingleton<FindGroupService>();
 builder.Services.AddSingleton<SummonsService>();
@@ -248,6 +249,7 @@ builder.Services.AddHostedService<HousingServiceHostedService>();
 builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();
 builder.Services.AddHostedService<WeatherServiceHostedService>(); // after CronServiceHostedService — arms the weather rotation cron
+builder.Services.AddHostedService<LimitedItemTradeServiceHostedService>(); // after CronServiceHostedService — arms the limited-item restock crons
 builder.Services.AddHostedService<DisputeLandServiceHostedService>(); // after CronServiceHostedService — arms the dispute-land cron windows
 builder.Services.AddHostedService<VeteranRewardServiceHostedService>(); // after CronServiceHostedService — arms the minute reward-mail sweep
 builder.Services.AddHostedService<AnnouncementServiceHostedService>(); // per-row PeriodicTimer loops, independent of CronService

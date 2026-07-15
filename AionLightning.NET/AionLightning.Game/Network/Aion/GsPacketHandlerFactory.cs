@@ -62,6 +62,7 @@ public sealed class GsPacketHandlerFactory
     private readonly NpcAiService           _npcAi;
     private readonly PlayerEnterWorldService _enterWorldService;
     private readonly RepurchaseService       _repurchaseService;
+    private readonly LimitedItemTradeService _limitedItemTradeService;
     private readonly AuraChildApplier        _auraApplier;
     private readonly QuestEngineType         _questEngine;
     private readonly QuestRewardService      _questRewardService;
@@ -144,6 +145,7 @@ public sealed class GsPacketHandlerFactory
         NpcAiService npcAi,
         PlayerEnterWorldService enterWorldService,
         RepurchaseService repurchaseService,
+        LimitedItemTradeService limitedItemTradeService,
         AuraChildApplier auraApplier,
         QuestEngineType questEngine,
         QuestRewardService questRewardService,
@@ -235,6 +237,7 @@ public sealed class GsPacketHandlerFactory
         _npcAi             = npcAi;
         _enterWorldService = enterWorldService;
         _repurchaseService = repurchaseService;
+        _limitedItemTradeService = limitedItemTradeService;
         _auraApplier   = auraApplier;
         _questEngine        = questEngine;
         _questRewardService = questRewardService;
@@ -324,7 +327,7 @@ public sealed class GsPacketHandlerFactory
                 0xE2  => new CM_ATTACK(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus),
                 0xE3  => new CM_CASTSPELL(conn, _world, _connRegistry, _dataManager, _expService, _spawnService, _lootService, _questService, _duelService, _npcAi, _playerDao, _legionDao, _eventBus, _auraApplier, _questEngine, _summonsService, _effectTickScheduler),
                 0xF0  => new CM_QUESTION_RESPONSE(conn, _responseRegistry),
-                0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService, _privateStoreService),
+                0xF1  => new CM_BUY_ITEM(conn, _itemDao, _dataManager, _world, _connRegistry, _repurchaseService, _privateStoreService, _limitedItemTradeService),
                 0xF2  => new CM_MOVE(conn, _world, _connRegistry, _zoneService, _fallDamageService, _privateStoreService),
                 0xF3  => new CM_MOVE_IN_AIR(conn),
                 0xF4  => new CM_PET(conn, _petService),

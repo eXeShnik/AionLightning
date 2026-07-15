@@ -23,6 +23,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
     private readonly PlayerConnectionRegistry _connRegistry;
     private readonly RepurchaseService        _repurchaseService;
     private readonly PrivateStoreService      _privateStoreService;
+    private readonly LimitedItemTradeService  _limitedItemTradeService;
 
     private int _sellerObjectId;
     private int _tradeActionId;
@@ -31,7 +32,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
 
     public CM_BUY_ITEM(GsClientConnection conn, IItemDao itemDao, IDataManager dataManager,
         GameWorld world, PlayerConnectionRegistry connRegistry, RepurchaseService repurchaseService,
-        PrivateStoreService privateStoreService)
+        PrivateStoreService privateStoreService, LimitedItemTradeService limitedItemTradeService)
     {
         _conn                = conn;
         _itemDao             = itemDao;
@@ -40,6 +41,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
         _connRegistry        = connRegistry;
         _repurchaseService   = repurchaseService;
         _privateStoreService = privateStoreService;
+        _limitedItemTradeService = limitedItemTradeService;
     }
 
     public override void Read(ref PacketReader r)
@@ -92,8 +94,12 @@ public sealed class CM_BUY_ITEM : AionClientPacket
         // CanReceive is evaluated in order so that each accepted item correctly
         // consumes a simulated slot before the next item is checked.
         var purchasePlan = new List<(int ItemId, long Count, long Cost, int MaxStack)>();
+        // Limited-stock reservations made below, kept so they can be released if the buy aborts
+        // before granting (insufficient kinah, nothing purchasable, etc.).
+        var reservedLimitedStock = new List<(int ItemId, long Count)>();
         var simulatedInventory = player.Inventory; // checks run against live inventory first
         int simulatedSlots = simulatedInventory.BagSlotUsed;
+        bool npcHasLimitedItems = _limitedItemTradeService.IsLimitedTradeNpc(npc.Template.NpcId);
 
         foreach (var (itemId, count) in _tradeEntries)
         {
@@ -110,10 +116,25 @@ public sealed class CM_BUY_ITEM : AionClientPacket
                 simulatedSlots++;
             }
 
-            purchasePlan.Add((itemId, count, template.Price * count, template.MaxStackCount));
+            // Limited-stock NPCs: clamp against remaining global stock and/or the player's purchase
+            // cap. Unlimited items (the vast majority) never touch this — IsLimitedTradeNpc is false
+            // for ordinary vendors, and DecreaseStock is a no-op passthrough for non-limited items.
+            long effectiveCount = count;
+            if (npcHasLimitedItems)
+            {
+                effectiveCount = _limitedItemTradeService.DecreaseStock(npc.Template.NpcId, itemId, player.ObjectId, count);
+                if (effectiveCount <= 0) continue; // sold out, or player's purchase cap already reached
+                reservedLimitedStock.Add((itemId, effectiveCount));
+            }
+
+            purchasePlan.Add((itemId, effectiveCount, template.Price * effectiveCount, template.MaxStackCount));
         }
 
-        if (purchasePlan.Count == 0) return;
+        if (purchasePlan.Count == 0)
+        {
+            ReleaseLimitedStock(npc.Template.NpcId, player.ObjectId, reservedLimitedStock);
+            return;
+        }
 
         long totalCost = purchasePlan.Sum(p => p.Cost);
 
@@ -122,6 +143,7 @@ public sealed class CM_BUY_ITEM : AionClientPacket
         long currentKinah = kinahItem?.Count ?? 0;
         if (currentKinah < totalCost)
         {
+            ReleaseLimitedStock(npc.Template.NpcId, player.ObjectId, reservedLimitedStock);
             await _conn.SendAsync(SM_SYSTEM_MESSAGE.NoEnoughKinah(), ct);
             return;
         }
@@ -155,6 +177,14 @@ public sealed class CM_BUY_ITEM : AionClientPacket
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM([kinahItem]), ct);
         if (itemsAdded.Count > 0)
             await _conn.SendAsync(new SM_INVENTORY_ADD_ITEM(itemsAdded), ct);
+    }
+
+    /// <summary>Undoes limited-stock reservations made while planning a purchase that ended up not
+    /// going through (nothing purchasable, insufficient kinah).</summary>
+    private void ReleaseLimitedStock(int npcId, int playerObjectId, List<(int ItemId, long Count)> reserved)
+    {
+        foreach (var (itemId, count) in reserved)
+            _limitedItemTradeService.RestoreStock(npcId, itemId, playerObjectId, count);
     }
 
     private async ValueTask SellToShopAsync(Player player, CancellationToken ct)
