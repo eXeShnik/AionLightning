@@ -53,6 +53,7 @@ public sealed class DataManager : IDataManager
     public CuringObjectsData               CuringObjects { get; } = new();
     public ChallengeData                   Challenges    { get; } = new();
     public EventData                       SeasonalEvents { get; } = new();
+    public RoadData                        Roads         { get; } = new();
 
     public DataManager(ILogger<DataManager> log)
     {
@@ -108,6 +109,7 @@ public sealed class DataManager : IDataManager
         CuringObjects.Load(dataRoot, log);
         Challenges.Load(dataRoot, log);
         SeasonalEvents.Load(dataRoot, log);
+        Roads.Load(dataRoot, log);
 
         log.LogInformation("DataManager: static data loaded");
     }

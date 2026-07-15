@@ -15,15 +15,17 @@ public sealed class FortressSiege : Siege<FortressLocation>
     private readonly GameWorld _world;
     private readonly IPlayerDao _playerDao;
     private readonly MailFormatter _mailFormatter;
+    private readonly ShieldService _shieldService;
     private readonly int _medalRate;
 
     public FortressSiege(FortressLocation location, SiegeService service, ILogger log,
-        GameWorld world, IPlayerDao playerDao, MailFormatter mailFormatter, int medalRate)
+        GameWorld world, IPlayerDao playerDao, MailFormatter mailFormatter, ShieldService shieldService, int medalRate)
         : base(location, service, log)
     {
         _world = world;
         _playerDao = playerDao;
         _mailFormatter = mailFormatter;
+        _shieldService = shieldService;
         _medalRate = medalRate;
     }
 
@@ -52,6 +54,11 @@ public sealed class FortressSiege : Siege<FortressLocation>
         DeSpawnNpcs(SiegeLocationId);
         SpawnNpcs(SiegeLocationId, Location.Race, SiegeModType.SIEGE);
         InitSiegeBoss();
+
+        // Java ai.siege.ShieldNpcAI2.handleSpawned — raise the fortress shield if SpawnNpcs above spawned
+        // any siege_shieldnpc-tagged generator NPC for this location (see ShieldService's own doc comment).
+        var generators = Service.GetLocalSiegeNpcs(SiegeLocationId).Where(n => n.IsShieldGenerator).ToList();
+        await _shieldService.SpawnShieldAsync(Location, generators, ct);
     }
 
     protected override async Task OnSiegeFinishAsync(CancellationToken ct)
@@ -66,6 +73,7 @@ public sealed class FortressSiege : Siege<FortressLocation>
         DeSpawnNpcs(SiegeLocationId);
         Location.IsVulnerable = false;
         Location.SetUnderShield(false);
+        _shieldService.ClearShield(SiegeLocationId);
 
         if (BossKilled)
         {

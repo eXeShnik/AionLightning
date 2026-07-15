@@ -51,4 +51,5 @@ public interface IDataManager
     CuringObjectsData                CuringObjects { get; }
     ChallengeData                    Challenges    { get; }
     EventData                        SeasonalEvents { get; }
+    RoadData                         Roads         { get; }
 }

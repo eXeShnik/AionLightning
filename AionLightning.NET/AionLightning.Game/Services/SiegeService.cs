@@ -42,6 +42,7 @@ public sealed class SiegeService(
     Influence influence,
     Siege.Assault.BalaurAssaultService balaurAssaultService,
     ZoneService zoneService,
+    ShieldService shieldService,
     IOptions<SiegeOptions> options,
     IOptions<SiegeScheduleOptions> scheduleOptions,
     ILogger<SiegeService> log)
@@ -349,7 +350,7 @@ public sealed class SiegeService(
     private SiegeInstance NewSiege(int siegeLocationId)
     {
         if (Fortresses.TryGetValue(siegeLocationId, out var fortress))
-            return new Siege.FortressSiege(fortress, this, log, world, playerDao, mailFormatter, options.Value.MedalRate);
+            return new Siege.FortressSiege(fortress, this, log, world, playerDao, mailFormatter, shieldService, options.Value.MedalRate);
         if (Sources.TryGetValue(siegeLocationId, out var source))
             return new Siege.SourceSiege(source, this, log, mailFormatter, options.Value.MedalRate);
         if (Outposts.TryGetValue(siegeLocationId, out var outpost))

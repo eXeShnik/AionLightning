@@ -213,7 +213,8 @@ public sealed class SpawnService
 
         var position = new Position(siegeTemplate.X, siegeTemplate.Y, siegeTemplate.Z, siegeTemplate.Heading, siegeTemplate.WorldId);
         var npc = SpawnNpc(template, position, siegeTemplate.RespawnTime);
-        return new SiegeNpc(npc, siegeTemplate.SiegeId, siegeTemplate.SiegeRace);
+        bool isShieldGenerator = string.Equals(template.Ai, ShieldService.ShieldGeneratorAiName, StringComparison.OrdinalIgnoreCase);
+        return new SiegeNpc(npc, siegeTemplate.SiegeId, siegeTemplate.SiegeRace, isShieldGenerator: isShieldGenerator);
     }
 
     /// <summary>

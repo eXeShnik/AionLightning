@@ -11,7 +11,7 @@ namespace AionLightning.Game.Model.GameObjects.Siege;
 /// <see cref="AionLightning.Game.Services.SiegeService.RegisterSiegeNpc"/> whenever
 /// SiegeService.SpawnNpcs spawns a location's siege-spawn templates.
 /// </summary>
-public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace, bool isBoss = false)
+public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace, bool isBoss = false, bool isShieldGenerator = false)
 {
     public Npc Npc { get; } = npc;
     public int SiegeId { get; } = siegeId;
@@ -23,4 +23,10 @@ public sealed class SiegeNpc(Npc npc, int siegeId, SiegeRace siegeRace, bool isB
     /// nothing ever constructs a SiegeNpc with isBoss: true yet; InitSiegeBoss will keep throwing until
     /// that data is ported.</summary>
     public bool IsBoss { get; } = isBoss;
+
+    /// <summary>Java ai.siege.ShieldNpcAI2's <c>@AIName("siege_shieldnpc")</c> tag on the NPC's static
+    /// template (NpcTemplate.Ai, unlike AbyssNpcType, IS part of this port's ported NPC data — see
+    /// <see cref="AionLightning.Game.Services.SpawnService.SpawnSiegeNpc"/>) — identifies a fortress
+    /// shield-generator NPC that <see cref="AionLightning.Game.Services.ShieldService"/> tracks.</summary>
+    public bool IsShieldGenerator { get; } = isShieldGenerator;
 }

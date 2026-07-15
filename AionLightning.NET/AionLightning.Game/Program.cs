@@ -79,6 +79,7 @@ builder.Services.AddTransient<IEventHandler<DeathEvent>, QuestPlayerDeathHandler
 builder.Services.AddTransient<IEventHandler<DeathEvent>, SiegeBossDeathHandler>(); // siege boss death ends the siege
 builder.Services.AddTransient<IEventHandler<DeathEvent>, BaseBossDeathHandler>(); // base boss death captures the outpost
 builder.Services.AddTransient<IEventHandler<DeathEvent>, VortexGeneratorDeathHandler>(); // vortex generator death ends the invasion
+builder.Services.AddTransient<IEventHandler<DeathEvent>, ShieldGeneratorDeathHandler>(); // fortress shield-generator death may drop the shield
 // Phase 5 Batch 0: bridges CM_LEVEL_READY's PlayerEnteredWorldEvent into QuestEngine.OnEnterWorldAsync
 builder.Services.AddTransient<IEventHandler<PlayerEnteredWorldEvent>, QuestEnterWorldHandler>();
 // AutoGroupService queue/pending-enter cleanup — forward-compatible; PlayerLeftWorldEvent has no publisher yet (see handler doc)
@@ -189,10 +190,12 @@ builder.Services.AddSingleton<AutoGroupService>();
 builder.Services.AddSingleton<PetService>();
 builder.Services.AddSingleton<AionLightning.Game.Model.Siege.Influence>();
 builder.Services.AddSingleton<AionLightning.Game.Services.Siege.Assault.BalaurAssaultService>();
+builder.Services.AddSingleton<ShieldService>(); // fortress shield-generator state, consumed by SiegeService/FortressSiege
 builder.Services.AddSingleton<SiegeService>();
 builder.Services.AddSingleton<BaseService>();
 builder.Services.AddSingleton<RiftService>();
 builder.Services.AddSingleton<VortexService>();
+builder.Services.AddSingleton<RoadService>();
 builder.Services.AddSingleton<HousingService>();
 builder.Services.AddSingleton<HousingBidService>();
 builder.Services.AddSingleton<AionLightning.Game.Controllers.HouseController>();
