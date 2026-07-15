@@ -131,6 +131,8 @@ builder.Services.AddSingleton<IHouseScriptsDao, HouseScriptsDaoImpl>();
 builder.Services.AddSingleton<ISiegeDao, SiegeDaoImpl>();
 builder.Services.AddSingleton<IBaseDao, BaseDaoImpl>();
 builder.Services.AddSingleton<ITownDao, TownDaoImpl>();
+builder.Services.AddSingleton<IAnnouncementDao, AnnouncementDaoImpl>();
+builder.Services.AddSingleton<IVeteranRewardDao, VeteranRewardDaoImpl>();
 
 // Scripting
 builder.Services.AddSingleton<CSharpCompilerService>();
@@ -217,6 +219,8 @@ builder.Services.AddSingleton<WeatherService>();
 builder.Services.AddSingleton<DisputeLandService>();
 builder.Services.AddSingleton<RenameService>();
 builder.Services.AddSingleton<WeddingService>();
+builder.Services.AddSingleton<AnnouncementService>();
+builder.Services.AddSingleton<VeteranRewardService>();
 
 // System mail (siege rewards, housing auction/maintenance)
 builder.Services.AddSingleton<AionLightning.Game.Services.Mail.SystemMailService>();
@@ -245,6 +249,8 @@ builder.Services.AddHostedService<HousingBidServiceHostedService>();
 builder.Services.AddHostedService<MaintenanceTaskHostedService>();
 builder.Services.AddHostedService<WeatherServiceHostedService>(); // after CronServiceHostedService — arms the weather rotation cron
 builder.Services.AddHostedService<DisputeLandServiceHostedService>(); // after CronServiceHostedService — arms the dispute-land cron windows
+builder.Services.AddHostedService<VeteranRewardServiceHostedService>(); // after CronServiceHostedService — arms the minute reward-mail sweep
+builder.Services.AddHostedService<AnnouncementServiceHostedService>(); // per-row PeriodicTimer loops, independent of CronService
 builder.Services.AddHostedService<GameTimeService>(); // periodic SM_GAME_TIME re-broadcast to keep client day/night synced
 builder.Services.AddHostedService<QuestEngineHostedService>();
 builder.Services.AddHostedService<AionLightning.Game.Instance.InstanceEngineHostedService>();

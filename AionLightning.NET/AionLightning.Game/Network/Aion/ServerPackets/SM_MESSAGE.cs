@@ -40,6 +40,24 @@ public sealed class SM_MESSAGE : AionServerPacket
         _z              = sender.Position.Z;
     }
 
+    /// <summary>
+    /// Sender-less overload for server-originated broadcasts with no live player behind them (e.g.
+    /// AnnouncementService's scheduled announcements — Java's "manual creation" constructor took a raw
+    /// <c>senderObjectId</c> instead of a <see cref="Player"/>, and likewise left position at its default).
+    /// <see cref="_senderRace"/> is never read by <see cref="Write"/>, so <see cref="Race.PC_ALL"/> is just
+    /// a harmless placeholder; <see cref="ChatType.Shout"/> still reads <c>x</c>/<c>y</c>/<c>z</c>, but
+    /// Java's own equivalent constructor leaves them at 0 too, so zeroing here matches faithfully.
+    /// </summary>
+    public SM_MESSAGE(int senderObjectId, string senderName, string message, ChatType chatType) : base(0x18)
+    {
+        _chatType       = chatType;
+        _senderObjectId = senderObjectId;
+        _senderName     = senderName;
+        _message        = message;
+        _senderRace     = Race.PC_ALL;
+        _x = _y = _z    = 0;
+    }
+
     public override void Write(ref PacketWriter w)
     {
         w.WriteC((byte)_chatType);
